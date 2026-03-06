@@ -227,8 +227,6 @@ async function initDB() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
-    ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
-
     CREATE TABLE IF NOT EXISTS promotions (
       id TEXT PRIMARY KEY,
       business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
@@ -246,6 +244,8 @@ async function initDB() {
       ends_at TIMESTAMPTZ DEFAULT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
   `);
   // Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
