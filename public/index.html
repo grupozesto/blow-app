@@ -47,8 +47,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 }
 @media(max-width:899px){
   .sidebar{display:none!important;}
-  .page-wrap{margin-left:0;padding-bottom:0;}
-  .page{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px));}
+  .page-wrap{margin-left:0;padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px));}
 }
 
 /* ── SIDEBAR ── */
@@ -76,7 +75,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .nb-badge{position:absolute;top:-4px;right:-8px;background:var(--primary);color:#fff;border-radius:50%;width:17px;height:17px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
 
 /* ── PAGES ── */
-.page{display:none;flex-direction:column;position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden;}
+.page{display:none;min-height:100vh;flex-direction:column;}
 .page.active{display:flex;}
 
 /* ── HEADER — Red PedidosYa style ── */
@@ -96,7 +95,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .sbtn svg{width:16px;height:16px;color:#fff;}
 
 /* ── SCROLL ── */
-.sc{flex:1;overflow-y:auto;overflow-x:hidden;background:#fff;-webkit-overflow-scrolling:touch;}
+.sc{flex:1;overflow-y:auto;background:#fff;}
 
 /* ── BANNER — full width PedidosYa style ── */
 .banner-wrap{padding:0;margin-bottom:0;position:relative;overflow:hidden;width:100%;}
