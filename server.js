@@ -334,12 +334,48 @@ try {
 } catch(e) { console.warn('⚠️  mercadopago no instalado'); }
 
 // ── Middlewares ───────────────────────────────
-app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '20mb' }));
+
+// 🔒 Helmet — cabeceras de seguridad HTTP
+app.use(helmet({
+  contentSecurityPolicy: false, // desactivado para no romper el frontend inline
+  crossOriginEmbedderPolicy: false,
+}));
+
+// 🔒 Forzar HTTPS en producción
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect(301, 'https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
+// 🔒 Rate limiting general — máx 100 requests por IP cada 15 min
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Demasiadas solicitudes. Intentá de nuevo en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 🔒 Rate limiting estricto para auth — máx 10 intentos por IP cada 15 min
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos. Esperá 15 minutos antes de intentar de nuevo.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/', generalLimiter);
+app.use('/api/auth/', authLimiter);
+
+app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
+app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Helpers ───────────────────────────────────
-const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'30d' });
+const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'7d' });
 function auth(req, res, next) {
   const h = req.headers.authorization;
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error:'Token requerido' });
@@ -376,6 +412,15 @@ async function getProductFull(pid) {
 //  AUTH
 // ════════════════════════════════════════════════
 // Step 1 — send verification code
+// ── Input sanitization ───────────────────────────
+function sanitize(str, maxLen=500) {
+  if (typeof str !== 'string') return '';
+  return str.trim().slice(0, maxLen);
+}
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+}
+
 // ── Email sender via Resend ───────────────────────
 async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -455,8 +500,14 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error:'Email y contraseña requeridos' });
-    const u = await q1('SELECT * FROM users WHERE email=$1', [email.toLowerCase().trim()]);
-    if (!u || !(await bcrypt.compare(password, u.password))) return res.status(401).json({ error:'Email o contraseña incorrectos' });
+    if (typeof email !== 'string' || email.length > 200) return res.status(400).json({ error:'Email inválido' });
+    if (typeof password !== 'string' || password.length > 200) return res.status(400).json({ error:'Contraseña inválida' });
+    const emailLow = email.toLowerCase().trim();
+    const u = await q1('SELECT * FROM users WHERE email=$1', [emailLow]);
+    if (!u || !(await bcrypt.compare(password, u.password))) {
+      console.warn(`⚠️  Login fallido: ${emailLow} — IP: ${req.ip}`);
+      return res.status(401).json({ error:'Email o contraseña incorrectos' });
+    }
     res.json({ token:sign(u), user:{ id:u.id, name:u.name, email:u.email, role:u.role } });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
