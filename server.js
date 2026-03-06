@@ -386,8 +386,15 @@ async function sendEmail(to, subject, html) {
   const port = parseInt(process.env.SMTP_PORT || '587');
   if (!smtpUser || !smtpPass) { console.warn('SMTP not configured'); return false; }
   try {
-    const transporter = nodemailer.createTransport({ host, port, secure: port===465, auth:{ user:smtpUser, pass:smtpPass } });
+    const transporter = nodemailer.createTransport({
+      host, port, secure: port===465,
+      auth:{ user:smtpUser, pass:smtpPass },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
+    });
     await transporter.sendMail({ from:`"Blow" <${smtpUser}>`, to, subject, html });
+    console.log('✅ Email enviado a', to);
     return true;
   } catch(e) { console.error('Email error:', e.message); return false; }
 }
