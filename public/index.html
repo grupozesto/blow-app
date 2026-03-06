@@ -657,10 +657,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       Portal Negocios
     </button>
-    <button class="si" onclick="nav('page-admin')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      Admin
-    </button>
+
   </div>
 </nav>
 
@@ -902,7 +899,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       <div class="menu-sec-title">Configuración</div>
 
       <div class="menu-item" onclick="handleOwnerAccess()"><div class="mi-icon yellow">🏪</div><div class="mi-text"><span>Portal de Negocios</span><small>Gestioná tu marca</small></div><span class="mi-arrow">›</span></div>
-      <div class="menu-item" onclick="nav('page-admin')"><div class="mi-icon red">🔧</div><div class="mi-text"><span>Panel Admin</span><small>Administración</small></div><span class="mi-arrow">›</span></div>
+      
       <div class="menu-sec-title">Sesión</div>
       <div class="menu-item" id="session-item" onclick="handleSession()">
         <div class="mi-icon red">🔐</div>
@@ -1784,7 +1781,10 @@ function nav(pageId) {
   if (pageId === 'page-profile') { if (user?.role === 'customer') loadUserBlowPlus(); }
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-delivery') loadDeliveryPanel();
-  if (pageId === 'page-admin') loadAdminPanel();
+  if (pageId === 'page-admin') {
+    if (!user || user.role !== 'admin') { nav('page-home'); return; }
+    loadAdminPanel();
+  }
   window.scrollTo(0,0);
 }
 
@@ -2787,7 +2787,11 @@ async function doLogin() {
     renderProfile(); updateCartBadge();
     if (data.user.role==='owner') { nav('page-owner-dash'); }
     // delivery role hidden for now
-    else if (data.user.role==='admin') nav('page-admin');
+    else if (data.user.role==='admin') {
+      const redirect = localStorage.getItem('post_login_redirect');
+      localStorage.removeItem('post_login_redirect');
+      nav(redirect || 'page-admin');
+    }
   } catch(e) { showAuthErr(e.message); }
 }
 
@@ -4702,6 +4706,21 @@ if (payStatus) {
   else if (payStatus==='pending') showToast('⏳ Pago pendiente. Te notificaremos cuando se confirme.');
   window.history.replaceState({}, '', '/');
 }
+// ── Secret admin access via URL ──────────────────
+const secretPath = window.location.pathname;
+if (secretPath === '/blow-admin-panel') {
+  window.history.replaceState({}, '', '/');
+  setTimeout(() => {
+    if (user && user.role === 'admin') {
+      nav('page-admin');
+    } else {
+      // Show login, then redirect to admin after login
+      localStorage.setItem('post_login_redirect', 'page-admin');
+      openAuth('Acceso Admin');
+    }
+  }, 300);
+}
+
 const blowplususerStatus = urlP.get('blowplususer');
 if (blowplusStatus === 'success') {
   window.history.replaceState({}, '', '/');
