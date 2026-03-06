@@ -79,7 +79,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .page.active{display:flex;}
 
 /* ── HEADER — Red PedidosYa style ── */
-.app-header{background:var(--primary);padding:14px 16px 14px;position:sticky;top:0;z-index:100;}
+.app-header{background:var(--primary);padding:14px 16px 14px;padding-top:max(48px,calc(env(safe-area-inset-top,0px) + 14px));position:sticky;top:0;z-index:100;}
 .hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .hloc{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;}
 .hloc svg{width:14px;height:14px;fill:#fff;flex-shrink:0;}
