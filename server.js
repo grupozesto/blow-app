@@ -3,6 +3,8 @@
 //  Node.js + Express + PostgreSQL + Cloudinary + MercadoPago + WebSockets
 // ════════════════════════════════════════════════
 require('dotenv').config();
+let nodemailer = null;
+try { nodemailer = require('nodemailer'); console.log('✅ nodemailer listo'); } catch(e) { console.warn('⚠️  nodemailer no instalado — emails desactivados'); }
 const express      = require('express');
 const cors         = require('cors');
 const bcrypt       = require('bcryptjs');
