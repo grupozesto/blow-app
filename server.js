@@ -40,7 +40,7 @@ async function getPlatformFee() {
 const APP_URL      = process.env.APP_URL || `http://localhost:${PORT}`;
 
 // ── Plan único ────────────────────────────────
-const PLAN_PRICE = 2990; // $UYU por mes
+let PLAN_PRICE = 2990; // $UYU por mes — se puede cambiar desde admin
 const BLOW_PLUS_PRICE = 990;  // $UYU por mes — Blow+ negocio
 const BLOW_PLUS_USER_PRICE = 200; // $UYU por mes — Blow+ cliente
 const PLANS = {
@@ -1617,5 +1617,4 @@ function uploadMiddleware(field) {
     });
   };
 }
-
 
