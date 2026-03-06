@@ -384,7 +384,7 @@ async function sendEmail(to, subject, html) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'Blow <onboarding@resend.dev>', to, subject, html })
+      body: JSON.stringify({ from: 'Blow <noreply@blow.uy>', to, subject, html })
     });
     const data = await res.json();
     if (!res.ok) { console.error('Resend error:', data); return false; }
@@ -1568,3 +1568,5 @@ function uploadMiddleware(field) {
     });
   };
 }
+
+
