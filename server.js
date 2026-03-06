@@ -252,6 +252,15 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS email_verifications (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      data JSONB NOT NULL,
+      expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '15 minutes',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
   `);
   // Seed default categories if none exist
@@ -365,18 +374,61 @@ async function getProductFull(pid) {
 // ════════════════════════════════════════════════
 //  AUTH
 // ════════════════════════════════════════════════
+// Step 1 — send verification code
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, phone='', password } = req.body;
-    const r = 'customer'; // Always customer — owners register via separate flow
     if (!name || !email || !password) return res.status(400).json({ error:'Nombre, email y contraseña son obligatorios' });
     if (password.length < 6) return res.status(400).json({ error:'La contraseña debe tener al menos 6 caracteres' });
     const emailLow = email.toLowerCase().trim();
     if (await q1('SELECT id FROM users WHERE email=$1', [emailLow])) return res.status(409).json({ error:'Este email ya está registrado' });
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const id = uuid();
+    const hashed = await bcrypt.hash(password, 10);
+    // Delete previous pending for same email
+    await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
+    await q('INSERT INTO email_verifications (id,email,code,data) VALUES ($1,$2,$3,$4)',
+      [id, emailLow, code, JSON.stringify({ name:name.trim(), email:emailLow, phone, password:hashed })]);
+
+    const emailSent = await sendEmail(emailLow, 'Tu código de verificación — Blow',
+      `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px;">
+        <h2 style="color:#FA0050;">⚡ Blow</h2>
+        <p>Hola <strong>${name}</strong>, tu código de verificación es:</p>
+        <div style="font-size:40px;font-weight:900;letter-spacing:8px;color:#FA0050;text-align:center;padding:24px;background:#fff5f7;border-radius:12px;margin:20px 0;">${code}</div>
+        <p style="color:#888;font-size:13px;">Válido por 15 minutos. Si no creaste esta cuenta ignorá este mensaje.</p>
+      </div>`);
+
+    if (emailSent) {
+      res.status(200).json({ pending: true, message:'Código enviado a ' + emailLow });
+    } else {
+      // SMTP not configured — auto-verify (dev/demo mode)
+      await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
+      const uid = uuid();
+      const data = { name:name.trim(), email:emailLow, phone, password:hashed };
+      await q('INSERT INTO users (id,name,email,phone,password,role) VALUES ($1,$2,$3,$4,$5,$6)',
+        [uid, data.name, data.email, data.phone, data.password, 'customer']);
+      const user = { id:uid, name:data.name, email:data.email, role:'customer' };
+      res.status(201).json({ token:sign(user), user });
+    }
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+// Step 2 — verify code
+app.post('/api/auth/verify-email', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    const emailLow = email.toLowerCase().trim();
+    const row = await q1('SELECT * FROM email_verifications WHERE email=$1 AND expires_at > NOW()', [emailLow]);
+    if (!row) return res.status(400).json({ error:'Código expirado o no encontrado. Intentá registrarte de nuevo.' });
+    if (row.code !== code.trim()) return res.status(400).json({ error:'Código incorrecto' });
+    const data = row.data;
     const id = uuid();
     await q('INSERT INTO users (id,name,email,phone,password,role) VALUES ($1,$2,$3,$4,$5,$6)',
-      [id, name.trim(), emailLow, phone, await bcrypt.hash(password,10), r]);
-    const user = { id, name:name.trim(), email:emailLow, role:r };
+      [id, data.name, data.email, data.phone||'', data.password, 'customer']);
+    await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
+    const user = { id, name:data.name, email:data.email, role:'customer' };
     res.status(201).json({ token:sign(user), user });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
