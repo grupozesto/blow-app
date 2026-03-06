@@ -36,7 +36,7 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
-.app-header{padding-top:max(12px,env(safe-area-inset-top,0px));}
+.app-header{padding-top:max(48px,calc(env(safe-area-inset-top,0px) + 14px));}
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
 .pq-item2{display:flex;align-items:center;gap:12px;background:#f8f8f8;border-radius:14px;padding:14px 16px;cursor:pointer;transition:background .15s;}
@@ -183,7 +183,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .tag.new-badge{background:#e8f0ff;color:#3b5bdb;}
 
 /* ── PAGE HEADER ── */
-.page-hdr{background:#fff;padding:18px 16px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.page-hdr{background:#fff;padding:18px 16px 14px;padding-top:max(18px,calc(env(safe-area-inset-top,0px) + 14px));border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
 .page-hdr h1{font-size:24px;font-weight:900;}
 .back-btn{position:absolute;top:14px;left:14px;background:#fff;border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);z-index:10;}
 .back-btn svg{width:18px;height:18px;}
@@ -329,7 +329,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .pf.ok{color:var(--text);}
 .pf.ok::before{content:'✓ ';color:var(--success);}
 .pf::before{content:'✗ ';color:#ccc;}
-.owner-header{background:var(--primary);padding:24px 16px 20px;}
+.owner-header{background:var(--primary);padding:24px 16px 20px;padding-top:max(24px,calc(env(safe-area-inset-top,0px) + 16px));}
 .owner-header-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
 .owner-store-name{font-size:20px;font-weight:900;color:#fff;}
 .owner-store-sub{font-size:12px;color:rgba(255,255,255,.7);margin-top:2px;}
@@ -866,7 +866,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
           <div class="pq-icon2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8l-2 4h12z"/></svg></div>
           <span class="pq-label2">Cupones</span>
         </div>
-        <div class="pq-item2" onclick="nav('page-owner-login')">
+        <div class="pq-item2" onclick="handleOwnerAccess()">
           <div class="pq-icon2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
           <span class="pq-label2">Portal Negocios</span>
         </div>
@@ -1295,6 +1295,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
             <div class="form-group"><label class="form-label">Costo envío base ($)</label><input class="form-input" id="cfg-delivery" type="number" min="0"></div>
             <div class="form-group"><label class="form-label">Precio plan mensual negocios ($)</label><input class="form-input" id="cfg-plan-price" type="number" min="0"></div>
             <div class="form-group"><label class="form-label">Ciudad por defecto</label><input class="form-input" id="cfg-city" type="text" placeholder="ej: Montevideo"></div>
+            <div class="form-group"><label class="form-label">Precio registro negocio ($UYU)</label><input class="form-input" id="cfg-reg-price" type="number" placeholder="2990"></div>
             <div style="border-top:1px solid var(--border);margin:20px 0 16px;font-size:13px;font-weight:700;color:var(--muted);">🏦 BANNER PROMOCIÓN BANCARIA</div>
             <div class="form-group"><label class="form-label">Mostrar banner</label>
               <select class="form-input" id="cfg-bank-visible"><option value="1">Sí, mostrar</option><option value="0">No, ocultar</option></select>
@@ -4548,6 +4549,7 @@ async function loadAdminSettings() {
     document.getElementById('cfg-delivery').value = s.delivery_base_fee||50;
     document.getElementById('cfg-plan-price').value = s.plan_price||990;
     document.getElementById('cfg-city').value = s.default_city||'Montevideo';
+    document.getElementById('cfg-reg-price').value = s.registration_fee||2990;
     document.getElementById('cfg-bank-visible').value = s.bank_promo_visible==false ? '0' : '1';
     document.getElementById('cfg-bank-icon').value = s.bank_promo_icon||'🏦';
     document.getElementById('cfg-bank-title').value = s.bank_promo_title||'Con Débito Santander';
@@ -4559,6 +4561,7 @@ async function saveAdminSettings() {
   try {
     await api('/api/admin/settings',{method:'POST',body:JSON.stringify({
       platform_fee_percent: parseFloat(document.getElementById('cfg-fee').value)||0,
+      registration_fee: parseFloat(document.getElementById('cfg-reg-price').value)||2990,
       delivery_base_fee: parseFloat(document.getElementById('cfg-delivery').value)||50,
       plan_price: parseFloat(document.getElementById('cfg-plan-price').value)||990,
       default_city: document.getElementById('cfg-city').value.trim()||'Montevideo',
