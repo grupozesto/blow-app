@@ -1,6 +1,6 @@
 {
   "name": "blow",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Blow Uruguay \u2014 PostgreSQL + Cloudinary + MercadoPago + Suscripciones + WebSockets",
   "main": "server.js",
   "scripts": {
