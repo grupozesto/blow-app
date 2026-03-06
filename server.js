@@ -335,6 +335,12 @@ try {
 
 // ── Middlewares ───────────────────────────────
 
+// 🔒 Cargar paquetes de seguridad de forma segura
+let helmet = null;
+try { helmet = require('helmet'); } catch(e) { console.warn('⚠️  helmet no instalado'); }
+let rateLimit = null;
+try { rateLimit = require('express-rate-limit'); } catch(e) { console.warn('⚠️  express-rate-limit no instalado'); }
+
 // 🔒 Helmet — cabeceras de seguridad HTTP
 if (helmet) app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
@@ -1611,3 +1617,5 @@ function uploadMiddleware(field) {
     });
   };
 }
+
+
