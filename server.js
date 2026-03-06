@@ -336,10 +336,7 @@ try {
 // ── Middlewares ───────────────────────────────
 
 // 🔒 Helmet — cabeceras de seguridad HTTP
-app.use(helmet({
-  contentSecurityPolicy: false, // desactivado para no romper el frontend inline
-  crossOriginEmbedderPolicy: false,
-}));
+if (helmet) app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
 // 🔒 Forzar HTTPS en producción
 app.use((req, res, next) => {
@@ -349,26 +346,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// 🔒 Rate limiting general — máx 100 requests por IP cada 15 min
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: 'Demasiadas solicitudes. Intentá de nuevo en 15 minutos.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// 🔒 Rate limiting estricto para auth — máx 10 intentos por IP cada 15 min
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Demasiados intentos. Esperá 15 minutos antes de intentar de nuevo.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use('/api/', generalLimiter);
-app.use('/api/auth/', authLimiter);
+// 🔒 Rate limiting
+if (rateLimit) {
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 100,
+    message: { error: 'Demasiadas solicitudes. Intentá de nuevo en 15 minutos.' },
+    standardHeaders: true, legacyHeaders: false,
+  });
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 10,
+    message: { error: 'Demasiados intentos. Esperá 15 minutos antes de intentar de nuevo.' },
+    standardHeaders: true, legacyHeaders: false,
+  });
+  app.use('/api/', generalLimiter);
+  app.use('/api/auth/', authLimiter);
+}
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
 app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
@@ -1619,5 +1611,3 @@ function uploadMiddleware(field) {
     });
   };
 }
-
-
