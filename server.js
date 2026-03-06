@@ -3,8 +3,7 @@
 //  Node.js + Express + PostgreSQL + Cloudinary + MercadoPago + WebSockets
 // ════════════════════════════════════════════════
 require('dotenv').config();
-let nodemailer = null;
-try { nodemailer = require('nodemailer'); console.log('✅ nodemailer listo'); } catch(e) { console.warn('⚠️  nodemailer no instalado — emails desactivados'); }
+// Resend email via HTTPS (no SMTP needed)
 const express      = require('express');
 const cors         = require('cors');
 const bcrypt       = require('bcryptjs');
@@ -377,23 +376,18 @@ async function getProductFull(pid) {
 //  AUTH
 // ════════════════════════════════════════════════
 // Step 1 — send verification code
-// ── Email sender ─────────────────────────────────
+// ── Email sender via Resend ───────────────────────
 async function sendEmail(to, subject, html) {
-  if (!nodemailer) { console.warn('nodemailer not installed'); return false; }
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.SMTP_PORT || '587');
-  if (!smtpUser || !smtpPass) { console.warn('SMTP not configured'); return false; }
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.warn('RESEND_API_KEY no configurado'); return false; }
   try {
-    const transporter = nodemailer.createTransport({
-      host, port, secure: port===465,
-      auth:{ user:smtpUser, pass:smtpPass },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000,
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'Blow <onboarding@resend.dev>', to, subject, html })
     });
-    await transporter.sendMail({ from:`"Blow" <${smtpUser}>`, to, subject, html });
+    const data = await res.json();
+    if (!res.ok) { console.error('Resend error:', data); return false; }
     console.log('✅ Email enviado a', to);
     return true;
   } catch(e) { console.error('Email error:', e.message); return false; }
@@ -1574,5 +1568,3 @@ function uploadMiddleware(field) {
     });
   };
 }
-
-
