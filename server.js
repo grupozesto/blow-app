@@ -28,7 +28,14 @@ const app    = express();
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
 const JWT_SECRET   = process.env.JWT_SECRET || 'dev_secret_cambiar_en_prod';
-const PLATFORM_FEE = parseFloat(process.env.PLATFORM_FEE_PERCENT || 10) / 100;
+const PLATFORM_FEE_DEFAULT = parseFloat(process.env.PLATFORM_FEE_PERCENT || 0) / 100;
+async function getPlatformFee() {
+  try {
+    const row = await q1("SELECT value FROM app_settings WHERE key='platform_fee_percent'");
+    if (row) return parseFloat(JSON.parse(row.value)) / 100;
+  } catch(e) {}
+  return PLATFORM_FEE_DEFAULT;
+}
 const APP_URL      = process.env.APP_URL || `http://localhost:${PORT}`;
 
 // ── Plan único ────────────────────────────────
@@ -835,7 +842,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const baseFee = fulfillment_type === 'pickup' ? 0 : (biz.custom_delivery_cost ?? biz.delivery_cost ?? 0);
     const fee = (userBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
     const total=subtotal+fee;
-    const plat=parseFloat((subtotal*PLATFORM_FEE).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
+    const _fee=await getPlatformFee();
+      const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
     const orderId=uuid();
     const cust=await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
     await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10)`,
@@ -1367,7 +1375,7 @@ app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
   const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);
   const txs=wallet?.id?await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]):[];
-  res.json({ balance:parseFloat(wallet?.balance)||0,transactions:txs,fee_percent:process.env.PLATFORM_FEE_PERCENT||10 });
+  res.json({ balance:parseFloat(wallet?.balance)||0,transactions:txs,fee_percent:process.env.PLATFORM_FEE_PERCENT||0 });
 });
 
 // ════════════════════════════════════════════════
