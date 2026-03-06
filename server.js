@@ -375,6 +375,21 @@ async function getProductFull(pid) {
 //  AUTH
 // ════════════════════════════════════════════════
 // Step 1 — send verification code
+// ── Email sender ─────────────────────────────────
+async function sendEmail(to, subject, html) {
+  if (!nodemailer) { console.warn('nodemailer not installed'); return false; }
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || '587');
+  if (!smtpUser || !smtpPass) { console.warn('SMTP not configured'); return false; }
+  try {
+    const transporter = nodemailer.createTransport({ host, port, secure: port===465, auth:{ user:smtpUser, pass:smtpPass } });
+    await transporter.sendMail({ from:`"Blow" <${smtpUser}>`, to, subject, html });
+    return true;
+  } catch(e) { console.error('Email error:', e.message); return false; }
+}
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, phone='', password } = req.body;
