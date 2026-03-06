@@ -1233,8 +1233,65 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
         <button class="primary-btn" onclick="setupAdmin()">Crear Admin</button>
       </div>
       <div id="admin-dashboard" style="display:none;">
-        <div style="font-size:18px;font-weight:800;margin-bottom:16px;">Retiros pendientes</div>
-        <div id="admin-withdrawals-list"><div class="loading-state"><div class="spinner"></div></div></div>
+
+        <!-- Admin Tabs -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:12px;">
+          <button onclick="adminTab('stats')" id="atab-stats" class="atab-btn active" style="padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">📊 Stats</button>
+          <button onclick="adminTab('users')" id="atab-users" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">👥 Usuarios</button>
+          <button onclick="adminTab('businesses')" id="atab-businesses" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🏪 Negocios</button>
+          <button onclick="adminTab('orders')" id="atab-orders" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📦 Pedidos</button>
+          <button onclick="adminTab('withdrawals')" id="atab-withdrawals" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">💸 Retiros</button>
+          <button onclick="adminTab('subscriptions')" id="atab-subscriptions" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📋 Suscripciones</button>
+          <button onclick="adminTab('settings')" id="atab-settings" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⚙️ Config</button>
+        </div>
+
+        <!-- STATS -->
+        <div id="admin-tab-stats">
+          <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:24px;"></div>
+        </div>
+
+        <!-- USERS -->
+        <div id="admin-tab-users" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <input id="admin-user-search" class="form-input" placeholder="Buscar por nombre o email..." style="flex:1;" oninput="filterAdminUsers()">
+          </div>
+          <div id="admin-users-list"></div>
+        </div>
+
+        <!-- BUSINESSES -->
+        <div id="admin-tab-businesses" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <input id="admin-biz-search" class="form-input" placeholder="Buscar negocio..." style="flex:1;" oninput="filterAdminBiz()">
+          </div>
+          <div id="admin-biz-list"></div>
+        </div>
+
+        <!-- ORDERS -->
+        <div id="admin-tab-orders" style="display:none;">
+          <div id="admin-orders-list"></div>
+        </div>
+
+        <!-- WITHDRAWALS -->
+        <div id="admin-tab-withdrawals" style="display:none;">
+          <div id="admin-withdrawals-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- SUBSCRIPTIONS -->
+        <div id="admin-tab-subscriptions" style="display:none;">
+          <div id="admin-subs-list"></div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="admin-tab-settings" style="display:none;">
+          <div style="max-width:500px;">
+            <div class="form-group"><label class="form-label">Comisión plataforma (%)</label><input class="form-input" id="cfg-fee" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-group"><label class="form-label">Costo envío base ($)</label><input class="form-input" id="cfg-delivery" type="number" min="0"></div>
+            <div class="form-group"><label class="form-label">Precio plan mensual negocios ($)</label><input class="form-input" id="cfg-plan-price" type="number" min="0"></div>
+            <div class="form-group"><label class="form-label">Ciudad por defecto</label><input class="form-input" id="cfg-city" type="text" placeholder="ej: Montevideo"></div>
+            <button class="btn-primary" onclick="saveAdminSettings()" style="width:100%;">💾 Guardar configuración</button>
+          </div>
+        </div>
+
       </div>
       <div id="admin-login-section">
         <div class="form-group"><label class="form-label">Email Admin</label><input class="form-input" id="admin-login-email" type="email"></div>
@@ -4227,21 +4284,206 @@ function populatePhotoSettings() {
 // ═══════════════════════════════════════════════
 //  ADMIN PANEL
 // ═══════════════════════════════════════════════
+let adminUsersCache = [];
+let adminBizCache = [];
+
 async function loadAdminPanel() {
   if (!user || user.role!=='admin') {
     document.getElementById('admin-login-section').style.display='block';
     document.getElementById('admin-dashboard').style.display='none';
-    // Check if admin exists
-    try { await api('/api/admin/setup'); } catch(e) {
-      if (e.message.includes('Ya existe')) { /* ok */ }
-      else { document.getElementById('admin-setup-section').style.display='block'; document.getElementById('admin-login-section').style.display='none'; }
-    }
     return;
   }
   document.getElementById('admin-login-section').style.display='none';
   document.getElementById('admin-setup-section').style.display='none';
   document.getElementById('admin-dashboard').style.display='block';
-  loadAdminWithdrawals();
+  adminTab('stats');
+}
+
+function adminTab(tab) {
+  ['stats','users','businesses','orders','withdrawals','subscriptions','settings'].forEach(t => {
+    const el = document.getElementById('admin-tab-'+t);
+    const btn = document.getElementById('atab-'+t);
+    if (el) el.style.display = t===tab ? 'block' : 'none';
+    if (btn) {
+      btn.style.background = t===tab ? 'var(--primary)' : 'transparent';
+      btn.style.color = t===tab ? '#fff' : '';
+      btn.style.border = t===tab ? 'none' : '1px solid var(--border)';
+    }
+  });
+  if (tab==='stats') loadAdminStats();
+  else if (tab==='users') loadAdminUsers();
+  else if (tab==='businesses') loadAdminBusinesses();
+  else if (tab==='orders') loadAdminOrders();
+  else if (tab==='withdrawals') loadAdminWithdrawals();
+  else if (tab==='subscriptions') loadAdminSubs();
+  else if (tab==='settings') loadAdminSettings();
+}
+
+async function loadAdminStats() {
+  try {
+    const s = await api('/api/admin/stats');
+    const g = document.getElementById('admin-stats-grid');
+    g.innerHTML = [
+      ['👥','Usuarios',s.users],
+      ['🏪','Negocios',s.businesses],
+      ['📦','Pedidos',s.orders],
+      ['✅','Completados',s.completed_orders],
+      ['💰','Revenue total','$'+Math.round(s.total_revenue||0)],
+      ['📋','Suscripciones activas',s.active_subscriptions],
+    ].map(([ico,lbl,val])=>`
+      <div style="background:var(--surface);border-radius:12px;padding:16px;text-align:center;border:1px solid var(--border);">
+        <div style="font-size:24px;">${ico}</div>
+        <div style="font-size:22px;font-weight:800;margin:4px 0;">${val??0}</div>
+        <div style="font-size:12px;color:var(--muted);">${lbl}</div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminUsers() {
+  try {
+    adminUsersCache = await api('/api/admin/users');
+    renderAdminUsers(adminUsersCache);
+  } catch(e) { showToast('❌ '+e.message); }
+}
+function filterAdminUsers() {
+  const q = document.getElementById('admin-user-search').value.toLowerCase();
+  renderAdminUsers(adminUsersCache.filter(u => (u.name+u.email).toLowerCase().includes(q)));
+}
+function renderAdminUsers(users) {
+  const el = document.getElementById('admin-users-list');
+  if (!users.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay usuarios</div>'; return; }
+  el.innerHTML = users.map(u=>`
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;">${u.name[0].toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;">${u.name}</div>
+        <div style="font-size:12px;color:var(--muted);">${u.email} · ${u.role}</div>
+        ${u.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ cliente</div>':''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button onclick="adminResetPw('${u.id}','${u.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;">🔑</button>
+        <button onclick="adminDeleteUser('${u.id}','${u.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+async function adminResetPw(id, name) {
+  const newPw = prompt('Nueva contraseña para '+name+' (mín 6 caracteres):');
+  if (!newPw || newPw.length < 6) return;
+  try { await api('/api/admin/users/'+id+'/reset-password',{method:'POST',body:JSON.stringify({password:newPw})}); showToast('✅ Contraseña actualizada'); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminDeleteUser(id, name) {
+  if (!confirm('¿Eliminar al usuario '+name+'? Esta acción no se puede deshacer.')) return;
+  try { await api('/api/admin/users/'+id,{method:'DELETE'}); showToast('✅ Usuario eliminado'); loadAdminUsers(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminBusinesses() {
+  try {
+    adminBizCache = await api('/api/admin/businesses');
+    renderAdminBiz(adminBizCache);
+  } catch(e) { showToast('❌ '+e.message); }
+}
+function filterAdminBiz() {
+  const q = document.getElementById('admin-biz-search').value.toLowerCase();
+  renderAdminBiz(adminBizCache.filter(b => b.name.toLowerCase().includes(q)));
+}
+function renderAdminBiz(bizs) {
+  const el = document.getElementById('admin-biz-list');
+  if (!bizs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay negocios</div>'; return; }
+  el.innerHTML = bizs.map(b=>`
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="font-size:28px;">${b.emoji||'🏪'}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;">${b.name}</div>
+          <div style="font-size:12px;color:var(--muted);">${b.city||''} · ${b.is_active?'✅ Activo':'⏸️ Inactivo'}</div>
+          ${b.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ negocio</div>':''}
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="adminToggleBiz('${b.id}',${b.is_active})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;">${b.is_active?'⏸️':'▶️'}</button>
+          <button onclick="adminDeleteBiz('${b.id}','${b.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+async function adminToggleBiz(id, isActive) {
+  try { await api('/api/admin/businesses/'+id,{method:'PATCH',body:JSON.stringify({is_active:!isActive})}); showToast('✅ Actualizado'); loadAdminBusinesses(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminDeleteBiz(id, name) {
+  if (!confirm('¿Eliminar el negocio '+name+'?')) return;
+  try { await api('/api/admin/businesses/'+id,{method:'DELETE'}); showToast('✅ Negocio eliminado'); loadAdminBusinesses(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminOrders() {
+  try {
+    const orders = await api('/api/admin/orders');
+    const el = document.getElementById('admin-orders-list');
+    if (!orders.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay pedidos</div>'; return; }
+    el.innerHTML = orders.map(o=>`
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;">${o.customer_name||'Cliente'} → ${o.business_name||'Negocio'}</div>
+            <div style="font-size:12px;color:var(--muted);">${new Date(o.created_at).toLocaleString('es-UY')}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;">$${o.total}</div>
+            <div style="font-size:12px;padding:2px 8px;border-radius:10px;background:${o.status==='completed'?'#dcfce7':o.status==='cancelled'?'#fee2e2':'#fef9c3'};color:${o.status==='completed'?'#166534':o.status==='cancelled'?'#dc2626':'#854d0e'};">${o.status}</div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminSubs() {
+  try {
+    const subs = await api('/api/admin/subscriptions');
+    const el = document.getElementById('admin-subs-list');
+    if (!subs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay suscripciones</div>'; return; }
+    el.innerHTML = subs.map(s=>`
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-weight:700;">${s.business_name||s.id}</div>
+          <div style="font-size:12px;color:var(--muted);">Estado: ${s.status} · Vence: ${s.expires_at?new Date(s.expires_at).toLocaleDateString('es-UY'):'N/A'}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          ${s.status!=='active'?`<button onclick="adminActivateSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:12px;">✅ Activar</button>`:''}
+          ${s.status==='active'?`<button onclick="adminSuspendSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">⏸️ Suspender</button>`:''}
+        </div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+async function adminActivateSub(id) {
+  try { await api('/api/admin/subscriptions/'+id+'/activate',{method:'POST'}); showToast('✅ Suscripción activada'); loadAdminSubs(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminSuspendSub(id) {
+  try { await api('/api/admin/subscriptions/'+id+'/suspend',{method:'POST'}); showToast('✅ Suscripción suspendida'); loadAdminSubs(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminSettings() {
+  try {
+    const s = await api('/api/admin/settings');
+    document.getElementById('cfg-fee').value = s.platform_fee_percent||10;
+    document.getElementById('cfg-delivery').value = s.delivery_base_fee||50;
+    document.getElementById('cfg-plan-price').value = s.plan_price||990;
+    document.getElementById('cfg-city').value = s.default_city||'Montevideo';
+  } catch(e) {}
+}
+async function saveAdminSettings() {
+  try {
+    await api('/api/admin/settings',{method:'POST',body:JSON.stringify({
+      platform_fee_percent: parseFloat(document.getElementById('cfg-fee').value)||10,
+      delivery_base_fee: parseFloat(document.getElementById('cfg-delivery').value)||50,
+      plan_price: parseFloat(document.getElementById('cfg-plan-price').value)||990,
+      default_city: document.getElementById('cfg-city').value.trim()||'Montevideo',
+    })});
+    showToast('✅ Configuración guardada');
+  } catch(e) { showToast('❌ '+e.message); }
 }
 
 async function adminLogin() {
