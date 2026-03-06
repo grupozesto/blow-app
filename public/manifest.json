@@ -1,80 +1,54 @@
 {
-  "name": "DeliveryApp",
-  "short_name": "DeliveryApp",
-  "description": "Pedidos a domicilio y retiro en tienda",
+  "name": "Blow",
+  "short_name": "Blow",
+  "description": "Blow \u2014 Delivery y pedidos online",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#FA0050",
-  "orientation": "portrait-primary",
-  "lang": "es",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/icon-72.png",
+      "src": "/icons/icon-72x72.png",
       "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "maskable any"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-96.png",
+      "src": "/icons/icon-96x96.png",
       "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "maskable any"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-128.png",
+      "src": "/icons/icon-128x128.png",
       "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "maskable any"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-144.png",
+      "src": "/icons/icon-144x144.png",
       "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "maskable any"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-152.png",
+      "src": "/icons/icon-152x152.png",
       "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "maskable any"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-384.png",
+      "src": "/icons/icon-384x384.png",
       "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "maskable any"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
-    }
-  ],
-  "categories": [
-    "food",
-    "shopping"
-  ],
-  "screenshots": [],
-  "shortcuts": [
-    {
-      "name": "Ver tiendas",
-      "short_name": "Tiendas",
-      "description": "Ver tiendas disponibles",
-      "url": "/",
-      "icons": [
-        {
-          "src": "/icons/icon-96.png",
-          "sizes": "96x96"
-        }
-      ]
+      "purpose": "any maskable"
     }
   ]
 }
