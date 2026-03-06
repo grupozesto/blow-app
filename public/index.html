@@ -137,7 +137,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 /* ── SMALL CATEGORY ICONS ── */
 .smallcat{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:56px;max-width:70px;}
 .smallcat:hover .sc-icon{transform:scale(1.05);}
-.sc-icon{width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;transition:transform .15s;flex-shrink:0;}
+.sc-icon{width:66px;height:66px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;transition:transform .15s;flex-shrink:0;}
 .smallcat span{font-size:11px;font-weight:600;color:#333;text-align:center;white-space:nowrap;}
 
 /* ── STORE LOGO CHIP ── */
@@ -605,7 +605,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .blowplus-card{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;margin-bottom:20px;}
 .blowplus-card::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(250,0,80,.3),transparent 70%);}
 .blowplus-card::after{content:'';position:absolute;bottom:-30px;left:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(107,0,204,.4),transparent 70%);}
-.blowplus-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,#FA0050,#ff6b6b);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;margin-bottom:14px;}
+.blowplus-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,#FA0050,#ff6b6b);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;margin-bottom:14px;color:#fff;}
 .blowplus-title{font-size:26px;font-weight:900;margin-bottom:6px;position:relative;z-index:1;}
 .blowplus-subtitle{font-size:13px;opacity:.75;margin-bottom:18px;position:relative;z-index:1;}
 .blowplus-features{display:flex;flex-direction:column;gap:10px;margin-bottom:22px;position:relative;z-index:1;}
@@ -1586,12 +1586,27 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       <button class="primary-btn" onclick="doLogin()">Ingresar →</button>
     </div>
     <div id="auth-reg-form" style="display:none;">
-      <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="r-name" type="text" placeholder="Juan García"></div>
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
-      <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX"></div>
-      <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-      <input type="hidden" id="r-role" value="customer">
+      <!-- Step 1: datos -->
+      <div id="reg-step-1">
+        <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="r-name" type="text" placeholder="Juan García"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
+        <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX"></div>
+        <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <input type="hidden" id="r-role" value="customer">
       <button class="primary-btn" onclick="doRegister()">Crear cuenta →</button>
+      </div>
+      <!-- Step 2: verify code -->
+      <div id="reg-step-2" style="display:none;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">📧</div>
+        <div style="font-size:17px;font-weight:800;margin-bottom:6px;">Revisá tu email</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px;" id="reg-email-hint">Te enviamos un código de 6 dígitos.</div>
+        <div class="form-group">
+          <label class="form-label">Código de verificación</label>
+          <input class="form-input" id="r-code" type="number" placeholder="123456" style="text-align:center;font-size:24px;font-weight:800;letter-spacing:6px;" maxlength="6">
+        </div>
+        <button class="primary-btn" onclick="doVerifyEmail()">Verificar y crear cuenta →</button>
+        <button style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:10px;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('reg-step-1').style.display='block';document.getElementById('reg-step-2').style.display='none';">← Cambiar datos</button>
+      </div>
     </div>
     <div class="auth-error" id="auth-error"></div>
   </div>
@@ -2833,18 +2848,37 @@ async function doRegister() {
   const role=document.getElementById('r-role').value;
   if (!name||!email||!pass) return showAuthErr('Completá nombre, email y contraseña');
   if (pass.length<6) return showAuthErr('La contraseña debe tener al menos 6 caracteres');
-  // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return showAuthErr('El email no es válido');
-  // Validate phone if provided
   if (phone && phone.length < 8) return showAuthErr('El teléfono debe tener al menos 8 dígitos');
   if (phone && !/^[\d\s\+\-\(\)]+$/.test(phone)) return showAuthErr('El teléfono solo puede contener números');
   try {
     const data = await api('/api/auth/register',{method:'POST',body:JSON.stringify({name,email,phone,password:pass,role})});
+    if (data.pending) {
+      // Show verification step
+      document.getElementById('reg-step-1').style.display='none';
+      document.getElementById('reg-step-2').style.display='block';
+      document.getElementById('reg-email-hint').textContent='Te enviamos un código de 6 dígitos a ' + email;
+      document.getElementById('r-code').value='';
+      showAuthErr('');
+    } else {
+      // SMTP not configured — auto verified
+      saveSession(data.token, data.user);
+      closeAuth(); showToast(`🎉 ¡Cuenta creada! Bienvenido, ${data.user.name}`);
+      renderProfile();
+    }
+  } catch(e) { showAuthErr(e.message); }
+}
+
+async function doVerifyEmail() {
+  const email = document.getElementById('r-email').value.trim();
+  const code = document.getElementById('r-code').value.trim();
+  if (!code || code.length !== 6) return showAuthErr('Ingresá el código de 6 dígitos');
+  try {
+    const data = await api('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email,code})});
     saveSession(data.token, data.user);
     closeAuth(); showToast(`🎉 ¡Cuenta creada! Bienvenido, ${data.user.name}`);
     renderProfile();
-    // delivery role hidden
   } catch(e) { showAuthErr(e.message); }
 }
 
@@ -3993,8 +4027,8 @@ async function loadUserBlowPlus() {
           <div style="display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;">
             <div>
               <div class="blowplus-badge" style="margin-bottom:8px;">⚡ Blow+</div>
-              <div style="font-size:16px;font-weight:900;color:#fff;">Envíos gratis + promos exclusivas</div>
-              <div style="font-size:12px;opacity:.75;margin-top:4px;color:#fff;">Solo $200 UYU por mes</div>
+              <div style="font-size:16px;font-weight:900;color:#1a1a1a;">Envíos gratis + promos exclusivas</div>
+              <div style="font-size:12px;opacity:.75;margin-top:4px;color:#1a1a1a;">Solo $200 UYU por mes</div>
             </div>
             <div style="font-size:42px;position:relative;z-index:1;">→</div>
           </div>
