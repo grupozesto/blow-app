@@ -976,7 +976,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <!-- Sección Perfil -->
     <div class="menu-list">
       <div class="menu-sec-title">Perfil</div>
-      <div class="menu-item" onclick="nav('page-tracking')">
+      <div class="menu-item" onclick="nav('page-personal-info');loadPersonalInfo()">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         <div class="mi-text"><span>Información personal</span></div><span class="mi-arrow">›</span>
       </div>
@@ -1789,6 +1789,66 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
     </div>
     <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: PERSONAL INFO ══ -->
+<div class="page" id="page-personal-info">
+  <div class="page-hdr" style="border-bottom:1px solid var(--border);">
+    <button class="back-btn-inline" onclick="nav('page-profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <h1 style="flex:1;margin:0;">Información personal</h1>
+  </div>
+  <div class="sc" style="background:#f5f5f5;padding:20px;padding-bottom:40px;">
+
+    <!-- Avatar -->
+    <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:28px;">
+      <div style="position:relative;margin-bottom:10px;">
+        <div id="pi-avatar-circle" style="width:90px;height:90px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;overflow:hidden;">
+          <span id="pi-avatar-letter">?</span>
+          <img id="pi-avatar-img" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;" />
+        </div>
+        <label style="position:absolute;bottom:0;right:0;width:30px;height:30px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.15);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="14" height="14"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadProfilePhoto(this)">
+        </label>
+      </div>
+      <div id="pi-uploading" style="display:none;font-size:12px;color:#aaa;">Subiendo foto...</div>
+      <div style="font-size:13px;color:#aaa;">Tocá para cambiar la foto</div>
+    </div>
+
+    <!-- Form -->
+    <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+
+      <div style="padding:18px 18px 0;">
+        <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;">Nombre completo</label>
+        <input id="pi-name" class="form-input" type="text" placeholder="Tu nombre completo"
+          style="border:none;border-bottom:1.5px solid #f0f0f0;border-radius:0;padding:10px 0;font-size:16px;font-weight:600;background:transparent;">
+      </div>
+
+      <div style="height:1px;background:#f5f5f5;margin:0 18px;"></div>
+
+      <div style="padding:18px 18px 0;">
+        <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;">Correo electrónico</label>
+        <input id="pi-email" class="form-input" type="email" placeholder="tu@email.com"
+          style="border:none;border-bottom:1.5px solid #f0f0f0;border-radius:0;padding:10px 0;font-size:16px;background:transparent;">
+      </div>
+
+      <div style="height:1px;background:#f5f5f5;margin:0 18px;"></div>
+
+      <div style="padding:18px 18px 18px;">
+        <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;">Número de teléfono</label>
+        <input id="pi-phone" class="form-input" type="tel" placeholder="+598 99 000 000"
+          style="border:none;border-radius:0;padding:10px 0;font-size:16px;background:transparent;">
+      </div>
+    </div>
+
+    <div id="pi-save-msg" style="display:none;text-align:center;font-size:13px;margin-top:12px;"></div>
+
+    <button onclick="savePersonalInfo()" style="width:100%;margin-top:20px;padding:16px;background:var(--primary);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(250,0,80,.3);">
+      Guardar cambios
+    </button>
   </div>
 </div>
 
@@ -5313,6 +5373,86 @@ async function deleteAdminFeatured(id) {
   if(!confirm('¿Quitar de destacados?')) return;
   await fetch(`/api/admin/featured/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
   loadAdminFeatured(); loadFeatured();
+}
+
+
+// ── PERSONAL INFO PAGE ──
+function loadPersonalInfo() {
+  if (!user) return;
+  const nameEl = document.getElementById('pi-name');
+  const emailEl = document.getElementById('pi-email');
+  const phoneEl = document.getElementById('pi-phone');
+  const letterEl = document.getElementById('pi-avatar-letter');
+  const imgEl = document.getElementById('pi-avatar-img');
+
+  if (nameEl) nameEl.value = user.name || '';
+  if (emailEl) emailEl.value = user.email || '';
+  if (phoneEl) phoneEl.value = user.phone || '';
+  if (letterEl) letterEl.textContent = (user.name || '?')[0].toUpperCase();
+
+  if (user.avatar_url && imgEl) {
+    imgEl.src = user.avatar_url;
+    imgEl.style.display = 'block';
+    if (letterEl) letterEl.style.display = 'none';
+  } else {
+    if (imgEl) imgEl.style.display = 'none';
+    if (letterEl) letterEl.style.display = '';
+  }
+}
+
+async function savePersonalInfo() {
+  const name = document.getElementById('pi-name')?.value?.trim();
+  const email = document.getElementById('pi-email')?.value?.trim();
+  const phone = document.getElementById('pi-phone')?.value?.trim();
+  const msgEl = document.getElementById('pi-save-msg');
+
+  if (!name) return showToast('Ingresá tu nombre');
+  if (!email) return showToast('Ingresá tu email');
+
+  try {
+    const res = await api('/api/user/profile', 'PATCH', { name, email, phone });
+    if (res.error) return showToast('❌ ' + res.error);
+    // Update local user object
+    user.name = name;
+    user.email = email;
+    user.phone = phone;
+    localStorage.setItem('da_user', JSON.stringify(user));
+    renderProfile();
+    showToast('✅ Datos actualizados');
+    if (msgEl) { msgEl.style.display = 'block'; msgEl.style.color = '#27ae60'; msgEl.textContent = '✅ Cambios guardados correctamente'; setTimeout(()=>{ msgEl.style.display='none'; }, 3000); }
+  } catch(e) {
+    showToast('❌ Error al guardar');
+  }
+}
+
+async function uploadProfilePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const uploadingEl = document.getElementById('pi-uploading');
+  if (uploadingEl) uploadingEl.style.display = 'block';
+  try {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const res = await fetch('/api/user/avatar', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + localStorage.getItem('da_token') },
+      body: formData
+    });
+    const data = await res.json();
+    if (data.url) {
+      user.avatar_url = data.url;
+      localStorage.setItem('da_user', JSON.stringify(user));
+      loadPersonalInfo();
+      renderProfile();
+      showToast('✅ Foto actualizada');
+    } else {
+      showToast('❌ ' + (data.error || 'Error al subir foto'));
+    }
+  } catch(e) {
+    showToast('❌ Error al subir foto');
+  } finally {
+    if (uploadingEl) uploadingEl.style.display = 'none';
+  }
 }
 
 // ═══════════════════════════════════════════════
