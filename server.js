@@ -1846,6 +1846,23 @@ app.delete('/api/admin/featured/:id', auth, async (req,res)=>{
   res.json({ok:true});
 });
 
+
+// ── BLOW+ BANNER CONFIG ──
+app.get('/api/config/blowplus-banner', async (req,res)=>{
+  try {
+    const row = await q1("SELECT value FROM app_config WHERE key='blowplus_banner'", []);
+    if (row) res.json(JSON.parse(row.value));
+    else res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'});
+  } catch(e){ res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'}); }
+});
+app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const {title, subtitle} = req.body;
+  await db.query("INSERT INTO app_config(key,value) VALUES('blowplus_banner',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
+    [JSON.stringify({title, subtitle})]);
+  res.json({ok:true});
+});
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
