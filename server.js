@@ -299,6 +299,8 @@ async function initDB() {
     );
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
     CREATE TABLE IF NOT EXISTS user_coupons (
       id TEXT PRIMARY KEY,
@@ -2004,9 +2006,6 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-// Ensure phone column exists
-try { await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT'); } catch(e){}
-
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
@@ -2055,3 +2054,4 @@ function uploadMiddleware(field) {
     });
   };
 }
+
