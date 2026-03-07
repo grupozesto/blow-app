@@ -1786,12 +1786,16 @@ app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
   await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
   res.json({ok:true});
 });
-app.post('/api/admin/banners/:id/image', auth, upload.single('image'), async (req,res)=>{
+app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
-    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_banners',transformation:[{width:800,height:300,crop:'fill'}]});
-    await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[result.secure_url,req.params.id]);
+    let imageUrl;
+    if (req.file.buffer) {
+      const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_banners',transformation:[{width:800,height:300,crop:'fill'}]});
+      imageUrl = result.secure_url;
+    } else { imageUrl = req.file.path || req.file.secure_url; }
+    await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[imageUrl,req.params.id]);
     res.json({ok:true,url:result.secure_url});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
@@ -1817,12 +1821,16 @@ app.post('/api/admin/featured', auth, async (req,res)=>{
   await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]);
   res.json({ok:true,id});
 });
-app.post('/api/admin/featured/:id/image', auth, upload.single('image'), async (req,res)=>{
+app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
-    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_featured',transformation:[{width:600,height:400,crop:'fill'}]});
-    await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[result.secure_url,req.params.id]);
+    let imageUrl;
+    if (req.file.buffer) {
+      const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_featured',transformation:[{width:600,height:400,crop:'fill'}]});
+      imageUrl = result.secure_url;
+    } else { imageUrl = req.file.path || req.file.secure_url; }
+    await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[imageUrl,req.params.id]);
     res.json({ok:true,url:result.secure_url});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
