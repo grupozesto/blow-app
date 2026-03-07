@@ -41,6 +41,12 @@ const APP_URL      = process.env.APP_URL || `http://localhost:${PORT}`;
 
 // ── Plan único ────────────────────────────────
 let PLAN_PRICE = 2990; // $UYU por mes — se puede cambiar desde admin
+async function loadPlanPrice() {
+  try {
+    const row = await q1("SELECT value FROM app_settings WHERE key='plan_price'", []);
+    if (row) PLAN_PRICE = parseFloat(JSON.parse(row.value)) || 2990;
+  } catch(e) {}
+}
 const BLOW_PLUS_PRICE = 990;  // $UYU por mes — Blow+ negocio
 const BLOW_PLUS_USER_PRICE = 200; // $UYU por mes — Blow+ cliente
 const PLANS = {
@@ -1562,6 +1568,7 @@ app.get('/api/admin/settings', auth, role('admin'), async (req, res) => {
 app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
   for (const [k,v] of Object.entries(req.body))
     await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()',[k,JSON.stringify(v)]);
+  await loadPlanPrice(); // reload in-memory price
   res.json({ success:true });
 });
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
@@ -2054,4 +2061,5 @@ function uploadMiddleware(field) {
     });
   };
 }
+
 
