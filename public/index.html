@@ -657,7 +657,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       Modo Delivery
     </button>
     -->
-    <button class="si" onclick="nav('page-owner-login')">
+    <button class="si" onclick="handleOwnerAccess()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       Portal Negocios
     </button>
@@ -1796,6 +1796,7 @@ function nav(pageId) {
   // Page-specific load
   if (pageId === 'page-cart') renderCart();
   if (pageId === 'page-home') loadBankPromoStrip();
+  if (pageId === 'page-owner-login') ownerTab('register');
   if (pageId === 'page-tracking') loadTracking();
   if (pageId === 'page-profile') renderProfile();
   if (pageId === 'page-owner-dash') loadOwnerDash();
