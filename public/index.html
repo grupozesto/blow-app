@@ -3083,8 +3083,15 @@ function renderProfile() {
     if(el('profile-role-badge')) el('profile-role-badge').textContent = {customer:'🛒 Cliente',owner:'🏪 Dueño',delivery:'🛵 Delivery',admin:'🔧 Admin'}[user.role]||user.role;
     el('session-label').textContent = 'Cerrar sesión';
     el('session-sub').textContent = user.email;
+    // Show Portal de Negocios only for owners and admins, hide for customers
+    const portalItem = el('portal-negocios-item');
+    if (portalItem) {
+      portalItem.style.display = (user.role === 'customer') ? 'none' : '';
+    }
   } else {
     if(el('profile-greeting')) el('profile-greeting').textContent = '¡Hola!';
+    const portalItemOut = document.getElementById('portal-negocios-item');
+    if (portalItemOut) portalItemOut.style.display = '';
     if(el('profile-name')) el('profile-name').textContent = 'Mi Perfil';
     if(el('profile-email')) el('profile-email').textContent = '—';
     if(el('profile-role-badge')) el('profile-role-badge').textContent = '—';
