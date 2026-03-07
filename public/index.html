@@ -1225,7 +1225,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <button class="otab" onclick="switchOTab('otab-promos',this)">🏷️ Promos</button>
       <button class="otab" onclick="switchOTab('otab-payments',this)">💰 Cobros</button>
       <button class="otab" onclick="switchOTab('otab-stats',this)">📊 Stats</button>
-      <button class="otab" id="otab-btn-blowplus" onclick="switchOTab('otab-blowplus',this)" style="position:relative;">⚡ Blow+</button>
+      <button class="otab" onclick="switchOTab('otab-blowplus',this)" style="position:relative;">⚡ Blow+</button>
+      <button class="otab" onclick="switchOTab('otab-coupons',this)">🎟️ Cupones</button>
       <button class="otab" onclick="switchOTab('otab-settings',this)">⚙️ Config</button>
     </div>
     <!-- Pedidos -->
@@ -1247,6 +1248,36 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <!-- Blow+ -->
     <div class="otab-content" id="otab-blowplus" style="padding:16px;">
       <div id="blowplus-content"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Cupones -->
+    <div class="otab-content" id="otab-coupons" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:17px;font-weight:800;">🎟️ Mis Cupones</div>
+        <button onclick="openOwnerCouponForm()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">+ Crear cupón</button>
+      </div>
+      <!-- Create coupon form (collapsed by default) -->
+      <div id="owner-coupon-form" style="display:none;background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:16px;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px;">Nuevo cupón</div>
+        <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="ocf-code" placeholder="Ej: BIENVENIDO10" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="ocf-desc" placeholder="Ej: 10% de descuento en tu primer pedido"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group"><label class="form-label">Tipo de descuento</label>
+            <select class="form-input" id="ocf-type">
+              <option value="percent">% Porcentaje</option>
+              <option value="fixed">$ Monto fijo</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="ocf-value" type="number" min="1" placeholder="10"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Pedido mínimo ($)</label><input class="form-input" id="ocf-min" type="number" min="0" placeholder="0 = sin mínimo"></div>
+        <div id="ocf-error" style="display:none;color:var(--primary);font-size:13px;font-weight:600;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="createOwnerCoupon()" style="flex:1;background:var(--primary);color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;">Crear cupón ✓</button>
+          <button onclick="document.getElementById('owner-coupon-form').style.display='none'" style="background:#f0f0f0;border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:13px;cursor:pointer;">Cancelar</button>
+        </div>
+      </div>
+      <div id="owner-coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
     </div>
 
     <!-- Promociones -->
@@ -1339,11 +1370,48 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         </div>
       </div>
       <div class="settings-sec">
-        <div class="settings-sec-title">Mi negocio</div>
-        <div class="settings-row"><span class="settings-label">Nombre</span><span class="settings-value" id="s-biz-name">—</span></div>
-        <div class="settings-row"><span class="settings-label">Categoría</span><span class="settings-value" id="s-biz-cat">—</span></div>
-        <div class="settings-row"><span class="settings-label">Dirección</span><span class="settings-value" id="s-biz-addr">—</span></div>
-        <div class="settings-row"><span class="settings-label">Costo envío</span><span class="settings-value" id="s-biz-fee">—</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="settings-sec-title" style="margin:0;">Mi negocio</div>
+          <button id="biz-edit-toggle" onclick="toggleBizEdit()" style="background:rgba(255,0,64,.08);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--primary);cursor:pointer;">✏️ Editar</button>
+        </div>
+        <!-- View mode -->
+        <div id="biz-info-view">
+          <div class="settings-row"><span class="settings-label">Nombre</span><span class="settings-value" id="s-biz-name">—</span></div>
+          <div class="settings-row"><span class="settings-label">Categoría</span><span class="settings-value" id="s-biz-cat">—</span></div>
+          <div class="settings-row"><span class="settings-label">Dirección</span><span class="settings-value" id="s-biz-addr">—</span></div>
+          <div class="settings-row"><span class="settings-label">Costo envío</span><span class="settings-value" id="s-biz-fee">—</span></div>
+        </div>
+        <!-- Edit mode -->
+        <div id="biz-info-edit" style="display:none;">
+          <div class="form-group"><label class="form-label">Emoji del negocio</label><input class="form-input" id="edit-biz-emoji" placeholder="🏪" maxlength="4" style="max-width:80px;font-size:22px;text-align:center;"></div>
+          <div class="form-group"><label class="form-label">Nombre del negocio *</label><input class="form-input" id="edit-biz-name" placeholder="Ej: Burguer House" type="text"></div>
+          <div class="form-group"><label class="form-label">Categoría</label>
+            <select class="form-input" id="edit-biz-cat">
+              <option value="Comida rápida">Comida rápida</option>
+              <option value="Pizzería">Pizzería</option>
+              <option value="Sushi">Sushi</option>
+              <option value="Panadería">Panadería</option>
+              <option value="Helados">Helados</option>
+              <option value="Bebidas">Bebidas</option>
+              <option value="Saludable">Saludable</option>
+              <option value="Carnicería">Carnicería</option>
+              <option value="Almacén">Almacén</option>
+              <option value="Farmacia">Farmacia</option>
+              <option value="Electrónica">Electrónica</option>
+              <option value="Ropa">Ropa</option>
+              <option value="Mascotas">Mascotas</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Dirección</label><input class="form-input" id="edit-biz-addr" placeholder="Ej: Av. 18 de Julio 1234"></div>
+          <div class="form-group"><label class="form-label">Teléfono de contacto</label><input class="form-input" id="edit-biz-phone" placeholder="Ej: 099 123 456" type="tel"></div>
+          <div class="form-group"><label class="form-label">Tiempo de entrega (minutos)</label><input class="form-input" id="edit-biz-time" placeholder="Ej: 30" type="number" min="5" max="180"></div>
+          <div id="biz-edit-error" style="display:none;background:#fee;color:var(--primary);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:10px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="saveBizInfo()" style="flex:1;background:var(--primary);color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;">Guardar cambios ✓</button>
+            <button onclick="toggleBizEdit()" style="background:#f0f0f0;border:none;border-radius:12px;padding:13px 16px;font-weight:700;font-size:14px;cursor:pointer;">Cancelar</button>
+          </div>
+        </div>
       </div>
       <div class="settings-sec">
         <div class="settings-sec-title">Suscripción</div>
@@ -3656,6 +3724,7 @@ async function loadOwnerDash() {
     renderOwnerMenu(d.products, d.categories||[]);
     renderOwnerTx(d.transactions);
     renderOwnerStats(d.today, d.week);
+    populatePhotoSettings();
   } catch(e) { showToast(`❌ ${e.message}`); if (e.message.includes('negocio')) nav('page-owner-login'); }
 }
 
@@ -4025,6 +4094,122 @@ function renderOwnerStats(today, week) {
     <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--success)"><div style="font-size:22px;font-weight:900;color:var(--success)">${week.orders}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Pedidos semana</div></div>
     <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--accent)"><div style="font-size:22px;font-weight:900;color:#b37a00">$${today.orders?Math.round(today.revenue/today.orders):0}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Ticket promedio</div></div>
     <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--info)"><div style="font-size:22px;font-weight:900;color:var(--info)">${today.orders}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Pedidos hoy</div></div>`;
+}
+
+// ═══════════════════════════════════════════════
+//  EDITAR INFO DEL NEGOCIO
+// ═══════════════════════════════════════════════
+function toggleBizEdit() {
+  const viewEl = document.getElementById('biz-info-view');
+  const editEl = document.getElementById('biz-info-edit');
+  const btn    = document.getElementById('biz-edit-toggle');
+  const isEditing = editEl.style.display !== 'none';
+  if (isEditing) {
+    editEl.style.display = 'none';
+    viewEl.style.display = 'block';
+    btn.textContent = '✏️ Editar';
+  } else {
+    if (!ownerData?.business) return;
+    const b = ownerData.business;
+    document.getElementById('edit-biz-emoji').value = b.logo_emoji || '🏪';
+    document.getElementById('edit-biz-name').value  = b.name || '';
+    document.getElementById('edit-biz-cat').value   = b.category || 'Comida rápida';
+    document.getElementById('edit-biz-addr').value  = b.address || '';
+    document.getElementById('edit-biz-phone').value = b.phone || '';
+    document.getElementById('edit-biz-time').value  = b.delivery_time || '';
+    document.getElementById('biz-edit-error').style.display = 'none';
+    editEl.style.display = 'block';
+    viewEl.style.display = 'none';
+    btn.textContent = '✕ Cancelar';
+  }
+}
+
+async function saveBizInfo() {
+  const name  = document.getElementById('edit-biz-name').value.trim();
+  const emoji = document.getElementById('edit-biz-emoji').value.trim() || '🏪';
+  const cat   = document.getElementById('edit-biz-cat').value;
+  const addr  = document.getElementById('edit-biz-addr').value.trim();
+  const phone = document.getElementById('edit-biz-phone').value.trim();
+  const time  = parseInt(document.getElementById('edit-biz-time').value) || null;
+  const errEl = document.getElementById('biz-edit-error');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'El nombre es obligatorio'; errEl.style.display = 'block'; return; }
+  try {
+    const updated = await api('/api/businesses/mine', { method: 'PATCH', body: JSON.stringify({
+      name, logo_emoji: emoji, category: cat, address: addr, phone, delivery_time: time
+    })});
+    // Update local data
+    ownerData.business = { ...ownerData.business, ...updated };
+    // Update view
+    document.getElementById('s-biz-name').textContent = updated.name;
+    document.getElementById('s-biz-cat').textContent  = updated.category;
+    document.getElementById('s-biz-addr').textContent = updated.address || '—';
+    document.getElementById('owner-store-name').textContent = `${updated.logo_emoji||'🏪'} ${updated.name}`;
+    toggleBizEdit();
+    showToast('✅ Información actualizada');
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+}
+
+// ═══════════════════════════════════════════════
+//  CUPONES DEL OWNER
+// ═══════════════════════════════════════════════
+function openOwnerCouponForm() {
+  const f = document.getElementById('owner-coupon-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') {
+    ['ocf-code','ocf-desc','ocf-value','ocf-min'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('ocf-type').value = 'percent';
+    document.getElementById('ocf-error').style.display = 'none';
+  }
+}
+
+async function createOwnerCoupon() {
+  const code  = document.getElementById('ocf-code').value.trim().toUpperCase();
+  const desc  = document.getElementById('ocf-desc').value.trim();
+  const type  = document.getElementById('ocf-type').value;
+  const value = parseFloat(document.getElementById('ocf-value').value) || 0;
+  const min   = parseFloat(document.getElementById('ocf-min').value) || 0;
+  const errEl = document.getElementById('ocf-error');
+  errEl.style.display = 'none';
+  if (!code)   { errEl.textContent = 'El código es obligatorio'; errEl.style.display = 'block'; return; }
+  if (!value)  { errEl.textContent = 'El valor debe ser mayor a 0'; errEl.style.display = 'block'; return; }
+  try {
+    await api('/api/owner/coupons', { method:'POST', body:JSON.stringify({ code, description:desc, discount_type:type, discount_value:value, min_order:min }) });
+    document.getElementById('owner-coupon-form').style.display = 'none';
+    showToast('✅ Cupón creado');
+    loadOwnerCoupons();
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+}
+
+async function loadOwnerCoupons() {
+  const el = document.getElementById('owner-coupons-list');
+  if (!el) return;
+  try {
+    const coupons = await api('/api/owner/coupons');
+    if (!coupons.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px;">No tenés cupones activos.<br>¡Creá tu primer descuento!</div>';
+      return;
+    }
+    el.innerHTML = coupons.map(c => `
+      <div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:14px;margin-bottom:10px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-family:monospace;font-size:15px;font-weight:900;letter-spacing:.5px;color:var(--primary);">${c.code}</span>
+            <span style="font-size:11px;background:${c.is_active?'rgba(0,166,80,.12)':'rgba(200,200,200,.3)'};color:${c.is_active?'var(--success)':'var(--muted)'};padding:2px 8px;border-radius:20px;font-weight:700;">${c.is_active?'Activo':'Inactivo'}</span>
+          </div>
+          <div style="font-size:12px;color:#555;margin-bottom:4px;">${c.description||''}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--info);">${c.discount_type==='percent'?`${c.discount_value}% off`:`$${c.discount_value} off`}${c.min_order>0?` · mínimo $${c.min_order}`:''}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Usos: ${c.usage_count||0}${c.max_uses?` / ${c.max_uses}`:''}</div>
+        </div>
+        <button onclick="deleteOwnerCoupon('${c.id}')" style="background:rgba(232,0,45,.08);border:none;border-radius:10px;padding:8px;cursor:pointer;font-size:16px;flex-shrink:0;" title="Eliminar">🗑️</button>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;">${e.message}</div>`; }
+}
+
+async function deleteOwnerCoupon(id) {
+  if (!confirm('¿Eliminar este cupón?')) return;
+  try { await api(`/api/owner/coupons/${id}`, { method:'DELETE' }); showToast('🗑️ Cupón eliminado'); loadOwnerCoupons(); }
+  catch(e) { showToast(`❌ ${e.message}`); }
 }
 
 async function toggleStore() {
@@ -5268,47 +5453,6 @@ async function replyHelp(id) {
 // ═══════════════════════════════════════════════
 //  OWNER — COUPONS
 // ═══════════════════════════════════════════════
-async function loadOwnerCoupons() {
-  const el = document.getElementById('owner-coupons-list');
-  if (!el) return;
-  try {
-    const coupons = await api('/api/owner/coupons');
-    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;font-size:13px;">No creaste cupones todavía</div>'; return; }
-    el.innerHTML = coupons.map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f9f9f9;border-radius:10px;margin-bottom:8px;">
-        <div>
-          <div style="font-weight:800;color:#FA0050;letter-spacing:1px;">${c.code}</div>
-          <div style="font-size:12px;color:var(--muted);">${c.discount_type==='percent'?`${c.discount_value}% OFF`:`$${c.discount_value} OFF`} ${c.uses_count ? `· ${c.uses_count} usos` : ''}</div>
-        </div>
-        <button onclick="deleteOwnerCoupon('${c.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
-      </div>`).join('');
-  } catch(e) {}
-}
-
-async function createOwnerCoupon() {
-  const code = document.getElementById('oc-code')?.value.trim().toUpperCase();
-  const type = document.getElementById('oc-type')?.value;
-  const value = parseFloat(document.getElementById('oc-value')?.value);
-  const min = parseFloat(document.getElementById('oc-min')?.value) || 0;
-  const desc = document.getElementById('oc-desc')?.value.trim();
-  if (!code || !value) return showToast('Código y descuento son requeridos');
-  try {
-    await api('/api/owner/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min });
-    showToast('✅ Cupón creado');
-    document.getElementById('oc-code').value = '';
-    document.getElementById('oc-value').value = '';
-    document.getElementById('oc-min').value = '';
-    if (document.getElementById('oc-desc')) document.getElementById('oc-desc').value = '';
-    loadOwnerCoupons();
-  } catch(e) { showToast('❌ ' + e.message); }
-}
-
-async function deleteOwnerCoupon(id) {
-  if (!confirm('¿Borrar este cupón?')) return;
-  try { await api(`/api/owner/coupons/${id}`, 'DELETE'); loadOwnerCoupons(); showToast('🗑️ Cupón eliminado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
 // ── Safari vs PWA padding fix ──
 (function() {
   // Prevent zoom on double-tap and pinch for all browsers
