@@ -36,12 +36,12 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
-.app-header{padding-top:max(56px,calc(env(safe-area-inset-top,0px) + 16px));}
+.app-header{padding-top:calc(env(safe-area-inset-top,0px) + 16px);}
 @media all and (display-mode: browser){
-  .app-header{padding-top:8px!important;}
-  .page-hdr{padding-top:8px!important;}
-  .owner-header{padding-top:12px!important;}
-  .bottom-nav{padding-bottom:4px!important;height:56px!important;}
+  .app-header{padding-top:10px!important;min-height:auto!important;}
+  .page-hdr{padding-top:10px!important;}
+  .owner-header{padding-top:14px!important;}
+  .bottom-nav{padding-bottom:2px!important;height:54px!important;}
 }
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
@@ -5011,6 +5011,17 @@ async function deleteOwnerCoupon(id) {
   try { await api(`/api/owner/coupons/${id}`, 'DELETE'); loadOwnerCoupons(); showToast('🗑️ Cupón eliminado'); }
   catch(e) { showToast('❌ ' + e.message); }
 }
+
+// ── Safari vs PWA padding fix ──
+(function() {
+  const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  if (!isStandalone) {
+    document.documentElement.style.setProperty('--header-pad', '10px');
+    const style = document.createElement('style');
+    style.textContent = '.app-header{padding-top:10px!important;}.page-hdr{padding-top:10px!important;}.owner-header{padding-top:14px!important;}.bottom-nav{padding-bottom:2px!important;height:54px!important;}';
+    document.head.appendChild(style);
+  }
+})();
 
 // ═══════════════════════════════════════════════
 //  INIT
