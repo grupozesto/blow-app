@@ -868,6 +868,14 @@ app.delete('/api/businesses/mine/products/:pid', auth, role('owner'), async (req
 
 // Step 1: Pre-registration — store data and create MP payment link
 // Called BEFORE creating the account
+// MP preapproval dates must be in format: YYYY-MM-DDTHH:mm:ss.sss-HH:MM
+function mpDate(date) {
+  const d = new Date(date);
+  const pad = n => String(n).padStart(2,'0');
+  const ms = String(d.getUTCMilliseconds()).padStart(3,'0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}.${ms}-00:00`;
+}
+
 app.post('/api/register/initiate', async (req, res) => {
   try {
     const { bizName, category, address='', city, department='', name, email, password, phone='' } = req.body;
@@ -898,8 +906,8 @@ app.post('/api/register/initiate', async (req, res) => {
         frequency_type: 'months',
         transaction_amount: PLAN_PRICE,
         currency_id: 'UYU',
-        start_date: new Date().toISOString(),
-        end_date: new Date(Date.now() + 1000*60*60*24*365*5).toISOString(), // 5 años
+        start_date: mpDate(Date.now()),
+        end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
       },
       back_url: `${APP_URL}/owner?reg=${regId}&payment=success`,
       notification_url: `${APP_URL}/api/webhooks/mp`,
@@ -996,8 +1004,8 @@ app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
       frequency_type: 'months',
       transaction_amount: PLAN_PRICE,
       currency_id: 'UYU',
-      start_date: new Date().toISOString(),
-      end_date: new Date(Date.now() + 1000*60*60*24*365*5).toISOString(),
+      start_date: mpDate(Date.now()),
+      end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
     },
     back_url: `${APP_URL}/owner?payment=success`,
     notification_url: `${APP_URL}/api/webhooks/mp`,
