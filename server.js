@@ -903,7 +903,7 @@ app.post('/api/register/initiate', async (req, res) => {
       console.warn('⚠️  MP no configurado — usando modo demo para registro');
       return res.json({ reg_id: regId, demo: true });
     }
-    const backUrl = `${APP_URL}/owner`;
+    const backUrl = `${APP_URL}/?reg=${regId}&payment=success`;
     console.log('🔗 Preapproval back_url:', backUrl);
     const preapproval = await mp.preapproval.create({
       reason: `Blow — Plan mensual negocios`,
@@ -1127,7 +1127,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
         payer: { name:cust.name,email:cust.email },
         external_reference: orderId,
-        back_urls:{ success:`${APP_URL}/?payment=success`,failure:`${APP_URL}/?payment=failure`,pending:`${APP_URL}/?payment=pending` },
+        back_urls:{ success:`${APP_URL}/`,failure:`${APP_URL}/`,pending:`${APP_URL}/` },
         auto_return:'approved',
         notification_url:`${APP_URL}/api/webhooks/mp`,
       });
@@ -1161,7 +1161,7 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const { status } = req.body;
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
-  const allowed={ owner:{confirmed:'preparing',preparing:'ready'},delivery:{ready:'on_way',on_way:'delivered'},admin:{pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'} };
+  const allowed={ owner:{confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'},delivery:{ready:'on_way',on_way:'delivered'},admin:{pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'} };
   const ra=allowed[req.user.role];
   if (!ra || ra[order.status]!==status) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   if (req.user.role==='owner') {
@@ -1171,8 +1171,9 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
   if (status==='delivered') {
-    await credit(order.business_id,'business',order.business_amount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
-    await credit(order.delivery_id||req.user.id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
+    // Since owner does their own delivery, credit them business + delivery amounts
+    const totalOwnerAmount = parseFloat(order.business_amount||0) + parseFloat(order.delivery_amount||0);
+    await credit(order.business_id,'business',totalOwnerAmount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
     await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
   }
   notify(order.customer_id,{ type:'status_change',message:`Tu pedido: ${status}`,status,order_id:order.id });
@@ -1190,6 +1191,13 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
   res.json({ success:true });
+});
+
+// Poll order payment status (frontend polls while waiting for MP webhook)
+app.get('/api/orders/:id/payment-status', auth, async (req, res) => {
+  const order = await q1('SELECT id,status,mp_status,total,created_at FROM orders WHERE id=$1 AND customer_id=$2',[req.params.id, req.user.id]);
+  if (!order) return res.status(404).json({ error:'No encontrado' });
+  res.json({ status: order.status, mp_status: order.mp_status, total: order.total });
 });
 
 // ════════════════════════════════════════════════
