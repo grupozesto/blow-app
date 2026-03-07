@@ -3414,16 +3414,17 @@ function toggleAvail() {
 // ═══════════════════════════════════════════════
 async function updateOwnerPriceDisplay() {
   try {
-    const s = await fetch('/api/admin/settings', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-    // Try public endpoint first
     const pub = await fetch('/api/public/plan-price');
     const d = await pub.json();
-    const price = d.price || 2990;
-    const fmt = '$' + price.toLocaleString('es-UY');
-    const els = ['or-price-display','or-price-btn','or-renew-price'];
-    els.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = fmt; });
+    const price = d.price != null ? d.price : 2990;
+    const fmt = '$' + Number(price).toLocaleString('es-UY');
+    ['or-price-display','or-price-btn','or-renew-price'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.textContent = fmt;
+    });
     const renew = document.getElementById('or-renew-btn-text');
     if(renew) renew.textContent = 'Renovar por ' + fmt + '/mes →';
+    const btn = document.getElementById('or-pay-btn');
+    if(btn) btn.innerHTML = 'Ir a pagar ' + fmt + ' →';
   } catch(e) {}
 }
 
@@ -4966,9 +4967,9 @@ async function loadAdminSettings() {
     const s = await api('/api/admin/settings');
     document.getElementById('cfg-fee').value = s.platform_fee_percent||0;
     document.getElementById('cfg-delivery').value = s.delivery_base_fee||50;
-    document.getElementById('cfg-plan-price').value = s.plan_price||990;
+    document.getElementById('cfg-plan-price').value = (s.plan_price != null && s.plan_price !== '') ? s.plan_price : 2990;
     document.getElementById('cfg-city').value = s.default_city||'Montevideo';
-    document.getElementById('cfg-reg-price').value = s.registration_fee||2990;
+    document.getElementById('cfg-reg-price').value = (s.registration_fee != null && s.registration_fee !== '') ? s.registration_fee : 2990;
     document.getElementById('cfg-bank-visible').value = s.bank_promo_visible==false ? '0' : '1';
     document.getElementById('cfg-bank-icon').value = s.bank_promo_icon||'🏦';
     document.getElementById('cfg-bank-title').value = s.bank_promo_title||'Con Débito Santander';
@@ -4978,11 +4979,12 @@ async function loadAdminSettings() {
 }
 async function saveAdminSettings() {
   try {
+    const _pf = (id, def) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? def : v; };
     await api('/api/admin/settings',{method:'POST',body:JSON.stringify({
-      platform_fee_percent: parseFloat(document.getElementById('cfg-fee').value)||0,
-      registration_fee: parseFloat(document.getElementById('cfg-reg-price').value)||2990,
-      delivery_base_fee: parseFloat(document.getElementById('cfg-delivery').value)||50,
-      plan_price: parseFloat(document.getElementById('cfg-plan-price').value)||990,
+      platform_fee_percent: _pf('cfg-fee', 0),
+      registration_fee: _pf('cfg-reg-price', 2990),
+      delivery_base_fee: _pf('cfg-delivery', 50),
+      plan_price: _pf('cfg-plan-price', 2990),
       default_city: document.getElementById('cfg-city').value.trim()||'Montevideo',
       bank_promo_visible: document.getElementById('cfg-bank-visible').value === '1',
       bank_promo_icon: document.getElementById('cfg-bank-icon').value.trim()||'🏦',
