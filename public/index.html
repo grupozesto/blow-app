@@ -1113,7 +1113,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <!-- Pricing banner -->
       <div style="background:linear-gradient(135deg,var(--primary),#c0001e);border-radius:16px;padding:20px;margin-bottom:20px;color:#fff;text-align:center;">
         <div style="font-size:13px;font-weight:600;opacity:.85;margin-bottom:4px;">Suscripción mensual</div>
-        <div style="font-size:36px;font-weight:900;letter-spacing:-1px;">$2.990<span style="font-size:16px;font-weight:400;opacity:.8"> /mes</span></div>
+        <div style="font-size:36px;font-weight:900;letter-spacing:-1px;"><span id="or-price-display">$2.990</span><span style="font-size:16px;font-weight:400;opacity:.8"> /mes</span></div>
         <div style="font-size:12px;opacity:.75;margin-top:6px;">Podés cancelar cuando quieras</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px;">
           <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;">✓ Productos ilimitados</span>
@@ -1147,7 +1147,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="or-phone" type="tel" placeholder="09X XXX XXX"></div>
       <div class="form-group"><label class="form-label">Contraseña <span style="color:var(--primary)">*</span></label><input class="form-input" id="or-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
       <div id="or-error" style="color:var(--primary);font-size:13px;margin-bottom:10px;display:none;"></div>
-      <button class="primary-btn" id="or-pay-btn" onclick="ownerRegister()">Ir a pagar $2.990 →</button>
+      <button class="primary-btn" id="or-pay-btn" onclick="ownerRegister()" id="or-pay-btn-text">Ir a pagar <span id="or-price-btn">$2.990</span> →</button>
       <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">Serás redirigido a MercadoPago para completar el pago.<br>Tu cuenta se crea automáticamente al aprobar el pago.</p>
       <button class="secondary-btn" onclick="nav('page-home')">← Volver a la app</button>
     </div>
@@ -1180,13 +1180,13 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
         <div style="font-size:16px;font-weight:800;margin-bottom:6px;">Tu suscripción está suspendida</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Tu negocio no aparece para los clientes. Renová para volver a estar activo.</div>
-        <button class="primary-btn" onclick="renewSubscription()">Renovar por $2.990/mes →</button>
+        <button class="primary-btn" onclick="renewSubscription()"><span id="or-renew-btn-text">Renovar por $2.990/mes →</span></button>
       </div>
 
       <!-- Active plan info -->
       <div id="sub-active-card" style="display:none;background:linear-gradient(135deg,var(--primary),#c0001e);border-radius:16px;padding:20px;color:#fff;margin-bottom:16px;">
         <div style="font-size:13px;opacity:.8;margin-bottom:4px;">Plan activo</div>
-        <div style="font-size:28px;font-weight:900;">$2.990<span style="font-size:14px;font-weight:400;opacity:.8">/mes</span></div>
+        <div style="font-size:28px;font-weight:900;"><span id="or-renew-price">$2.990</span><span style="font-size:14px;font-weight:400;opacity:.8">/mes</span></div>
         <div style="font-size:12px;opacity:.75;margin-top:4px;" id="sub-period-text">Próximo cobro: —</div>
       </div>
 
@@ -2200,7 +2200,7 @@ function nav(pageId) {
   // Page-specific load
   if (pageId === 'page-cart') renderCart();
   if (pageId === 'page-home') loadBankPromoStrip();
-  if (pageId === 'page-owner-login') ownerTab('register');
+  if (pageId === 'page-owner-login') { ownerTab('register'); updateOwnerPriceDisplay(); }
   if (pageId === 'page-coupons') loadCoupons();
   if (pageId === 'page-profile') loadBlowPlusBanner();
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
@@ -3412,6 +3412,21 @@ function toggleAvail() {
 // ═══════════════════════════════════════════════
 //  OWNER LOGIN / REGISTER
 // ═══════════════════════════════════════════════
+async function updateOwnerPriceDisplay() {
+  try {
+    const s = await fetch('/api/admin/settings', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
+    // Try public endpoint first
+    const pub = await fetch('/api/public/plan-price');
+    const d = await pub.json();
+    const price = d.price || 2990;
+    const fmt = '$' + price.toLocaleString('es-UY');
+    const els = ['or-price-display','or-price-btn','or-renew-price'];
+    els.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = fmt; });
+    const renew = document.getElementById('or-renew-btn-text');
+    if(renew) renew.textContent = 'Renovar por ' + fmt + '/mes →';
+  } catch(e) {}
+}
+
 function ownerTab(tab) {
   document.getElementById('oltab-login').classList.toggle('active',tab==='login');
   document.getElementById('oltab-reg').classList.toggle('active',tab==='register');
@@ -3489,7 +3504,7 @@ async function ownerRegister() {
   } catch(e) {
     err.textContent = e.message; err.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'Ir a pagar $2.990 →';
+    btn.querySelector('span') ? null : null; btn.innerHTML = 'Ir a pagar <span id="or-price-btn">$2.990</span> →'; updateOwnerPriceDisplay();
   }
 }
 
@@ -3588,7 +3603,7 @@ async function renewSubscription() {
     }
   } catch(e) {
     showToast('❌ ' + e.message);
-    btn.disabled = false; btn.textContent = 'Renovar por $2.990/mes →';
+    btn.disabled = false; btn.textContent = 'Renovar →';
   }
 }
 
