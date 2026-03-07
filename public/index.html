@@ -5185,56 +5185,22 @@ async function deleteOwnerCoupon(id) {
 
 // ── DYNAMIC HOME ──
 function goToBlowPlus() {
-  showBlowPlusStatus();
-}
-
-async function showBlowPlusStatus() {
-  try {
-    const status = await api('/api/user/blow-plus');
-    if (status.active) {
-      // Already subscribed - show status modal
-      const until = status.period_end ? new Date(status.period_end).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'}) : '';
-      showModal('⚡ Blow+', `
-        <div style="text-align:center;padding:10px 0;">
-          <div style="width:72px;height:72px;background:var(--primary);border-radius:20px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;">+</div>
-          <div style="font-size:20px;font-weight:900;margin-bottom:6px;">¡Sos Blow+! 🎉</div>
-          <div style="font-size:14px;color:#666;line-height:1.5;">${until ? 'Tu membresía está activa hasta el <strong>'+until+'</strong>' : 'Tu membresía está activa'}</div>
-          <div style="margin-top:16px;padding:12px;background:#fff5f7;border-radius:12px;font-size:13px;color:#888;">
-            ✅ Envíos gratis en todos tus pedidos<br>✅ Acceso a promociones exclusivas
-          </div>
-        </div>
-      `);
-    } else {
-      nav('page-subscription');
-    }
-  } catch(e) {
-    nav('page-subscription');
-  }
-}
-
-function closeGenericModal() { const m=document.getElementById('generic-modal'); if(m) m.remove(); }
-function showModal(title, html) {
-  closeGenericModal();
-  const m = document.createElement('div');
-  m.id = 'generic-modal';
-  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
-  const inner = document.createElement('div');
-  inner.style.cssText = 'background:#fff;border-radius:24px 24px 0 0;padding:24px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;';
-  const header = document.createElement('div');
-  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
-  header.innerHTML = '<div style="font-size:18px;font-weight:900;">' + title + '</div>';
-  const closeBtn = document.createElement('button');
-  closeBtn.innerHTML = '×';
-  closeBtn.style.cssText = 'background:none;border:none;font-size:22px;cursor:pointer;color:#666;';
-  closeBtn.onclick = closeGenericModal;
-  header.appendChild(closeBtn);
-  inner.appendChild(header);
-  const body = document.createElement('div');
-  body.innerHTML = html;
-  inner.appendChild(body);
-  m.appendChild(inner);
-  m.onclick = (e) => { if(e.target===m) closeGenericModal(); };
-  document.body.appendChild(m);
+  if (!user) { openAuth(); return; }
+  // Check blow plus status directly from cached user or hit API
+  fetch('/api/user/blow-plus', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}})
+    .then(r=>r.json())
+    .then(status=>{
+      if (status.active) {
+        const until = status.period_end
+          ? new Date(status.period_end).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'})
+          : '';
+        const msg = until ? 'Tu membresía está activa hasta el ' + until : 'Tu membresía está activa';
+        alert('⚡ ¡Sos Blow+!\n\n' + msg + '\n\n✅ Envíos gratis en todos tus pedidos\n✅ Acceso a promociones exclusivas');
+      } else {
+        nav('page-subscription');
+      }
+    })
+    .catch(()=>nav('page-subscription'));
 }
 
 async function loadBlowPlusBanner() {
