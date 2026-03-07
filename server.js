@@ -655,8 +655,8 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
   let sql = `SELECT b.* FROM businesses b
-    JOIN subscriptions s ON s.business_id = b.id
-    WHERE s.status = 'active'`;
+    LEFT JOIN subscriptions s ON s.business_id = b.id
+    WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active IS NOT FALSE`;
   const params = [];
   let i = 1;
   if (category)   { sql += ` AND b.category=$${i++}`;               params.push(category); }
@@ -1061,6 +1061,19 @@ app.post('/api/admin/subscriptions/:id/activate', auth, role('admin'), async (re
   await q("UPDATE subscriptions SET status='active',current_period_start=NOW(),current_period_end=$1,updated_at=NOW() WHERE id=$2",
     [periodEnd.toISOString(), req.params.id]);
   res.json({ success:true });
+});
+// Admin — create subscription for a business that has none
+app.post('/api/admin/businesses/:id/activate', auth, role('admin'), async (req, res) => {
+  try {
+    const b = await q1('SELECT * FROM businesses WHERE id=$1', [req.params.id]);
+    if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
+    const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+    await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,current_period_start,current_period_end)
+      VALUES ($1,$2,$3,'active','active',NOW(),$4)
+      ON CONFLICT (business_id) DO UPDATE SET status='active',current_period_start=NOW(),current_period_end=$4,updated_at=NOW()`,
+      [uuid(), b.id, b.owner_id, periodEnd.toISOString()]);
+    res.json({ success:true });
+  } catch(e) { res.status(500).json({ error:e.message }); }
 });
 // Admin — suspend a subscription
 app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req, res) => {
@@ -1582,7 +1595,7 @@ app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req,
   res.json({ success:true });
 });
 app.get('/api/admin/businesses', auth, role('admin'), async (req, res) =>
-  res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id ORDER BY b.created_at DESC`,[])));
+  res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,s.status as sub_status,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id LEFT JOIN subscriptions s ON s.business_id=b.id ORDER BY b.created_at DESC`,[])));
 app.patch('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
   const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department }=req.body;
   await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE id=$12`,
