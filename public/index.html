@@ -2415,9 +2415,14 @@ async function detectGPS() {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`);
         const geo = await res.json();
         const addr = geo.address;
-        const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
-        const dept = addr.state || addr.county || '';
+        let city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+        let dept = addr.state || addr.county || '';
         const street = addr.road ? `${addr.road}${addr.house_number?' '+addr.house_number:''}` : '';
+
+        // Normalize city and dept against known UY locations
+        const normalized = normalizeUYLocation(city, dept);
+        city = normalized.city || city;
+        dept = normalized.dept || dept;
 
         // Auto-save and close
         document.getElementById('gps-btn').dataset.lat = lat;
@@ -5824,6 +5829,51 @@ const UY_DEPARTMENTS = {
   'Tacuarembó': ['Achar','Ansina','Batoví','Caraguatá','Clara','Curtina','Laureles','Paso del Cerro','Paso de los Toros','Peralta','Piedra Sola','Polanco Norte','Pueblo del Barro','Rincón de Ramírez','San Gregorio de Polanco','Tacuarembó','Villa Ansina'],
   'Treinta y Tres': ['Cerro Chato','Charqueada','La Charqueada','Mansavillagra','Nico Pérez','Rincón','Santa Clara de Olimar','Treinta y Tres','Valentines','Vergara','Villa Passano']
 };
+// Normalize a GPS-returned city/dept against the known UY departments list
+function normalizeUYLocation(rawCity, rawDept) {
+  if (!rawCity && !rawDept) return { city: '', dept: '' };
+  const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const rawCityN = normalize(rawCity || '');
+  const rawDeptN = normalize(rawDept || '');
+
+  let matchedDept = '';
+  let matchedCity = '';
+
+  // Try to find matching dept first
+  for (const [dept, cities] of Object.entries(UY_DEPARTMENTS)) {
+    const deptN = normalize(dept);
+    if (rawDeptN.includes(deptN) || deptN.includes(rawDeptN)) {
+      matchedDept = dept;
+      // Now find city within that dept
+      for (const city of cities) {
+        const cityN = normalize(city);
+        if (rawCityN.includes(cityN) || cityN.includes(rawCityN)) {
+          matchedCity = city;
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  // If no dept match, search all cities
+  if (!matchedCity) {
+    for (const [dept, cities] of Object.entries(UY_DEPARTMENTS)) {
+      for (const city of cities) {
+        const cityN = normalize(city);
+        if (rawCityN.includes(cityN) || cityN.includes(rawCityN)) {
+          matchedCity = city;
+          matchedDept = matchedDept || dept;
+          break;
+        }
+      }
+      if (matchedCity) break;
+    }
+  }
+
+  return { city: matchedCity || rawCity, dept: matchedDept || rawDept };
+}
+
 function populateDeptSelect(deptId, cityId) {
   const deptSel = document.getElementById(deptId);
   const citySel = document.getElementById(cityId);
