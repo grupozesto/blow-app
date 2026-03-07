@@ -300,6 +300,17 @@ async function initDB() {
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
 
+    CREATE TABLE IF NOT EXISTS user_coupons (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      coupon_id TEXT REFERENCES coupons(id) ON DELETE CASCADE,
+      assigned_by TEXT NOT NULL,
+      assigned_at TIMESTAMPTZ DEFAULT NOW(),
+      used BOOLEAN DEFAULT FALSE,
+      used_at TIMESTAMPTZ,
+      UNIQUE(user_id, coupon_id)
+    );
+
     CREATE TABLE IF NOT EXISTS featured_slots (
       id TEXT PRIMARY KEY,
       business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
@@ -1863,6 +1874,99 @@ app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
   res.json({ok:true});
 });
 
+
+// ── TOP CUSTOMERS (admin: all app, owner: their business) ──
+app.get('/api/admin/top-customers', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  try {
+    const rows = await db.query(`
+      SELECT u.id, u.name, u.email,
+        COUNT(o.id) as total_orders,
+        SUM(o.total) as total_spent,
+        MAX(o.created_at) as last_order
+      FROM users u
+      JOIN orders o ON o.customer_id=u.id
+      WHERE o.status IN ('delivered','completed')
+      GROUP BY u.id, u.name, u.email
+      ORDER BY total_spent DESC LIMIT 50
+    `);
+    res.json(rows.rows);
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/owner/top-customers', auth, async (req,res)=>{
+  if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if(!biz) return res.json([]);
+    const rows = await db.query(`
+      SELECT u.id, u.name, u.email,
+        COUNT(o.id) as total_orders,
+        SUM(o.total) as total_spent,
+        MAX(o.created_at) as last_order
+      FROM users u
+      JOIN orders o ON o.customer_id=u.id
+      WHERE o.business_id=$1 AND o.status IN ('delivered','completed')
+      GROUP BY u.id, u.name, u.email
+      ORDER BY total_spent DESC LIMIT 50
+    `,[biz.id]);
+    res.json(rows.rows);
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ── ASSIGN COUPON TO USER ──
+app.post('/api/admin/coupons/:id/assign', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const {user_ids} = req.body; // array of user ids
+  if(!user_ids?.length) return res.status(400).json({error:'user_ids requerido'});
+  try {
+    for(const uid of user_ids){
+      const ucId = 'uc_'+Date.now()+'_'+uid.slice(-4);
+      await db.query("INSERT INTO user_coupons(id,user_id,coupon_id,assigned_by) VALUES($1,$2,$3,$4) ON CONFLICT(user_id,coupon_id) DO NOTHING",
+        [ucId, uid, req.params.id, req.user.id]);
+    }
+    res.json({ok:true, assigned: user_ids.length});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/owner/coupons/:id/assign', auth, async (req,res)=>{
+  if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
+  const {user_ids} = req.body;
+  if(!user_ids?.length) return res.status(400).json({error:'user_ids requerido'});
+  try {
+    // Verify coupon belongs to owner's business
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if(!biz) return res.status(403).json({error:'Sin negocio'});
+    const coupon = await q1('SELECT id FROM coupons WHERE id=$1 AND (business_id=$2 OR created_by=$3)',
+      [req.params.id, biz.id, req.user.id]);
+    if(!coupon) return res.status(403).json({error:'Cupón no encontrado'});
+    for(const uid of user_ids){
+      const ucId = 'uc_'+Date.now()+'_'+uid.slice(-4);
+      await db.query("INSERT INTO user_coupons(id,user_id,coupon_id,assigned_by) VALUES($1,$2,$3,$4) ON CONFLICT(user_id,coupon_id) DO NOTHING",
+        [ucId, uid, req.params.id, req.user.id]);
+    }
+    res.json({ok:true, assigned: user_ids.length});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ── USER COUPONS (what the customer sees) ──
+app.get('/api/my-coupons', auth, async (req,res)=>{
+  try {
+    const rows = await db.query(`
+      SELECT c.*, uc.assigned_at, uc.used, uc.id as uc_id,
+        b.name as business_name
+      FROM user_coupons uc
+      JOIN coupons c ON uc.coupon_id=c.id
+      LEFT JOIN businesses b ON c.business_id=b.id
+      WHERE uc.user_id=$1 AND uc.used=FALSE
+        AND (c.expires_at IS NULL OR c.expires_at > NOW())
+        AND c.active=TRUE
+      ORDER BY uc.assigned_at DESC
+    `,[req.user.id]);
+    res.json(rows.rows);
+  } catch(e){ res.json([]); }
+});
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
@@ -1911,5 +2015,4 @@ function uploadMiddleware(field) {
     });
   };
 }
-
 
