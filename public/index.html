@@ -1014,7 +1014,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <!-- Configuración -->
     <div class="menu-list">
       <div class="menu-sec-title">Configuración</div>
-      <div class="menu-item" onclick="handleOwnerAccess()">
+      <div class="menu-item" id="portal-negocios-item" onclick="handleOwnerAccess()">
         <div class="mi-icon yellow">🏪</div>
         <div class="mi-text"><span>Portal de Negocios</span><small>Gestioná tu marca</small></div>
         <span class="mi-arrow">›</span>
@@ -1794,11 +1794,11 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 <!-- ══ PAGE: PERSONAL INFO ══ -->
 <div class="page" id="page-personal-info">
-  <div class="page-hdr" style="border-bottom:1px solid var(--border);">
-    <button class="back-btn-inline" onclick="nav('page-profile')">
+  <div class="page-hdr" style="border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+    <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
-    <h1 style="flex:1;margin:0;">Información personal</h1>
+    <h1 style="flex:1;margin:0;font-size:20px;">Información personal</h1>
   </div>
   <div class="sc" style="background:#f5f5f5;padding:20px;padding-bottom:40px;">
 
@@ -2159,6 +2159,7 @@ function nav(pageId) {
   if (pageId === 'page-owner-login') ownerTab('register');
   if (pageId === 'page-coupons') loadCoupons();
   if (pageId === 'page-profile') loadBlowPlusBanner();
+  if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-help') initHelpPage();
   if (pageId === 'page-tracking') loadTracking();
   if (pageId === 'page-profile') renderProfile();
