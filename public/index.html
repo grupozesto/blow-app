@@ -5921,8 +5921,11 @@ if (activeCity) {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`);
             const geo = await res.json();
             const addr = geo.address;
-            const city = addr.city || addr.town || addr.village || addr.municipality || '';
-            const dept = addr.state || '';
+            const city_raw = addr.city || addr.town || addr.village || addr.municipality || '';
+            const dept_raw = addr.state || '';
+            const norm = normalizeUYLocation(city_raw, dept_raw);
+            const city = norm.city || city_raw;
+            const dept = norm.dept || dept_raw;
             if (city) {
               activeCity = city;
               activeDept = dept;
