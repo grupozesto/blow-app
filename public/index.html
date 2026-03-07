@@ -150,14 +150,15 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 @media(min-width:900px){.bigcat-grid{grid-template-columns:repeat(4,1fr);}}
 .bigcat{background:#f5f5f5;border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .18s,box-shadow .18s;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;position:relative;box-shadow:none;}
 .bigcat:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
-.biz-card{background:#fff;border-radius:20px;overflow:hidden;cursor:pointer;flex-shrink:0;width:200px;box-shadow:0 2px 12px rgba(0,0,0,.08);transition:transform .18s;}
+.biz-card{background:#fff;border-radius:20px;overflow:hidden;cursor:pointer;flex-shrink:0;width:260px;box-shadow:0 2px 16px rgba(0,0,0,.10);transition:transform .18s;}
 .biz-card:hover{transform:translateY(-2px);}
-.biz-img{width:100%;height:140px;object-fit:cover;}
-.biz-info{padding:12px 12px 14px;}
-.biz-name{font-size:15px;font-weight:800;color:#1a1a1a;margin-bottom:4px;}
+.biz-img{width:100%;height:180px;object-fit:cover;display:flex;align-items:center;justify-content:center;}
+.biz-info{padding:14px 14px 16px;}
+.biz-name{font-size:16px;font-weight:800;color:#1a1a1a;margin-bottom:5px;}
 .biz-meta{font-size:12px;color:#666;margin-bottom:8px;}
 .biz-tags{display:flex;gap:4px;flex-wrap:wrap;}
 .biz-tag{font-size:10px;font-weight:600;background:#f5f5f5;color:#444;padding:3px 8px;border-radius:20px;}
+.biz-badge{font-size:9px;font-weight:700;background:var(--primary);color:#fff;padding:3px 8px;border-radius:20px;}
 .bigcat-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;justify-content:center;font-size:110px;pointer-events:none;bottom:-10px;right:-10px;opacity:.85;}
 .bigcat-em{font-size:72px;position:relative;filter:drop-shadow(0 4px 12px rgba(0,0,0,.15));line-height:1;}
 .bigcat-label{font-size:16px;font-weight:800;color:#1a1a1a;position:relative;z-index:1;text-align:center;}
@@ -759,60 +760,15 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
     </div>
 
-    <!-- BANNER PROMO -->
-    <div style="padding:0 16px;margin:16px 0 0;">
-      <div style="background:linear-gradient(120deg,#FA0050 60%,#ff4d8d);border-radius:20px;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative;min-height:120px;">
-        <div style="z-index:1;">
-          <div style="color:#fff;font-size:18px;font-weight:700;line-height:1.3;margin-bottom:4px;">Volvé a pedir<br>y disfrutá</div>
-          <div style="color:#FFE566;font-size:13px;font-weight:600;">Hasta</div>
-          <div style="color:#FFE566;font-size:32px;font-weight:900;line-height:1;">50% OFF</div>
-        </div>
-        <div style="font-size:90px;line-height:1;margin-right:-8px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.2));">🍔</div>
-      </div>
+    <!-- BANNER PROMO DINÁMICO -->
+    <div style="padding:0 16px;margin:16px 0 0;" id="promo-banners-wrap">
+      <!-- banners cargados por JS -->
     </div>
 
-    <!-- NEGOCIOS DESTACADOS -->
-    <div style="padding:20px 0 0;">
+    <!-- NEGOCIOS DESTACADOS DINÁMICOS -->
+    <div style="padding:20px 0 0;" id="featured-section" style="display:none;">
       <div style="font-size:20px;font-weight:900;margin-bottom:14px;letter-spacing:-.3px;padding:0 16px;">Descubrí estas opciones</div>
-      <div class="chips" style="gap:12px;padding:0 16px 4px;" id="featured-row">
-
-        <div class="biz-card" onclick="openStore(1)">
-          <div class="biz-img" style="background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:60px;">🍔</div>
-          <div class="biz-info">
-            <div class="biz-name">Don Burger</div>
-            <div class="biz-meta">⭐ 4.8 · 25 min · <span style="color:var(--primary);font-weight:700;">$ 890</span></div>
-            <div class="biz-tags"><span class="biz-tag">Hamburguesas</span><span class="biz-tag">Americana</span></div>
-          </div>
-        </div>
-
-        <div class="biz-card" onclick="openStore(2)">
-          <div class="biz-img" style="background:linear-gradient(135deg,#2d1b69,#11998e);display:flex;align-items:center;justify-content:center;font-size:60px;">🍕</div>
-          <div class="biz-info">
-            <div class="biz-name">La Pizzería</div>
-            <div class="biz-meta">⭐ 4.6 · 35 min · <span style="color:var(--primary);font-weight:700;">$ 650</span></div>
-            <div class="biz-tags"><span class="biz-tag">Pizzas</span><span class="biz-tag">Italiana</span></div>
-          </div>
-        </div>
-
-        <div class="biz-card" onclick="openStore(3)">
-          <div class="biz-img" style="background:linear-gradient(135deg,#f7971e,#ffd200);display:flex;align-items:center;justify-content:center;font-size:60px;">🍔</div>
-          <div class="biz-info">
-            <div class="biz-name">Smash House</div>
-            <div class="biz-meta">⭐ 4.9 · 20 min · <span style="color:var(--primary);font-weight:700;">$ 1.100</span></div>
-            <div class="biz-tags"><span class="biz-tag">Smash Burger</span><span class="biz-tag">Gourmet</span></div>
-          </div>
-        </div>
-
-        <div class="biz-card" onclick="openStore(4)">
-          <div class="biz-img" style="background:linear-gradient(135deg,#c94b4b,#4b134f);display:flex;align-items:center;justify-content:center;font-size:60px;">🍕</div>
-          <div class="biz-info">
-            <div class="biz-name">Forno Napoli</div>
-            <div class="biz-meta">⭐ 4.7 · 40 min · <span style="color:var(--primary);font-weight:700;">$ 720</span></div>
-            <div class="biz-tags"><span class="biz-tag">Pizza</span><span class="biz-tag">Al horno</span></div>
-          </div>
-        </div>
-
-      </div>
+      <div class="chips" style="gap:14px;padding:0 16px 4px;" id="featured-row"></div>
     </div>
 
     <!-- TIENDAS -->
@@ -1405,6 +1361,40 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
             <button onclick="loadAdminHelp()" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;">🔄 Actualizar</button>
           </div>
           <div id="admin-help-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- BANNERS TAB -->
+        <div id="admin-tab-banners" style="display:none;">
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners promocionales</div>
+          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Crear nuevo banner</div>
+            <div class="form-group"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Volvé a pedir y disfrutá"></div>
+            <div class="form-group"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-subtitle" placeholder="Línea 2 del título"></div>
+            <div class="form-group"><label class="form-label">Destacado (ej: 50% OFF)</label><input class="form-input" id="bn-highlight" placeholder="50% OFF"></div>
+            <div style="display:flex;gap:12px;">
+              <div class="form-group" style="flex:1;"><label class="form-label">Emoji</label><input class="form-input" id="bn-emoji" placeholder="🍔" value="🍔"></div>
+              <div class="form-group" style="flex:1;"><label class="form-label">Color de fondo</label><input type="color" id="bn-color" value="#FA0050" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--border);cursor:pointer;"></div>
+            </div>
+            <button class="primary-btn" onclick="createAdminBanner()">+ Crear banner</button>
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Banners activos</div>
+          <div id="admin-banners-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- FEATURED TAB -->
+        <div id="admin-tab-featured" style="display:none;">
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">⭐ Negocios destacados (Blow+)</div>
+          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Agregar negocio destacado</div>
+            <div class="form-group"><label class="form-label">Negocio *</label>
+              <select class="form-input" id="feat-biz-select"><option value="">Cargando...</option></select>
+            </div>
+            <div class="form-group"><label class="form-label">Título personalizado (opcional)</label><input class="form-input" id="feat-title" placeholder="Ej: La mejor pizza de la ciudad"></div>
+            <button class="primary-btn" onclick="createAdminFeatured()">+ Agregar destacado</button>
+          </div>
+          <div style="font-size:13px;color:#888;margin-bottom:12px;">💡 Podés subir una foto personalizada a cada negocio destacado después de crearlo.</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Destacados actuales</div>
+          <div id="admin-featured-list"><div class="loading-state"><div class="spinner"></div></div></div>
         </div>
 
       </div>
@@ -4572,7 +4562,7 @@ async function loadAdminPanel() {
 }
 
 function adminTab(tab) {
-  ['stats','users','businesses','orders','withdrawals','subscriptions','settings','coupons','helpmsg'].forEach(t => {
+  ['stats','users','businesses','orders','withdrawals','subscriptions','settings','coupons','helpmsg','banners','featured'].forEach(t => {
     const el = document.getElementById('admin-tab-'+t);
     const btn = document.getElementById('atab-'+t);
     if (el) el.style.display = t===tab ? 'block' : 'none';
@@ -5084,12 +5074,169 @@ async function deleteOwnerCoupon(id) {
   }, {passive:false});
 })();
 
+
+// ── DYNAMIC HOME ──
+async function loadHomeDynamic() {
+  await Promise.all([loadPromoBanners(), loadFeatured()]);
+}
+
+async function loadPromoBanners() {
+  try {
+    const res = await fetch('/api/banners');
+    const banners = await res.json();
+    const wrap = document.getElementById('promo-banners-wrap');
+    if (!wrap) return;
+    if (!banners.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = banners.map(b => {
+      const hasBg = b.image_url ? `background:url('${b.image_url}') center/cover` : `background:${b.bg_color||'#FA0050'}`;
+      return `<div style="${hasBg};border-radius:20px;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative;min-height:120px;margin-bottom:10px;" onclick="${b.link?`nav('${b.link}')`:''}">
+        <div style="z-index:1;">
+          ${b.subtitle?`<div style="color:#fff;font-size:18px;font-weight:700;line-height:1.3;margin-bottom:4px;">${b.title}<br>${b.subtitle}</div>`:`<div style="color:#fff;font-size:20px;font-weight:800;line-height:1.3;margin-bottom:4px;">${b.title}</div>`}
+          ${b.highlight?`<div style="color:#FFE566;font-size:13px;font-weight:600;">Hasta</div><div style="color:#FFE566;font-size:32px;font-weight:900;line-height:1;">${b.highlight}</div>`:''}
+        </div>
+        <div style="font-size:80px;line-height:1;margin-right:-8px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.2));">${b.emoji||'🍔'}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.log('Banners error', e); }
+}
+
+async function loadFeatured() {
+  try {
+    const res = await fetch('/api/featured');
+    const items = await res.json();
+    const row = document.getElementById('featured-row');
+    const section = document.getElementById('featured-section');
+    if (!row || !section) return;
+    if (!items.length) { section.style.display='none'; return; }
+    section.style.display='block';
+    row.innerHTML = items.map(f => {
+      const img = f.custom_image
+        ? `<img src="${f.custom_image}" style="width:100%;height:180px;object-fit:cover;" onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:180px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:60px;\'>${f.logo_emoji||'🏪'}</div>'">`
+        : `<div style="width:100%;height:180px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:70px;">${f.logo_emoji||'🏪'}</div>`;
+      return `<div class="biz-card" onclick="nav('page-store');loadStore('${f.business_id}')">
+        <div class="biz-img">${img}</div>
+        <div class="biz-info">
+          <div class="biz-name">${f.custom_title||f.name}</div>
+          <div class="biz-meta">⭐ ${f.rating||'4.5'} · ${f.delivery_time||'20-35'} min · <span style="color:var(--primary);font-weight:700;">$ ${f.delivery_cost||0}</span></div>
+          <div class="biz-tags"><span class="biz-badge">⭐ Destacado</span><span class="biz-tag">${f.category||''}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.log('Featured error', e); }
+}
+
+// ── ADMIN BANNERS ──
+async function loadAdminBanners() {
+  try {
+    const res = await fetch('/api/admin/banners', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
+    const banners = await res.json();
+    document.getElementById('admin-banners-list').innerHTML = banners.length
+      ? banners.map(b=>`<div class="admin-row">
+          <div style="flex:1;">
+            <strong>${b.title}</strong> ${b.highlight?`<span style="color:#FA0050">${b.highlight}</span>`:''}
+            <div style="font-size:12px;color:#888;">${b.subtitle||''}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="file" accept="image/*" onchange="uploadBannerImage('${b.id}',this)" style="font-size:11px;width:120px;">
+            <button class="btn-sm" onclick="toggleAdminBanner('${b.id}',${!b.active})">${b.active?'Pausar':'Activar'}</button>
+            <button class="btn-sm btn-danger" onclick="deleteAdminBanner('${b.id}')">✕</button>
+          </div>
+        </div>`).join('')
+      : '<div style="text-align:center;color:#aaa;padding:20px;">No hay banners</div>';
+  } catch(e){}
+}
+
+async function createAdminBanner() {
+  const title = document.getElementById('bn-title')?.value?.trim();
+  const subtitle = document.getElementById('bn-subtitle')?.value?.trim();
+  const highlight = document.getElementById('bn-highlight')?.value?.trim();
+  const emoji = document.getElementById('bn-emoji')?.value?.trim() || '🍔';
+  const bg_color = document.getElementById('bn-color')?.value || '#FA0050';
+  if (!title) return showToast('Ingresá un título');
+  const res = await fetch('/api/admin/banners',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({title,subtitle,highlight,emoji,bg_color})});
+  const d = await res.json();
+  if(d.ok){ showToast('✅ Banner creado'); loadAdminBanners(); document.getElementById('bn-title').value=''; document.getElementById('bn-subtitle').value=''; document.getElementById('bn-highlight').value=''; }
+  else showToast('Error: '+d.error);
+}
+
+async function uploadBannerImage(id, input) {
+  const file = input.files[0]; if(!file) return;
+  const fd = new FormData(); fd.append('image',file);
+  const res = await fetch(`/api/admin/banners/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
+  const d = await res.json();
+  if(d.ok){ showToast('✅ Imagen subida'); loadAdminBanners(); loadPromoBanners(); }
+  else showToast('Error al subir');
+}
+
+async function toggleAdminBanner(id, active) {
+  await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({active})});
+  loadAdminBanners(); loadPromoBanners();
+}
+
+async function deleteAdminBanner(id) {
+  if(!confirm('¿Eliminar banner?')) return;
+  await fetch(`/api/admin/banners/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
+  loadAdminBanners(); loadPromoBanners();
+}
+
+// ── ADMIN FEATURED ──
+async function loadAdminFeatured() {
+  try {
+    const [featRes, bizRes] = await Promise.all([
+      fetch('/api/admin/featured',{headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}}),
+      fetch('/api/businesses')
+    ]);
+    const feats = await featRes.json();
+    const bizAll = await bizRes.json();
+    // Populate business select
+    const sel = document.getElementById('feat-biz-select');
+    if(sel) sel.innerHTML = '<option value="">-- Elegir negocio --</option>' + bizAll.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+    document.getElementById('admin-featured-list').innerHTML = feats.length
+      ? feats.map(f=>`<div class="admin-row">
+          <div style="flex:1;"><strong>${f.biz_name||'(sin nombre)'}</strong>${f.custom_title?` · "${f.custom_title}"`:''}
+          ${f.custom_image?`<br><img src="${f.custom_image}" style="height:40px;border-radius:6px;margin-top:4px;">`:''}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="file" accept="image/*" onchange="uploadFeaturedImage('${f.id}',this)" style="font-size:11px;width:120px;">
+            <button class="btn-sm btn-danger" onclick="deleteAdminFeatured('${f.id}')">✕</button>
+          </div>
+        </div>`).join('')
+      : '<div style="text-align:center;color:#aaa;padding:20px;">No hay negocios destacados</div>';
+  } catch(e){}
+}
+
+async function createAdminFeatured() {
+  const business_id = document.getElementById('feat-biz-select')?.value;
+  const custom_title = document.getElementById('feat-title')?.value?.trim();
+  if(!business_id) return showToast('Elegí un negocio');
+  const res = await fetch('/api/admin/featured',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({business_id,custom_title})});
+  const d = await res.json();
+  if(d.ok){ showToast('✅ Negocio destacado'); loadAdminFeatured(); loadFeatured(); }
+  else showToast('Error: '+d.error);
+}
+
+async function uploadFeaturedImage(id, input) {
+  const file = input.files[0]; if(!file) return;
+  const fd = new FormData(); fd.append('image',file);
+  const res = await fetch(`/api/admin/featured/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
+  const d = await res.json();
+  if(d.ok){ showToast('✅ Imagen subida'); loadAdminFeatured(); loadFeatured(); }
+  else showToast('Error al subir');
+}
+
+async function deleteAdminFeatured(id) {
+  if(!confirm('¿Quitar de destacados?')) return;
+  await fetch(`/api/admin/featured/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
+  loadAdminFeatured(); loadFeatured();
+}
+
 // ═══════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════
 updateCartBadge();
 renderProfile();
 updateHeaderCity();
+loadHomeDynamic();
 
 // Si tiene ciudad guardada, cargar directamente
 // Si no, detectar GPS automáticamente
