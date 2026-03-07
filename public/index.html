@@ -37,6 +37,11 @@
 body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
 .app-header{padding-top:max(56px,calc(env(safe-area-inset-top,0px) + 16px));}
+@media all and (display-mode: browser){
+  .app-header{padding-top:14px;}
+  .page-hdr{padding-top:14px!important;}
+  .owner-header{padding-top:20px!important;}
+}
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
 .pq-item2{display:flex;align-items:center;gap:12px;background:#f8f8f8;border-radius:14px;padding:14px 16px;cursor:pointer;transition:background .15s;}
