@@ -1811,6 +1811,12 @@ app.get('/health', async (_,res) => {
   catch(e) { res.status(500).json({ status:'error',db:e.message }); }
 });
 
+// ── Debug: show all businesses with their city/dept (admin only) ──
+app.get('/api/debug/businesses', auth, role('admin'), async (_,res) => {
+  const rows = await qa('SELECT id,name,city,department,is_active FROM businesses ORDER BY name',[]);
+  res.json(rows);
+});
+
 // ══════════════════════════════════════════════
 //  COUPONS
 // ══════════════════════════════════════════════
