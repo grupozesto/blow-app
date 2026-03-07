@@ -5537,27 +5537,26 @@ async function uploadProfilePhoto(input) {
 function toggleFaq2(item) { item.classList.toggle('open'); }
 
 
-// ── URUGUAY DEPARTMENTS & CITIES ──
 const UY_DEPARTMENTS = {
-  'Artigas': ['Artigas','Bella Unión','Tomás Gomensoro','Baltasar Brum'],
-  'Canelones': ['Canelones','Las Piedras','La Paz','Pando','Atlántida','Ciudad de la Costa','Progreso','Santa Lucía','Sauce','Salinas','Parque del Plata','Lagomar'],
-  'Cerro Largo': ['Melo','Río Branco','Fraile Muerto','Lago Merín'],
-  'Colonia': ['Colonia del Sacramento','Carmelo','Nueva Helvecia','Juan Lacaze','Rosario','Nueva Palmira'],
-  'Durazno': ['Durazno','Sarandí del Yí','Carmen','Villa del Carmen'],
-  'Flores': ['Trinidad','Ismael Cortinas'],
-  'Florida': ['Florida','Sarandí Grande','25 de Agosto','Casupá'],
-  'Lavalleja': ['Minas','José Pedro Varela','Solís de Mataojo','Pirarajá'],
-  'Maldonado': ['Maldonado','Punta del Este','San Carlos','Piriápolis','Aiguá','Pan de Azúcar'],
-  'Montevideo': ['Montevideo','Ciudad Vieja','Centro','Pocitos','Buceo','Punta Carretas','Palermo','Cordón','Aguada','Tres Cruces','Parque Batlle','Malvín','Carrasco','Punta Gorda','Núñez','Sayago','Paso de la Arena','La Teja','Cerrito','Manga'],
-  'Paysandú': ['Paysandú','Guichón','Quebracho','Tambores'],
-  'Río Negro': ['Fray Bentos','Young','New Berlin','Nuevo Berlín'],
-  'Rivera': ['Rivera','Tranqueras','Minas de Corrales','Vichadero'],
-  'Rocha': ['Rocha','Chuy','Castillos','Lascano','La Paloma','La Pedrera'],
-  'Salto': ['Salto','Constitución','Belén','San Antonio'],
-  'San José': ['San José de Mayo','Libertad','Ciudad del Plata','Ecilda Paullier','Rodríguez'],
-  'Soriano': ['Mercedes','Dolores','Cardona','José Enrique Rodó'],
-  'Tacuarembó': ['Tacuarembó','Paso de los Toros','San Gregorio de Polanco','Ansina'],
-  'Treinta y Tres': ['Treinta y Tres','Vergara','Santa Clara de Olimar']
+  'Artigas': ['Artigas','Bella Unión','Baltasar Brum','Bernabé Rivera','Cainsa','Colonia Palma','Cuareim','Diego Lamas','Franquía','Mones Callou','Palomas','Paso Campamento','Paso Centurión','Pintado','Sequeira','Tomas Gomensoro','Topador'],
+  'Canelones': ['Aguas Corrientes','Atlántida','Barros Blancos','Bello Horizonte','Canelones','Castellanos','Ciudad de la Costa','Colonia Nicolich','Delta del Tigre','El Pinar','Empalme Olmos','Joanicó','Juan Antonio Artigas','La Floresta','La Paz','Lagomar','Las Brujas','Las Piedras','Las Toscas','Lezica','Los Cerrillos','Los Titanes','Migues','Montes','Nueva Helvecia','Pando','Parque del Plata','Paso de Carrasco','Progreso','Salinas','Salsipuedes','San Antonio','San Bautista','San Jacinto','San Luis','San Ramón','Santa Lucía','Santa Rosa','Sauce','Shangrilá','Tala','Toledo','Villa San Carlos','Villa Aeroparque'],
+  'Cerro Largo': ['Aceguá','Arroyo Blanco','Cerro Largo','Fraile Muerto','Isidoro Noblía','Lago Merín','Las Cañas','Melo','Olimar Grande','Pedro Páez','Río Branco','Treinta y Cinco','Tupambaé','Veyga'],
+  'Colonia': ['Carmelo','Colonia del Sacramento','Conchillas','Cosmopolita','El Eucalipto','Florencio Sánchez','Juan L. Lacaze','La Paloma','Miguelete','Minuano','Nueva Helvecia','Nueva Palmira','Ombúes de Lavalle','Playa Azul','Playa Fomento','Rosario','San Pedro','Santa Ana','Tarariras','Villa Soriano'],
+  'Durazno': ['Blanquillo','Carlos Reyles','Centenario','Durazno','La Paloma','Ombúes de Oribe','Sarandí del Yí','Saravia','Tres Bocas','Villa del Carmen','Villa de Soto'],
+  'Flores': ['Andresito','Ismael Cortinas','Palmar','Paysandú Chico','Trinidad'],
+  'Florida': ['25 de Agosto','Algorta','Bequeló','Capilla del Sauce','Casupá','Florida','Fray Marcos','La Cruz','Mendoza','Nico Pérez','Pintado','Sarandí Grande','Toscanini'],
+  'Lavalleja': ['Batlle y Ordóñez','Cerro Colorado','José Batlle y Ordóñez','José Pedro Varela','Mariscala','Minas','Polanco del Yí','Pirarajá','Solís de Mataojo','Tranqueras','Zapicán'],
+  'Maldonado': ['Aiguá','Balneario Buenos Aires','Balneario Solís','El Chorro','El Tesoro','Garzon','Gregorio Aznárez','José Ignacio','La Barra','Maldonado','Pan de Azúcar','Piriápolis','Punta Ballena','Punta del Este','Punta Negra','San Carlos','San Rafael','Sauce de Portezuelo','Solís','Solís Grande'],
+  'Montevideo': ['Aguada','Aires Puros','Arroyo Seco','Barrio Sur','Belvedere','Brazo Oriental','Buceo','Capurro','Carrasco','Carrasco Norte','Casabó','Casavalle','Castro','Centro','Cerrito','Cerro','Ciudad Vieja','Colón Centro y Noroeste','Colón Sureste','Conciliación','Cordón','El Pinar','Figurita','Flor de Maroñas','Goes','Jacinto Vera','Jardines del Hipódromo','La Blanqueada','La Comercial','La Figurita','La Paloma','La Teja','Las Acacias','Larrañaga','Lezica','Malvín','Malvín Norte','Manga','Manga Rural','Maroñas','Mercado Modelo','Millán','Montevideo','Nuevo Paris','Palermo','Parque Batlle','Parque Rodó','Paso de la Arena','Paso de las Duranas','Peñarol','Pinar Norte','Pocitos','Prado','Punta Carretas','Punta Gorda','Reducto','Sayago','Tres Cruces','Tres Ombúes','Unión','Villa Española','Villa García','Villa Muñoz','Villa del Cerro'],
+  'Paysandú': ['Algorta','Arroyo Negro','Chapicuy','Chucazasso','Constancia','Guichón','Lorenzo Geyres','Orgoroso','Paysandú','Piedras Coloradas','Porvenir','Quebracho','San Félix','Tambores','Termas del Arapey','Termas de Almirón'],
+  'Río Negro': ['Algorta','Bellaco','Bijagual','Centros','Espinillar','Fray Bentos','Liberal','Menafra','Minas de Queguay','New Berlin','Nuevo Berlín','Palmar','Paso de los Carros','Paysandú','San Javier','Tres Árboles','Young'],
+  'Rivera': ['Amarillo','Ansina','Bernabé Rivera','Colonia Larrañaga','Cuñapirú','La Pedrera','Lapuente','Minas de Corrales','Moirones','Monte Caseros','Paso Bonito','Rivera','Tranqueras','Vichadero'],
+  'Rocha': ['Aguas Dulces','Barra del Chuy','Castillos','Cebollatí','Chuy','Dieciocho de Julio','La Coronilla','La Paloma','La Pedrera','Lascano','Punta del Diablo','Rocha','Santa Teresa','Velázquez'],
+  'Salto': ['Belén','Colonia Lavalleja','Constitución','Daymán','El Espinillar','Garupá','Mataojo','Palomas','Paso de las Piedras','Paso San Juan','Pueblo Lavalleja','Salto','San Antonio','Termas del Arapey','Termas de Daymán','Valentín','Viñedo'],
+  'San José': ['Ecilda Paullier','El Pintado','Ituzaingó','Juan Soler','Libertad','Mal Abrigo','Playa Pascual','Puntas de Valdez','Raigón','Rodríguez','San José de Mayo','Ciudad del Plata','Verdún'],
+  'Soriano': ['Cañada Nieto','Cardona','Cuchilla del Perdido','Dolores','Egaña','Florencio Sánchez','José Enrique Rodó','La Paloma','Mercedes','Palmitas','Patitas','Risso','San Enrique','Santa Catalina','Villa Soriano'],
+  'Tacuarembó': ['Ansina','Achar','Batoví','Caraguatá','Clara','Curtina','La Paloma','Laureles','Paso del Cerro','Paso de los Toros','Peralta','Piedra Sola','Polanco Norte','Pueblo del Barro','Rincón de Ramírez','San Gregorio de Polanco','Tacuarembó','Villa Ansina'],
+  'Treinta y Tres': ['Cerro Chato','Charqueada','La Charqueada','Lago Merín','Mansavillagra','Melo','Nico Pérez','Rincón','Santa Clara de Olimar','Treinta y Tres','Valentines','Vergara','Villa Passano']
 };
 
 function populateDeptSelect(deptId, cityId) {
@@ -5568,8 +5567,8 @@ function populateDeptSelect(deptId, cityId) {
     Object.keys(UY_DEPARTMENTS).sort().map(d => '<option value="'+d+'">'+d+'</option>').join('');
   deptSel.onchange = function() {
     const cities = UY_DEPARTMENTS[this.value] || [];
-    citySel.innerHTML = '<option value="">Seleccioná ciudad...</option>' +
-      cities.map(c => '<option value="'+c+'">'+c+'</option>').join('');
+    citySel.innerHTML = '<option value="">Seleccioná ciudad o localidad...</option>' +
+      cities.sort().map(c => '<option value="'+c+'">'+c+'</option>').join('');
     citySel.disabled = !cities.length;
   };
   citySel.disabled = true;
