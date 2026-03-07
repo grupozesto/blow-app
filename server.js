@@ -1639,15 +1639,19 @@ app.post('/api/webhooks/mp', async (req, res) => {
   try {
     const { type, data, topic, id } = req.body;
     const resourceId = data?.id || id;
-    if (!resourceId || !mp) return;
+    console.log('🔔 WEBHOOK RECEIVED:', JSON.stringify({ type, topic, id, data, resourceId }));
+    if (!resourceId || !mp) { console.log('❌ No resourceId or no mp'); return; }
 
     // ── Preapproval (suscripción recurrente) ────────────────────────────
     if (type === 'subscription_preapproval' || topic === 'preapproval') {
+      console.log('📋 Preapproval event, fetching id:', resourceId);
       const pa = (await mp.preapproval.get(resourceId)).body;
       const extRef = pa.external_reference;
-      if (!extRef) return;
+      console.log('📋 Preapproval data:', JSON.stringify({ id: pa.id, status: pa.status, extRef }));
+      if (!extRef) { console.log('❌ No external_reference'); return; }
 
       // Registro inicial aprobado — crear usuario y negocio
+      console.log('🔍 Checking reg condition: extRef=', extRef, 'status=', pa.status);
       if (extRef.startsWith('reg:') && pa.status === 'authorized') {
         const regId = extRef.replace('reg:','');
         const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[regId]);
