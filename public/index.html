@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
 <title>Blow</title>
 
 <!-- PWA -->
@@ -38,10 +38,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 /* iPhone safe area (notch / dynamic island / home bar) */
 .app-header{padding-top:calc(env(safe-area-inset-top,0px) + 16px);}
 @media all and (display-mode: browser){
-  .app-header{padding-top:10px!important;min-height:auto!important;}
-  .page-hdr{padding-top:10px!important;}
-  .owner-header{padding-top:14px!important;}
-  .bottom-nav{padding-bottom:2px!important;height:54px!important;}
+  .app-header{padding-top:10px!important;min-height:auto!important;position:relative!important;}
+  .page-hdr{padding-top:10px!important;position:relative!important;}
+  .owner-header{padding-top:14px!important;position:relative!important;}
+  .bottom-nav{padding-bottom:2px!important;height:54px!important;position:relative!important;}
 }
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
@@ -5016,11 +5016,18 @@ async function deleteOwnerCoupon(id) {
 (function() {
   const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
   if (!isStandalone) {
-    document.documentElement.style.setProperty('--header-pad', '10px');
     const style = document.createElement('style');
-    style.textContent = '.app-header{padding-top:10px!important;}.page-hdr{padding-top:10px!important;}.owner-header{padding-top:14px!important;}.bottom-nav{padding-bottom:2px!important;height:54px!important;}';
+    style.textContent = '.app-header{padding-top:10px!important;position:relative!important;}.page-hdr{padding-top:10px!important;position:relative!important;}.owner-header{padding-top:14px!important;position:relative!important;}.bottom-nav{position:relative!important;height:54px!important;}';
     document.head.appendChild(style);
   }
+  // Prevent zoom on double-tap and pinch for all browsers
+  document.addEventListener('touchstart', function(e){ if(e.touches.length > 1) e.preventDefault(); }, {passive:false});
+  let lastTouch = 0;
+  document.addEventListener('touchend', function(e){
+    const now = Date.now();
+    if (now - lastTouch < 300) e.preventDefault();
+    lastTouch = now;
+  }, {passive:false});
 })();
 
 // ═══════════════════════════════════════════════
