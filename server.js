@@ -909,7 +909,7 @@ app.post('/api/register/initiate', async (req, res) => {
         start_date: mpDate(Date.now()),
         end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
       },
-      back_url: `${APP_URL}/owner?reg=${regId}&payment=success`,
+      back_url: `${APP_URL}/owner`,
       notification_url: `${APP_URL}/api/webhooks/mp`,
     });
 
@@ -1007,7 +1007,7 @@ app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
       start_date: mpDate(Date.now()),
       end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
     },
-    back_url: `${APP_URL}/owner?payment=success`,
+    back_url: `${APP_URL}/owner`,
     notification_url: `${APP_URL}/api/webhooks/mp`,
   });
   res.json({ init_point: preapproval.body.init_point });
