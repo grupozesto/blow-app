@@ -1967,6 +1967,46 @@ app.get('/api/my-coupons', auth, async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 
+
+// ── USER PROFILE UPDATE ──
+app.patch('/api/user/profile', auth, async (req,res)=>{
+  const {name, email, phone} = req.body;
+  if (!name || !email) return res.status(400).json({error:'Nombre y email requeridos'});
+  try {
+    await db.query(
+      'UPDATE users SET name=$1, email=$2, phone=$3 WHERE id=$4',
+      [name.trim(), email.trim().toLowerCase(), phone||null, req.user.id]
+    );
+    const updated = await q1('SELECT id,name,email,phone,role,avatar_url FROM users WHERE id=$1',[req.user.id]);
+    res.json({ok:true, user: updated});
+  } catch(e) {
+    if (e.code==='23505') return res.status(400).json({error:'Ese email ya está en uso'});
+    res.status(500).json({error:e.message});
+  }
+});
+
+// ── USER AVATAR UPLOAD ──
+app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
+  try {
+    let url;
+    if (req.file?.path) {
+      url = req.file.path;
+    } else if (req.file?.buffer) {
+      const b64 = req.file.buffer.toString('base64');
+      const dataURI = 'data:' + req.file.mimetype + ';base64,' + b64;
+      const result = await cloudinary.uploader.upload(dataURI, {folder:'avatars', transformation:[{width:300,height:300,crop:'fill',gravity:'face'}]});
+      url = result.secure_url;
+    } else {
+      return res.status(400).json({error:'No se recibió imagen'});
+    }
+    await db.query('UPDATE users SET avatar_url=$1 WHERE id=$2',[url, req.user.id]);
+    res.json({ok:true, url});
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// Ensure phone column exists
+try { await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT'); } catch(e){}
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
@@ -2015,4 +2055,3 @@ function uploadMiddleware(field) {
     });
   };
 }
-
