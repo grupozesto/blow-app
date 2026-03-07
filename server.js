@@ -43,8 +43,10 @@ const APP_URL      = process.env.APP_URL || `http://localhost:${PORT}`;
 let PLAN_PRICE = 2990; // $UYU por mes — se puede cambiar desde admin
 async function loadPlanPrice() {
   try {
-    const row = await q1("SELECT value FROM app_settings WHERE key='plan_price'", []);
-    if (row) PLAN_PRICE = parseFloat(JSON.parse(row.value)) || 2990;
+    const r1 = await q1("SELECT value FROM app_settings WHERE key='registration_fee'", []);
+    if (r1) { const v = parseFloat(JSON.parse(r1.value)); PLAN_PRICE = isNaN(v) ? 2990 : v; return; }
+    const r2 = await q1("SELECT value FROM app_settings WHERE key='plan_price'", []);
+    if (r2) { const v = parseFloat(JSON.parse(r2.value)); PLAN_PRICE = isNaN(v) ? 2990 : v; }
   } catch(e) {}
 }
 const BLOW_PLUS_PRICE = 990;  // $UYU por mes — Blow+ negocio
@@ -2016,6 +2018,7 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
 
 // ── PUBLIC PLAN PRICE ──
 app.get('/api/public/plan-price', async (req,res)=>{
+  await loadPlanPrice(); // always fresh from DB
   res.json({ price: PLAN_PRICE });
 });
 
