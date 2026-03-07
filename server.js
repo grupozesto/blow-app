@@ -653,22 +653,28 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 //  NEGOCIOS
 // ════════════════════════════════════════════════
 app.get('/api/businesses', async (req, res) => {
-  const { category, city, department } = req.query;
-  let sql = `SELECT b.* FROM businesses b
-    LEFT JOIN subscriptions s ON s.business_id = b.id
-    WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active IS NOT FALSE`;
-  const params = [];
-  let i = 1;
-  if (category)   { sql += ` AND b.category=$${i++}`;                    params.push(category); }
-  if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;           params.push(city); }
-  if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`;     params.push(department); }
-  sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
-  const rows = await qa(sql, params);
-  const result = await Promise.all(rows.map(async b => {
-    const cnt = await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
-    return { ...b, product_count: parseInt(cnt?.c || 0) };
-  }));
-  res.json(result);
+  try {
+    const { category, city, department } = req.query;
+    let sql = `SELECT b.* FROM businesses b
+      LEFT JOIN subscriptions s ON s.business_id = b.id
+      WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active IS NOT FALSE`;
+    const params = [];
+    let i = 1;
+    if (category)   { sql += ` AND b.category=$${i++}`;                params.push(category); }
+    if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;      params.push(city); }
+    if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
+    sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+    const rows = await qa(sql, params);
+    const result = [];
+    for (const b of rows) {
+      const cnt = await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
+      result.push({ ...b, product_count: parseInt(cnt?.c || 0) });
+    }
+    res.json(result);
+  } catch(e) {
+    console.error('❌ /api/businesses error:', e.message, e.stack);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Public APIs
