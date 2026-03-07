@@ -4,8 +4,8 @@
   "description": "Blow \u2014 Delivery y pedidos online",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#FA0050",
+  "theme_color": "#FA0050",
   "orientation": "portrait",
   "icons": [
     {
