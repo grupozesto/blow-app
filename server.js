@@ -262,6 +262,42 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS coupons (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      description TEXT,
+      discount_type TEXT NOT NULL DEFAULT 'percent',
+      discount_value NUMERIC NOT NULL DEFAULT 10,
+      min_order NUMERIC DEFAULT 0,
+      max_uses INTEGER DEFAULT NULL,
+      uses_count INTEGER DEFAULT 0,
+      per_user INTEGER DEFAULT 1,
+      business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+      created_by TEXT NOT NULL,
+      expires_at TIMESTAMPTZ DEFAULT NULL,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS coupon_uses (
+      id TEXT PRIMARY KEY,
+      coupon_id TEXT REFERENCES coupons(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      order_id TEXT,
+      used_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS help_messages (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      user_name TEXT,
+      user_email TEXT,
+      message TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      admin_reply TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
   `);
   // Seed default categories if none exist
@@ -1617,4 +1653,3 @@ function uploadMiddleware(field) {
     });
   };
 }
-
