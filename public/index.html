@@ -2085,25 +2085,17 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <div style="height:1px;background:var(--border);margin:16px 0;"></div>
     </div>
 
-    <!-- Nueva dirección / Primera vez -->
+    <!-- GPS only -->
     <div id="add-address-section">
       <button class="loc-gps-btn" id="gps-btn" onclick="detectGPS()">
-        <span>📡</span> Usar mi ubicación actual
+        <span>📡</span> Detectar mi ubicación
       </button>
       <div class="loc-status" id="gps-status"></div>
-      <div class="loc-divider">O ingresá manualmente</div>
-      <div class="loc-manual">
-        <div class="loc-manual-title">Ingresá tu dirección</div>
-        <input class="loc-input" id="loc-full-address" type="text" placeholder="Ej: Rivera 2150, apto 3">
-        <div class="loc-row">
-          <input class="loc-input" id="loc-city" type="text" placeholder="Ciudad (ej: Mercedes)" style="flex:1;margin-bottom:0;">
-          <input class="loc-input" id="loc-dept" type="text" placeholder="Departamento" style="flex:1;margin-bottom:0;">
-        </div>
-        <div style="margin-top:10px;">
-          <input class="loc-input" id="loc-label" type="text" placeholder="Nombre (ej: Casa, Trabajo)" style="margin-bottom:0;">
-        </div>
-        <button class="loc-save-btn" onclick="saveAddress()" style="margin-top:12px;">Guardar y ver negocios →</button>
-      </div>
+      <!-- hidden inputs kept for saveAddress() compatibility -->
+      <input type="hidden" id="loc-full-address" value="">
+      <input type="hidden" id="loc-city" value="">
+      <input type="hidden" id="loc-dept" value="">
+      <input type="hidden" id="loc-label" value="Mi ubicación">
     </div>
   </div>
 </div>
@@ -2306,9 +2298,8 @@ async function detectGPS() {
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
       const { latitude: lat, longitude: lng } = pos.coords;
-      status.textContent = `📡 Coordenadas: ${lat.toFixed(4)}, ${lng.toFixed(4)} — Consultando dirección...`;
+      status.textContent = '⏳ Detectando tu ubicación...';
       try {
-        // Reverse geocoding con Nominatim (gratuito, sin API key)
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`);
         const geo = await res.json();
         const addr = geo.address;
@@ -2316,31 +2307,30 @@ async function detectGPS() {
         const dept = addr.state || addr.county || '';
         const street = addr.road ? `${addr.road}${addr.house_number?' '+addr.house_number:''}` : '';
 
+        // Auto-save and close
+        document.getElementById('gps-btn').dataset.lat = lat;
+        document.getElementById('gps-btn').dataset.lng = lng;
         document.getElementById('loc-full-address').value = street;
         document.getElementById('loc-city').value = city;
         document.getElementById('loc-dept').value = dept;
-        document.getElementById('loc-label').value = '📡 Mi ubicación';
-
-        // Also store lat/lng for precision
-        document.getElementById('gps-btn').dataset.lat = lat;
-        document.getElementById('gps-btn').dataset.lng = lng;
-
-        status.textContent = `✅ ¡Ubicación detectada! ${city}${dept ? ', '+dept : ''}`;
         btn.disabled = false;
-        btn.innerHTML = '<span>📡</span> Usar mi ubicación actual';
+        btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
+        await saveAddress();
       } catch(e) {
-        status.textContent = '⚠️ GPS detectado pero no se pudo obtener la dirección. Completá los campos.';
-        document.getElementById('gps-btn').dataset.lat = lat;
-        document.getElementById('gps-btn').dataset.lng = lng;
+        status.textContent = '⚠️ No pudimos obtener tu dirección. Intentá de nuevo.';
         btn.disabled = false;
-        btn.innerHTML = '<span>📡</span> Usar mi ubicación actual';
+        btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
       }
     },
     (err) => {
       btn.disabled = false;
-      btn.innerHTML = '<span>📡</span> Usar mi ubicación actual';
-      const msgs = { 1:'Permiso de ubicación denegado. Ingresá la dirección manualmente.', 2:'No se pudo detectar la ubicación.', 3:'Tiempo agotado. Intentá de nuevo.' };
-      status.textContent = '❌ ' + (msgs[err.code] || 'Error al obtener ubicación.');
+      btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
+      const msgs = {
+        1: '❌ Permiso denegado. Habilitá la ubicación en la configuración de tu dispositivo.',
+        2: '❌ No se pudo detectar tu ubicación. Intentá de nuevo.',
+        3: '❌ Tiempo agotado. Intentá de nuevo.'
+      };
+      status.textContent = msgs[err.code] || '❌ Error al obtener ubicación.';
     },
     { timeout: 10000, enableHighAccuracy: true }
   );
@@ -2354,7 +2344,7 @@ async function saveAddress() {
   const lat = parseFloat(document.getElementById('gps-btn').dataset.lat) || null;
   const lng = parseFloat(document.getElementById('gps-btn').dataset.lng) || null;
 
-  if (!city) { showToast('❌ La ciudad es obligatoria'); document.getElementById('loc-city').focus(); return; }
+  if (!city) { activeCity = 'Mi ubicación'; city = 'Mi ubicación'; }
 
   // Actualizar estado local inmediatamente
   activeCity = city;
@@ -5642,13 +5632,13 @@ if (activeCity) {
           } catch { openLocModal(); }
         },
         () => {
-          // GPS denegado — abrir modal para ingresar manualmente
-          openLocModal();
+          // GPS denegado — mostrar toast sin abrir modal
+          showToast('📍 Activá la ubicación para ver negocios cercanos');
         },
         { timeout: 8000 }
       );
     } else {
-      openLocModal();
+      showToast('📍 GPS no disponible en este dispositivo');
     }
   }, 1500);
 }
