@@ -1404,6 +1404,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
             </select>
           </div>
           <div class="form-group"><label class="form-label">Dirección</label><input class="form-input" id="edit-biz-addr" placeholder="Ej: Av. 18 de Julio 1234"></div>
+          <div class="form-group"><label class="form-label">Departamento</label>
+            <select class="form-input" id="edit-biz-dept" style="appearance:none;cursor:pointer;"></select>
+          </div>
+          <div class="form-group"><label class="form-label">Ciudad / Localidad</label>
+            <select class="form-input" id="edit-biz-city" style="appearance:none;cursor:pointer;"></select>
+          </div>
           <div class="form-group"><label class="form-label">Teléfono de contacto</label><input class="form-input" id="edit-biz-phone" placeholder="Ej: 099 123 456" type="tel"></div>
           <div class="form-group"><label class="form-label">Tiempo de entrega (minutos)</label><input class="form-input" id="edit-biz-time" placeholder="Ej: 30" type="number" min="5" max="180"></div>
           <div id="biz-edit-error" style="display:none;background:#fee;color:var(--primary);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;margin-bottom:10px;"></div>
@@ -4170,6 +4176,15 @@ function toggleBizEdit() {
     document.getElementById('edit-biz-addr').value  = b.address || '';
     document.getElementById('edit-biz-phone').value = b.phone || '';
     document.getElementById('edit-biz-time').value  = b.delivery_time || '';
+    // Populate dept/city selects and pre-select current values
+    populateDeptSelect('edit-biz-dept', 'edit-biz-city');
+    const deptSel = document.getElementById('edit-biz-dept');
+    const citySel = document.getElementById('edit-biz-city');
+    if (b.department) {
+      deptSel.value = b.department;
+      deptSel.dispatchEvent(new Event('change'));
+      setTimeout(() => { if (b.city) { citySel.value = b.city; citySel.disabled = false; } }, 50);
+    }
     document.getElementById('biz-edit-error').style.display = 'none';
     editEl.style.display = 'block';
     viewEl.style.display = 'none';
@@ -4182,6 +4197,8 @@ async function saveBizInfo() {
   const emoji = document.getElementById('edit-biz-emoji').value.trim() || '🏪';
   const cat   = document.getElementById('edit-biz-cat').value;
   const addr  = document.getElementById('edit-biz-addr').value.trim();
+  const dept  = document.getElementById('edit-biz-dept').value.trim();
+  const city  = document.getElementById('edit-biz-city').value.trim();
   const phone = document.getElementById('edit-biz-phone').value.trim();
   const time  = parseInt(document.getElementById('edit-biz-time').value) || null;
   const errEl = document.getElementById('biz-edit-error');
@@ -4189,14 +4206,14 @@ async function saveBizInfo() {
   if (!name) { errEl.textContent = 'El nombre es obligatorio'; errEl.style.display = 'block'; return; }
   try {
     const updated = await api('/api/businesses/mine', { method: 'PATCH', body: JSON.stringify({
-      name, logo_emoji: emoji, category: cat, address: addr, phone, delivery_time: time
+      name, logo_emoji: emoji, category: cat, address: addr, phone, delivery_time: time, city, department: dept
     })});
     // Update local data
     ownerData.business = { ...ownerData.business, ...updated };
     // Update view
     document.getElementById('s-biz-name').textContent = updated.name;
     document.getElementById('s-biz-cat').textContent  = updated.category;
-    document.getElementById('s-biz-addr').textContent = updated.address || '—';
+    document.getElementById('s-biz-addr').textContent = [updated.address, updated.city, updated.department].filter(Boolean).join(', ') || '—';
     document.getElementById('owner-store-name').textContent = `${updated.logo_emoji||'🏪'} ${updated.name}`;
     toggleBizEdit();
     showToast('✅ Información actualizada');
