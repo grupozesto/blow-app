@@ -2013,6 +2013,12 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
+
+// ── PUBLIC PLAN PRICE ──
+app.get('/api/public/plan-price', async (req,res)=>{
+  res.json({ price: PLAN_PRICE });
+});
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
