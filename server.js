@@ -664,10 +664,10 @@ app.get('/api/businesses', async (req, res) => {
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`;     params.push(department); }
   sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   const rows = await qa(sql, params);
-  const result = await Promise.all(rows.map(async b => ({
-    ...b,
-    product_count: parseInt((await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id])).c),
-  })));
+  const result = await Promise.all(rows.map(async b => {
+    const cnt = await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
+    return { ...b, product_count: parseInt(cnt?.c || 0) };
+  }));
   res.json(result);
 });
 
