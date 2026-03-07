@@ -1135,9 +1135,11 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         </select>
       </div>
       <div class="form-group"><label class="form-label">Dirección del negocio</label><input class="form-input" id="or-addr" type="text" placeholder="Av. 18 de Julio 1500"></div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label class="form-label">Ciudad <span style="color:var(--primary)">*</span></label><input class="form-input" id="or-city" type="text" placeholder="Ej: Montevideo"></div>
-        <div class="form-group" style="flex:1;"><label class="form-label">Departamento</label><input class="form-input" id="or-dept" type="text" placeholder="Ej: Montevideo"></div>
+      <div class="form-group"><label class="form-label">Departamento <span style="color:var(--primary)">*</span></label>
+        <select class="form-input" id="or-dept" style="appearance:none;cursor:pointer;"></select>
+      </div>
+      <div class="form-group"><label class="form-label">Ciudad / Localidad <span style="color:var(--primary)">*</span></label>
+        <select class="form-input" id="or-city" style="appearance:none;cursor:pointer;"></select>
       </div>
       <div style="border-top:1px solid var(--border);margin:4px 0 16px;"></div>
       <div class="form-group"><label class="form-label">Tu nombre <span style="color:var(--primary)">*</span></label><input class="form-input" id="or-name" type="text" placeholder="Nombre del responsable"></div>
@@ -1780,6 +1782,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
         <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX"></div>
         <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group"><label class="form-label">Departamento</label>
+          <select class="form-input" id="r-dept" style="appearance:none;cursor:pointer;"></select>
+        </div>
+        <div class="form-group"><label class="form-label">Ciudad / Localidad</label>
+          <select class="form-input" id="r-city" style="appearance:none;cursor:pointer;"></select>
+        </div>
         <input type="hidden" id="r-role" value="customer">
       <button class="primary-btn" onclick="doRegister()">Crear cuenta →</button>
       </div>
@@ -3247,6 +3255,7 @@ function switchAuthTab(tab) {
   document.getElementById('at-reg').classList.toggle('active', tab==='register');
   document.getElementById('auth-login-form').style.display = tab==='login'?'block':'none';
   document.getElementById('auth-reg-form').style.display = tab==='register'?'block':'none';
+  if (tab==='register') populateDeptSelect('r-dept','r-city');
   document.getElementById('auth-error').style.display = 'none';
 }
 function showAuthErr(msg) { const el=document.getElementById('auth-error'); el.textContent=msg; el.style.display='block'; }
@@ -3283,7 +3292,9 @@ async function doRegister() {
   if (phone && phone.length < 8) return showAuthErr('El teléfono debe tener al menos 8 dígitos');
   if (phone && !/^[\d\s\+\-\(\)]+$/.test(phone)) return showAuthErr('El teléfono solo puede contener números');
   try {
-    const data = await api('/api/auth/register',{method:'POST',body:JSON.stringify({name,email,phone,password:pass,role})});
+    const dept = document.getElementById('r-dept')?.value || '';
+  const city = document.getElementById('r-city')?.value || '';
+  const data = await api('/api/auth/register',{method:'POST',body:JSON.stringify({name,email,phone,password:pass,role,department:dept,city})});
     if (data.pending) {
       // Show verification step
       document.getElementById('reg-step-1').style.display='none';
@@ -3406,6 +3417,7 @@ function ownerTab(tab) {
   document.getElementById('oltab-reg').classList.toggle('active',tab==='register');
   document.getElementById('owner-login-form').style.display=tab==='login'?'block':'none';
   document.getElementById('owner-reg-form').style.display=tab==='register'?'block':'none';
+  if (tab==='register') populateDeptSelect('or-dept','or-city');
 }
 
 async function ownerLogin() {
@@ -5523,6 +5535,45 @@ async function uploadProfilePhoto(input) {
 }
 
 function toggleFaq2(item) { item.classList.toggle('open'); }
+
+
+// ── URUGUAY DEPARTMENTS & CITIES ──
+const UY_DEPARTMENTS = {
+  'Artigas': ['Artigas','Bella Unión','Tomás Gomensoro','Baltasar Brum'],
+  'Canelones': ['Canelones','Las Piedras','La Paz','Pando','Atlántida','Ciudad de la Costa','Progreso','Santa Lucía','Sauce','Salinas','Parque del Plata','Lagomar'],
+  'Cerro Largo': ['Melo','Río Branco','Fraile Muerto','Lago Merín'],
+  'Colonia': ['Colonia del Sacramento','Carmelo','Nueva Helvecia','Juan Lacaze','Rosario','Nueva Palmira'],
+  'Durazno': ['Durazno','Sarandí del Yí','Carmen','Villa del Carmen'],
+  'Flores': ['Trinidad','Ismael Cortinas'],
+  'Florida': ['Florida','Sarandí Grande','25 de Agosto','Casupá'],
+  'Lavalleja': ['Minas','José Pedro Varela','Solís de Mataojo','Pirarajá'],
+  'Maldonado': ['Maldonado','Punta del Este','San Carlos','Piriápolis','Aiguá','Pan de Azúcar'],
+  'Montevideo': ['Montevideo','Ciudad Vieja','Centro','Pocitos','Buceo','Punta Carretas','Palermo','Cordón','Aguada','Tres Cruces','Parque Batlle','Malvín','Carrasco','Punta Gorda','Núñez','Sayago','Paso de la Arena','La Teja','Cerrito','Manga'],
+  'Paysandú': ['Paysandú','Guichón','Quebracho','Tambores'],
+  'Río Negro': ['Fray Bentos','Young','New Berlin','Nuevo Berlín'],
+  'Rivera': ['Rivera','Tranqueras','Minas de Corrales','Vichadero'],
+  'Rocha': ['Rocha','Chuy','Castillos','Lascano','La Paloma','La Pedrera'],
+  'Salto': ['Salto','Constitución','Belén','San Antonio'],
+  'San José': ['San José de Mayo','Libertad','Ciudad del Plata','Ecilda Paullier','Rodríguez'],
+  'Soriano': ['Mercedes','Dolores','Cardona','José Enrique Rodó'],
+  'Tacuarembó': ['Tacuarembó','Paso de los Toros','San Gregorio de Polanco','Ansina'],
+  'Treinta y Tres': ['Treinta y Tres','Vergara','Santa Clara de Olimar']
+};
+
+function populateDeptSelect(deptId, cityId) {
+  const deptSel = document.getElementById(deptId);
+  const citySel = document.getElementById(cityId);
+  if (!deptSel || !citySel) return;
+  deptSel.innerHTML = '<option value="">Seleccioná departamento...</option>' +
+    Object.keys(UY_DEPARTMENTS).sort().map(d => '<option value="'+d+'">'+d+'</option>').join('');
+  deptSel.onchange = function() {
+    const cities = UY_DEPARTMENTS[this.value] || [];
+    citySel.innerHTML = '<option value="">Seleccioná ciudad...</option>' +
+      cities.map(c => '<option value="'+c+'">'+c+'</option>').join('');
+    citySel.disabled = !cities.length;
+  };
+  citySel.disabled = true;
+}
 
 // ═══════════════════════════════════════════════
 //  INIT
