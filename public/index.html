@@ -1114,7 +1114,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <div style="background:linear-gradient(135deg,var(--primary),#c0001e);border-radius:16px;padding:20px;margin-bottom:20px;color:#fff;text-align:center;">
         <div style="font-size:13px;font-weight:600;opacity:.85;margin-bottom:4px;">Suscripción mensual</div>
         <div style="font-size:36px;font-weight:900;letter-spacing:-1px;"><span id="or-price-display">$2.990</span><span style="font-size:16px;font-weight:400;opacity:.8"> /mes</span></div>
-        <div style="font-size:12px;opacity:.75;margin-top:6px;">Podés cancelar cuando quieras</div>
+        <div style="font-size:12px;opacity:.75;margin-top:6px;">Débito automático mensual · Cancelá cuando quieras</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px;">
           <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;">✓ Productos ilimitados</span>
           <span style="background:rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;">✓ Fotos en productos</span>
@@ -1148,7 +1148,11 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <div class="form-group"><label class="form-label">Contraseña <span style="color:var(--primary)">*</span></label><input class="form-input" id="or-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
       <div id="or-error" style="color:var(--primary);font-size:13px;margin-bottom:10px;display:none;"></div>
       <button class="primary-btn" id="or-pay-btn" onclick="ownerRegister()" id="or-pay-btn-text">Ir a pagar <span id="or-price-btn">$2.990</span> →</button>
-      <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">Serás redirigido a MercadoPago para completar el pago.<br>Tu cuenta se crea automáticamente al aprobar el pago.</p>
+      <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">
+        Serás redirigido a MercadoPago para configurar el débito automático mensual.<br>
+        <strong style="color:#1a1a1a;">Se requiere cuenta de MercadoPago</strong> para habilitar el cobro recurrente.<br>
+        Tu cuenta Blow se crea automáticamente al autorizar.
+      </p>
       <button class="secondary-btn" onclick="nav('page-home')">← Volver a la app</button>
     </div>
 
