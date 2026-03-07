@@ -1263,6 +1263,43 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <div style="font-size:15px;font-weight:800;margin-bottom:12px;">Más vendidos</div>
       <div id="owner-top-products"></div>
     </div>
+    <!-- Coupons Tab -->
+    <div class="otab-content" id="otab-coupons" style="padding:16px;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🎟️ Mis cupones</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px;">Creá cupones para tus clientes. Se aplican automáticamente al pagar en tu negocio.</div>
+      <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Crear nuevo cupón</div>
+        <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="ocpn-code" placeholder="DESCUENTO10" style="text-transform:uppercase;font-weight:700;letter-spacing:1px;"></div>
+        <div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="ocpn-desc" placeholder="Ej: Descuento especial para clientes frecuentes"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group"><label class="form-label">Tipo</label>
+            <select class="form-input" id="ocpn-type"><option value="percent">% Porcentaje</option><option value="fixed">$ Fijo</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="ocpn-value" type="number" placeholder="10"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group"><label class="form-label">Mínimo de compra ($)</label><input class="form-input" id="ocpn-min" type="number" placeholder="0" value="0"></div>
+          <div class="form-group"><label class="form-label">Vencimiento</label><input class="form-input" id="ocpn-exp" type="date"></div>
+        </div>
+        <button class="primary-btn" onclick="createOwnerCoupon()">+ Crear cupón</button>
+      </div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Cupones activos</div>
+      <div id="owner-coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Top Clients Tab -->
+    <div class="otab-content" id="otab-topclients" style="padding:16px;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🏆 Mejores clientes</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px;">Enviá cupones directamente a tus clientes más fieles</div>
+      <div style="background:#f9f9f9;border-radius:14px;padding:14px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end;">
+        <div style="flex:1;" class="form-group" style="margin:0;"><label class="form-label">Cupón a enviar</label>
+          <select class="form-input" id="owner-assign-coupon"><option value="">Elegir cupón...</option></select>
+        </div>
+        <button onclick="ownerAssignSelected()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;margin-bottom:16px;">📤 Enviar</button>
+      </div>
+      <div id="owner-top-customers"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+
     <!-- Settings -->
     <div class="otab-content" id="otab-settings" style="padding:16px;">
       <!-- Photos -->
@@ -3915,6 +3952,7 @@ function switchOTab(id, el) {
   if (id === 'otab-blowplus') loadBlowPlus();
   if (id === 'otab-settings') populatePhotoSettings();
   if (id === 'otab-coupons') loadOwnerCoupons();
+  if (id === 'otab-topclients') loadOwnerTopCustomers();
 }
 
 // ═══════════════════════════════════════════════
@@ -4951,31 +4989,34 @@ function showToast(msg) {
 async function loadCoupons() {
   const extraEl = document.getElementById('coupons-extra-list');
   if (!extraEl) return;
-  if (!user) {
-    extraEl.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:14px;">Iniciá sesión para ver tus cupones</div>';
-    return;
-  }
+  if (!user) { extraEl.innerHTML = ''; return; }
   try {
-    const res = await api('/api/coupons/available');
-    if (!res.length) { extraEl.innerHTML = ''; return; }
-    extraEl.innerHTML = res.map(c => {
+    const res = await fetch('/api/my-coupons', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
+    const coupons = await res.json();
+    if (!coupons.length) { extraEl.innerHTML = ''; return; }
+    extraEl.innerHTML = coupons.map(c => {
       const label = c.discount_type==='percent' ? `${c.discount_value}% OFF` : `$ ${Number(c.discount_value).toLocaleString('es-UY')}`;
       const minLabel = c.min_order > 0 ? `Mínimo de compra: $ ${Number(c.min_order).toLocaleString('es-UY')}` : 'Sin mínimo de compra';
-      const expiry = c.expires_at ? new Date(c.expires_at).toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : null;
+      const now = new Date();
+      const exp = c.expires_at ? new Date(c.expires_at) : null;
+      const diffDays = exp ? Math.ceil((exp-now)/(1000*60*60*24)) : null;
+      const expiryLabel = diffDays===1 ? 'Vence mañana' : diffDays > 1 ? `Vence en ${diffDays} días` : null;
+      const expiryTime = exp ? exp.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'}) : '';
+      const bizName = c.business_name || 'Blow';
       return `<div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
         <div style="display:flex;min-height:100px;">
           <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border-right:2px dashed #e0e0e0;gap:6px;">
-            <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;">B</div>
-            ${expiry ? `<div style="font-size:10px;font-weight:700;color:#e67e00;text-align:center;">Vence el<br>${expiry}</div>` : ''}
+            <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;">${bizName.charAt(0).toUpperCase()}</div>
+            ${expiryLabel ? `<div style="font-size:10px;font-weight:700;color:#e67e00;text-align:center;">${expiryLabel}<br>a las ${expiryTime}</div>` : ''}
           </div>
           <div style="flex:1;padding:16px 14px;">
-            <div style="font-size:12px;color:#888;margin-bottom:4px;">De regalo</div>
+            <div style="font-size:12px;color:#888;margin-bottom:4px;">De regalo · ${bizName}</div>
             <div style="font-size:26px;font-weight:900;color:#1a1a1a;line-height:1.1;margin-bottom:6px;">${label}</div>
             <div style="font-size:12px;color:#666;line-height:1.5;">${minLabel}<br>${c.description||'Para lo que quieras'}</div>
           </div>
         </div>
         <div style="border-top:1px solid #f0f0f0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
-          <button onclick="showToast('📋 Código: ${c.code}')" style="background:none;border:none;font-size:13px;font-weight:700;color:#1a1a1a;cursor:pointer;padding:0;">Ver detalles</button>
+          <button onclick="showToast('📋 Código: ${c.code} · Se aplica automáticamente')" style="background:none;border:none;font-size:13px;font-weight:700;color:#1a1a1a;cursor:pointer;padding:0;">Ver detalles</button>
           <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Conocer locales</button>
         </div>
       </div>`;
@@ -4983,578 +5024,4 @@ async function loadCoupons() {
   } catch(e) { extraEl.innerHTML = ''; }
 }
 
-function showAddCouponModal() {
-  const code = prompt('Ingresá el código de cupón:');
-  if (!code) return;
-  validateCouponManual(code.trim().toUpperCase());
-}
 
-async function validateCouponManual(code) {
-  if (!code) {
-    const input = document.getElementById('coupon-code-input');
-    code = input ? input.value.trim().toUpperCase() : '';
-  }
-  if (!code) return showToast('Ingresá un código');
-  try {
-    const res = await api('/api/coupons/validate', 'POST', {code, order_total: 0});
-    if (res.valid) { showToast('✅ Cupón válido: ' + (res.coupon?.description || code)); loadCoupons(); }
-    else showToast('❌ ' + (res.error || 'Cupón inválido'));
-  } catch(e) { showToast('❌ Error al validar cupón'); }
-}
-
-
-async function validateCouponManual() {
-  const code = document.getElementById('coupon-code-input').value.trim();
-  const res_el = document.getElementById('coupon-manual-result');
-  if (!code) return showToast('Ingresá un código');
-  if (!user) return showToast('Iniciá sesión para usar cupones');
-  res_el.style.display = 'block';
-  res_el.innerHTML = '<span style="color:var(--muted);">Verificando...</span>';
-  try {
-    const data = await api('/api/coupons/validate', 'POST', { code, order_total: 9999, business_id: null });
-    res_el.innerHTML = `<span style="color:var(--success);font-weight:700;">✅ Cupón válido — ${data.coupon.discount_type==='percent' ? data.coupon.discount_value+'% de descuento' : '$'+data.coupon.discount_value+' de descuento'}</span>`;
-    document.getElementById('coupon-code-input').value = '';
-    showToast('🎟️ Cupón guardado — se aplicará en tu próximo pedido');
-    // Save to localStorage for cart to use
-    localStorage.setItem('active_coupon', JSON.stringify(data.coupon));
-  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);font-weight:600;">❌ ${e.message}</span>`; }
-}
-
-// ═══════════════════════════════════════════════
-//  HELP / AYUDA
-// ═══════════════════════════════════════════════
-function toggleFaq(el) {
-  el.classList.toggle('open');
-}
-
-async function sendHelpMessage() {
-  const name = document.getElementById('help-name').value.trim();
-  const email = document.getElementById('help-email').value.trim();
-  const msg = document.getElementById('help-msg').value.trim();
-  const res_el = document.getElementById('help-result');
-  if (!email || !msg) return showToast('Email y mensaje son requeridos');
-  res_el.style.display = 'block';
-  res_el.innerHTML = '<span style="color:var(--muted);">Enviando...</span>';
-  try {
-    await api('/api/help', 'POST', { name: name || (user?.name || 'Anónimo'), email: email || user?.email, message: msg });
-    res_el.innerHTML = '<span style="color:var(--success);font-weight:700;">✅ Mensaje enviado — te responderemos a la brevedad</span>';
-    document.getElementById('help-name').value = '';
-    document.getElementById('help-email').value = '';
-    document.getElementById('help-msg').value = '';
-  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);">❌ ${e.message}</span>`; }
-}
-
-// Pre-fill help form if user is logged in
-function initHelpPage() {
-  if (user) {
-    const nameEl = document.getElementById('help-name');
-    const emailEl = document.getElementById('help-email');
-    if (nameEl && !nameEl.value) nameEl.value = user.name || '';
-    if (emailEl && !emailEl.value) emailEl.value = user.email || '';
-  }
-}
-
-// ═══════════════════════════════════════════════
-//  ADMIN — COUPONS SECTION
-// ═══════════════════════════════════════════════
-async function loadAdminCoupons() {
-  const el = document.getElementById('admin-coupons-list');
-  if (!el) return;
-  try {
-    const coupons = await api('/api/admin/coupons');
-    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No hay cupones creados</div>'; return; }
-    el.innerHTML = coupons.map(c => `
-      <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <div>
-            <span style="font-size:16px;font-weight:900;letter-spacing:1px;color:#FA0050;">${c.code}</span>
-            ${c.business_name ? `<span style="font-size:11px;color:var(--muted);margin-left:8px;">🏪 ${c.business_name}</span>` : '<span style="font-size:11px;color:var(--muted);margin-left:8px;">Global</span>'}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="background:${c.active?'#e6f9f0':'#f5f5f5'};color:${c.active?'var(--success)':'var(--muted)'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${c.active?'Activo':'Pausado'}</span>
-            <button onclick="toggleAdminCoupon('${c.id}',${!c.active})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;cursor:pointer;">${c.active?'Pausar':'Activar'}</button>
-            <button onclick="deleteAdminCoupon('${c.id}')" style="padding:6px 10px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
-          </div>
-        </div>
-        <div style="font-size:13px;color:var(--muted);margin-top:6px;">
-          ${c.discount_type==='percent'?`${c.discount_value}% descuento`:`$${c.discount_value} descuento fijo`}
-          ${c.min_order>0?` · Mínimo $${c.min_order}`:''}
-          ${c.max_uses?` · ${c.uses_count}/${c.max_uses} usos`:''}
-          ${c.expires_at?` · Vence ${new Date(c.expires_at).toLocaleDateString('es-UY')}`:''}
-        </div>
-        ${c.description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">${c.description}</div>`:''}
-      </div>`).join('');
-  } catch(e) { el.innerHTML = '<div style="color:var(--muted);">Error al cargar</div>'; }
-}
-
-async function toggleAdminCoupon(id, active) {
-  try { await api(`/api/admin/coupons/${id}`, 'PATCH', { active }); loadAdminCoupons(); showToast(active ? '✅ Cupón activado' : '⏸️ Cupón pausado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-async function deleteAdminCoupon(id) {
-  if (!confirm('¿Borrar este cupón?')) return;
-  try { await api(`/api/admin/coupons/${id}`, 'DELETE'); loadAdminCoupons(); showToast('🗑️ Cupón eliminado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-async function createAdminCoupon() {
-  const code = document.getElementById('new-coupon-code').value.trim().toUpperCase();
-  const type = document.getElementById('new-coupon-type').value;
-  const value = parseFloat(document.getElementById('new-coupon-value').value);
-  const min = parseFloat(document.getElementById('new-coupon-min').value) || 0;
-  const maxUses = parseInt(document.getElementById('new-coupon-maxuses').value) || null;
-  const expires = document.getElementById('new-coupon-expires').value || null;
-  const desc = document.getElementById('new-coupon-desc').value.trim();
-  if (!code || !value) return showToast('Código y descuento son requeridos');
-  try {
-    await api('/api/admin/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min, max_uses: maxUses, expires_at: expires || null });
-    showToast('✅ Cupón creado');
-    document.getElementById('new-coupon-code').value = '';
-    document.getElementById('new-coupon-value').value = '';
-    document.getElementById('new-coupon-min').value = '';
-    document.getElementById('new-coupon-maxuses').value = '';
-    document.getElementById('new-coupon-expires').value = '';
-    document.getElementById('new-coupon-desc').value = '';
-    loadAdminCoupons();
-  } catch(e) { showToast('❌ ' + e.message); }
-}
-
-// ═══════════════════════════════════════════════
-//  ADMIN — HELP MESSAGES
-// ═══════════════════════════════════════════════
-async function loadAdminHelp() {
-  const el = document.getElementById('admin-help-list');
-  if (!el) return;
-  try {
-    const msgs = await api('/api/admin/help');
-    if (!msgs.length) { el.innerHTML = '<div style="color:var(--muted);padding:20px;text-align:center;">No hay mensajes</div>'; return; }
-    const rows = msgs.map(m => {
-      const r = m.status === 'resolved';
-      const replyHtml = m.admin_reply
-        ? '<p style="font-size:13px;background:#f5f5f5;border-radius:8px;padding:10px;color:#666;"><b>Respuesta:</b> ' + m.admin_reply + '</p>'
-        : '<div style="display:flex;gap:8px;margin-top:8px;">'
-          + '<input class="form-input" id="reply-' + m.id + '" placeholder="Escribi tu respuesta..." style="flex:1;font-size:13px;">'
-          + '<button onclick="replyHelp(\'' + m.id + '\')" style="padding:8px 14px;background:var(--primary);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Responder</button>'
-          + '</div>';
-      return '<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid ' + (r?'#d4edda':'#e5e5e5') + ';">'
-        + '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
-        + '<b style="font-size:14px;">' + m.user_name + '</b>'
-        + '<span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;background:' + (r?'#e6f9f0':'#fff5f7') + ';color:' + (r?'var(--success)':'var(--primary)') + ';">' + (r?'Resuelto':'Pendiente') + '</span>'
-        + '</div>'
-        + '<p style="font-size:12px;color:var(--muted);margin:-4px 0 8px;">' + m.user_email + '</p>'
-        + '<p style="font-size:13px;color:#333;">' + m.message + '</p>'
-        + replyHtml
-        + '<p style="font-size:11px;color:var(--muted);margin-top:6px;">' + new Date(m.created_at).toLocaleString('es-UY') + '</p>'
-        + '</div>';
-    });
-    el.innerHTML = rows.join('');
-  } catch(e) { el.innerHTML = '<div style="color:var(--muted);">Error al cargar</div>'; }
-}
-async function replyHelp(id) {
-  const reply = document.getElementById(`reply-${id}`)?.value.trim();
-  if (!reply) return showToast('Escribí una respuesta');
-  try { await api(`/api/admin/help/${id}`, 'PATCH', { reply }); showToast('✅ Respuesta enviada por email'); loadAdminHelp(); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-// ═══════════════════════════════════════════════
-//  OWNER — COUPONS
-// ═══════════════════════════════════════════════
-async function loadOwnerCoupons() {
-  const el = document.getElementById('owner-coupons-list');
-  if (!el) return;
-  try {
-    const coupons = await api('/api/owner/coupons');
-    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;font-size:13px;">No creaste cupones todavía</div>'; return; }
-    el.innerHTML = coupons.map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f9f9f9;border-radius:10px;margin-bottom:8px;">
-        <div>
-          <div style="font-weight:800;color:#FA0050;letter-spacing:1px;">${c.code}</div>
-          <div style="font-size:12px;color:var(--muted);">${c.discount_type==='percent'?`${c.discount_value}% OFF`:`$${c.discount_value} OFF`} ${c.uses_count ? `· ${c.uses_count} usos` : ''}</div>
-        </div>
-        <button onclick="deleteOwnerCoupon('${c.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
-      </div>`).join('');
-  } catch(e) {}
-}
-
-async function createOwnerCoupon() {
-  const code = document.getElementById('oc-code')?.value.trim().toUpperCase();
-  const type = document.getElementById('oc-type')?.value;
-  const value = parseFloat(document.getElementById('oc-value')?.value);
-  const min = parseFloat(document.getElementById('oc-min')?.value) || 0;
-  const desc = document.getElementById('oc-desc')?.value.trim();
-  if (!code || !value) return showToast('Código y descuento son requeridos');
-  try {
-    await api('/api/owner/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min });
-    showToast('✅ Cupón creado');
-    document.getElementById('oc-code').value = '';
-    document.getElementById('oc-value').value = '';
-    document.getElementById('oc-min').value = '';
-    if (document.getElementById('oc-desc')) document.getElementById('oc-desc').value = '';
-    loadOwnerCoupons();
-  } catch(e) { showToast('❌ ' + e.message); }
-}
-
-async function deleteOwnerCoupon(id) {
-  if (!confirm('¿Borrar este cupón?')) return;
-  try { await api(`/api/owner/coupons/${id}`, 'DELETE'); loadOwnerCoupons(); showToast('🗑️ Cupón eliminado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-// ── Safari vs PWA padding fix ──
-(function() {
-  // Prevent zoom on double-tap and pinch for all browsers
-  document.addEventListener('touchstart', function(e){ if(e.touches.length > 1) e.preventDefault(); }, {passive:false});
-  let lastTouch = 0;
-  document.addEventListener('touchend', function(e){
-    const now = Date.now();
-    if (now - lastTouch < 300) e.preventDefault();
-    lastTouch = now;
-  }, {passive:false});
-})();
-
-
-// ── DYNAMIC HOME ──
-async function loadBlowPlusBanner() {
-  try {
-    const res = await fetch('/api/config/blowplus-banner');
-    if (!res.ok) return;
-    const d = await res.json();
-    if (d.title) {
-      const t = document.getElementById('blowplus-banner-title');
-      const s = document.getElementById('blowplus-banner-sub');
-      if (t) t.textContent = d.title;
-      if (s) s.textContent = d.subtitle || '';
-    }
-  } catch(e) {}
-}
-
-async function loadHomeDynamic() {
-  await Promise.all([loadPromoBanners(), loadFeatured()]);
-}
-
-// ── ADMIN BANNERS ──
-async function loadAdminBanners() {
-  try {
-    const res = await fetch('/api/admin/banners', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-    const banners = await res.json();
-    document.getElementById('admin-banners-list').innerHTML = banners.length
-      ? banners.map(b=>`<div class="admin-row">
-          <div style="flex:1;">
-            <strong>${b.title}</strong> ${b.highlight?`<span style="color:#FA0050">${b.highlight}</span>`:''}
-            <div style="font-size:12px;color:#888;">${b.subtitle||''}</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="file" accept="image/*" onchange="uploadBannerImage('${b.id}',this)" style="font-size:11px;width:120px;">
-            <button class="btn-sm" onclick="toggleAdminBanner('${b.id}',${!b.active})">${b.active?'Pausar':'Activar'}</button>
-            <button class="btn-sm btn-danger" onclick="deleteAdminBanner('${b.id}')">✕</button>
-          </div>
-        </div>`).join('')
-      : '<div style="text-align:center;color:#aaa;padding:20px;">No hay banners</div>';
-  } catch(e){}
-}
-
-async function createAdminBanner() {
-  const title = document.getElementById('bn-title')?.value?.trim();
-  const subtitle = document.getElementById('bn-subtitle')?.value?.trim();
-  const highlight = document.getElementById('bn-highlight')?.value?.trim();
-  const emoji = document.getElementById('bn-emoji')?.value?.trim() || '🍔';
-  const bg_color = document.getElementById('bn-color')?.value || '#FA0050';
-  if (!title) return showToast('Ingresá un título');
-  const res = await fetch('/api/admin/banners',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({title,subtitle,highlight,emoji,bg_color})});
-  const d = await res.json();
-  if(d.ok){ showToast('✅ Banner creado'); loadAdminBanners(); document.getElementById('bn-title').value=''; document.getElementById('bn-subtitle').value=''; document.getElementById('bn-highlight').value=''; }
-  else showToast('Error: '+d.error);
-}
-
-async function uploadBannerImage(id, input) {
-  const file = input.files[0]; if(!file) return;
-  const fd = new FormData(); fd.append('image',file);
-  const res = await fetch(`/api/admin/banners/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
-  const d = await res.json();
-  if(d.ok){ showToast('✅ Imagen subida'); loadAdminBanners(); loadPromoBanners(); }
-  else showToast('Error al subir');
-}
-
-async function toggleAdminBanner(id, active) {
-  await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({active})});
-  loadAdminBanners(); loadPromoBanners();
-}
-
-async function deleteAdminBanner(id) {
-  if(!confirm('¿Eliminar banner?')) return;
-  await fetch(`/api/admin/banners/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-  loadAdminBanners(); loadPromoBanners();
-}
-
-// ── ADMIN FEATURED ──
-async function loadAdminFeatured() {
-  try {
-    const [featRes, bizRes] = await Promise.all([
-      fetch('/api/admin/featured',{headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}}),
-      fetch('/api/businesses')
-    ]);
-    const feats = await featRes.json();
-    const bizAll = await bizRes.json();
-    // Populate business select
-    const sel = document.getElementById('feat-biz-select');
-    if(sel) sel.innerHTML = '<option value="">-- Elegir negocio --</option>' + bizAll.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
-    document.getElementById('admin-featured-list').innerHTML = feats.length
-      ? feats.map(f=>`<div class="admin-row">
-          <div style="flex:1;"><strong>${f.biz_name||'(sin nombre)'}</strong>${f.custom_title?` · "${f.custom_title}"`:''}
-          ${f.custom_image?`<br><img src="${f.custom_image}" style="height:40px;border-radius:6px;margin-top:4px;">`:''}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="file" accept="image/*" onchange="uploadFeaturedImage('${f.id}',this)" style="font-size:11px;width:120px;">
-            <button class="btn-sm btn-danger" onclick="deleteAdminFeatured('${f.id}')">✕</button>
-          </div>
-        </div>`).join('')
-      : '<div style="text-align:center;color:#aaa;padding:20px;">No hay negocios destacados</div>';
-  } catch(e){}
-}
-
-async function createAdminFeatured() {
-  const business_id = document.getElementById('feat-biz-select')?.value;
-  const custom_title = document.getElementById('feat-title')?.value?.trim();
-  if(!business_id) return showToast('Elegí un negocio');
-  const res = await fetch('/api/admin/featured',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({business_id,custom_title})});
-  const d = await res.json();
-  if(d.ok){ showToast('✅ Negocio destacado'); loadAdminFeatured(); loadFeatured(); }
-  else showToast('Error: '+d.error);
-}
-
-async function uploadFeaturedImage(id, input) {
-  const file = input.files[0]; if(!file) return;
-  const fd = new FormData(); fd.append('image',file);
-  const res = await fetch(`/api/admin/featured/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
-  const d = await res.json();
-  if(d.ok){ showToast('✅ Imagen subida'); loadAdminFeatured(); loadFeatured(); }
-  else showToast('Error al subir');
-}
-
-async function deleteAdminFeatured(id) {
-  if(!confirm('¿Quitar de destacados?')) return;
-  await fetch(`/api/admin/featured/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-  loadAdminFeatured(); loadFeatured();
-}
-
-// ═══════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════
-updateCartBadge();
-renderProfile();
-updateHeaderCity();
-loadHomeDynamic();
-
-// Si tiene ciudad guardada, cargar directamente
-// Si no, detectar GPS automáticamente
-if (activeCity) {
-  loadStores();
-} else if (user?.city) {
-  // Restaurar ciudad del perfil si está logueado
-  activeCity = user.city;
-  activeDept = user.department || '';
-  localStorage.setItem('da_city', activeCity);
-  updateHeaderCity();
-  loadStores();
-} else {
-  // Primera vez — intentar GPS automáticamente
-  loadStores(); // Cargar demo mientras
-  setTimeout(() => {
-    // Solo lanzar GPS si no hay modal abierto
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
-            const { latitude: lat, longitude: lng } = pos.coords;
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`);
-            const geo = await res.json();
-            const addr = geo.address;
-            const city = addr.city || addr.town || addr.village || addr.municipality || '';
-            const dept = addr.state || '';
-            if (city) {
-              activeCity = city;
-              activeDept = dept;
-              localStorage.setItem('da_city', city);
-              localStorage.setItem('da_dept', dept);
-              updateHeaderCity();
-              loadStores();
-              showToast(`📍 Ubicación detectada: ${city}`);
-            } else {
-              openLocModal();
-            }
-          } catch { openLocModal(); }
-        },
-        () => {
-          // GPS denegado — abrir modal para ingresar manualmente
-          openLocModal();
-        },
-        { timeout: 8000 }
-      );
-    } else {
-      openLocModal();
-    }
-  }, 1500);
-}
-
-if (token) connectWS();
-
-// ═══════════════════════════════════════════════
-//  PWA — Service Worker + Install Banner
-// ═══════════════════════════════════════════════
-
-// Registrar Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registrado:', reg.scope))
-      .catch(err => console.log('SW error:', err));
-  });
-}
-
-// Banner de instalación Android (Chrome muestra el evento beforeinstallprompt)
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  // Mostrar nuestro banner personalizado después de 30 segundos
-  setTimeout(() => showInstallBanner(), 30000);
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredPrompt = null;
-  hideInstallBanner();
-  showToast('✅ ¡App instalada! Buscala en tu pantalla de inicio');
-});
-
-function showInstallBanner() {
-  if (!deferredPrompt) return;
-  const banner = document.getElementById('pwa-install-banner');
-  if (banner) banner.style.display = 'flex';
-}
-
-function hideInstallBanner() {
-  const banner = document.getElementById('pwa-install-banner');
-  if (banner) banner.style.display = 'none';
-  localStorage.setItem('pwa_banner_dismissed', Date.now());
-}
-
-async function triggerInstall() {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') showToast('✅ Instalando app...');
-  deferredPrompt = null;
-  hideInstallBanner();
-}
-
-// Detectar si es iOS para mostrar instrucciones manuales
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-function isInStandaloneMode() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-}
-
-// Mostrar instrucciones iOS si no está instalada
-if (isIOS() && !isInStandaloneMode()) {
-  const dismissed = localStorage.getItem('ios_banner_dismissed');
-  const oneWeek = 7 * 24 * 60 * 60 * 1000;
-  if (!dismissed || Date.now() - parseInt(dismissed) > oneWeek) {
-    setTimeout(() => {
-      const banner = document.getElementById('pwa-ios-banner');
-      if (banner) banner.style.display = 'flex';
-    }, 5000);
-  }
-}
-
-function dismissIOSBanner() {
-  const banner = document.getElementById('pwa-ios-banner');
-  if (banner) banner.style.display = 'none';
-  localStorage.setItem('ios_banner_dismissed', Date.now());
-}
-
-// Detectar retorno desde MercadoPago
-const urlP = new URLSearchParams(window.location.search);
-const payStatus = urlP.get('payment');
-const blowplusStatus = urlP.get('blowplus');
-if (payStatus) {
-  if (payStatus==='success') { showToast('🎉 ¡Pago exitoso! Tu pedido fue confirmado.'); setTimeout(()=>nav('page-tracking'),500); }
-  else if (payStatus==='failure') showToast('❌ El pago fue rechazado. Intentá de nuevo.');
-  else if (payStatus==='pending') showToast('⏳ Pago pendiente. Te notificaremos cuando se confirme.');
-  window.history.replaceState({}, '', '/');
-}
-// ── Secret admin access via URL ──────────────────
-const secretPath = window.location.pathname;
-if (secretPath === '/blow-admin-panel') {
-  window.history.replaceState({}, '', '/');
-  setTimeout(() => {
-    if (user && user.role === 'admin') {
-      nav('page-admin');
-    } else {
-      // Show login, then redirect to admin after login
-      localStorage.setItem('post_login_redirect', 'page-admin');
-      openAuth('Acceso Admin');
-    }
-  }, 300);
-}
-
-const blowplususerStatus = urlP.get('blowplususer');
-if (blowplusStatus === 'success') {
-  window.history.replaceState({}, '', '/');
-  setTimeout(() => {
-    showToast('⚡ ¡Blow+ activado! Bienvenido al plan premium.');
-    nav('page-owner-dash');
-    setTimeout(() => { document.getElementById('otab-btn-blowplus')?.click(); }, 800);
-  }, 500);
-} else if (blowplusStatus === 'failure') {
-  window.history.replaceState({}, '', '/');
-  showToast('❌ El pago de Blow+ fue rechazado. Intentá de nuevo.');
-}
-if (blowplususerStatus === 'success') {
-  window.history.replaceState({}, '', '/');
-  setTimeout(() => {
-    showToast('⚡ ¡Blow+ activado! Ahora tenés envíos gratis y promos exclusivas.');
-    nav('page-user-blowplus');
-  }, 500);
-} else if (blowplususerStatus === 'failure') {
-  window.history.replaceState({}, '', '/');
-  showToast('❌ El pago fue rechazado. Intentá de nuevo.');
-}
-</script>
-
-<!-- ══ PWA INSTALL BANNER — Android ══ -->
-<div id="pwa-install-banner" style="display:none;position:fixed;bottom:80px;left:12px;right:12px;background:#1a1a2e;color:#fff;border-radius:16px;padding:16px;z-index:9999;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);">
-  <img src="/icons/icon-72x72.png" style="width:48px;height:48px;flex-shrink:0;" alt="icon">
-  <div style="flex:1;">
-    <div style="font-weight:800;font-size:14px;margin-bottom:2px;">Instalá Blow</div>
-    <div style="font-size:12px;opacity:.8;">Accedé directo desde tu pantalla de inicio</div>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-    <button onclick="triggerInstall()" style="background:#FA0050;color:#fff;border:none;border-radius:10px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Instalar</button>
-    <button onclick="hideInstallBanner()" style="background:transparent;color:rgba(255,255,255,.6);border:none;font-size:12px;cursor:pointer;">Ahora no</button>
-  </div>
-</div>
-
-<!-- ══ PWA INSTALL BANNER — iOS ══ -->
-<div id="pwa-ios-banner" style="display:none;position:fixed;bottom:80px;left:12px;right:12px;background:#1a1a2e;color:#fff;border-radius:16px;padding:16px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);flex-direction:column;">
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-    <img src="/icons/icon-72x72.png" style="width:48px;height:48px;" alt="icon">
-    <div>
-      <div style="font-weight:800;font-size:14px;">Instalá Blow en tu iPhone</div>
-      <div style="font-size:12px;opacity:.8;margin-top:2px;" style="display:none;"></div>
-    </div>
-    <button onclick="dismissIOSBanner()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:22px;cursor:pointer;margin-left:auto;line-height:1;">×</button>
-  </div>
-  <div style="background:rgba(255,255,255,.08);border-radius:12px;padding:12px;font-size:13px;line-height:1.6;">
-    <div style="margin-bottom:6px;">1. Tocá el botón <strong style="background:rgba(255,255,255,.15);padding:2px 6px;border-radius:6px;">Compartir</strong> 
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-left:2px;"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-    </div>
-    <div style="margin-bottom:6px;">2. Bajá y tocá <strong>"Agregar a pantalla de inicio"</strong></div>
-  </div>
-  <div style="font-size:11px;opacity:.5;margin-top:8px;text-align:center;width:100%;">Solo funciona desde Safari</div>
-</div>
-
-</body>
-</html>
