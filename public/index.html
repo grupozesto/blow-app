@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Blow</title>
 
 <!-- PWA -->
@@ -36,8 +36,13 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
-.app-header{padding-top:max(12px,env(safe-area-inset-top,0px));}
-.bottom-nav{padding-bottom:max(8px,env(safe-area-inset-bottom,0px));}
+.app-header{padding-top:max(56px,calc(env(safe-area-inset-top,0px) + 16px));}
+.bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
+
+.pq-item2{display:flex;align-items:center;gap:12px;background:#f8f8f8;border-radius:14px;padding:14px 16px;cursor:pointer;transition:background .15s;}
+.pq-item2:active{background:#f0f0f0;}
+.pq-icon2{width:40px;height:40px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.pq-label2{font-size:13px;font-weight:600;color:#1a1a1a;line-height:1.3;}
 
 /* ── RESPONSIVE LAYOUT ── */
 @media(min-width:900px){
@@ -47,7 +52,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 }
 @media(max-width:899px){
   .sidebar{display:none!important;}
-  .page-wrap{margin-left:0;padding-bottom:calc(var(--nav) + 8px);}
+  .page-wrap{margin-left:0;padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px));}
 }
 
 /* ── SIDEBAR ── */
@@ -75,11 +80,11 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .nb-badge{position:absolute;top:-4px;right:-8px;background:var(--primary);color:#fff;border-radius:50%;width:17px;height:17px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
 
 /* ── PAGES ── */
-.page{display:none;min-height:100vh;flex-direction:column;}
+.page{display:none;min-height:100vh;flex-direction:column;} .page.active{display:flex;}
 .page.active{display:flex;}
 
 /* ── HEADER — Red PedidosYa style ── */
-.app-header{background:var(--primary);padding:14px 16px 14px;position:sticky;top:0;z-index:100;}
+.app-header{background:var(--primary);padding:14px 16px 14px;padding-top:max(48px,calc(env(safe-area-inset-top,0px) + 14px));position:sticky;top:0;z-index:100;}
 .hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .hloc{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;}
 .hloc svg{width:14px;height:14px;fill:#fff;flex-shrink:0;}
@@ -130,9 +135,9 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .promo-badge{background:#FFB800;color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;}
 
 /* ── SMALL CATEGORY ICONS ── */
-.smallcat{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:60px;}
+.smallcat{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:56px;max-width:70px;}
 .smallcat:hover .sc-icon{transform:scale(1.05);}
-.sc-icon{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;transition:transform .15s;flex-shrink:0;}
+.sc-icon{width:66px;height:66px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;transition:transform .15s;flex-shrink:0;}
 .smallcat span{font-size:11px;font-weight:600;color:#333;text-align:center;white-space:nowrap;}
 
 /* ── STORE LOGO CHIP ── */
@@ -146,7 +151,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .bigcat:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
 .bigcat-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;justify-content:center;font-size:110px;pointer-events:none;bottom:-10px;right:-10px;opacity:.85;}
 .bigcat-em{font-size:80px;position:absolute;bottom:-8px;right:-4px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.15));line-height:1;}
-.bigcat-label{font-size:16px;font-weight:800;color:#1a1a1a;position:relative;z-index:1;line-height:1.1;}
+.bigcat-label{font-size:13px;font-weight:800;color:#1a1a1a;position:relative;z-index:1;line-height:1.2.1;}
 
 /* ── CHIPS ── */
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
@@ -178,7 +183,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .tag.new-badge{background:#e8f0ff;color:#3b5bdb;}
 
 /* ── PAGE HEADER ── */
-.page-hdr{background:#fff;padding:18px 16px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.page-hdr{background:#fff;padding:18px 16px 14px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 14px));border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
 .page-hdr h1{font-size:24px;font-weight:900;}
 .back-btn{position:absolute;top:14px;left:14px;background:#fff;border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);z-index:10;}
 .back-btn svg{width:18px;height:18px;}
@@ -311,7 +316,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .earn-amt{font-weight:800;color:var(--success);font-size:14px;}
 
 /* ── OWNER ── */
-.owner-login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;background:var(--bg);}
+.owner-login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 32px));background:var(--bg);}
 .plans-grid{display:flex;flex-direction:column;gap:12px;width:100%;margin-bottom:20px;}
 .plan-card{background:#fff;border:2px solid var(--border);border-radius:var(--r);padding:18px;cursor:pointer;transition:border-color .2s;position:relative;}
 .plan-card.selected{border-color:var(--primary);}
@@ -324,7 +329,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .pf.ok{color:var(--text);}
 .pf.ok::before{content:'✓ ';color:var(--success);}
 .pf::before{content:'✗ ';color:#ccc;}
-.owner-header{background:var(--primary);padding:24px 16px 20px;}
+.owner-header{background:var(--primary);padding:24px 16px 20px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 16px));}
 .owner-header-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
 .owner-store-name{font-size:20px;font-weight:900;color:#fff;}
 .owner-store-sub{font-size:12px;color:rgba(255,255,255,.7);margin-top:2px;}
@@ -600,7 +605,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .blowplus-card{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;margin-bottom:20px;}
 .blowplus-card::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(250,0,80,.3),transparent 70%);}
 .blowplus-card::after{content:'';position:absolute;bottom:-30px;left:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(107,0,204,.4),transparent 70%);}
-.blowplus-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,#FA0050,#ff6b6b);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;margin-bottom:14px;}
+.blowplus-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,#FA0050,#ff6b6b);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;margin-bottom:14px;color:#fff;}
 .blowplus-title{font-size:26px;font-weight:900;margin-bottom:6px;position:relative;z-index:1;}
 .blowplus-subtitle{font-size:13px;opacity:.75;margin-bottom:18px;position:relative;z-index:1;}
 .blowplus-features{display:flex;flex-direction:column;gap:10px;margin-bottom:22px;position:relative;z-index:1;}
@@ -614,6 +619,15 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 .blowplus-btn:disabled{opacity:.6;cursor:not-allowed;}
 .blowplus-active-card{background:linear-gradient(135deg,#0a2e0a,#1a4d1a);border-radius:20px;padding:20px;color:#fff;position:relative;overflow:hidden;margin-bottom:20px;border:1.5px solid rgba(39,174,96,.4);}
 .blowplus-status-dot{width:10px;height:10px;border-radius:50%;background:#27ae60;display:inline-block;margin-right:6px;box-shadow:0 0 8px rgba(39,174,96,.6);}
+
+@media(max-width:480px){
+  .sc-icon{width:46px;height:46px;}
+  .smallcat span{font-size:10px;}
+  .smallcat{min-width:52px;}
+  .hrow{margin-bottom:8px;}
+  .banner-slide{min-height:160px;}
+  .nb{padding:6px 8px;min-width:46px;font-size:9px;}
+}
 </style>
 </head>
 <body>
@@ -643,14 +657,11 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       Modo Delivery
     </button>
     -->
-    <button class="si" onclick="nav('page-owner-login')">
+    <button class="si" onclick="handleOwnerAccess()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       Portal Negocios
     </button>
-    <button class="si" onclick="nav('page-admin')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      Admin
-    </button>
+
   </div>
 </nav>
 
@@ -716,7 +727,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       <div class="bdots" id="bdots"><div class="bdot active" onclick="goBanner(0)"></div><div class="bdot" onclick="goBanner(1)"></div><div class="bdot" onclick="goBanner(2)"></div></div>
     </div>
     <!-- PROMO -->
-    <div class="promo-strip"><div class="promo-strip-icon">🏦</div><div class="promo-strip-text"><div class="promo-strip-title">Con Débito Santander</div><div class="promo-strip-sub">Lunes a Jueves · T&C aplican</div></div><div class="promo-badge">+10% OFF</div></div>
+    <div class="promo-strip" id="bank-promo-strip" style="display:none;"><div class="promo-strip-icon" id="bps-icon">🏦</div><div class="promo-strip-text"><div class="promo-strip-title" id="bps-title">Con Débito Santander</div><div class="promo-strip-sub" id="bps-sub">Lunes a Jueves · T&C aplican</div></div><div class="promo-badge" id="bps-badge">+10% OFF</div></div>
     <!-- CATEGORÍAS -->
     <div class="section" style="padding:16px 16px 0;">
       <div class="bigcat-grid" style="margin-bottom:10px;">
@@ -836,32 +847,36 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
 
 <!-- ══ PAGE: PROFILE ══ -->
 <div class="page page-wrap" id="page-profile">
-  <div class="sc" style="background:#fff;">
-    <div class="profile-hero" style="position:relative;">
-      <div style="font-size:26px;font-weight:900;color:#1a1a1a;text-align:center;padding-top:8px;" id="profile-greeting">¡Hola!</div>
-      <button class="profile-settings-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+  <div class="sc" style="background:#f5f5f5;">
+    <!-- Profile Hero -->
+    <div style="background:#fff;padding:max(60px,calc(env(safe-area-inset-top,44px) + 16px)) 20px 24px;text-align:center;border-bottom:1px solid var(--border);">
+      <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;margin:0 auto 12px;" id="profile-avatar">?</div>
+      <div style="font-size:22px;font-weight:900;color:#1a1a1a;" id="profile-greeting">¡Hola!</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;" id="profile-email-sub"></div>
     </div>
-    <!-- Blow+ Banner -->
-    <div id="user-blowplus-section" style="margin:0;"></div>
 
-    <!-- Quick access grid -->
-    <div class="profile-quick-grid">
-      <div class="pq-item" onclick="nav('page-tracking')">
-        <div class="pq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-        <span class="pq-label">Información personal</span>
+    <!-- Quick access grid — 2x2 + Blow+ -->
+    <div style="background:#fff;margin-top:12px;padding:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="pq-item2" onclick="nav('page-tracking')">
+          <div class="pq-icon2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <span class="pq-label2">Información personal</span>
+        </div>
+        <div class="pq-item2" onclick="nav('page-coupons')">
+          <div class="pq-icon2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8l-2 4h12z"/></svg></div>
+          <span class="pq-label2">Cupones</span>
+        </div>
+        <div class="pq-item2" onclick="handleOwnerAccess()">
+          <div class="pq-icon2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+          <span class="pq-label2">Portal Negocios</span>
+        </div>
+        <div class="pq-item2" onclick="nav('page-help')">
+          <div class="pq-icon2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <span class="pq-label2">Ayuda</span>
+        </div>
       </div>
-      <div class="pq-item">
-        <div class="pq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8l-2 4h12z"/></svg></div>
-        <span class="pq-label">Cupones</span>
-      </div>
-      <div class="pq-item" onclick="nav('page-owner-login')">
-        <div class="pq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
-        <span class="pq-label">Portal Negocios</span>
-      </div>
-      <div class="pq-item">
-        <div class="pq-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-        <span class="pq-label">Ayuda</span>
-      </div>
+      <!-- Blow+ card — full width -->
+      <div id="user-blowplus-section" style="margin-top:10px;"></div>
     </div>
     <div style="height:8px;background:#f5f5f5;"></div>
     <div class="menu-list">
@@ -874,17 +889,9 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 1 8 8c0 5.4-7 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z"/></svg></div>
         <div class="mi-text"><span>Direcciones</span></div><span class="mi-arrow">›</span>
       </div>
-      <div class="menu-item">
+      <div class="menu-item" onclick="showToast('❤️ Próximamente — tus favoritos')">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
         <div class="mi-text"><span>Favoritos</span></div><span class="mi-arrow">›</span>
-      </div>
-    </div>
-    <div style="height:8px;background:#f5f5f5;"></div>
-    <div class="menu-list">
-      <div class="menu-sec-title">Actividad</div>
-      <div class="menu-item">
-        <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
-        <div class="mi-text"><span>Medios de pago</span></div><span class="mi-arrow">›</span>
       </div>
     </div>
     <div style="height:8px;background:#f5f5f5;"></div>
@@ -892,7 +899,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       <div class="menu-sec-title">Configuración</div>
 
       <div class="menu-item" onclick="handleOwnerAccess()"><div class="mi-icon yellow">🏪</div><div class="mi-text"><span>Portal de Negocios</span><small>Gestioná tu marca</small></div><span class="mi-arrow">›</span></div>
-      <div class="menu-item" onclick="nav('page-admin')"><div class="mi-icon red">🔧</div><div class="mi-text"><span>Panel Admin</span><small>Administración</small></div><span class="mi-arrow">›</span></div>
+      
       <div class="menu-sec-title">Sesión</div>
       <div class="menu-item" id="session-item" onclick="handleSession()">
         <div class="mi-icon red">🔐</div>
@@ -959,12 +966,12 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
     <div style="font-size:26px;font-weight:900;margin-bottom:6px;">Portal de Negocios</div>
     <div style="color:var(--muted);font-size:14px;margin-bottom:28px;text-align:center;">Registrá tu negocio y empezá a recibir pedidos.</div>
     <div class="tab-sw" style="max-width:400px;width:100%;margin-bottom:24px;">
-      <button class="tab-btn active" id="oltab-login" onclick="ownerTab('login')">Iniciar sesión</button>
-      <button class="tab-btn" id="oltab-reg" onclick="ownerTab('register')">Registrarme</button>
+      <button class="tab-btn" id="oltab-login" onclick="ownerTab('login')">Iniciar sesión</button>
+      <button class="tab-btn active" id="oltab-reg" onclick="ownerTab('register')">Registrarme</button>
     </div>
 
     <!-- LOGIN -->
-    <div id="owner-login-form" style="width:100%;max-width:400px;">
+    <div id="owner-login-form" style="width:100%;max-width:400px;display:none;">
       <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ol-email" type="email" placeholder="tu@negocio.com"></div>
       <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="ol-pass" type="password" placeholder="••••••••"></div>
       <div id="ol-error" style="color:var(--primary);font-size:13px;margin-bottom:10px;display:none;"></div>
@@ -973,7 +980,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
     </div>
 
     <!-- REGISTER — Step 1: datos -->
-    <div id="owner-reg-form" style="width:100%;max-width:400px;display:none;">
+    <div id="owner-reg-form" style="width:100%;max-width:400px;">
 
       <!-- Pricing banner -->
       <div style="background:linear-gradient(135deg,var(--primary),#c0001e);border-radius:16px;padding:20px;margin-bottom:20px;color:#fff;text-align:center;">
@@ -1233,8 +1240,107 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
         <button class="primary-btn" onclick="setupAdmin()">Crear Admin</button>
       </div>
       <div id="admin-dashboard" style="display:none;">
-        <div style="font-size:18px;font-weight:800;margin-bottom:16px;">Retiros pendientes</div>
-        <div id="admin-withdrawals-list"><div class="loading-state"><div class="spinner"></div></div></div>
+
+        <!-- Admin Tabs -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:12px;">
+          <button onclick="adminTab('stats')" id="atab-stats" class="atab-btn active" style="padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">📊 Stats</button>
+          <button onclick="adminTab('users')" id="atab-users" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">👥 Usuarios</button>
+          <button onclick="adminTab('businesses')" id="atab-businesses" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🏪 Negocios</button>
+          <button onclick="adminTab('orders')" id="atab-orders" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📦 Pedidos</button>
+          <button onclick="adminTab('withdrawals')" id="atab-withdrawals" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">💸 Retiros</button>
+          <button onclick="adminTab('subscriptions')" id="atab-subscriptions" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📋 Suscripciones</button>
+          <button onclick="adminTab('settings')" id="atab-settings" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⚙️ Config</button>
+        </div>
+
+        <!-- STATS -->
+        <div id="admin-tab-stats">
+          <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:24px;"></div>
+        </div>
+
+        <!-- USERS -->
+        <div id="admin-tab-users" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <input id="admin-user-search" class="form-input" placeholder="Buscar por nombre o email..." style="flex:1;" oninput="filterAdminUsers()">
+          </div>
+          <div id="admin-users-list"></div>
+        </div>
+
+        <!-- BUSINESSES -->
+        <div id="admin-tab-businesses" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <input id="admin-biz-search" class="form-input" placeholder="Buscar negocio..." style="flex:1;" oninput="filterAdminBiz()">
+          </div>
+          <div id="admin-biz-list"></div>
+        </div>
+
+        <!-- ORDERS -->
+        <div id="admin-tab-orders" style="display:none;">
+          <div id="admin-orders-list"></div>
+        </div>
+
+        <!-- WITHDRAWALS -->
+        <div id="admin-tab-withdrawals" style="display:none;">
+          <div id="admin-withdrawals-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- SUBSCRIPTIONS -->
+        <div id="admin-tab-subscriptions" style="display:none;">
+          <div id="admin-subs-list"></div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="admin-tab-settings" style="display:none;">
+          <div style="max-width:500px;">
+            <div class="form-group"><label class="form-label">Comisión plataforma (%)</label><input class="form-input" id="cfg-fee" type="number" min="0" max="100" step="0.1"></div>
+            <div class="form-group"><label class="form-label">Costo envío base ($)</label><input class="form-input" id="cfg-delivery" type="number" min="0"></div>
+            <div class="form-group"><label class="form-label">Precio plan mensual negocios ($)</label><input class="form-input" id="cfg-plan-price" type="number" min="0"></div>
+            <div class="form-group"><label class="form-label">Ciudad por defecto</label><input class="form-input" id="cfg-city" type="text" placeholder="ej: Montevideo"></div>
+            <div class="form-group"><label class="form-label">Precio registro negocio ($UYU)</label><input class="form-input" id="cfg-reg-price" type="number" placeholder="2990"></div>
+            <div style="border-top:1px solid var(--border);margin:20px 0 16px;font-size:13px;font-weight:700;color:var(--muted);">🏦 BANNER PROMOCIÓN BANCARIA</div>
+            <div class="form-group"><label class="form-label">Mostrar banner</label>
+              <select class="form-input" id="cfg-bank-visible"><option value="1">Sí, mostrar</option><option value="0">No, ocultar</option></select>
+            </div>
+            <div class="form-group"><label class="form-label">Ícono (emoji)</label><input class="form-input" id="cfg-bank-icon" type="text" placeholder="🏦" maxlength="4"></div>
+            <div class="form-group"><label class="form-label">Título</label><input class="form-input" id="cfg-bank-title" type="text" placeholder="Con Débito Santander"></div>
+            <div class="form-group"><label class="form-label">Subtítulo</label><input class="form-input" id="cfg-bank-sub" type="text" placeholder="Lunes a Jueves · T&C aplican"></div>
+            <div class="form-group"><label class="form-label">Badge (ej: +10% OFF)</label><input class="form-input" id="cfg-bank-badge" type="text" placeholder="+10% OFF"></div>
+            <button class="btn-primary" onclick="saveAdminSettings()" style="width:100%;">💾 Guardar configuración</button>
+          </div>
+        </div>
+
+        <!-- COUPONS TAB -->
+        <div id="admin-tab-coupons" style="display:none;">
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">Crear cupón</div>
+          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="new-coupon-code" type="text" placeholder="PROMO20" style="text-transform:uppercase;letter-spacing:1px;"></div>
+              <div class="form-group"><label class="form-label">Tipo</label>
+                <select class="form-input" id="new-coupon-type">
+                  <option value="percent">% Porcentaje</option>
+                  <option value="fixed">$ Fijo</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">Valor *</label><input class="form-input" id="new-coupon-value" type="number" placeholder="10"></div>
+              <div class="form-group"><label class="form-label">Pedido mínimo ($)</label><input class="form-input" id="new-coupon-min" type="number" placeholder="0"></div>
+              <div class="form-group"><label class="form-label">Usos máximos</label><input class="form-input" id="new-coupon-maxuses" type="number" placeholder="Sin límite"></div>
+              <div class="form-group"><label class="form-label">Vencimiento</label><input class="form-input" id="new-coupon-expires" type="date"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="new-coupon-desc" type="text" placeholder="Ej: Descuento de bienvenida"></div>
+            <button class="primary-btn" onclick="createAdminCoupon()">Crear cupón →</button>
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--muted);">CUPONES EXISTENTES</div>
+          <div id="admin-coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- HELP/SUPPORT TAB -->
+        <div id="admin-tab-helpmsg" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-size:16px;font-weight:800;">Mensajes de soporte</div>
+            <button onclick="loadAdminHelp()" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;">🔄 Actualizar</button>
+          </div>
+          <div id="admin-help-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
       </div>
       <div id="admin-login-section">
         <div class="form-group"><label class="form-label">Email Admin</label><input class="form-input" id="admin-login-email" type="email"></div>
@@ -1262,10 +1368,7 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
     </div>
     <span class="nb-label">Carrito</span>
   </button>
-  <button class="nb" id="nb-promos" onclick="nav('page-tracking')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <span class="nb-label">Promociones</span>
-  </button>
+
   <button class="nb" id="nb-tracking" onclick="nav('page-tracking')">
     <div class="nw">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -1509,14 +1612,122 @@ body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height
       <button class="primary-btn" onclick="doLogin()">Ingresar →</button>
     </div>
     <div id="auth-reg-form" style="display:none;">
-      <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="r-name" type="text" placeholder="Juan García"></div>
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
-      <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX"></div>
-      <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-      <input type="hidden" id="r-role" value="customer">
+      <!-- Step 1: datos -->
+      <div id="reg-step-1">
+        <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="r-name" type="text" placeholder="Juan García"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
+        <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX"></div>
+        <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <input type="hidden" id="r-role" value="customer">
       <button class="primary-btn" onclick="doRegister()">Crear cuenta →</button>
+      </div>
+      <!-- Step 2: verify code -->
+      <div id="reg-step-2" style="display:none;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">📧</div>
+        <div style="font-size:17px;font-weight:800;margin-bottom:6px;">Revisá tu email</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px;" id="reg-email-hint">Te enviamos un código de 6 dígitos.</div>
+        <div class="form-group">
+          <label class="form-label">Código de verificación</label>
+          <input class="form-input" id="r-code" type="number" placeholder="123456" style="text-align:center;font-size:24px;font-weight:800;letter-spacing:6px;" maxlength="6">
+        </div>
+        <button class="primary-btn" onclick="doVerifyEmail()">Verificar y crear cuenta →</button>
+        <button style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:10px;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('reg-step-1').style.display='block';document.getElementById('reg-step-2').style.display='none';">← Cambiar datos</button>
+      </div>
     </div>
     <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: COUPONS ══ -->
+<div class="page" id="page-coupons">
+  <div class="page-hdr">
+    <button class="back-btn-inline" onclick="nav('page-profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <h1>Mis Cupones 🎟️</h1>
+  </div>
+  <div class="sc" style="padding:16px;">
+    <!-- Enter code manually -->
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Ingresar código de cupón</div>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="coupon-code-input" type="text" placeholder="Ej: DESCUENTO10" style="flex:1;text-transform:uppercase;letter-spacing:1px;font-weight:700;">
+        <button class="btn-primary" onclick="validateCouponManual()" style="padding:0 16px;white-space:nowrap;">Aplicar</button>
+      </div>
+      <div id="coupon-manual-result" style="margin-top:10px;font-size:13px;display:none;"></div>
+    </div>
+    <!-- Available coupons list -->
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--muted);">CUPONES DISPONIBLES</div>
+    <div id="coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: HELP ══ -->
+<div class="page" id="page-help">
+  <div class="page-hdr">
+    <button class="back-btn-inline" onclick="nav('page-profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <h1>Ayuda 💬</h1>
+  </div>
+  <div class="sc" style="padding:16px;">
+
+    <!-- WhatsApp -->
+    <a href="https://wa.me/59899000000" target="_blank" style="text-decoration:none;">
+      <div style="background:#25D366;border-radius:16px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+        <div style="font-size:32px;">💬</div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff;">Escribinos por WhatsApp</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">Respuesta rápida · Lun a Vie 9-18hs</div>
+        </div>
+        <div style="margin-left:auto;color:#fff;font-size:20px;">›</div>
+      </div>
+    </a>
+
+    <!-- FAQ -->
+    <div style="font-size:14px;font-weight:700;color:var(--muted);margin-bottom:12px;">PREGUNTAS FRECUENTES</div>
+    <div id="faq-list">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo hago un pedido? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">Buscá el negocio que quieras, agregá productos al carrito y tocá "Confirmar pedido". Serás redirigido a MercadoPago para pagar.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cuánto tarda la entrega? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">El tiempo de entrega depende de cada negocio. Generalmente entre 30 y 60 minutos. Podés ver el estado de tu pedido en "Mis Pedidos".</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo uso un cupón de descuento? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">En la sección "Cupones" de tu perfil podés ver los disponibles e ingresar un código. El descuento se aplica automáticamente en tu próximo pedido.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Qué es Blow+? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">Blow+ es la membresía premium de Blow. Por $200 UYU por mes tenés envíos gratis en todos tus pedidos y acceso a promociones exclusivas.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo cancelo o modifico un pedido? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">Una vez confirmado el pedido no se puede modificar. Si necesitás cancelarlo contactanos por WhatsApp lo antes posible.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo registro mi negocio en Blow? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">Tocá "Portal Negocios" en el menú de perfil, completá el formulario con los datos de tu negocio y realizá el pago de suscripción. Tu cuenta se activa automáticamente.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo pago? ¿Aceptan efectivo? <span class="faq-arrow">›</span></div>
+        <div class="faq-a">Los pagos se procesan a través de MercadoPago. Podés pagar con tarjeta de débito o crédito, transferencia bancaria o efectivo en Abitab y RedPagos.</div>
+      </div>
+    </div>
+
+    <!-- Contact form -->
+    <div style="font-size:14px;font-weight:700;color:var(--muted);margin:20px 0 12px;">CONTACTANOS</div>
+    <div style="background:#fff;border-radius:16px;padding:16px;border:1px solid var(--border);">
+      <div class="form-group"><label class="form-label">Tu nombre</label><input class="form-input" id="help-name" type="text" placeholder="Juan García"></div>
+      <div class="form-group"><label class="form-label">Email <span style="color:var(--primary)">*</span></label><input class="form-input" id="help-email" type="email" placeholder="tu@email.com"></div>
+      <div class="form-group"><label class="form-label">¿En qué te podemos ayudar? <span style="color:var(--primary)">*</span></label>
+        <textarea class="form-input" id="help-msg" rows="4" placeholder="Contanos tu consulta o problema..." style="resize:none;"></textarea>
+      </div>
+      <div id="help-result" style="font-size:13px;margin-bottom:10px;display:none;"></div>
+      <button class="btn-primary" onclick="sendHelpMessage()" style="width:100%;">Enviar mensaje →</button>
+    </div>
   </div>
 </div>
 
@@ -1710,6 +1921,10 @@ function nav(pageId) {
 
   // Page-specific load
   if (pageId === 'page-cart') renderCart();
+  if (pageId === 'page-home') loadBankPromoStrip();
+  if (pageId === 'page-owner-login') ownerTab('register');
+  if (pageId === 'page-coupons') loadCoupons();
+  if (pageId === 'page-help') initHelpPage();
   if (pageId === 'page-tracking') loadTracking();
   if (pageId === 'page-profile') renderProfile();
   if (pageId === 'page-owner-dash') loadOwnerDash();
@@ -1717,7 +1932,10 @@ function nav(pageId) {
   if (pageId === 'page-profile') { if (user?.role === 'customer') loadUserBlowPlus(); }
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-delivery') loadDeliveryPanel();
-  if (pageId === 'page-admin') loadAdminPanel();
+  if (pageId === 'page-admin') {
+    if (!user || user.role !== 'admin') { nav('page-home'); return; }
+    loadAdminPanel();
+  }
   window.scrollTo(0,0);
 }
 
@@ -2040,6 +2258,20 @@ function renderStores(list) {
 // Load dynamic categories from API
 // Called once on page init
 window.addEventListener('load', () => { loadAppSettings(); });
+
+async function loadBankPromoStrip() {
+  try {
+    const s = await api('/api/admin/settings');
+    const strip = document.getElementById('bank-promo-strip');
+    if (!strip) return;
+    if (s.bank_promo_visible === false) { strip.style.display='none'; return; }
+    document.getElementById('bps-icon').textContent = s.bank_promo_icon||'🏦';
+    document.getElementById('bps-title').textContent = s.bank_promo_title||'Con Débito Santander';
+    document.getElementById('bps-sub').textContent = s.bank_promo_sub||'Lunes a Jueves · T&C aplican';
+    document.getElementById('bps-badge').textContent = s.bank_promo_badge||'+10% OFF';
+    strip.style.display='flex';
+  } catch(e) {}
+}
 
 async function loadBusinessCategories() {
   try {
@@ -2669,6 +2901,8 @@ function renderProfile() {
   if (user) {
     const firstName = user.name.split(' ')[0];
     if(el('profile-greeting')) el('profile-greeting').textContent = '¡Hola, ' + firstName + '!';
+    if(el('profile-avatar')) el('profile-avatar').textContent = user.name[0].toUpperCase();
+    if(el('profile-email-sub')) el('profile-email-sub').textContent = user.email;
     if(el('profile-name')) el('profile-name').textContent = user.name;
     if(el('profile-email')) el('profile-email').textContent = user.email;
     if(el('profile-role-badge')) el('profile-role-badge').textContent = {customer:'🛒 Cliente',owner:'🏪 Dueño',delivery:'🛵 Delivery',admin:'🔧 Admin'}[user.role]||user.role;
@@ -2687,8 +2921,7 @@ function renderProfile() {
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
   if (user?.role==='owner') nav('page-owner-dash');
-  else if (!user) openAuth('Iniciá sesión como dueño');
-  else nav('page-owner-login');
+  else { nav('page-owner-login'); ownerTab('register'); }
 }
 
 // ═══════════════════════════════════════════════
@@ -2720,7 +2953,11 @@ async function doLogin() {
     renderProfile(); updateCartBadge();
     if (data.user.role==='owner') { nav('page-owner-dash'); }
     // delivery role hidden for now
-    else if (data.user.role==='admin') nav('page-admin');
+    else if (data.user.role==='admin') {
+      const redirect = localStorage.getItem('post_login_redirect');
+      localStorage.removeItem('post_login_redirect');
+      nav(redirect || 'page-admin');
+    }
   } catch(e) { showAuthErr(e.message); }
 }
 
@@ -2732,12 +2969,37 @@ async function doRegister() {
   const role=document.getElementById('r-role').value;
   if (!name||!email||!pass) return showAuthErr('Completá nombre, email y contraseña');
   if (pass.length<6) return showAuthErr('La contraseña debe tener al menos 6 caracteres');
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return showAuthErr('El email no es válido');
+  if (phone && phone.length < 8) return showAuthErr('El teléfono debe tener al menos 8 dígitos');
+  if (phone && !/^[\d\s\+\-\(\)]+$/.test(phone)) return showAuthErr('El teléfono solo puede contener números');
   try {
     const data = await api('/api/auth/register',{method:'POST',body:JSON.stringify({name,email,phone,password:pass,role})});
+    if (data.pending) {
+      // Show verification step
+      document.getElementById('reg-step-1').style.display='none';
+      document.getElementById('reg-step-2').style.display='block';
+      document.getElementById('reg-email-hint').textContent='Te enviamos un código de 6 dígitos a ' + email;
+      document.getElementById('r-code').value='';
+      showAuthErr('');
+    } else {
+      // SMTP not configured — auto verified
+      saveSession(data.token, data.user);
+      closeAuth(); showToast(`🎉 ¡Cuenta creada! Bienvenido, ${data.user.name}`);
+      renderProfile();
+    }
+  } catch(e) { showAuthErr(e.message); }
+}
+
+async function doVerifyEmail() {
+  const email = document.getElementById('r-email').value.trim();
+  const code = document.getElementById('r-code').value.trim();
+  if (!code || code.length !== 6) return showAuthErr('Ingresá el código de 6 dígitos');
+  try {
+    const data = await api('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email,code})});
     saveSession(data.token, data.user);
     closeAuth(); showToast(`🎉 ¡Cuenta creada! Bienvenido, ${data.user.name}`);
     renderProfile();
-    // delivery role hidden
   } catch(e) { showAuthErr(e.message); }
 }
 
@@ -3475,6 +3737,7 @@ function switchOTab(id, el) {
   if (id === 'otab-promos') loadPromos();
   if (id === 'otab-blowplus') loadBlowPlus();
   if (id === 'otab-settings') populatePhotoSettings();
+  if (id === 'otab-coupons') loadOwnerCoupons();
 }
 
 // ═══════════════════════════════════════════════
@@ -3886,8 +4149,8 @@ async function loadUserBlowPlus() {
           <div style="display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;">
             <div>
               <div class="blowplus-badge" style="margin-bottom:8px;">⚡ Blow+</div>
-              <div style="font-size:16px;font-weight:900;">Envíos gratis + promos exclusivas</div>
-              <div style="font-size:12px;opacity:.75;margin-top:4px;">Solo $200 UYU por mes</div>
+              <div style="font-size:16px;font-weight:900;color:#1a1a1a;">Envíos gratis + promos exclusivas</div>
+              <div style="font-size:12px;opacity:.75;margin-top:4px;color:#1a1a1a;">Solo $200 UYU por mes</div>
             </div>
             <div style="font-size:42px;position:relative;z-index:1;">→</div>
           </div>
@@ -4227,21 +4490,220 @@ function populatePhotoSettings() {
 // ═══════════════════════════════════════════════
 //  ADMIN PANEL
 // ═══════════════════════════════════════════════
+let adminUsersCache = [];
+let adminBizCache = [];
+
 async function loadAdminPanel() {
   if (!user || user.role!=='admin') {
     document.getElementById('admin-login-section').style.display='block';
     document.getElementById('admin-dashboard').style.display='none';
-    // Check if admin exists
-    try { await api('/api/admin/setup'); } catch(e) {
-      if (e.message.includes('Ya existe')) { /* ok */ }
-      else { document.getElementById('admin-setup-section').style.display='block'; document.getElementById('admin-login-section').style.display='none'; }
-    }
     return;
   }
   document.getElementById('admin-login-section').style.display='none';
   document.getElementById('admin-setup-section').style.display='none';
   document.getElementById('admin-dashboard').style.display='block';
-  loadAdminWithdrawals();
+  adminTab('stats');
+}
+
+function adminTab(tab) {
+  ['stats','users','businesses','orders','withdrawals','subscriptions','settings','coupons','helpmsg'].forEach(t => {
+    const el = document.getElementById('admin-tab-'+t);
+    const btn = document.getElementById('atab-'+t);
+    if (el) el.style.display = t===tab ? 'block' : 'none';
+    if (btn) {
+      btn.style.background = t===tab ? 'var(--primary)' : 'transparent';
+      btn.style.color = t===tab ? '#fff' : '';
+      btn.style.border = t===tab ? 'none' : '1px solid var(--border)';
+    }
+  });
+  if (tab==='stats') loadAdminStats();
+  else if (tab==='users') loadAdminUsers();
+  else if (tab==='businesses') loadAdminBusinesses();
+  else if (tab==='orders') loadAdminOrders();
+  else if (tab==='withdrawals') loadAdminWithdrawals();
+  else if (tab==='subscriptions') loadAdminSubs();
+  else if (tab==='settings') loadAdminSettings();
+  else if (tab==='coupons') loadAdminCoupons();
+  else if (tab==='helpmsg') loadAdminHelp();
+}
+
+async function loadAdminStats() {
+  try {
+    const s = await api('/api/admin/stats');
+    const g = document.getElementById('admin-stats-grid');
+    g.innerHTML = [
+      ['👥','Usuarios',s.users],
+      ['🏪','Negocios',s.businesses],
+      ['📦','Pedidos',s.orders],
+      ['✅','Completados',s.completed_orders],
+      ['💰','Revenue total','$'+Math.round(s.total_revenue||0)],
+      ['📋','Suscripciones activas',s.active_subscriptions],
+    ].map(([ico,lbl,val])=>`
+      <div style="background:var(--surface);border-radius:12px;padding:16px;text-align:center;border:1px solid var(--border);">
+        <div style="font-size:24px;">${ico}</div>
+        <div style="font-size:22px;font-weight:800;margin:4px 0;">${val??0}</div>
+        <div style="font-size:12px;color:var(--muted);">${lbl}</div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminUsers() {
+  try {
+    adminUsersCache = await api('/api/admin/users');
+    renderAdminUsers(adminUsersCache);
+  } catch(e) { showToast('❌ '+e.message); }
+}
+function filterAdminUsers() {
+  const q = document.getElementById('admin-user-search').value.toLowerCase();
+  renderAdminUsers(adminUsersCache.filter(u => (u.name+u.email).toLowerCase().includes(q)));
+}
+function renderAdminUsers(users) {
+  const el = document.getElementById('admin-users-list');
+  if (!users.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay usuarios</div>'; return; }
+  el.innerHTML = users.map(u=>`
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;">${u.name[0].toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;">${u.name}</div>
+        <div style="font-size:12px;color:var(--muted);">${u.email} · ${u.role}</div>
+        ${u.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ cliente</div>':''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button onclick="adminResetPw('${u.id}','${u.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;">🔑</button>
+        <button onclick="adminDeleteUser('${u.id}','${u.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+async function adminResetPw(id, name) {
+  const newPw = prompt('Nueva contraseña para '+name+' (mín 6 caracteres):');
+  if (!newPw || newPw.length < 6) return;
+  try { await api('/api/admin/users/'+id+'/reset-password',{method:'POST',body:JSON.stringify({password:newPw})}); showToast('✅ Contraseña actualizada'); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminDeleteUser(id, name) {
+  if (!confirm('¿Eliminar al usuario '+name+'? Esta acción no se puede deshacer.')) return;
+  try { await api('/api/admin/users/'+id,{method:'DELETE'}); showToast('✅ Usuario eliminado'); loadAdminUsers(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminBusinesses() {
+  try {
+    adminBizCache = await api('/api/admin/businesses');
+    renderAdminBiz(adminBizCache);
+  } catch(e) { showToast('❌ '+e.message); }
+}
+function filterAdminBiz() {
+  const q = document.getElementById('admin-biz-search').value.toLowerCase();
+  renderAdminBiz(adminBizCache.filter(b => b.name.toLowerCase().includes(q)));
+}
+function renderAdminBiz(bizs) {
+  const el = document.getElementById('admin-biz-list');
+  if (!bizs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay negocios</div>'; return; }
+  el.innerHTML = bizs.map(b=>`
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="font-size:28px;">${b.emoji||'🏪'}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;">${b.name}</div>
+          <div style="font-size:12px;color:var(--muted);">${b.city||''} · ${b.is_active?'✅ Activo':'⏸️ Inactivo'}</div>
+          ${b.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ negocio</div>':''}
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="adminToggleBiz('${b.id}',${b.is_active})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;">${b.is_active?'⏸️':'▶️'}</button>
+          <button onclick="adminDeleteBiz('${b.id}','${b.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+async function adminToggleBiz(id, isActive) {
+  try { await api('/api/admin/businesses/'+id,{method:'PATCH',body:JSON.stringify({is_active:!isActive})}); showToast('✅ Actualizado'); loadAdminBusinesses(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminDeleteBiz(id, name) {
+  if (!confirm('¿Eliminar el negocio '+name+'?')) return;
+  try { await api('/api/admin/businesses/'+id,{method:'DELETE'}); showToast('✅ Negocio eliminado'); loadAdminBusinesses(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminOrders() {
+  try {
+    const orders = await api('/api/admin/orders');
+    const el = document.getElementById('admin-orders-list');
+    if (!orders.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay pedidos</div>'; return; }
+    el.innerHTML = orders.map(o=>`
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;">${o.customer_name||'Cliente'} → ${o.business_name||'Negocio'}</div>
+            <div style="font-size:12px;color:var(--muted);">${new Date(o.created_at).toLocaleString('es-UY')}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;">$${o.total}</div>
+            <div style="font-size:12px;padding:2px 8px;border-radius:10px;background:${o.status==='completed'?'#dcfce7':o.status==='cancelled'?'#fee2e2':'#fef9c3'};color:${o.status==='completed'?'#166534':o.status==='cancelled'?'#dc2626':'#854d0e'};">${o.status}</div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminSubs() {
+  try {
+    const subs = await api('/api/admin/subscriptions');
+    const el = document.getElementById('admin-subs-list');
+    if (!subs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay suscripciones</div>'; return; }
+    el.innerHTML = subs.map(s=>`
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-weight:700;">${s.business_name||s.id}</div>
+          <div style="font-size:12px;color:var(--muted);">Estado: ${s.status} · Vence: ${s.expires_at?new Date(s.expires_at).toLocaleDateString('es-UY'):'N/A'}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          ${s.status!=='active'?`<button onclick="adminActivateSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:12px;">✅ Activar</button>`:''}
+          ${s.status==='active'?`<button onclick="adminSuspendSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">⏸️ Suspender</button>`:''}
+        </div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+async function adminActivateSub(id) {
+  try { await api('/api/admin/subscriptions/'+id+'/activate',{method:'POST'}); showToast('✅ Suscripción activada'); loadAdminSubs(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminSuspendSub(id) {
+  try { await api('/api/admin/subscriptions/'+id+'/suspend',{method:'POST'}); showToast('✅ Suscripción suspendida'); loadAdminSubs(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+
+async function loadAdminSettings() {
+  try {
+    const s = await api('/api/admin/settings');
+    document.getElementById('cfg-fee').value = s.platform_fee_percent||0;
+    document.getElementById('cfg-delivery').value = s.delivery_base_fee||50;
+    document.getElementById('cfg-plan-price').value = s.plan_price||990;
+    document.getElementById('cfg-city').value = s.default_city||'Montevideo';
+    document.getElementById('cfg-reg-price').value = s.registration_fee||2990;
+    document.getElementById('cfg-bank-visible').value = s.bank_promo_visible==false ? '0' : '1';
+    document.getElementById('cfg-bank-icon').value = s.bank_promo_icon||'🏦';
+    document.getElementById('cfg-bank-title').value = s.bank_promo_title||'Con Débito Santander';
+    document.getElementById('cfg-bank-sub').value = s.bank_promo_sub||'Lunes a Jueves · T&C aplican';
+    document.getElementById('cfg-bank-badge').value = s.bank_promo_badge||'+10% OFF';
+  } catch(e) {}
+}
+async function saveAdminSettings() {
+  try {
+    await api('/api/admin/settings',{method:'POST',body:JSON.stringify({
+      platform_fee_percent: parseFloat(document.getElementById('cfg-fee').value)||0,
+      registration_fee: parseFloat(document.getElementById('cfg-reg-price').value)||2990,
+      delivery_base_fee: parseFloat(document.getElementById('cfg-delivery').value)||50,
+      plan_price: parseFloat(document.getElementById('cfg-plan-price').value)||990,
+      default_city: document.getElementById('cfg-city').value.trim()||'Montevideo',
+      bank_promo_visible: document.getElementById('cfg-bank-visible').value === '1',
+      bank_promo_icon: document.getElementById('cfg-bank-icon').value.trim()||'🏦',
+      bank_promo_title: document.getElementById('cfg-bank-title').value.trim()||'Con Débito Santander',
+      bank_promo_sub: document.getElementById('cfg-bank-sub').value.trim()||'Lunes a Jueves · T&C aplican',
+      bank_promo_badge: document.getElementById('cfg-bank-badge').value.trim()||'+10% OFF',
+    })});
+    showToast('✅ Configuración guardada');
+  } catch(e) { showToast('❌ '+e.message); }
 }
 
 async function adminLogin() {
@@ -4303,6 +4765,244 @@ function showToast(msg) {
   t.textContent=msg; t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ═══════════════════════════════════════════════
+//  COUPONS
+// ═══════════════════════════════════════════════
+async function loadCoupons() {
+  const el = document.getElementById('coupons-list');
+  if (!el) return;
+  if (!user) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:14px;">Iniciá sesión para ver tus cupones disponibles</div>';
+    return;
+  }
+  try {
+    const res = await api('/api/coupons/available');
+    if (!res.length) {
+      el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:14px;">😔 No hay cupones disponibles por ahora</div>';
+      return;
+    }
+    el.innerHTML = res.map(c => {
+      const alreadyUsed = parseInt(c.my_uses) >= c.per_user;
+      const discountLabel = c.discount_type === 'percent' ? `${c.discount_value}% OFF` : `$${c.discount_value} OFF`;
+      return `<div class="coupon-card${alreadyUsed?' opacity:0.5':''}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <span class="coupon-badge">${discountLabel}</span>
+          ${alreadyUsed ? '<span style="font-size:11px;color:var(--muted);font-weight:600;">YA USADO</span>' : ''}
+        </div>
+        <div class="coupon-code">${c.code}</div>
+        ${c.description ? `<div style="font-size:13px;color:var(--muted);margin-top:4px;">${c.description}</div>` : ''}
+        ${c.business_name ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🏪 Solo en ${c.business_name}</div>` : '<div style="font-size:12px;color:var(--muted);margin-top:4px;">✅ Válido en todos los negocios</div>'}
+        ${c.min_order > 0 ? `<div style="font-size:12px;color:var(--muted);">Pedido mínimo: $${c.min_order}</div>` : ''}
+        ${c.expires_at ? `<div style="font-size:12px;color:var(--muted);">Vence: ${new Date(c.expires_at).toLocaleDateString('es-UY')}</div>` : ''}
+        ${!alreadyUsed ? `<button onclick="copyCouponCode('${c.code}')" style="margin-top:10px;width:100%;padding:10px;background:#fff5f7;border:2px solid #FA0050;border-radius:10px;color:#FA0050;font-weight:800;font-size:13px;cursor:pointer;">Copiar código</button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Error al cargar cupones</div>'; }
+}
+
+function copyCouponCode(code) {
+  navigator.clipboard?.writeText(code).then(() => showToast(`✅ Código "${code}" copiado`)).catch(() => showToast(`Código: ${code}`));
+}
+
+async function validateCouponManual() {
+  const code = document.getElementById('coupon-code-input').value.trim();
+  const res_el = document.getElementById('coupon-manual-result');
+  if (!code) return showToast('Ingresá un código');
+  if (!user) return showToast('Iniciá sesión para usar cupones');
+  res_el.style.display = 'block';
+  res_el.innerHTML = '<span style="color:var(--muted);">Verificando...</span>';
+  try {
+    const data = await api('/api/coupons/validate', 'POST', { code, order_total: 9999, business_id: null });
+    res_el.innerHTML = `<span style="color:var(--success);font-weight:700;">✅ Cupón válido — ${data.coupon.discount_type==='percent' ? data.coupon.discount_value+'% de descuento' : '$'+data.coupon.discount_value+' de descuento'}</span>`;
+    document.getElementById('coupon-code-input').value = '';
+    showToast('🎟️ Cupón guardado — se aplicará en tu próximo pedido');
+    // Save to localStorage for cart to use
+    localStorage.setItem('active_coupon', JSON.stringify(data.coupon));
+  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);font-weight:600;">❌ ${e.message}</span>`; }
+}
+
+// ═══════════════════════════════════════════════
+//  HELP / AYUDA
+// ═══════════════════════════════════════════════
+function toggleFaq(el) {
+  el.classList.toggle('open');
+}
+
+async function sendHelpMessage() {
+  const name = document.getElementById('help-name').value.trim();
+  const email = document.getElementById('help-email').value.trim();
+  const msg = document.getElementById('help-msg').value.trim();
+  const res_el = document.getElementById('help-result');
+  if (!email || !msg) return showToast('Email y mensaje son requeridos');
+  res_el.style.display = 'block';
+  res_el.innerHTML = '<span style="color:var(--muted);">Enviando...</span>';
+  try {
+    await api('/api/help', 'POST', { name: name || (user?.name || 'Anónimo'), email: email || user?.email, message: msg });
+    res_el.innerHTML = '<span style="color:var(--success);font-weight:700;">✅ Mensaje enviado — te responderemos a la brevedad</span>';
+    document.getElementById('help-name').value = '';
+    document.getElementById('help-email').value = '';
+    document.getElementById('help-msg').value = '';
+  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);">❌ ${e.message}</span>`; }
+}
+
+// Pre-fill help form if user is logged in
+function initHelpPage() {
+  if (user) {
+    const nameEl = document.getElementById('help-name');
+    const emailEl = document.getElementById('help-email');
+    if (nameEl && !nameEl.value) nameEl.value = user.name || '';
+    if (emailEl && !emailEl.value) emailEl.value = user.email || '';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN — COUPONS SECTION
+// ═══════════════════════════════════════════════
+async function loadAdminCoupons() {
+  const el = document.getElementById('admin-coupons-list');
+  if (!el) return;
+  try {
+    const coupons = await api('/api/admin/coupons');
+    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No hay cupones creados</div>'; return; }
+    el.innerHTML = coupons.map(c => `
+      <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span style="font-size:16px;font-weight:900;letter-spacing:1px;color:#FA0050;">${c.code}</span>
+            ${c.business_name ? `<span style="font-size:11px;color:var(--muted);margin-left:8px;">🏪 ${c.business_name}</span>` : '<span style="font-size:11px;color:var(--muted);margin-left:8px;">Global</span>'}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="background:${c.active?'#e6f9f0':'#f5f5f5'};color:${c.active?'var(--success)':'var(--muted)'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${c.active?'Activo':'Pausado'}</span>
+            <button onclick="toggleAdminCoupon('${c.id}',${!c.active})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;cursor:pointer;">${c.active?'Pausar':'Activar'}</button>
+            <button onclick="deleteAdminCoupon('${c.id}')" style="padding:6px 10px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;">
+          ${c.discount_type==='percent'?`${c.discount_value}% descuento`:`$${c.discount_value} descuento fijo`}
+          ${c.min_order>0?` · Mínimo $${c.min_order}`:''}
+          ${c.max_uses?` · ${c.uses_count}/${c.max_uses} usos`:''}
+          ${c.expires_at?` · Vence ${new Date(c.expires_at).toLocaleDateString('es-UY')}`:''}
+        </div>
+        ${c.description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">${c.description}</div>`:''}
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<div style="color:var(--muted);">Error al cargar</div>'; }
+}
+
+async function toggleAdminCoupon(id, active) {
+  try { await api(`/api/admin/coupons/${id}`, 'PATCH', { active }); loadAdminCoupons(); showToast(active ? '✅ Cupón activado' : '⏸️ Cupón pausado'); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function deleteAdminCoupon(id) {
+  if (!confirm('¿Borrar este cupón?')) return;
+  try { await api(`/api/admin/coupons/${id}`, 'DELETE'); loadAdminCoupons(); showToast('🗑️ Cupón eliminado'); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function createAdminCoupon() {
+  const code = document.getElementById('new-coupon-code').value.trim().toUpperCase();
+  const type = document.getElementById('new-coupon-type').value;
+  const value = parseFloat(document.getElementById('new-coupon-value').value);
+  const min = parseFloat(document.getElementById('new-coupon-min').value) || 0;
+  const maxUses = parseInt(document.getElementById('new-coupon-maxuses').value) || null;
+  const expires = document.getElementById('new-coupon-expires').value || null;
+  const desc = document.getElementById('new-coupon-desc').value.trim();
+  if (!code || !value) return showToast('Código y descuento son requeridos');
+  try {
+    await api('/api/admin/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min, max_uses: maxUses, expires_at: expires || null });
+    showToast('✅ Cupón creado');
+    document.getElementById('new-coupon-code').value = '';
+    document.getElementById('new-coupon-value').value = '';
+    document.getElementById('new-coupon-min').value = '';
+    document.getElementById('new-coupon-maxuses').value = '';
+    document.getElementById('new-coupon-expires').value = '';
+    document.getElementById('new-coupon-desc').value = '';
+    loadAdminCoupons();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN — HELP MESSAGES
+// ═══════════════════════════════════════════════
+async function loadAdminHelp() {
+  const el = document.getElementById('admin-help-list');
+  if (!el) return;
+  try {
+    const msgs = await api('/api/admin/help');
+    if (!msgs.length) { el.innerHTML = '<div style="color:var(--muted);padding:20px;text-align:center;">No hay mensajes</div>'; return; }
+    const rows = msgs.map(m => {
+      const r = m.status === 'resolved';
+      const replyHtml = m.admin_reply
+        ? '<p style="font-size:13px;background:#f5f5f5;border-radius:8px;padding:10px;color:#666;"><b>Respuesta:</b> ' + m.admin_reply + '</p>'
+        : '<div style="display:flex;gap:8px;margin-top:8px;">'
+          + '<input class="form-input" id="reply-' + m.id + '" placeholder="Escribi tu respuesta..." style="flex:1;font-size:13px;">'
+          + '<button onclick="replyHelp(\'' + m.id + '\')" style="padding:8px 14px;background:var(--primary);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Responder</button>'
+          + '</div>';
+      return '<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid ' + (r?'#d4edda':'#e5e5e5') + ';">'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+        + '<b style="font-size:14px;">' + m.user_name + '</b>'
+        + '<span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;background:' + (r?'#e6f9f0':'#fff5f7') + ';color:' + (r?'var(--success)':'var(--primary)') + ';">' + (r?'Resuelto':'Pendiente') + '</span>'
+        + '</div>'
+        + '<p style="font-size:12px;color:var(--muted);margin:-4px 0 8px;">' + m.user_email + '</p>'
+        + '<p style="font-size:13px;color:#333;">' + m.message + '</p>'
+        + replyHtml
+        + '<p style="font-size:11px;color:var(--muted);margin-top:6px;">' + new Date(m.created_at).toLocaleString('es-UY') + '</p>'
+        + '</div>';
+    });
+    el.innerHTML = rows.join('');
+  } catch(e) { el.innerHTML = '<div style="color:var(--muted);">Error al cargar</div>'; }
+}
+async function replyHelp(id) {
+  const reply = document.getElementById(`reply-${id}`)?.value.trim();
+  if (!reply) return showToast('Escribí una respuesta');
+  try { await api(`/api/admin/help/${id}`, 'PATCH', { reply }); showToast('✅ Respuesta enviada por email'); loadAdminHelp(); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ═══════════════════════════════════════════════
+//  OWNER — COUPONS
+// ═══════════════════════════════════════════════
+async function loadOwnerCoupons() {
+  const el = document.getElementById('owner-coupons-list');
+  if (!el) return;
+  try {
+    const coupons = await api('/api/owner/coupons');
+    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;font-size:13px;">No creaste cupones todavía</div>'; return; }
+    el.innerHTML = coupons.map(c => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f9f9f9;border-radius:10px;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:800;color:#FA0050;letter-spacing:1px;">${c.code}</div>
+          <div style="font-size:12px;color:var(--muted);">${c.discount_type==='percent'?`${c.discount_value}% OFF`:`$${c.discount_value} OFF`} ${c.uses_count ? `· ${c.uses_count} usos` : ''}</div>
+        </div>
+        <button onclick="deleteOwnerCoupon('${c.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function createOwnerCoupon() {
+  const code = document.getElementById('oc-code')?.value.trim().toUpperCase();
+  const type = document.getElementById('oc-type')?.value;
+  const value = parseFloat(document.getElementById('oc-value')?.value);
+  const min = parseFloat(document.getElementById('oc-min')?.value) || 0;
+  const desc = document.getElementById('oc-desc')?.value.trim();
+  if (!code || !value) return showToast('Código y descuento son requeridos');
+  try {
+    await api('/api/owner/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min });
+    showToast('✅ Cupón creado');
+    document.getElementById('oc-code').value = '';
+    document.getElementById('oc-value').value = '';
+    document.getElementById('oc-min').value = '';
+    if (document.getElementById('oc-desc')) document.getElementById('oc-desc').value = '';
+    loadOwnerCoupons();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function deleteOwnerCoupon(id) {
+  if (!confirm('¿Borrar este cupón?')) return;
+  try { await api(`/api/owner/coupons/${id}`, 'DELETE'); loadOwnerCoupons(); showToast('🗑️ Cupón eliminado'); }
+  catch(e) { showToast('❌ ' + e.message); }
 }
 
 // ═══════════════════════════════════════════════
@@ -4450,6 +5150,21 @@ if (payStatus) {
   else if (payStatus==='pending') showToast('⏳ Pago pendiente. Te notificaremos cuando se confirme.');
   window.history.replaceState({}, '', '/');
 }
+// ── Secret admin access via URL ──────────────────
+const secretPath = window.location.pathname;
+if (secretPath === '/blow-admin-panel') {
+  window.history.replaceState({}, '', '/');
+  setTimeout(() => {
+    if (user && user.role === 'admin') {
+      nav('page-admin');
+    } else {
+      // Show login, then redirect to admin after login
+      localStorage.setItem('post_login_redirect', 'page-admin');
+      openAuth('Acceso Admin');
+    }
+  }, 300);
+}
+
 const blowplususerStatus = urlP.get('blowplususer');
 if (blowplusStatus === 'success') {
   window.history.replaceState({}, '', '/');
