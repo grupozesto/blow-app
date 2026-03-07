@@ -930,7 +930,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
 
     <!-- Banner Blow+ -->
-    <div style="padding:0 16px 16px;background:#fff;" onclick="goToBlowPlus()">
+    <div id="profile-blowplus-banner" style="padding:0 16px 16px;background:#fff;" onclick="goToBlowPlus()">
       <div style="background:linear-gradient(120deg,#4a00e0,#6c1fc9);border-radius:16px;padding:18px 16px;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;cursor:pointer;">
         <!-- plus badge -->
         <div style="background:#fff;border-radius:10px;padding:8px 10px;flex-shrink:0;">
@@ -949,7 +949,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
 
     <!-- Quick access — 4 iconos en fila -->
-    <div style="background:#fff;padding:4px 16px 20px;">
+    <div id="profile-quick-icons" style="background:#fff;padding:4px 16px 20px;">
       <div style="display:flex;gap:8px;">
         <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;" onclick="nav('page-personal-info');loadPersonalInfo()">
           <div style="width:56px;height:56px;background:#f5f5f5;border-radius:16px;display:flex;align-items:center;justify-content:center;">
@@ -978,10 +978,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
     </div>
 
-    <div style="height:8px;background:#f5f5f5;"></div>
+    <div id="profile-div-1" style="height:8px;background:#f5f5f5;"></div>
 
     <!-- Sección Perfil -->
-    <div class="menu-list">
+    <div id="profile-section-perfil" class="menu-list">
       <div class="menu-sec-title">Perfil</div>
       <div class="menu-item" onclick="nav('page-personal-info');loadPersonalInfo()">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
@@ -1001,10 +1001,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
     </div>
 
-    <div style="height:8px;background:#f5f5f5;"></div>
+    <div id="profile-div-2" style="height:8px;background:#f5f5f5;"></div>
 
     <!-- Sección Actividad -->
-    <div class="menu-list">
+    <div id="profile-section-actividad" class="menu-list">
       <div class="menu-sec-title">Actividad</div>
       <div class="menu-item" onclick="nav('page-tracking')">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
@@ -1016,7 +1016,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
     </div>
 
-    <div style="height:8px;background:#f5f5f5;"></div>
+    <div id="profile-div-3" style="height:8px;background:#f5f5f5;"></div>
 
     <!-- Configuración -->
     <div class="menu-list">
@@ -3170,32 +3170,62 @@ async function cancelOrder(id) {
 // ═══════════════════════════════════════════════
 function renderProfile() {
   const el = id => document.getElementById(id);
+
+  // Elements that only show when logged in as customer
+  const loggedInSections = ['profile-blowplus-banner','profile-quick-icons',
+    'profile-section-perfil','profile-section-actividad',
+    'profile-div-1','profile-div-2','profile-div-3'];
+
   if (user) {
     const firstName = user.name.split(' ')[0];
     if(el('profile-greeting')) el('profile-greeting').textContent = '¡Hola, ' + firstName + '!';
-    if(el('profile-avatar')) el('profile-avatar').textContent = user.name[0].toUpperCase();
+    if(el('profile-avatar')) {
+      if (user.avatar_url) {
+        el('profile-avatar').style.backgroundImage = 'url(' + user.avatar_url + ')';
+        el('profile-avatar').style.backgroundSize = 'cover';
+        el('profile-avatar').textContent = '';
+      } else {
+        el('profile-avatar').textContent = user.name[0].toUpperCase();
+      }
+    }
     if(el('profile-email-sub')) el('profile-email-sub').textContent = user.email;
     if(el('profile-name')) el('profile-name').textContent = user.name;
     if(el('profile-email')) el('profile-email').textContent = user.email;
     if(el('profile-role-badge')) el('profile-role-badge').textContent = {customer:'🛒 Cliente',owner:'🏪 Dueño',delivery:'🛵 Delivery',admin:'🔧 Admin'}[user.role]||user.role;
     el('session-label').textContent = 'Cerrar sesión';
     el('session-sub').textContent = user.email;
-    // Show Portal de Negocios only for owners and admins, hide for customers
+
+    // Show/hide sections based on role
+    const isCustomer = user.role === 'customer';
+    loggedInSections.forEach(id => {
+      const s = el(id); if(s) s.style.display = isCustomer ? '' : 'none';
+    });
+
+    // Portal de Negocios: hide for customers
     const portalItem = el('portal-negocios-item');
-    if (portalItem) {
-      portalItem.style.display = (user.role === 'customer') ? 'none' : '';
-    }
+    if (portalItem) portalItem.style.display = isCustomer ? 'none' : '';
+
   } else {
+    // NOT logged in - hide everything except session button and portal
     if(el('profile-greeting')) el('profile-greeting').textContent = '¡Hola!';
-    const portalItemOut = document.getElementById('portal-negocios-item');
-    if (portalItemOut) portalItemOut.style.display = '';
+    if(el('profile-avatar')) { el('profile-avatar').textContent = '?'; el('profile-avatar').style.backgroundImage = ''; }
     if(el('profile-name')) el('profile-name').textContent = 'Mi Perfil';
     if(el('profile-email')) el('profile-email').textContent = '—';
-    if(el('profile-role-badge')) el('profile-role-badge').textContent = '—';
+    if(el('profile-role-badge')) el('profile-role-badge').textContent = '';
     el('session-label').textContent = 'Iniciar sesión';
     el('session-sub').textContent = 'Ingresá a tu cuenta';
+
+    // Hide all customer sections
+    loggedInSections.forEach(id => {
+      const s = el(id); if(s) s.style.display = 'none';
+    });
+
+    // Show portal so they can register as owner
+    const portalItem = el('portal-negocios-item');
+    if (portalItem) portalItem.style.display = '';
   }
 }
+
 
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
