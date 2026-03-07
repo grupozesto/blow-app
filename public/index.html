@@ -1796,25 +1796,45 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 <!-- ══ PAGE: COUPONS ══ -->
 <div class="page" id="page-coupons">
-  <div class="page-hdr">
+  <div class="page-hdr" style="border-bottom:1px solid var(--border);">
     <button class="back-btn-inline" onclick="nav('page-profile')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
-    <h1>Mis Cupones 🎟️</h1>
+    <h1>Mis cupones</h1>
+    <button onclick="showToast('ℹ️ Tus cupones se aplican automáticamente al finalizar la compra')" style="background:none;border:1.5px solid #ccc;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:13px;color:#666;margin-left:auto;">?</button>
   </div>
-  <div class="sc" style="padding:16px;">
-    <!-- Enter code manually -->
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
-      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Ingresar código de cupón</div>
-      <div style="display:flex;gap:8px;">
-        <input class="form-input" id="coupon-code-input" type="text" placeholder="Ej: DESCUENTO10" style="flex:1;text-transform:uppercase;letter-spacing:1px;font-weight:700;">
-        <button class="btn-primary" onclick="validateCouponManual()" style="padding:0 16px;white-space:nowrap;">Aplicar</button>
+  <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:100px;">
+
+    <!-- Cupón de ejemplo ficticio -->
+    <div id="coupons-list">
+      <div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
+        <div style="display:flex;min-height:100px;">
+          <!-- Logo izq con línea punteada -->
+          <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border-right:2px dashed #e0e0e0;gap:6px;">
+            <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#fff;">B</div>
+            <div style="font-size:10px;font-weight:800;color:#e67e00;">Vence mañana<br><span style="font-size:10px;">a las 23:59</span></div>
+          </div>
+          <!-- Info der -->
+          <div style="flex:1;padding:16px 14px;">
+            <div style="font-size:12px;color:#888;margin-bottom:4px;">De regalo</div>
+            <div style="font-size:26px;font-weight:900;color:#1a1a1a;line-height:1.1;margin-bottom:6px;">$ 6.000</div>
+            <div style="font-size:12px;color:#666;line-height:1.5;">Mínimo de compra: $ 10.000<br>Para lo que quieras</div>
+          </div>
+        </div>
+        <!-- Footer acciones -->
+        <div style="border-top:1px solid #f0f0f0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+          <button onclick="showToast('📋 Cupón: BIENVENIDA6000 · Válido hasta mañana')" style="background:none;border:none;font-size:13px;font-weight:700;color:#1a1a1a;cursor:pointer;padding:0;">Ver detalles</button>
+          <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Conocer locales</button>
+        </div>
       </div>
-      <div id="coupon-manual-result" style="margin-top:10px;font-size:13px;display:none;"></div>
     </div>
-    <!-- Available coupons list -->
-    <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--muted);">CUPONES DISPONIBLES</div>
-    <div id="coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
+
+    <div id="coupons-extra-list"></div>
+
+  </div>
+  <!-- Botón flotante agregar cupón -->
+  <div style="position:fixed;bottom:calc(var(--nav) + 12px);left:16px;right:16px;z-index:100;">
+    <button onclick="showAddCouponModal()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:50px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(250,0,80,.35);">Agregar nuevo cupón</button>
   </div>
 </div>
 
@@ -4928,40 +4948,59 @@ function showToast(msg) {
 //  COUPONS
 // ═══════════════════════════════════════════════
 async function loadCoupons() {
-  const el = document.getElementById('coupons-list');
-  if (!el) return;
+  const extraEl = document.getElementById('coupons-extra-list');
+  if (!extraEl) return;
   if (!user) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:14px;">Iniciá sesión para ver tus cupones disponibles</div>';
+    extraEl.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:14px;">Iniciá sesión para ver tus cupones</div>';
     return;
   }
   try {
     const res = await api('/api/coupons/available');
-    if (!res.length) {
-      el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:14px;">😔 No hay cupones disponibles por ahora</div>';
-      return;
-    }
-    el.innerHTML = res.map(c => {
-      const alreadyUsed = parseInt(c.my_uses) >= c.per_user;
-      const discountLabel = c.discount_type === 'percent' ? `${c.discount_value}% OFF` : `$${c.discount_value} OFF`;
-      return `<div class="coupon-card${alreadyUsed?' opacity:0.5':''}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-          <span class="coupon-badge">${discountLabel}</span>
-          ${alreadyUsed ? '<span style="font-size:11px;color:var(--muted);font-weight:600;">YA USADO</span>' : ''}
+    if (!res.length) { extraEl.innerHTML = ''; return; }
+    extraEl.innerHTML = res.map(c => {
+      const label = c.discount_type==='percent' ? `${c.discount_value}% OFF` : `$ ${Number(c.discount_value).toLocaleString('es-UY')}`;
+      const minLabel = c.min_order > 0 ? `Mínimo de compra: $ ${Number(c.min_order).toLocaleString('es-UY')}` : 'Sin mínimo de compra';
+      const expiry = c.expires_at ? new Date(c.expires_at).toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : null;
+      return `<div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
+        <div style="display:flex;min-height:100px;">
+          <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border-right:2px dashed #e0e0e0;gap:6px;">
+            <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;">B</div>
+            ${expiry ? `<div style="font-size:10px;font-weight:700;color:#e67e00;text-align:center;">Vence el<br>${expiry}</div>` : ''}
+          </div>
+          <div style="flex:1;padding:16px 14px;">
+            <div style="font-size:12px;color:#888;margin-bottom:4px;">De regalo</div>
+            <div style="font-size:26px;font-weight:900;color:#1a1a1a;line-height:1.1;margin-bottom:6px;">${label}</div>
+            <div style="font-size:12px;color:#666;line-height:1.5;">${minLabel}<br>${c.description||'Para lo que quieras'}</div>
+          </div>
         </div>
-        <div class="coupon-code">${c.code}</div>
-        ${c.description ? `<div style="font-size:13px;color:var(--muted);margin-top:4px;">${c.description}</div>` : ''}
-        ${c.business_name ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🏪 Solo en ${c.business_name}</div>` : '<div style="font-size:12px;color:var(--muted);margin-top:4px;">✅ Válido en todos los negocios</div>'}
-        ${c.min_order > 0 ? `<div style="font-size:12px;color:var(--muted);">Pedido mínimo: $${c.min_order}</div>` : ''}
-        ${c.expires_at ? `<div style="font-size:12px;color:var(--muted);">Vence: ${new Date(c.expires_at).toLocaleDateString('es-UY')}</div>` : ''}
-        ${!alreadyUsed ? `<button onclick="copyCouponCode('${c.code}')" style="margin-top:10px;width:100%;padding:10px;background:#fff5f7;border:2px solid #FA0050;border-radius:10px;color:#FA0050;font-weight:800;font-size:13px;cursor:pointer;">Copiar código</button>` : ''}
+        <div style="border-top:1px solid #f0f0f0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+          <button onclick="showToast('📋 Código: ${c.code}')" style="background:none;border:none;font-size:13px;font-weight:700;color:#1a1a1a;cursor:pointer;padding:0;">Ver detalles</button>
+          <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Conocer locales</button>
+        </div>
       </div>`;
     }).join('');
-  } catch(e) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Error al cargar cupones</div>'; }
+  } catch(e) { extraEl.innerHTML = ''; }
 }
 
-function copyCouponCode(code) {
-  navigator.clipboard?.writeText(code).then(() => showToast(`✅ Código "${code}" copiado`)).catch(() => showToast(`Código: ${code}`));
+function showAddCouponModal() {
+  const code = prompt('Ingresá el código de cupón:');
+  if (!code) return;
+  validateCouponManual(code.trim().toUpperCase());
 }
+
+async function validateCouponManual(code) {
+  if (!code) {
+    const input = document.getElementById('coupon-code-input');
+    code = input ? input.value.trim().toUpperCase() : '';
+  }
+  if (!code) return showToast('Ingresá un código');
+  try {
+    const res = await api('/api/coupons/validate', 'POST', {code, order_total: 0});
+    if (res.valid) { showToast('✅ Cupón válido: ' + (res.coupon?.description || code)); loadCoupons(); }
+    else showToast('❌ ' + (res.error || 'Cupón inválido'));
+  } catch(e) { showToast('❌ Error al validar cupón'); }
+}
+
 
 async function validateCouponManual() {
   const code = document.getElementById('coupon-code-input').value.trim();
