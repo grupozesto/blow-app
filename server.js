@@ -879,7 +879,6 @@ app.post('/api/register/initiate', async (req, res) => {
     if (await q1('SELECT id FROM users WHERE email=$1',[emailLow]))
       return res.status(409).json({ error:'Este email ya está registrado' });
 
-    // Store registration data temporarily
     const regId = uuid();
     await q('INSERT INTO pending_registrations (id,data) VALUES ($1,$2)',
       [regId, JSON.stringify({ bizName,category,address,city,department,name,email:emailLow,password,phone })]);
@@ -889,22 +888,26 @@ app.post('/api/register/initiate', async (req, res) => {
       return res.json({ reg_id: regId, demo: true });
     }
 
-    // Create MP preference (one-time first payment)
-    const pref = await mp.preferences.create({
-      items: [{ title:`Blow — Suscripción mensual`, quantity:1, unit_price:PLAN_PRICE, currency_id:'UYU' }],
-      payer: { name, email: emailLow },
+    // ── Preapproval: recurring subscription ──
+    const preapproval = await mp.preapproval.create({
+      reason: `Blow — Plan mensual negocios`,
       external_reference: `reg:${regId}`,
-      back_urls: {
-        success: `${APP_URL}/owner?reg=${regId}&payment=success`,
-        failure: `${APP_URL}/owner-login?reg=${regId}&payment=failure`,
-        pending: `${APP_URL}/owner-login?reg=${regId}&payment=pending`,
+      payer_email: emailLow,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: 'months',
+        transaction_amount: PLAN_PRICE,
+        currency_id: 'UYU',
+        start_date: new Date().toISOString(),
+        end_date: new Date(Date.now() + 1000*60*60*24*365*5).toISOString(), // 5 años
       },
-      auto_return: 'approved',
+      back_url: `${APP_URL}/owner?reg=${regId}&payment=success`,
       notification_url: `${APP_URL}/api/webhooks/mp`,
     });
 
-    await q('UPDATE pending_registrations SET mp_preference_id=$1 WHERE id=$2',[pref.body.id, regId]);
-    res.json({ reg_id: regId, init_point: pref.body.init_point });
+    await q('UPDATE pending_registrations SET mp_preference_id=$1 WHERE id=$2',
+      [preapproval.body.id, regId]);
+    res.json({ reg_id: regId, init_point: preapproval.body.init_point });
   } catch(e) { console.error('Register initiate error:', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -932,10 +935,12 @@ app.post('/api/register/complete', async (req, res) => {
     await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
 
-    // Create active subscription
+    // Create active subscription — store preapproval_id for future automatic charges
     const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
-    await q('INSERT INTO subscriptions (id,business_id,owner_id,plan,status,current_period_start,current_period_end) VALUES ($1,$2,$3,$4,$5,NOW(),$6)',
-      [uuid(), bizId, userId, 'active', 'active', periodEnd.toISOString()]);
+    const preapprovalId = pending.mp_preference_id || null; // reused field stores preapproval id
+    await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7)`,
+      [uuid(), bizId, userId, 'active', 'active', preapprovalId, periodEnd.toISOString()]);
 
     // Clean up pending registration
     await q('DELETE FROM pending_registrations WHERE id=$1',[reg_id]);
@@ -969,24 +974,46 @@ app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
     return res.json({ success:true, demo:true });
   }
 
-  const pref = await mp.preferences.create({
-    items: [{ title:'Blow — Renovación mensual', quantity:1, unit_price:PLAN_PRICE, currency_id:'UYU' }],
-    payer: { name:owner.name, email:owner.email },
+  // If existing preapproval, reactivate it
+  const sub = await q1('SELECT mp_preapproval_id FROM subscriptions WHERE business_id=$1',[b.id]);
+  if (sub?.mp_preapproval_id) {
+    try {
+      await mp.preapproval.update(sub.mp_preapproval_id, { status: 'authorized' });
+      const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+      await q(`UPDATE subscriptions SET status='active',current_period_start=NOW(),current_period_end=$1,updated_at=NOW() WHERE business_id=$2`,
+        [periodEnd.toISOString(), b.id]);
+      return res.json({ success:true, reactivated:true });
+    } catch(e) { /* fall through to new preapproval */ }
+  }
+
+  // New preapproval for first-time or expired
+  const preapproval = await mp.preapproval.create({
+    reason: `Blow — Plan mensual negocios`,
     external_reference: `renew:${b.id}`,
-    back_urls: {
-      success: `${APP_URL}/owner?payment=success`,
-      failure: `${APP_URL}/owner-login?payment=failure`,
+    payer_email: owner.email,
+    auto_recurring: {
+      frequency: 1,
+      frequency_type: 'months',
+      transaction_amount: PLAN_PRICE,
+      currency_id: 'UYU',
+      start_date: new Date().toISOString(),
+      end_date: new Date(Date.now() + 1000*60*60*24*365*5).toISOString(),
     },
-    auto_return: 'approved',
+    back_url: `${APP_URL}/owner?payment=success`,
     notification_url: `${APP_URL}/api/webhooks/mp`,
   });
-  res.json({ init_point: pref.body.init_point });
+  res.json({ init_point: preapproval.body.init_point });
 });
 
 // Cancel subscription
 app.post('/api/subscription/cancel', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
+  const sub = await q1('SELECT mp_preapproval_id FROM subscriptions WHERE business_id=$1',[b.id]);
+  // Cancel preapproval on MercadoPago so no future charges
+  if (sub?.mp_preapproval_id && mp) {
+    try { await mp.preapproval.update(sub.mp_preapproval_id, { status: 'cancelled' }); } catch(e) {}
+  }
   await q("UPDATE subscriptions SET status='cancelled',cancelled_at=NOW(),updated_at=NOW() WHERE business_id=$1",[b.id]);
   notify(req.user.id, { type:'subscription_cancelled', message:'❌ Suscripción cancelada. Tu negocio quedará invisible al final del período.' });
   res.json({ success:true });
@@ -1585,15 +1612,80 @@ app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
 app.post('/api/webhooks/mp', async (req, res) => {
   res.sendStatus(200);
   try {
-    const { type,data,topic,id }=req.body;
-    const paymentId=data?.id||id;
-    if ((type||topic)!=='payment'||!paymentId||!mp) return;
-    const payment=(await mp.payment.get(paymentId)).body;
-    const extRef=payment.external_reference;
+    const { type, data, topic, id } = req.body;
+    const resourceId = data?.id || id;
+    if (!resourceId || !mp) return;
+
+    // ── Preapproval (suscripción recurrente) ────────────────────────────
+    if (type === 'subscription_preapproval' || topic === 'preapproval') {
+      const pa = (await mp.preapproval.get(resourceId)).body;
+      const extRef = pa.external_reference;
+      if (!extRef) return;
+
+      // Registro inicial aprobado
+      if (extRef.startsWith('reg:') && pa.status === 'authorized') {
+        const regId = extRef.replace('reg:','');
+        const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[regId]);
+        if (pending && pending.status === 'pending') {
+          await q("UPDATE pending_registrations SET status='paid', mp_preference_id=$1 WHERE id=$2",
+            [pa.id, regId]);
+        }
+      }
+
+      // Renovación aprobada para negocio existente
+      if (extRef.startsWith('renew:') && pa.status === 'authorized') {
+        const bizId = extRef.replace('renew:','');
+        const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+        await q(`UPDATE subscriptions SET status='active', mp_preapproval_id=$1,
+          current_period_start=NOW(), current_period_end=$2, updated_at=NOW()
+          WHERE business_id=$3`,
+          [pa.id, periodEnd.toISOString(), bizId]);
+        const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1',[bizId]);
+        if (biz) notify(biz.owner_id, { type:'subscription_renewed', message:'✅ Suscripción renovada automáticamente.' });
+      }
+
+      // Suscripción cancelada o suspendida por falta de pago
+      if (['cancelled','paused'].includes(pa.status)) {
+        const bizId = extRef.startsWith('renew:') ? extRef.replace('renew:','') : null;
+        if (bizId) {
+          await q(`UPDATE subscriptions SET status=$1, updated_at=NOW() WHERE business_id=$2 AND mp_preapproval_id=$3`,
+            [pa.status === 'paused' ? 'past_due' : 'cancelled', bizId, pa.id]);
+          const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1',[bizId]);
+          if (biz) notify(biz.owner_id, { type:'subscription_issue',
+            message: pa.status === 'paused'
+              ? '⚠️ No pudimos procesar tu pago. Actualizá tu método de pago para evitar la suspensión.'
+              : '❌ Tu suscripción fue cancelada.' });
+        }
+      }
+      return;
+    }
+
+    // ── Authorized payment (cobro mensual automático de preapproval) ────
+    if (type === 'subscription_authorized_payment') {
+      const authPayment = (await mp.preapprovalPayment.get(resourceId)).body;
+      const preapprovalId = authPayment.preapproval_id;
+      if (!preapprovalId) return;
+      // Extend subscription period by 1 month
+      const sub = await q1('SELECT * FROM subscriptions WHERE mp_preapproval_id=$1',[preapprovalId]);
+      if (sub && authPayment.status === 'processed') {
+        const newEnd = new Date(sub.current_period_end || Date.now());
+        newEnd.setMonth(newEnd.getMonth()+1);
+        await q(`UPDATE subscriptions SET status='active', current_period_end=$1, updated_at=NOW() WHERE mp_preapproval_id=$2`,
+          [newEnd.toISOString(), preapprovalId]);
+        const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1',[sub.business_id]);
+        if (biz) notify(biz.owner_id, { type:'subscription_renewed', message:'✅ Pago mensual procesado. ¡Gracias!' });
+      }
+      return;
+    }
+
+    // ── Regular payment (orders, Blow+, etc.) ──────────────────────────
+    const paymentId = resourceId;
+    if ((type||topic) !== 'payment') return;
+    const payment = (await mp.payment.get(paymentId)).body;
+    const extRef = payment.external_reference;
     if (!extRef) return;
 
-    // ── Blow+ payment ──────────────────────────────
-    if (extRef.startsWith('blowplus:') && payment.status==='approved') {
+    if (extRef.startsWith('blowplus:') && payment.status === 'approved') {
       const bizId = extRef.replace('blowplus:','');
       await q(`UPDATE businesses SET blow_plus=TRUE, blow_plus_since=NOW(),
         blow_plus_expires=NOW()+INTERVAL '30 days', blow_plus_mp_id=$1 WHERE id=$2`,
@@ -1601,37 +1693,27 @@ app.post('/api/webhooks/mp', async (req, res) => {
       return;
     }
 
-    // ── Blow+ cliente payment ───────────────────────
-    if (extRef.startsWith('blowplususer:') && payment.status==='approved') {
+    if (extRef.startsWith('blowplususer:') && payment.status === 'approved') {
       const userId = extRef.replace('blowplususer:','');
       await q(`UPDATE users SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [userId]);
       return;
     }
 
-    // ── Subscription registration payment ──────────
-    if (extRef.startsWith('reg:') && payment.status==='approved') {
-      const regId = extRef.replace('reg:','');
-      const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[regId]);
-      if (pending && pending.status==='pending') {
-        await q("UPDATE pending_registrations SET status='paid' WHERE id=$1",[regId]);
-      }
-      return;
-    }
-
-    // ── Order payment ──────────────────────────────
-    const orderId=extRef;
-    const order=await q1('SELECT * FROM orders WHERE id=$1',[orderId]);
+    // ── Order payment ──────────────────────────────────────────────────
+    const orderId = extRef;
+    const order = await q1('SELECT * FROM orders WHERE id=$1',[orderId]);
     if (!order) return;
     await q('UPDATE orders SET mp_payment_id=$1,mp_status=$2,updated_at=NOW() WHERE id=$3',[String(payment.id),payment.status,orderId]);
-    if (payment.status==='approved'&&order.status==='pending') {
+    if (payment.status === 'approved' && order.status === 'pending') {
       await q("UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1",[orderId]);
-      const biz=await q1('SELECT * FROM businesses WHERE id=$1',[order.business_id]);
+      const biz = await q1('SELECT * FROM businesses WHERE id=$1',[order.business_id]);
       if (biz) notify(biz.owner_id,{ type:'new_order',message:`💰 Pago confirmado! #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total:order.total });
       notify(order.customer_id,{ type:'status_change',message:'✅ Pago recibido!',status:'confirmed',order_id:orderId });
     }
-    if (order && ['rejected','cancelled'].includes(payment.status)&&order.status==='pending')
+    if (order && ['rejected','cancelled'].includes(payment.status) && order.status === 'pending')
       await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[orderId]);
-  } catch(e) { console.error('Webhook error:',e.message); }
+
+  } catch(e) { console.error('Webhook error:', e.message); }
 });
 
 // ── Public settings (no auth) ────────────────
