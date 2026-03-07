@@ -4312,15 +4312,15 @@ async function subscribeUserBlowPlus() {
     if (res.demo) {
       userBlowPlusActive = true;
       showToast('⚡ Blow+ activado (modo demo)');
-      loadUserBlowPlus();
       renderUserBlowPlusPage();
       return;
     }
-    window.open(res.sandbox_init_point || res.init_point, '_blank');
+    const url = res.sandbox_init_point || res.init_point;
+    if (!url) throw new Error('No se pudo generar el link de pago');
     showToast('🔗 Redirigiendo a MercadoPago...');
-    setTimeout(() => { loadUserBlowPlus(); renderUserBlowPlusPage(); }, 5000);
+    window.location.href = url;
   } catch(e) {
-    showToast('❌ ' + e.message);
+    showToast('❌ ' + (e.message || 'Error al procesar'));
     if (btn) { btn.disabled = false; btn.textContent = '⚡ Activar Blow+ ahora'; }
   }
 }
@@ -4344,80 +4344,69 @@ async function saveBizBlowPlusDelivery(enabled) {
 }
 
 async function renderUserBlowPlusPage() {
-  let status = { active: userBlowPlusActive };
-  try { status = await api('/api/user/blow-plus'); userBlowPlusActive = status.active; } catch(e) {}
+  const status = { active: userBlowPlusActive };
+  // Try to get real status from API
+  fetch('/api/user/blow-plus', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}})
+    .then(r=>r.json())
+    .then(s=>{ userBlowPlusActive = s.active; _renderBPContent(s); })
+    .catch(()=>_renderBPContent(status));
+}
 
+function _renderBPContent(status) {
   const container = document.getElementById('page-user-blowplus-content');
   if (!container) return;
 
   if (status.active) {
-    const exp = status.expires
-      ? new Date(status.expires).toLocaleDateString('es-UY', { day:'numeric', month:'long', year:'numeric' })
-      : 'indefinido';
-    container.innerHTML = `
-      <div style="padding:16px;">
-        <div class="blowplus-active-card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div>
-              <div class="blowplus-badge">⚡ Blow+</div>
-              <div style="font-size:20px;font-weight:900;margin-top:8px;">¡Sos Blow+!</div>
-            </div>
-            <div style="font-size:52px;">🚀</div>
-          </div>
-          <div style="background:rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:16px;">
-            <div style="font-size:12px;opacity:.7;margin-bottom:4px;">Próxima renovación</div>
-            <div style="font-size:16px;font-weight:800;">${exp}</div>
-            <div style="font-size:12px;opacity:.6;margin-top:4px;">Renovación automática · $200 UYU/mes</div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
-            <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
-              <span style="font-size:18px;">🛵</span><span><strong>Envío gratis</strong> en negocios adheridos a Blow+</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
-              <span style="font-size:18px;">⚡</span><span><strong>Promos exclusivas</strong> que otros clientes no ven</span>
-            </div>
-          </div>
-          <button onclick="cancelUserBlowPlus()" style="width:100%;padding:12px;border:1.5px solid rgba(255,255,255,.2);border-radius:12px;background:transparent;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;">
-            Cancelar Blow+ — activo hasta ${exp}
-          </button>
-        </div>
-      </div>`;
+    const exp = status.period_end
+      ? new Date(status.period_end).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'})
+      : null;
+    container.innerHTML =
+      '<div style="padding:20px;">' +
+        '<div style="background:linear-gradient(135deg,#FA0050,#c0003c);border-radius:24px;padding:24px;color:#fff;margin-bottom:20px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">' +
+            '<div>' +
+              '<div style="font-size:11px;font-weight:700;letter-spacing:1px;opacity:.7;text-transform:uppercase;margin-bottom:6px;">Membresía activa</div>' +
+              '<div style="font-size:26px;font-weight:900;line-height:1;">⚡ Blow+</div>' +
+            '</div>' +
+            '<div style="width:60px;height:60px;background:rgba(255,255,255,.15);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;">🎉</div>' +
+          '</div>' +
+          (exp ? '<div style="background:rgba(255,255,255,.12);border-radius:14px;padding:14px;margin-bottom:18px;">' +
+            '<div style="font-size:11px;opacity:.7;margin-bottom:4px;">Renovación automática el</div>' +
+            '<div style="font-size:17px;font-weight:800;">' + exp + '</div>' +
+            '<div style="font-size:11px;opacity:.6;margin-top:3px;">$200 UYU / mes</div>' +
+          '</div>' : '') +
+          '<div style="display:flex;flex-direction:column;gap:10px;">' +
+            '<div style="display:flex;align-items:center;gap:10px;font-size:14px;"><span style="font-size:20px;">🛵</span><div><strong>Envío gratis</strong><div style="font-size:12px;opacity:.75;">En todos los negocios adheridos</div></div></div>' +
+            '<div style="display:flex;align-items:center;gap:10px;font-size:14px;"><span style="font-size:20px;">🏷️</span><div><strong>Promos exclusivas</strong><div style="font-size:12px;opacity:.75;">Descuentos que otros no ven</div></div></div>' +
+          '</div>' +
+        '</div>' +
+        '<button onclick="cancelUserBlowPlus()" style="width:100%;padding:14px;border:1.5px solid #ddd;border-radius:14px;background:#fff;color:#999;font-size:13px;cursor:pointer;font-family:inherit;">' +
+          'Cancelar suscripción' + (exp ? ' · activa hasta el ' + exp : '') +
+        '</button>' +
+      '</div>';
   } else {
-    container.innerHTML = `
-      <div style="padding:16px;">
-        <div class="blowplus-card">
-          <div class="blowplus-badge">⚡ Blow+ Cliente</div>
-          <div class="blowplus-title" style="position:relative;z-index:1;">Pedí más,<br>pagá menos</div>
-          <div class="blowplus-subtitle">El plan premium para clientes que piden seguido</div>
-          <div class="blowplus-features">
-            <div class="blowplus-feat">
-              <div class="blowplus-feat-icon">🛵</div>
-              <div class="blowplus-feat-text">
-                <strong>Envío gratis</strong>
-                <span>Sin costo de envío en todos los negocios adheridos a Blow+</span>
-              </div>
-            </div>
-            <div class="blowplus-feat">
-              <div class="blowplus-feat-icon">⚡</div>
-              <div class="blowplus-feat-text">
-                <strong>Promos exclusivas</strong>
-                <span>Descuentos y combos que solo ven los clientes Blow+</span>
-              </div>
-            </div>
-            <div class="blowplus-feat">
-              <div class="blowplus-feat-icon">🔄</div>
-              <div class="blowplus-feat-text">
-                <strong>Renovación automática</strong>
-                <span>Cancelás cuando querés, sin compromisos</span>
-              </div>
-            </div>
-          </div>
-          <div class="blowplus-price" style="position:relative;z-index:1;">$200 <small>UYU / mes</small></div>
-          <button class="blowplus-btn" id="ubp-pay-btn" onclick="subscribeUserBlowPlus()">⚡ Activar Blow+ ahora</button>
-        </div>
-      </div>`;
+    container.innerHTML =
+      '<div style="padding:20px;">' +
+        '<div style="background:linear-gradient(135deg,#FA0050,#c0003c);border-radius:24px;padding:28px 24px;color:#fff;margin-bottom:20px;text-align:center;">' +
+          '<div style="font-size:40px;margin-bottom:12px;">⚡</div>' +
+          '<div style="font-size:28px;font-weight:900;line-height:1.1;margin-bottom:8px;">Blow+ Cliente</div>' +
+          '<div style="font-size:15px;opacity:.85;margin-bottom:20px;">Pedí más, pagá menos</div>' +
+          '<div style="background:rgba(255,255,255,.15);border-radius:16px;padding:16px;margin-bottom:20px;text-align:left;display:flex;flex-direction:column;gap:12px;">' +
+            '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🛵</span><div><div style="font-weight:700;font-size:14px;">Envío gratis</div><div style="font-size:12px;opacity:.8;">Sin costo de envío en negocios adheridos</div></div></div>' +
+            '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🏷️</span><div><div style="font-weight:700;font-size:14px;">Promos exclusivas</div><div style="font-size:12px;opacity:.8;">Descuentos especiales solo para Blow+</div></div></div>' +
+            '<div style="display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">💰</span><div><div style="font-weight:700;font-size:14px;">Ahorrás hasta $2.000/mes</div><div style="font-size:12px;opacity:.8;">En promedio, comparado sin membresía</div></div></div>' +
+          '</div>' +
+          '<div style="font-size:13px;opacity:.7;margin-bottom:16px;">Suscripción mensual · cancelá cuando quieras</div>' +
+          '<div style="font-size:36px;font-weight:900;margin-bottom:6px;">$200 <span style="font-size:16px;font-weight:600;">UYU / mes</span></div>' +
+        '</div>' +
+        '<button id="ubp-pay-btn" onclick="subscribeUserBlowPlus()" style="width:100%;padding:16px;background:var(--primary);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(250,0,80,.3);">' +
+          '⚡ Suscribirme ahora' +
+        '</button>' +
+        '<div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Vas a ser redirigido a MercadoPago para pagar</div>' +
+      '</div>';
   }
 }
+
 
 // ═══════════════════════════════════════════════
 //  BLOW+ PREMIUM
