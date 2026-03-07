@@ -244,6 +244,9 @@ async function initDB() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS department TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS promotions (
       id TEXT PRIMARY KEY,
       business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
@@ -657,7 +660,7 @@ app.get('/api/businesses', async (req, res) => {
     const { category, city, department } = req.query;
     let sql = `SELECT b.* FROM businesses b
       LEFT JOIN subscriptions s ON s.business_id = b.id
-      WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active IS NOT FALSE`;
+      WHERE (s.status = 'active' OR s.id IS NULL)`;
     const params = [];
     let i = 1;
     if (category)   { sql += ` AND b.category=$${i++}`;                params.push(category); }
