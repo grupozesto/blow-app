@@ -2159,6 +2159,24 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <span>📡</span> Detectar mi ubicación
       </button>
       <div class="loc-status" id="gps-status"></div>
+
+      <!-- Manual address fallback -->
+      <div id="manual-addr-section" style="display:none;margin-top:16px;">
+        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">O ingresá tu dirección</div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <input class="form-input" id="manual-street" placeholder="Calle y número (Ej: Av. 18 de Julio 1234)" type="text">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <input class="form-input" id="manual-city" placeholder="Ciudad" type="text">
+          <input class="form-input" id="manual-dept" placeholder="Departamento" type="text">
+        </div>
+        <button onclick="saveManualAddress()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;">Confirmar dirección →</button>
+      </div>
+
+      <button id="toggle-manual-btn" onclick="toggleManualAddr()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;width:100%;text-align:center;margin-top:12px;padding:6px;">
+        ✏️ Ingresar dirección manualmente
+      </button>
+
       <!-- hidden inputs kept for saveAddress() compatibility -->
       <input type="hidden" id="loc-full-address" value="">
       <input type="hidden" id="loc-city" value="">
@@ -2353,6 +2371,26 @@ function showAddAddress() {
   document.getElementById('loc-city').focus();
 }
 
+function toggleManualAddr() {
+  const section = document.getElementById('manual-addr-section');
+  const btn = document.getElementById('toggle-manual-btn');
+  const isVisible = section.style.display !== 'none';
+  section.style.display = isVisible ? 'none' : 'block';
+  btn.textContent = isVisible ? '✏️ Ingresar dirección manualmente' : '📡 Usar GPS en su lugar';
+}
+
+async function saveManualAddress() {
+  const street = document.getElementById('manual-street').value.trim();
+  const city   = document.getElementById('manual-city').value.trim();
+  const dept   = document.getElementById('manual-dept').value.trim();
+  if (!street || !city) { showToast('❌ Ingresá la calle y la ciudad'); return; }
+  document.getElementById('loc-full-address').value = street;
+  document.getElementById('loc-city').value = city;
+  document.getElementById('loc-dept').value = dept;
+  document.getElementById('loc-label').value = street;
+  await saveAddress();
+}
+
 async function detectGPS() {
   const btn = document.getElementById('gps-btn');
   const status = document.getElementById('gps-status');
@@ -2399,6 +2437,9 @@ async function detectGPS() {
         3: '❌ Tiempo agotado. Intentá de nuevo.'
       };
       status.textContent = msgs[err.code] || '❌ Error al obtener ubicación.';
+      // Auto-show manual input when GPS fails
+      document.getElementById('manual-addr-section').style.display = 'block';
+      document.getElementById('toggle-manual-btn').textContent = '📡 Intentar GPS de nuevo';
     },
     { timeout: 10000, enableHighAccuracy: true }
   );
@@ -3167,18 +3208,27 @@ async function checkout() {
     return;
   }
 
+  // Get best available address
+  const fulfillmentType = currentSdFulfillment || 'delivery';
+  const orderAddress = user.address || activeCity || '';
+  if (fulfillmentType === 'delivery' && !orderAddress) {
+    showToast('❌ Primero agregá tu dirección de entrega');
+    document.getElementById('loc-modal').classList.add('open');
+    return;
+  }
+
   const btn = document.querySelector('.checkout-btn');
-  btn.disabled = true; btn.textContent = 'Procesando...';
+  btn.disabled = true; btn.textContent = '⏳ Procesando...';
   try {
-    const fulfillmentType = currentSdFulfillment || 'delivery';
     const items = cart.map(i=>({ product_id:i.id, quantity:i.qty, variant_id: i.variant_id||null }));
-    const res = await api('/api/orders', { method:'POST', body:JSON.stringify({ business_id:bizId, items, address:user.address||'', fulfillment_type: fulfillmentType }) });
+    const res = await api('/api/orders', { method:'POST', body:JSON.stringify({ business_id:bizId, items, address:orderAddress, fulfillment_type: fulfillmentType }) });
     cart=[]; saveCart(); updateCartBadge();
-    if (res.payment?.init_point && !res.payment.demo) {
+    if (res.payment?.init_point) {
       showToast('💳 Redirigiendo a MercadoPago...');
-      setTimeout(()=>{ window.location.href = res.payment.init_point; }, 1000);
+      setTimeout(()=>{ window.location.href = res.payment.init_point; }, 800);
     } else {
-      showToast('🎉 ¡Pedido creado! Esperando confirmación de pago.');
+      // Demo mode - no MP configured
+      showToast('🎉 ¡Pedido creado!');
       setTimeout(()=>nav('page-tracking'),800);
     }
   } catch(e) {
@@ -3190,9 +3240,9 @@ async function checkout() {
 // ═══════════════════════════════════════════════
 //  TRACKING
 // ═══════════════════════════════════════════════
-const STATUS_LABELS = { pending:'Pendiente', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', on_way:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
+const STATUS_LABELS = { pending:'Esperando pago', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', on_way:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
 const STEPS_MAP = ['pending','confirmed','preparing','ready','on_way','delivered'];
-const STEP_LABELS = ['Pedido recibido','Confirmado','Preparando','Listo para delivery','En camino','Entregado'];
+const STEP_LABELS = ['Pago confirmado','Pedido aceptado','Preparando','Listo','En camino','Entregado'];
 
 async function loadTracking() {
   const body = document.getElementById('tracking-body');
@@ -3741,8 +3791,11 @@ function renderOwnerOrders(orders) {
       <div class="ooc-actions">
         ${o.status==='pending'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','confirmed')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
         ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
-        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">🍳 Listo para retiro</button>`:''}
-        ${o.status==='ready'?`<span style="font-size:13px;color:var(--success);font-weight:700;">⏳ Esperando repartidor...</span>`:''}
+        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">✅ Listo</button>`:''}
+        ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')">🛵 Salió para entrega</button>`:''}
+        ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">🏁 Entregado</button>`:''}
+        ${o.status==='delivered'?`<span style="font-size:13px;color:var(--success);font-weight:700;">✅ Entregado</span>`:''}
+        ${o.status==='cancelled'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span>`:''}
       </div>
     </div>`).join('');
 }
@@ -5909,7 +5962,40 @@ function dismissIOSBanner() {
 const urlP = new URLSearchParams(window.location.search);
 const payStatus = urlP.get('payment');
 const blowplusStatus = urlP.get('blowplus');
-if (payStatus) {
+const mpCollectionStatus = urlP.get('collection_status');
+const mpOrderId = urlP.get('external_reference'); // MP sends back external_reference
+
+// MP redirects back with collection_status=approved/rejected/pending + external_reference=orderId
+if (mpCollectionStatus || mpOrderId) {
+  window.history.replaceState({}, '', '/');
+  if (mpCollectionStatus === 'approved' && mpOrderId) {
+    // Poll until server confirms the webhook processed it
+    showToast('💳 Pago aprobado, confirmando pedido...');
+    (async function pollOrderStatus(retries=10) {
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const s = await api(`/api/orders/${mpOrderId}/payment-status`);
+        if (s.status === 'confirmed' || s.status === 'preparing' || s.status === 'ready' || s.status === 'on_way' || s.status === 'delivered') {
+          showToast('🎉 ¡Pago confirmado! Tu pedido está en camino.');
+          setTimeout(() => nav('page-tracking'), 500);
+        } else if (retries > 0) {
+          pollOrderStatus(retries - 1);
+        } else {
+          showToast('✅ Pago recibido. Verificá el estado de tu pedido.');
+          setTimeout(() => nav('page-tracking'), 500);
+        }
+      } catch(e) {
+        if (retries > 0) pollOrderStatus(retries - 1);
+        else { showToast('✅ Pago recibido.'); setTimeout(() => nav('page-tracking'), 500); }
+      }
+    })();
+  } else if (mpCollectionStatus === 'pending' || mpCollectionStatus === 'in_process') {
+    showToast('⏳ Pago pendiente. Te avisamos cuando se confirme.');
+    setTimeout(() => nav('page-tracking'), 800);
+  } else if (mpCollectionStatus === 'rejected' || mpCollectionStatus === 'cancelled') {
+    showToast('❌ El pago fue rechazado. Intentá de nuevo.');
+  }
+} else if (payStatus) {
   if (payStatus==='success') { showToast('🎉 ¡Pago exitoso! Tu pedido fue confirmado.'); setTimeout(()=>nav('page-tracking'),500); }
   else if (payStatus==='failure') showToast('❌ El pago fue rechazado. Intentá de nuevo.');
   else if (payStatus==='pending') showToast('⏳ Pago pendiente. Te notificaremos cuando se confirme.');
