@@ -26,6 +26,7 @@ const http         = require('http');
 const { Pool }     = require('pg');
 
 const app    = express();
+app.set('trust proxy', 1); // Railway runs behind a proxy
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
 const JWT_SECRET   = process.env.JWT_SECRET || 'dev_secret_cambiar_en_prod';
@@ -439,11 +440,13 @@ if (rateLimit) {
     windowMs: 15 * 60 * 1000, max: 100,
     message: { error: 'Demasiadas solicitudes. Intentá de nuevo en 15 minutos.' },
     standardHeaders: true, legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
   });
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, max: 10,
     message: { error: 'Demasiados intentos. Esperá 15 minutos antes de intentar de nuevo.' },
     standardHeaders: true, legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
   });
   app.use('/api/', generalLimiter);
   app.use('/api/auth/', authLimiter);
@@ -927,36 +930,48 @@ app.post('/api/register/complete', async (req, res) => {
     const { reg_id } = req.body;
     const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[reg_id]);
     if (!pending) return res.status(404).json({ error:'Registro no encontrado o expirado' });
-    if (new Date() > new Date(pending.expires_at))
+
+    const d = typeof pending.data === 'string' ? JSON.parse(pending.data) : pending.data;
+
+    // Case 1: Webhook already completed registration — just return token
+    if (pending.status === 'completed') {
+      const existingUser = await q1('SELECT * FROM users WHERE email=$1',[d.email]);
+      if (existingUser) {
+        const u = { id:existingUser.id, name:existingUser.name, email:existingUser.email, role:'owner' };
+        return res.json({ token:sign(u), user:u, message:'¡Bienvenido a Blow!' });
+      }
+    }
+
+    // Case 2: Expired
+    if (pending.status === 'pending' && pending.expires_at && new Date() > new Date(pending.expires_at))
       return res.status(400).json({ error:'El registro expiró. Intentá de nuevo.' });
 
-    const d = pending.data;
-    // Check email not taken since
-    if (await q1('SELECT id FROM users WHERE email=$1',[d.email]))
-      return res.status(409).json({ error:'Este email ya está registrado' });
+    // Case 3: Not yet paid
+    if (pending.status === 'pending')
+      return res.status(402).json({ error:'El pago aún no fue confirmado. Esperá unos segundos y reintentá.' });
 
-    // Create user
+    // Case 4: Complete manually (fallback if webhook didn't arrive)
+    const alreadyExists = await q1('SELECT * FROM users WHERE email=$1',[d.email]);
+    if (alreadyExists) {
+      const u = { id:alreadyExists.id, name:alreadyExists.name, email:alreadyExists.email, role:'owner' };
+      return res.json({ token:sign(u), user:u, message:'¡Bienvenido a Blow!' });
+    }
+
     const userId = uuid();
     await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [userId, d.name, d.email, d.phone||'', await bcrypt.hash(d.password,10), 'owner', d.city, d.department||'']);
-
-    // Create business
     const bizId = uuid();
     await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
-
-    // Create active subscription — store preapproval_id for future automatic charges
     const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
-    const preapprovalId = pending.mp_preference_id || null; // reused field stores preapproval id
+    const preapprovalId = pending.mp_preference_id || null;
     await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
-      VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7)`,
-      [uuid(), bizId, userId, 'active', 'active', preapprovalId, periodEnd.toISOString()]);
-
-    // Clean up pending registration
+      VALUES ($1,$2,$3,'active','active',$4,NOW(),$5)`,
+      [uuid(), bizId, userId, preapprovalId, periodEnd.toISOString()]);
     await q('DELETE FROM pending_registrations WHERE id=$1',[reg_id]);
 
-    const user = { id:userId, name:d.name, email:d.email, role:'owner' };
-    res.status(201).json({ token:sign(user), user, message:'¡Cuenta creada! Bienvenido a Blow.' });
+    const u = { id:userId, name:d.name, email:d.email, role:'owner' };
+    res.status(201).json({ token:sign(u), user:u, message:'¡Cuenta creada! Bienvenido a Blow.' });
   } catch(e) { console.error('Register complete error:', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -1632,14 +1647,40 @@ app.post('/api/webhooks/mp', async (req, res) => {
       const extRef = pa.external_reference;
       if (!extRef) return;
 
-      // Registro inicial aprobado
+      // Registro inicial aprobado — crear usuario y negocio
       if (extRef.startsWith('reg:') && pa.status === 'authorized') {
         const regId = extRef.replace('reg:','');
         const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[regId]);
-        if (pending && pending.status === 'pending') {
-          await q("UPDATE pending_registrations SET status='paid', mp_preference_id=$1 WHERE id=$2",
-            [pa.id, regId]);
+        if (!pending) { console.log('Webhook reg: pending not found', regId); return; }
+        if (pending.status === 'completed') { console.log('Webhook reg: already completed', regId); return; }
+
+        // Mark as paid first to avoid double processing
+        await q("UPDATE pending_registrations SET status='completed', mp_preference_id=$1 WHERE id=$2",
+          [pa.id, regId]);
+
+        const d = typeof pending.data === 'string' ? JSON.parse(pending.data) : pending.data;
+        // Check email not already registered
+        if (await q1('SELECT id FROM users WHERE email=$1',[d.email])) {
+          console.log('Webhook reg: email already exists', d.email); return;
         }
+
+        // Create user
+        const userId = uuid();
+        await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+          [userId, d.name, d.email, d.phone||'', await bcrypt.hash(d.password,10), 'owner', d.city, d.department||'']);
+
+        // Create business
+        const bizId = uuid();
+        await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
+
+        // Create active subscription with preapproval id
+        const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+        await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
+          VALUES ($1,$2,$3,'active','active',$4,NOW(),$5)`,
+          [uuid(), bizId, userId, pa.id, periodEnd.toISOString()]);
+
+        console.log('✅ Negocio creado via webhook:', d.bizName, '| owner:', d.email);
       }
 
       // Renovación aprobada para negocio existente
