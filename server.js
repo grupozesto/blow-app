@@ -37,7 +37,7 @@ async function getPlatformFee() {
   } catch(e) {}
   return PLATFORM_FEE_DEFAULT;
 }
-const APP_URL      = process.env.APP_URL || `http://localhost:${PORT}`;
+const APP_URL      = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
 
 // ── Plan único ────────────────────────────────
 let PLAN_PRICE = 2990; // $UYU por mes — se puede cambiar desde admin
@@ -897,6 +897,8 @@ app.post('/api/register/initiate', async (req, res) => {
     }
 
     // ── Preapproval: recurring subscription ──
+    const backUrl = `${APP_URL}/owner`;
+    console.log('🔗 Preapproval back_url:', backUrl);
     const preapproval = await mp.preapproval.create({
       reason: `Blow — Plan mensual negocios`,
       external_reference: `reg:${regId}`,
@@ -909,7 +911,7 @@ app.post('/api/register/initiate', async (req, res) => {
         start_date: mpDate(Date.now()),
         end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
       },
-      back_url: `${APP_URL}/owner`,
+      back_url: backUrl,
       notification_url: `${APP_URL}/api/webhooks/mp`,
     });
 
