@@ -762,13 +762,58 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
     <!-- BANNER PROMO DINÁMICO -->
     <div style="padding:0 16px;margin:16px 0 0;" id="promo-banners-wrap">
-      <!-- banners cargados por JS -->
+      <div style="background:linear-gradient(120deg,#FA0050 60%,#ff4d8d);border-radius:20px;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative;min-height:120px;">
+        <div style="z-index:1;">
+          <div style="color:#fff;font-size:18px;font-weight:700;line-height:1.3;margin-bottom:4px;">Volvé a pedir<br>y disfrutá</div>
+          <div style="color:#FFE566;font-size:13px;font-weight:600;">Hasta</div>
+          <div style="color:#FFE566;font-size:32px;font-weight:900;line-height:1;">50% OFF</div>
+        </div>
+        <div style="font-size:90px;line-height:1;margin-right:-8px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.2));">🍔</div>
+      </div>
     </div>
 
     <!-- NEGOCIOS DESTACADOS DINÁMICOS -->
-    <div style="padding:20px 0 0;" id="featured-section" style="display:none;">
+    <div style="padding:20px 0 0;" id="featured-section">
       <div style="font-size:20px;font-weight:900;margin-bottom:14px;letter-spacing:-.3px;padding:0 16px;">Descubrí estas opciones</div>
-      <div class="chips" style="gap:14px;padding:0 16px 4px;" id="featured-row"></div>
+      <div class="chips" style="gap:14px;padding:0 16px 4px;" id="featured-row">
+
+        <div class="biz-card">
+          <div class="biz-img" style="background:linear-gradient(135deg,#1a1a2e,#e94560);font-size:70px;">🍔</div>
+          <div class="biz-info">
+            <div class="biz-name">Don Burger</div>
+            <div class="biz-meta">⭐ 4.8 · 25 min · <span style="color:var(--primary);font-weight:700;">$ 890</span></div>
+            <div class="biz-tags"><span class="biz-badge">⭐ Destacado</span><span class="biz-tag">Hamburguesas</span></div>
+          </div>
+        </div>
+
+        <div class="biz-card">
+          <div class="biz-img" style="background:linear-gradient(135deg,#11998e,#38ef7d);font-size:70px;">🍕</div>
+          <div class="biz-info">
+            <div class="biz-name">La Pizzería</div>
+            <div class="biz-meta">⭐ 4.6 · 35 min · <span style="color:var(--primary);font-weight:700;">$ 650</span></div>
+            <div class="biz-tags"><span class="biz-badge">⭐ Destacado</span><span class="biz-tag">Pizzas</span></div>
+          </div>
+        </div>
+
+        <div class="biz-card">
+          <div class="biz-img" style="background:linear-gradient(135deg,#f7971e,#ffd200);font-size:70px;">🍣</div>
+          <div class="biz-info">
+            <div class="biz-name">Sushi Lovers</div>
+            <div class="biz-meta">⭐ 4.9 · 40 min · <span style="color:var(--primary);font-weight:700;">$ 1.200</span></div>
+            <div class="biz-tags"><span class="biz-badge">⭐ Destacado</span><span class="biz-tag">Japonesa</span></div>
+          </div>
+        </div>
+
+        <div class="biz-card">
+          <div class="biz-img" style="background:linear-gradient(135deg,#c94b4b,#4b134f);font-size:70px;">🥗</div>
+          <div class="biz-info">
+            <div class="biz-name">Verde & Sano</div>
+            <div class="biz-meta">⭐ 4.7 · 20 min · <span style="color:var(--primary);font-weight:700;">$ 720</span></div>
+            <div class="biz-tags"><span class="biz-badge">⭐ Destacado</span><span class="biz-tag">Saludable</span></div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <!-- TIENDAS -->
@@ -5078,51 +5123,6 @@ async function deleteOwnerCoupon(id) {
 // ── DYNAMIC HOME ──
 async function loadHomeDynamic() {
   await Promise.all([loadPromoBanners(), loadFeatured()]);
-}
-
-async function loadPromoBanners() {
-  try {
-    const res = await fetch('/api/banners');
-    const banners = await res.json();
-    const wrap = document.getElementById('promo-banners-wrap');
-    if (!wrap) return;
-    if (!banners.length) { wrap.innerHTML = ''; return; }
-    wrap.innerHTML = banners.map(b => {
-      const hasBg = b.image_url ? `background:url('${b.image_url}') center/cover` : `background:${b.bg_color||'#FA0050'}`;
-      return `<div style="${hasBg};border-radius:20px;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative;min-height:120px;margin-bottom:10px;" onclick="${b.link?`nav('${b.link}')`:''}">
-        <div style="z-index:1;">
-          ${b.subtitle?`<div style="color:#fff;font-size:18px;font-weight:700;line-height:1.3;margin-bottom:4px;">${b.title}<br>${b.subtitle}</div>`:`<div style="color:#fff;font-size:20px;font-weight:800;line-height:1.3;margin-bottom:4px;">${b.title}</div>`}
-          ${b.highlight?`<div style="color:#FFE566;font-size:13px;font-weight:600;">Hasta</div><div style="color:#FFE566;font-size:32px;font-weight:900;line-height:1;">${b.highlight}</div>`:''}
-        </div>
-        <div style="font-size:80px;line-height:1;margin-right:-8px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.2));">${b.emoji||'🍔'}</div>
-      </div>`;
-    }).join('');
-  } catch(e) { console.log('Banners error', e); }
-}
-
-async function loadFeatured() {
-  try {
-    const res = await fetch('/api/featured');
-    const items = await res.json();
-    const row = document.getElementById('featured-row');
-    const section = document.getElementById('featured-section');
-    if (!row || !section) return;
-    if (!items.length) { section.style.display='none'; return; }
-    section.style.display='block';
-    row.innerHTML = items.map(f => {
-      const img = f.custom_image
-        ? `<img src="${f.custom_image}" style="width:100%;height:180px;object-fit:cover;" onerror="this.parentElement.innerHTML='<div style=\'width:100%;height:180px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:60px;\'>${f.logo_emoji||'🏪'}</div>'">`
-        : `<div style="width:100%;height:180px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:70px;">${f.logo_emoji||'🏪'}</div>`;
-      return `<div class="biz-card" onclick="nav('page-store');loadStore('${f.business_id}')">
-        <div class="biz-img">${img}</div>
-        <div class="biz-info">
-          <div class="biz-name">${f.custom_title||f.name}</div>
-          <div class="biz-meta">⭐ ${f.rating||'4.5'} · ${f.delivery_time||'20-35'} min · <span style="color:var(--primary);font-weight:700;">$ ${f.delivery_cost||0}</span></div>
-          <div class="biz-tags"><span class="biz-badge">⭐ Destacado</span><span class="biz-tag">${f.category||''}</span></div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { console.log('Featured error', e); }
 }
 
 // ── ADMIN BANNERS ──
