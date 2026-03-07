@@ -4215,11 +4215,24 @@ async function deleteOwnerCoupon(id) {
 async function toggleStore() {
   if (!ownerData) return;
   const current = ownerData.business.is_open;
+  const newVal = !current;
+  const toggleEl = document.getElementById('store-toggle');
+  // Update DOM immediately (optimistic)
+  if (toggleEl) toggleEl.classList.toggle('on', newVal);
+  ownerData.business.is_open = newVal;
+  document.getElementById('owner-store-sub').textContent =
+    `${newVal ? 'Abierto' : 'Cerrado'} · ${ownerData.business.address || 'Montevideo'}`;
   try {
-    await api('/api/businesses/mine',{method:'PATCH',body:JSON.stringify({is_open:current?0:1})});
-    showToast(current?'🔴 Tienda cerrada':'🟢 Tienda abierta');
-    loadOwnerDash();
-  } catch(e) { showToast(`❌ ${e.message}`); }
+    await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ is_open: newVal ? 1 : 0 }) });
+    showToast(newVal ? '🟢 Tienda abierta' : '🔴 Tienda cerrada');
+  } catch(e) {
+    // Revert on error
+    if (toggleEl) toggleEl.classList.toggle('on', !!current);
+    ownerData.business.is_open = current;
+    document.getElementById('owner-store-sub').textContent =
+      `${current ? 'Abierto' : 'Cerrado'} · ${ownerData.business.address || 'Montevideo'}`;
+    showToast(`❌ ${e.message}`);
+  }
 }
 
 async function toggleBusinessOption(option) {
@@ -4227,11 +4240,29 @@ async function toggleBusinessOption(option) {
   const b = ownerData.business;
   const field = option === 'delivery' ? 'offers_delivery' : 'offers_pickup';
   const current = b[field] !== false;
+  const newVal = !current;
+  const toggleEl = document.getElementById(option === 'delivery' ? 'toggle-delivery' : 'toggle-pickup');
+  // Update DOM immediately (optimistic)
+  if (toggleEl) toggleEl.classList.toggle('on', newVal);
+  ownerData.business[field] = newVal;
+  // Show/hide delivery cost row
+  if (option === 'delivery') {
+    const dcRow = document.getElementById('delivery-cost-row');
+    if (dcRow) dcRow.style.display = newVal ? 'block' : 'none';
+  }
   try {
-    await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ [field]: !current }) });
-    showToast(!current ? `✅ ${option === 'delivery' ? 'Delivery' : 'Retiro en tienda'} activado` : `${option === 'delivery' ? 'Delivery' : 'Retiro en tienda'} desactivado`);
-    loadOwnerDash();
-  } catch(e) { showToast('❌ ' + e.message); }
+    await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ [field]: newVal }) });
+    showToast(newVal ? `✅ ${option === 'delivery' ? 'Delivery' : 'Retiro en tienda'} activado` : `${option === 'delivery' ? 'Delivery' : 'Retiro en tienda'} desactivado`);
+  } catch(e) {
+    // Revert on error
+    if (toggleEl) toggleEl.classList.toggle('on', current);
+    ownerData.business[field] = current;
+    if (option === 'delivery') {
+      const dcRow = document.getElementById('delivery-cost-row');
+      if (dcRow) dcRow.style.display = current ? 'block' : 'none';
+    }
+    showToast('❌ ' + e.message);
+  }
 }
 
 async function saveDeliveryCost() {
