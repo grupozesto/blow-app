@@ -1608,7 +1608,7 @@ app.get('/health', async (_,res) => {
 //  COUPONS
 // ══════════════════════════════════════════════
 
-app.post('/api/coupons/validate', authMiddleware, async (req, res) => {
+app.post('/api/coupons/validate', auth, async (req, res) => {
   try {
     const { code, order_total, business_id } = req.body;
     if (!code) return res.status(400).json({ error: 'Código requerido' });
@@ -1625,14 +1625,14 @@ app.post('/api/coupons/validate', authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/coupons/available', authMiddleware, async (req, res) => {
+app.get('/api/coupons/available', auth, async (req, res) => {
   try {
     const coupons = await q('SELECT c.*, COALESCE((SELECT COUNT(*) FROM coupon_uses WHERE coupon_id=c.id AND user_id=$1),0) as my_uses, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id WHERE c.active=true AND (c.expires_at IS NULL OR c.expires_at > NOW()) AND (c.max_uses IS NULL OR c.uses_count < c.max_uses) ORDER BY c.created_at DESC', [req.user.id]);
     res.json(coupons);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/admin/coupons', authMiddleware, async (req, res) => {
+app.post('/api/admin/coupons', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const { code, description, discount_type, discount_value, min_order, max_uses, per_user, business_id, expires_at } = req.body;
@@ -1646,25 +1646,25 @@ app.post('/api/admin/coupons', authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/coupons', authMiddleware, async (req, res) => {
+app.get('/api/admin/coupons', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { res.json(await q('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/admin/coupons/:id', authMiddleware, async (req, res) => {
+app.patch('/api/admin/coupons/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { await q('UPDATE coupons SET active=$1 WHERE id=$2', [req.body.active, req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/coupons/:id', authMiddleware, async (req, res) => {
+app.delete('/api/admin/coupons/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { await q('DELETE FROM coupons WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/owner/coupons', authMiddleware, async (req, res) => {
+app.post('/api/owner/coupons', auth, async (req, res) => {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
@@ -1680,7 +1680,7 @@ app.post('/api/owner/coupons', authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/owner/coupons', authMiddleware, async (req, res) => {
+app.get('/api/owner/coupons', auth, async (req, res) => {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
@@ -1689,7 +1689,7 @@ app.get('/api/owner/coupons', authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/owner/coupons/:id', authMiddleware, async (req, res) => {
+app.delete('/api/owner/coupons/:id', auth, async (req, res) => {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
@@ -1714,13 +1714,13 @@ app.post('/api/help', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/help', authMiddleware, async (req, res) => {
+app.get('/api/admin/help', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { res.json(await q('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/admin/help/:id', authMiddleware, async (req, res) => {
+app.patch('/api/admin/help/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const { reply } = req.body;
@@ -1782,5 +1782,3 @@ function uploadMiddleware(field) {
     });
   };
 }
-
-
