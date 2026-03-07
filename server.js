@@ -660,7 +660,7 @@ app.get('/api/businesses', async (req, res) => {
   const params = [];
   let i = 1;
   if (category)   { sql += ` AND b.category=$${i++}`;               params.push(category); }
-  if (city)       { sql += ` AND (LOWER(b.city)=LOWER($${i}) OR LOWER(b.city) LIKE LOWER($${i+1}))`; params.push(city, `%${city}%`); i+=2; }
+  if (city)       { const i1=i++, i2=i++; sql += ` AND (LOWER(b.city)=LOWER($${i1}) OR LOWER(b.city) LIKE LOWER($${i2}))`; params.push(city, `%${city}%`); }
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
   sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   const rows = await qa(sql, params);
