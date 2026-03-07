@@ -299,6 +299,30 @@ async function initDB() {
     );
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
+
+    CREATE TABLE IF NOT EXISTS featured_slots (
+      id TEXT PRIMARY KEY,
+      business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+      custom_image TEXT,
+      custom_title TEXT,
+      sort_order INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS promo_banners (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      subtitle TEXT DEFAULT '',
+      highlight TEXT DEFAULT '',
+      emoji TEXT DEFAULT '🍔',
+      image_url TEXT DEFAULT '',
+      bg_color TEXT DEFAULT '#FA0050',
+      link TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
   // Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
@@ -1734,6 +1758,86 @@ app.patch('/api/admin/help/:id', auth, async (req, res) => {
 
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
+
+// ── PROMO BANNERS API ──
+app.get('/api/banners', async (req,res)=>{
+  try {
+    const rows = await db.query("SELECT * FROM promo_banners WHERE active=TRUE ORDER BY sort_order ASC, created_at DESC");
+    res.json(rows.rows);
+  } catch(e){ res.json([]); }
+});
+app.post('/api/admin/banners', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const {title,subtitle,highlight,emoji,bg_color,link,sort_order} = req.body;
+  const id = 'ban_'+Date.now();
+  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,emoji,bg_color,link,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+    [id,title||'',subtitle||'',highlight||'',emoji||'🍔',bg_color||'#FA0050',link||'',sort_order||0]);
+  res.json({ok:true,id});
+});
+app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const {title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url} = req.body;
+  await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),emoji=COALESCE($4,emoji),bg_color=COALESCE($5,bg_color),link=COALESCE($6,link),sort_order=COALESCE($7,sort_order),active=COALESCE($8,active),image_url=COALESCE($9,image_url) WHERE id=$10",
+    [title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url,req.params.id]);
+  res.json({ok:true});
+});
+app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
+  res.json({ok:true});
+});
+app.post('/api/admin/banners/:id/image', auth, upload.single('image'), async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  if(!req.file) return res.status(400).json({error:'No image'});
+  try {
+    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_banners',transformation:[{width:800,height:300,crop:'fill'}]});
+    await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[result.secure_url,req.params.id]);
+    res.json({ok:true,url:result.secure_url});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// ── FEATURED SLOTS API ──
+app.get('/api/featured', async (req,res)=>{
+  try {
+    const rows = await db.query(`SELECT fs.*, b.name, b.logo_emoji, b.category, b.rating, b.delivery_time, b.delivery_cost, b.logo_url
+      FROM featured_slots fs JOIN businesses b ON fs.business_id=b.id
+      WHERE fs.active=TRUE ORDER BY fs.sort_order ASC`);
+    res.json(rows.rows);
+  } catch(e){ res.json([]); }
+});
+app.get('/api/admin/featured', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const rows = await db.query(`SELECT fs.*, b.name as biz_name FROM featured_slots fs LEFT JOIN businesses b ON fs.business_id=b.id ORDER BY fs.sort_order ASC`);
+  res.json(rows.rows);
+});
+app.post('/api/admin/featured', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const {business_id,custom_title,sort_order} = req.body;
+  const id = 'feat_'+Date.now();
+  await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]);
+  res.json({ok:true,id});
+});
+app.post('/api/admin/featured/:id/image', auth, upload.single('image'), async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  if(!req.file) return res.status(400).json({error:'No image'});
+  try {
+    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_featured',transformation:[{width:600,height:400,crop:'fill'}]});
+    await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[result.secure_url,req.params.id]);
+    res.json({ok:true,url:result.secure_url});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+app.patch('/api/admin/featured/:id', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const {active,sort_order,custom_title} = req.body;
+  await db.query("UPDATE featured_slots SET active=COALESCE($1,active),sort_order=COALESCE($2,sort_order),custom_title=COALESCE($3,custom_title) WHERE id=$4",[active,sort_order,custom_title,req.params.id]);
+  res.json({ok:true});
+});
+app.delete('/api/admin/featured/:id', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  await db.query("DELETE FROM featured_slots WHERE id=$1",[req.params.id]);
+  res.json({ok:true});
+});
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
@@ -1782,3 +1886,5 @@ function uploadMiddleware(field) {
     });
   };
 }
+
+
