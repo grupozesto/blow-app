@@ -38,9 +38,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 /* iPhone safe area (notch / dynamic island / home bar) */
 .app-header{padding-top:max(56px,calc(env(safe-area-inset-top,0px) + 16px));}
 @media all and (display-mode: browser){
-  .app-header{padding-top:14px;}
-  .page-hdr{padding-top:14px!important;}
-  .owner-header{padding-top:20px!important;}
+  .app-header{padding-top:8px!important;}
+  .page-hdr{padding-top:8px!important;}
+  .owner-header{padding-top:12px!important;}
+  .bottom-nav{padding-bottom:4px!important;height:56px!important;}
 }
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
