@@ -1603,6 +1603,135 @@ app.get('/health', async (_,res) => {
   try { await db.query('SELECT 1'); res.json({ status:'ok',db:'postgres',mp:!!mp,cloudinary:!!cloudinary,ts:new Date().toISOString() }); }
   catch(e) { res.status(500).json({ status:'error',db:e.message }); }
 });
+
+// ══════════════════════════════════════════════
+//  COUPONS
+// ══════════════════════════════════════════════
+
+app.post('/api/coupons/validate', authMiddleware, async (req, res) => {
+  try {
+    const { code, order_total, business_id } = req.body;
+    if (!code) return res.status(400).json({ error: 'Código requerido' });
+    const c = await q1('SELECT * FROM coupons WHERE UPPER(code)=UPPER($1) AND active=true', [code.trim()]);
+    if (!c) return res.status(404).json({ error: 'Cupón no encontrado o inactivo' });
+    if (c.expires_at && new Date(c.expires_at) < new Date()) return res.status(400).json({ error: 'El cupón expiró' });
+    if (c.max_uses && c.uses_count >= c.max_uses) return res.status(400).json({ error: 'Sin usos disponibles' });
+    if (c.min_order && order_total < c.min_order) return res.status(400).json({ error: 'Pedido mínimo $' + c.min_order });
+    if (c.business_id && c.business_id !== business_id) return res.status(400).json({ error: 'Cupón no válido para este negocio' });
+    const used = await q1('SELECT COUNT(*) as cnt FROM coupon_uses WHERE coupon_id=$1 AND user_id=$2', [c.id, req.user.id]);
+    if (c.per_user && parseInt(used.cnt) >= c.per_user) return res.status(400).json({ error: 'Ya usaste este cupón' });
+    const discount = c.discount_type === 'percent' ? Math.round(order_total * c.discount_value / 100) : Math.min(c.discount_value, order_total);
+    res.json({ valid: true, coupon: { id: c.id, code: c.code, description: c.description, discount_type: c.discount_type, discount_value: c.discount_value, discount_amount: discount } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/coupons/available', authMiddleware, async (req, res) => {
+  try {
+    const coupons = await q('SELECT c.*, COALESCE((SELECT COUNT(*) FROM coupon_uses WHERE coupon_id=c.id AND user_id=$1),0) as my_uses, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id WHERE c.active=true AND (c.expires_at IS NULL OR c.expires_at > NOW()) AND (c.max_uses IS NULL OR c.uses_count < c.max_uses) ORDER BY c.created_at DESC', [req.user.id]);
+    res.json(coupons);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/coupons', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+  try {
+    const { code, description, discount_type, discount_value, min_order, max_uses, per_user, business_id, expires_at } = req.body;
+    if (!code || !discount_value) return res.status(400).json({ error: 'Código y descuento requeridos' });
+    const existing = await q1('SELECT id FROM coupons WHERE UPPER(code)=UPPER($1)', [code.trim()]);
+    if (existing) return res.status(409).json({ error: 'Ya existe ese código' });
+    const id = uuid();
+    await q('INSERT INTO coupons (id,code,description,discount_type,discount_value,min_order,max_uses,per_user,business_id,created_by,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, max_uses||null, per_user||1, business_id||null, req.user.id, expires_at||null]);
+    res.status(201).json({ id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/coupons', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+  try { res.json(await q('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC')); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/admin/coupons/:id', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+  try { await q('UPDATE coupons SET active=$1 WHERE id=$2', [req.body.active, req.params.id]); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/coupons/:id', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+  try { await q('DELETE FROM coupons WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/owner/coupons', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const { code, description, discount_type, discount_value, min_order } = req.body;
+    if (!code || !discount_value) return res.status(400).json({ error: 'Código y descuento requeridos' });
+    const existing = await q1('SELECT id FROM coupons WHERE UPPER(code)=UPPER($1)', [code.trim()]);
+    if (existing) return res.status(409).json({ error: 'Ya existe ese código' });
+    const id = uuid();
+    await q('INSERT INTO coupons (id,code,description,discount_type,discount_value,min_order,per_user,business_id,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, 1, biz.id, req.user.id]);
+    res.status(201).json({ id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/owner/coupons', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.json([]);
+    res.json(await q('SELECT * FROM coupons WHERE business_id=$1 ORDER BY created_at DESC', [biz.id]));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/owner/coupons/:id', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    await q('DELETE FROM coupons WHERE id=$1 AND business_id=$2', [req.params.id, biz?.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════
+//  HELP / SOPORTE
+// ══════════════════════════════════════════════
+
+app.post('/api/help', async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+    if (!message || !email) return res.status(400).json({ error: 'Email y mensaje requeridos' });
+    const id = uuid();
+    let userId = null;
+    try { const auth = req.headers.authorization; if (auth) userId = require('jsonwebtoken').verify(auth.split(' ')[1], JWT_SECRET).id; } catch(e) {}
+    await q('INSERT INTO help_messages (id,user_id,user_name,user_email,message) VALUES ($1,$2,$3,$4,$5)', [id, userId, name||'Anónimo', email, message]);
+    res.status(201).json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/help', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+  try { res.json(await q('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100')); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/admin/help/:id', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+  try {
+    const { reply } = req.body;
+    const msg = await q1('SELECT * FROM help_messages WHERE id=$1', [req.params.id]);
+    if (!msg) return res.status(404).json({ error: 'No encontrado' });
+    await q("UPDATE help_messages SET admin_reply=$1, status='resolved' WHERE id=$2", [reply, req.params.id]);
+    await sendEmail(msg.user_email, 'Respuesta de soporte — Blow', '<p>Hola <b>' + msg.user_name + '</b>, respondimos tu consulta:</p><blockquote>' + reply + '</blockquote>');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
@@ -1653,3 +1782,5 @@ function uploadMiddleware(field) {
     });
   };
 }
+
+
