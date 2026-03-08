@@ -3293,16 +3293,24 @@ function renderProductRow(p, s) {
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
   const discBadge = disc > 0 ? `<div class="prod-discount-badge">${disc}% OFF</div>` : '';
+  const outOfStock = p.stock !== null && p.stock !== undefined && p.stock === 0;
+  const lowStock = p.stock !== null && p.stock !== undefined && p.stock > 0 && p.stock <= 5;
+  const stockBadge = outOfStock
+    ? `<div style="font-size:11px;color:#e74c3c;font-weight:700;margin-top:3px;">❌ Sin stock</div>`
+    : lowStock ? `<div style="font-size:11px;color:#e67e22;font-weight:700;margin-top:3px;">⚡ Últimas ${p.stock}</div>` : '';
   const pStr = JSON.stringify({...p, biz_id:s?.id});
-  return `<div class="prod-row" onclick='quickAdd(${pStr})'>
+  return `<div class="prod-row" onclick='${outOfStock ? "" : `quickAdd(${pStr})`}' style="${outOfStock ? 'opacity:.55;cursor:not-allowed;' : ''}">
     <div class="prod-row-info">
       <div class="prod-row-name">${p.name}</div>
       ${p.description ? `<div class="prod-row-desc">${p.description}</div>` : ''}
       <div class="prod-row-price">${priceHtml}</div>
+      ${stockBadge}
     </div>
     <div class="prod-row-img">
       ${imgHtml}${discBadge}
-      <button class="prod-row-add" onclick="event.stopPropagation();quickAdd(${pStr.replace(/"/g,'&quot;')})">+</button>
+      ${outOfStock
+        ? `<div style="position:absolute;bottom:6px;right:6px;background:#e74c3c;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;">✕</div>`
+        : `<button class="prod-row-add" onclick="event.stopPropagation();quickAdd(${pStr.replace(/"/g,'&quot;')})">+</button>`}
     </div>
   </div>`;
 }
@@ -4547,7 +4555,14 @@ function renderOwnerMenu(products, categories) {
     const featBadge = p.is_featured ? `<span style="font-size:10px;background:#fff8e1;color:#9a6500;padding:2px 6px;border-radius:6px;font-weight:700;">⭐ Destacado</span>` : '';
     const discBadge = disc > 0 ? `<span style="font-size:10px;background:#fee;color:var(--primary);padding:2px 6px;border-radius:6px;font-weight:700;">${disc}% OFF</span>` : '';
     const varBadge = hasVariants ? `<span style="font-size:10px;background:rgba(255,184,0,.15);color:#9a6500;padding:2px 6px;border-radius:6px;font-weight:700;">🔀 variantes</span>` : '';
-    const badges = [featBadge, discBadge, varBadge].filter(Boolean).join(' ');
+    const stockNull = p.stock === null || p.stock === undefined;
+    const stockBadge = stockNull ? '' : p.stock === 0
+      ? `<span style="font-size:10px;background:#fee;color:#e74c3c;padding:2px 6px;border-radius:6px;font-weight:700;">❌ Sin stock</span>`
+      : p.stock <= 5
+        ? `<span style="font-size:10px;background:#fff8e1;color:#e67e22;padding:2px 6px;border-radius:6px;font-weight:700;">⚡ Stock: ${p.stock}</span>`
+        : `<span style="font-size:10px;background:#f0fff5;color:#27ae60;padding:2px 6px;border-radius:6px;font-weight:700;">📦 ${p.stock}</span>`;
+    const badges = [featBadge, discBadge, varBadge, stockBadge].filter(Boolean).join(' ');
+    const stockLabel = stockNull ? '∞' : p.stock;
     return `<div class="mpc">
       <label style="cursor:pointer;flex-shrink:0;position:relative;" title="Cambiar foto">
         ${thumb}
@@ -4558,6 +4573,14 @@ function renderOwnerMenu(products, categories) {
         <div class="mpc-name">${p.name}</div>
         <div class="mpc-price" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span style="font-weight:900;">$${p.price}</span>${badges}
+        </div>
+        <!-- Stock controls -->
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+          <span style="font-size:11px;color:#888;font-weight:600;">Stock:</span>
+          <button onclick="adjustStock('${p.id}',-1,${p.stock??'null'})" style="width:22px;height:22px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">−</button>
+          <span id="stock-label-${p.id}" style="font-size:12px;font-weight:700;min-width:22px;text-align:center;">${stockLabel}</span>
+          <button onclick="adjustStock('${p.id}',1,${p.stock??'null'})" style="width:22px;height:22px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">+</button>
+          ${!stockNull ? `<button onclick="setStockUnlimited('${p.id}')" style="font-size:10px;color:#aaa;border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">sin límite</button>` : `<button onclick="initStock('${p.id}')" style="font-size:10px;color:var(--primary);border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">activar</button>`}
         </div>
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;">
@@ -4594,6 +4617,38 @@ function renderOwnerMenu(products, categories) {
 async function toggleProduct(id, current) {
   try { await api(`/api/businesses/mine/products/${id}`,{method:'PATCH',body:JSON.stringify({is_available:current?0:1})}); loadOwnerDash(); }
   catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function adjustStock(id, delta, currentStock) {
+  const newStock = currentStock === null || currentStock === undefined
+    ? Math.max(0, delta > 0 ? delta : 0)
+    : Math.max(0, currentStock + delta);
+  try {
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ stock: newStock }) });
+    const label = document.getElementById(`stock-label-${id}`);
+    if (label) label.textContent = newStock;
+    if (newStock === 0) showToast(`⚠️ Producto sin stock — no se podrá pedir`);
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function initStock(id) {
+  const val = prompt('¿Cuántas unidades tenés disponibles?', '10');
+  if (val === null) return;
+  const n = Math.max(0, parseInt(val)||0);
+  try {
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ stock: n }) });
+    showToast(`✅ Stock seteado: ${n}`);
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function setStockUnlimited(id) {
+  if (!confirm('¿Quitar el límite de stock para este producto?')) return;
+  try {
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ stock: null }) });
+    showToast('✅ Sin límite de stock');
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 async function deleteProduct(id) {
   if (!confirm('¿Eliminar este producto?')) return;
