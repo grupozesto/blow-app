@@ -255,6 +255,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .step-dot.done{background:var(--success);color:#fff;}
 .step-dot.cur{background:var(--primary);color:#fff;animation:pulse 1.5s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,0,45,.4)}50%{box-shadow:0 0 0 8px rgba(232,0,45,0)}}
+@keyframes bannerSlide{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+@keyframes bellRing{from{transform:rotate(-20deg)}to{transform:rotate(20deg)}}
 .step-info{padding:6px 0 18px;}
 .step-label{font-weight:600;font-size:14px;color:var(--muted);}
 .step-label.done,.step-label.cur{color:var(--text);}
@@ -2315,15 +2317,119 @@ function connectWS() {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'new_order') {
-        showToast(msg.message);
+        playOrderAlarm();
+        showOrderBanner(msg);
         if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
         if (document.getElementById('page-delivery').classList.contains('active')) loadDeliveryOrders();
       }
-      if (msg.type === 'status_change') showToast(msg.message);
+      if (msg.type === 'status_change') {
+        showToast(msg.message);
+        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+      }
       if (msg.type === 'order_delivered') showToast(msg.message);
+      if (msg.type === 'order_cancelled') {
+        showToast(msg.message || '❌ Pedido cancelado');
+        if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
+      }
     } catch {}
   };
-  ws.onclose = () => setTimeout(connectWS, 5000);
+  ws.onclose = () => {
+    ws = null;
+    // Exponential backoff: 3s, 6s, 12s, max 30s
+    const delay = Math.min(30000, (connectWS._delay || 3000));
+    connectWS._delay = delay * 2;
+    setTimeout(() => { connectWS._delay = 3000; connectWS(); }, delay);
+  };
+}
+
+// ── Order alarm: sound + vibration + system notification ──
+function playOrderAlarm() {
+  // Vibration pattern: long-short-long
+  if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+
+  // Web Audio API beep (no external files needed)
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const playBeep = (startTime, freq, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.6, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+    // 3 ascending beeps
+    playBeep(ctx.currentTime,       880, 0.25);
+    playBeep(ctx.currentTime + 0.3, 1100, 0.25);
+    playBeep(ctx.currentTime + 0.6, 1320, 0.35);
+    // Repeat once after 1.5s
+    setTimeout(() => {
+      try {
+        playBeep(ctx.currentTime,       880, 0.25);
+        playBeep(ctx.currentTime + 0.3, 1100, 0.25);
+        playBeep(ctx.currentTime + 0.6, 1320, 0.35);
+      } catch {}
+    }, 1500);
+  } catch(e) {}
+
+  // System notification (works when tab is in background)
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      new Notification('🔔 Nuevo pedido en Blow', {
+        body: '¡Tenés un nuevo pedido esperando confirmación!',
+        icon: '/icons/icon-192.png',
+        tag: 'new-order',
+        renotify: true,
+      });
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') new Notification('🔔 Nuevo pedido en Blow', {
+          body: '¡Tenés un nuevo pedido esperando confirmación!',
+          icon: '/icons/icon-192.png',
+        });
+      });
+    }
+  }
+}
+
+// ── Persistent order banner (doesn't auto-dismiss) ──
+function showOrderBanner(msg) {
+  // Remove any existing banner
+  document.getElementById('order-alert-banner')?.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'order-alert-banner';
+  banner.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:99999;
+    background:linear-gradient(135deg,#FA0050,#c0003c);
+    color:#fff;padding:18px 16px 16px;
+    display:flex;align-items:center;gap:14px;
+    box-shadow:0 4px 20px rgba(250,0,80,.4);
+    animation:bannerSlide .3s ease;
+  `;
+  banner.innerHTML = `
+    <div style="font-size:28px;animation:bellRing 0.5s ease infinite alternate;">🔔</div>
+    <div style="flex:1;">
+      <div style="font-size:15px;font-weight:900;line-height:1.2;">¡Nuevo pedido!</div>
+      <div style="font-size:13px;opacity:.9;margin-top:2px;">${msg.message||'Revisá tu panel de pedidos'}</div>
+    </div>
+    <button onclick="document.getElementById('order-alert-banner').remove();nav('page-owner-dash');loadOwnerDash();"
+      style="background:#fff;color:#FA0050;border:none;border-radius:10px;padding:10px 16px;font-weight:900;font-size:13px;cursor:pointer;white-space:nowrap;">
+      Ver pedido
+    </button>
+    <button onclick="document.getElementById('order-alert-banner').remove();"
+      style="background:rgba(255,255,255,.2);border:none;border-radius:8px;width:32px;height:32px;color:#fff;font-size:18px;cursor:pointer;flex-shrink:0;">
+      ✕
+    </button>
+  `;
+  document.body.appendChild(banner);
+
+  // Auto-dismiss after 60 seconds if not acted on
+  setTimeout(() => document.getElementById('order-alert-banner')?.remove(), 60000);
 }
 
 // ═══════════════════════════════════════════════
@@ -3914,6 +4020,12 @@ async function cancelSubscription() {
 // ═══════════════════════════════════════════════
 async function loadOwnerDash() {
   if (!user || user.role!=='owner') { nav('page-owner-login'); return; }
+
+  // Request notification permission for new order alerts
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   try {
     const d = await api('/api/businesses/mine/dashboard');
     ownerData = d;
