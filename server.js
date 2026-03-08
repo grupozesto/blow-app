@@ -716,22 +716,29 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 app.get('/api/businesses', async (req, res) => {
   try {
     const { category, city, department } = req.query;
+    const limit  = Math.min(parseInt(req.query.limit)  || 12, 50);
+    const offset = parseInt(req.query.offset) || 0;
     let sql = `SELECT b.* FROM businesses b
       LEFT JOIN subscriptions s ON s.business_id = b.id
-      WHERE (s.status = 'active' OR s.id IS NULL)`;
+      WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active = TRUE`;
     const params = [];
     let i = 1;
     if (category)   { sql += ` AND b.category=$${i++}`;                params.push(category); }
     if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;      params.push(city); }
     if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
-    sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+    const countSql = sql.replace('SELECT b.*', 'SELECT COUNT(*) as total');
+    const totalRow = await q1(countSql, params);
+    const total = parseInt(totalRow?.total || 0);
+    sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.is_open DESC, b.created_at DESC`;
+    sql += ` LIMIT $${i++} OFFSET $${i++}`;
+    params.push(limit, offset);
     const rows = await qa(sql, params);
     const result = [];
     for (const b of rows) {
       const cnt = await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
       result.push({ ...b, product_count: parseInt(cnt?.c || 0) });
     }
-    res.json(result);
+    res.json({ businesses: result, total, hasMore: offset + limit < total, offset, limit });
   } catch(e) {
     console.error('❌ /api/businesses error:', e.message, e.stack);
     res.status(500).json({ error: e.message });
