@@ -1419,6 +1419,14 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
 
 
 
+
+// GET own business info
+app.get('/api/businesses/mine', auth, role('owner'), async (req, res) => {
+  const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!b) return res.status(404).json({ error: 'Negocio no encontrado' });
+  res.json(b);
+});
+
 app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
