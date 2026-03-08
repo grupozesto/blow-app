@@ -114,7 +114,7 @@ async function initDB() {
       address TEXT DEFAULT '', phone TEXT DEFAULT '',
       logo_emoji TEXT DEFAULT '🏪', delivery_cost INTEGER DEFAULT 50,
       is_open BOOLEAN DEFAULT TRUE, plan TEXT DEFAULT 'starter',
-      rating REAL DEFAULT 4.5, delivery_time TEXT DEFAULT '20-35',
+      rating REAL DEFAULT NULL, delivery_time TEXT DEFAULT '20-35',
       city TEXT DEFAULT '', department TEXT DEFAULT '',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -247,6 +247,10 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS department TEXT DEFAULT '';
+    -- Reset ratings for businesses with fewer than 3 reviews (removes hardcoded defaults)
+    UPDATE businesses SET rating = NULL WHERE id NOT IN (
+      SELECT business_id FROM reviews GROUP BY business_id HAVING COUNT(*) >= 3
+    );
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -1236,9 +1240,15 @@ app.post('/api/orders/:id/review', auth, role('customer'), async (req, res) => {
     // Insert review
     await q('INSERT INTO reviews (id,order_id,business_id,customer_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6)',
       [uuid(), order.id, order.business_id, req.user.id, parseInt(rating), comment||'']);
-    // Recalculate business rating
-    const avg = await q1('SELECT ROUND(AVG(rating)::numeric, 1) as avg FROM reviews WHERE business_id=$1', [order.business_id]);
-    if (avg?.avg) await q('UPDATE businesses SET rating=$1 WHERE id=$2', [parseFloat(avg.avg), order.business_id]);
+    // Recalculate business rating — only apply when 3+ reviews exist
+    const revCount = await q1('SELECT COUNT(*) as c FROM reviews WHERE business_id=$1', [order.business_id]);
+    const count = parseInt(revCount?.c || 0);
+    if (count >= 3) {
+      const avg = await q1('SELECT ROUND(AVG(rating)::numeric, 1) as avg FROM reviews WHERE business_id=$1', [order.business_id]);
+      if (avg?.avg) await q('UPDATE businesses SET rating=$1 WHERE id=$2', [parseFloat(avg.avg), order.business_id]);
+    } else {
+      await q('UPDATE businesses SET rating=NULL WHERE id=$1', [order.business_id]);
+    }
     res.json({ success: true });
   } catch(e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Ya reseñaste este pedido' });
@@ -1548,7 +1558,9 @@ app.get('/api/businesses/:id', async (req, res) => {
   })));
   const cats = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
   const reviewStats = await q1('SELECT COUNT(*) as count, ROUND(AVG(rating)::numeric,1) as avg FROM reviews WHERE business_id=$1',[b.id]);
-  res.json({ ...b, products:prods, categories:cats, review_count: parseInt(reviewStats?.count||0), rating: reviewStats?.avg ? parseFloat(reviewStats.avg) : (b.rating||4.5) });
+  const reviewCount = parseInt(reviewStats?.count||0);
+  const rating = reviewCount >= 3 ? parseFloat(reviewStats.avg) : null;
+  res.json({ ...b, products:prods, categories:cats, review_count: reviewCount, rating });
 });
 
 // Public: get active promotions for a business
