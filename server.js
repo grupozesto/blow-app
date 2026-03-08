@@ -804,6 +804,83 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 // ════════════════════════════════════════════════
 //  NEGOCIOS
 // ════════════════════════════════════════════════
+// ── Personalized recommendations ─────────────
+app.get('/api/recommendations', auth, async (req, res) => {
+  try {
+    const { lat, lng, limit = 8 } = req.query;
+    // 1. Get user's order history — business_ids and categories ordered by frequency
+    const history = await qa(`
+      SELECT o.business_id, b.category, COUNT(*) as times
+      FROM orders o
+      JOIN businesses b ON b.id = o.business_id
+      WHERE o.customer_id = $1
+        AND o.status = 'delivered'
+      GROUP BY o.business_id, b.category
+      ORDER BY times DESC
+      LIMIT 20
+    `, [req.user.id]);
+
+    if (!history.length) {
+      // No history → return top-rated open businesses
+      const fallback = await qa(`
+        SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url, b.cover_url,
+               b.delivery_cost, b.delivery_time, b.rating, b.review_count, b.is_open,
+               'popular' AS rec_reason
+        FROM businesses b
+        WHERE b.is_open = TRUE AND b.plan IS NOT NULL
+        ORDER BY COALESCE(b.rating, 0) DESC, COALESCE(b.review_count, 0) DESC
+        LIMIT $1
+      `, [parseInt(limit)]);
+      return res.json({ recommendations: fallback, reason: 'popular' });
+    }
+
+    // 2. Get top categories from history
+    const catCounts = {};
+    const recentBizIds = history.map(h => h.business_id);
+    history.forEach(h => { catCounts[h.category] = (catCounts[h.category] || 0) + parseInt(h.times); });
+    const topCats = Object.entries(catCounts).sort((a,b) => b[1]-a[1]).map(e => e[0]);
+
+    // 3. Find similar businesses not recently ordered from
+    const distExpr = lat && lng
+      ? `6371 * acos(GREATEST(-1, LEAST(1, cos(radians(${parseFloat(lat)})) * cos(radians(b.lat)) * cos(radians(b.lng) - radians(${parseFloat(lng)})) + sin(radians(${parseFloat(lat)})) * sin(radians(b.lat)))))`
+      : 'NULL';
+
+    const placeholders = recentBizIds.map((_,i) => `$${i+2}`).join(',');
+    const recs = await qa(`
+      SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url, b.cover_url,
+             b.delivery_cost, b.delivery_time, b.rating, b.review_count, b.is_open,
+             ${distExpr} AS distance_km,
+             CASE WHEN b.category = ANY($1::text[]) THEN 'same_category' ELSE 'discover' END AS rec_reason
+      FROM businesses b
+      WHERE b.plan IS NOT NULL
+        AND b.is_open = TRUE
+        ${recentBizIds.length ? `AND b.id NOT IN (${placeholders})` : ''}
+      ORDER BY
+        CASE WHEN b.category = ANY($1::text[]) THEN 0 ELSE 1 END ASC,
+        COALESCE(b.rating, 0) DESC,
+        COALESCE(b.review_count, 0) DESC
+      LIMIT $${recentBizIds.length + 2}
+    `, [topCats, ...recentBizIds, parseInt(limit)]);
+
+    // 4. If not enough, pad with "order again" businesses (last ordered first)
+    let result = recs;
+    if (result.length < 3) {
+      const again = await qa(`
+        SELECT DISTINCT ON (o.business_id) b.id, b.name, b.category, b.logo_emoji, b.logo_url,
+               b.cover_url, b.delivery_cost, b.delivery_time, b.rating, b.review_count, b.is_open,
+               'order_again' AS rec_reason
+        FROM orders o JOIN businesses b ON b.id = o.business_id
+        WHERE o.customer_id = $1 AND o.status = 'delivered' AND b.is_open = TRUE
+        ORDER BY o.business_id, o.created_at DESC
+        LIMIT $2
+      `, [req.user.id, parseInt(limit)]);
+      result = [...result, ...again].slice(0, parseInt(limit));
+    }
+
+    res.json({ recommendations: result, reason: topCats[0] || 'mixed' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/businesses', async (req, res) => {
   try {
     const { category, city, department } = req.query;
