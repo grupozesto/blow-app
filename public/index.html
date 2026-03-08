@@ -144,10 +144,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .search-bar input::placeholder{color:#bbb;}
 .sbtn{background:var(--primary);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 /* Global search overlay */
-.search-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:900;display:none;}
-.search-overlay.open{display:block;}
-.search-results-panel{position:fixed;top:0;left:0;right:0;max-width:600px;margin:0 auto;background:#fff;z-index:901;border-radius:0 0 20px 20px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);transform:translateY(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);}
-.search-results-panel.open{transform:translateY(0);}
+.search-overlay{display:none!important;}
+.search-results-panel{display:none!important;}
 .srp-header{display:flex;align-items:center;gap:12px;padding:max(14px,env(safe-area-inset-top,14px)) 16px 12px;border-bottom:1px solid #f0f0f0;position:sticky;top:0;background:#fff;z-index:2;}
 .srp-input{flex:1;padding:10px 16px;border:1.5px solid #e8e8e8;border-radius:12px;font-size:15px;font-family:'Inter',sans-serif;outline:none;background:#f8f8f8;}
 .srp-input:focus{border-color:var(--primary);background:#fff;}
@@ -823,8 +821,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" onfocus="openGlobalSearch()" readonly>
-      <button class="sbtn" onclick="openGlobalSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="inlineSearch(this.value)" onfocus="onSearchFocus()" onkeydown="if(event.key==='Escape'){clearInlineSearch();this.blur()}" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="sbtn" id="search-clear-btn" onclick="clearInlineSearch()" style="display:none;background:#f0f0f0;"><svg viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2.5" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="sbtn" id="search-go-btn" onclick="inlineSearch(document.getElementById('search-input').value)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
   </div>
   <div class="sc">
@@ -963,7 +962,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
       <div id="para-vos-row" style="display:flex;gap:12px;overflow-x:auto;padding:0 16px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;"></div>
     </div>
-    <div style="padding:14px 16px 80px;"><div class="stores-grid" id="stores-grid"><div class="loading-state"><div class="spinner"></div>Cargando tiendas...</div></div></div>
+    <!-- Inline search results — shown when user is searching -->    
+    <div id="inline-search-results" style="display:none;padding:0 16px 80px;"></div>
+    <div id="feed-container" style="padding:14px 16px 80px;"><div class="stores-grid" id="stores-grid"><div class="loading-state"><div class="spinner"></div>Cargando tiendas...</div></div></div>
   </div>
 </div>
 
@@ -3434,6 +3435,175 @@ function searchStores(q) {
 //  GLOBAL SEARCH
 // ═══════════════════════════════════════════════
 let _searchTimer = null;
+
+// ── Inline search (replaces floating panel) ──
+let _inlineSearchTimer = null;
+let _inlineSearchActive = false;
+
+function onSearchFocus() {
+  const q = document.getElementById('search-input')?.value?.trim();
+  if (!q) renderInlineHistory();
+}
+
+function inlineSearch(q) {
+  const clearBtn = document.getElementById('search-clear-btn');
+  const goBtn    = document.getElementById('search-go-btn');
+  const results  = document.getElementById('inline-search-results');
+  const feed     = document.getElementById('feed-container');
+  const paraVos  = document.getElementById('para-vos-section');
+
+  if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+  if (goBtn)    goBtn.style.display    = q ? 'none' : 'flex';
+
+  clearTimeout(_inlineSearchTimer);
+
+  if (!q?.trim()) {
+    clearInlineSearch();
+    return;
+  }
+
+  // Show results panel, hide feed
+  _inlineSearchActive = true;
+  if (results) results.style.display = 'block';
+  if (feed)    feed.style.display    = 'none';
+  if (paraVos) paraVos.style.display = 'none';
+
+  if (q.trim().length < 2) {
+    renderInlineHistory();
+    return;
+  }
+
+  results.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding-top:12px;">${skelStoreCards(3)}</div>`;
+
+  _inlineSearchTimer = setTimeout(async () => {
+    try {
+      const cityParam = activeCity ? `&city=${encodeURIComponent(activeCity)}` : '';
+      const data = await api(`/api/search?q=${encodeURIComponent(q.trim())}${cityParam}`);
+      addSearchHistory(q.trim());
+      renderInlineResults(data, q.trim());
+    } catch(e) {
+      if (results) results.innerHTML = `<div style="text-align:center;padding:40px;color:#e74c3c;">${e.message}</div>`;
+    }
+  }, 280);
+}
+
+function renderInlineHistory() {
+  const results = document.getElementById('inline-search-results');
+  const feed    = document.getElementById('feed-container');
+  const paraVos = document.getElementById('para-vos-section');
+  const h = getSearchHistory();
+  if (!h.length) return; // nothing to show, keep feed visible
+  _inlineSearchActive = true;
+  if (results) results.style.display = 'block';
+  if (feed)    feed.style.display    = 'none';
+  if (paraVos) paraVos.style.display = 'none';
+  results.innerHTML = `
+    <div style="padding:16px 0 4px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;">Búsquedas recientes</span>
+      <button onclick="clearSearchHistory();renderInlineHistory();" style="background:none;border:none;font-size:12px;color:#aaa;cursor:pointer;font-family:inherit;">Borrar todo</button>
+    </div>
+    ${h.map(q => `
+      <div onclick="document.getElementById('search-input').value='${q.replace(/'/g,"\'")}';inlineSearch('${q.replace(/'/g,"\'")}');"
+        style="display:flex;align-items:center;gap:12px;padding:13px 0;cursor:pointer;border-bottom:1px solid #f8f8f8;">
+        <span style="color:#ccc;font-size:16px;width:20px;text-align:center;">🕐</span>
+        <span style="font-size:14px;color:#333;flex:1;">${q}</span>
+        <span style="color:#ccc;font-size:14px;">↗</span>
+      </div>`).join('')}`;
+}
+
+function renderInlineResults(data, q) {
+  const results = document.getElementById('inline-search-results');
+  if (!results) return;
+  const { products = [], businesses = [] } = data;
+
+  if (!products.length && !businesses.length) {
+    results.innerHTML = `
+      <div style="text-align:center;padding:56px 20px;">
+        <div style="font-size:44px;margin-bottom:12px;">😕</div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">Sin resultados para "${q}"</div>
+        <div style="font-size:13px;color:#999;">Probá con otro término o revisá tu zona.</div>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+
+  if (businesses.length) {
+    html += `<div style="font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding:16px 0 8px;">🏪 Negocios (${businesses.length})</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">`;
+    html += businesses.map(b => `
+      <div onclick='openStoreDetail(${JSON.stringify(b).replace(/'/g,"&apos;")})' style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-radius:14px;border:1px solid #f0f0f0;cursor:pointer;active:background:#f8f8f8;">
+        <div style="width:44px;height:44px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;overflow:hidden;">
+          ${b.logo_url ? `<img src="${b.logo_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : (b.logo_emoji || '🏪')}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</div>
+          <div style="font-size:12px;color:#aaa;margin-top:2px;">${b.is_open ? '🟢 Abierto' : '🔴 Cerrado'} · ${b.delivery_time || '30-45'} min · $${b.delivery_cost || 0}</div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="2" width="16" height="16"><polyline points="9,18 15,12 9,6"/></svg>
+      </div>`).join('');
+    html += `</div>`;
+  }
+
+  if (products.length) {
+    html += `<div style="font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding:4px 0 8px;">🍔 Productos (${products.length})</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+    html += products.map(p => {
+      const disc = parseInt(p.discount_percent) || 0;
+      const price = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
+      return `
+        <div onclick='openStoreDetail({id:"${p.business_id}",name:"${(p.business_name||'').replace(/"/g,'&quot;')}",logo_emoji:"${p.logo_emoji||'🏪'}"},${JSON.stringify(p.name).replace(/'/g,"&apos;")})' style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-radius:14px;border:1px solid #f0f0f0;cursor:pointer;">
+          <div style="width:56px;height:56px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden;">
+            ${p.photo_url ? `<img src="${p.photo_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : (p.emoji || '🍽️')}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+            <div style="font-size:12px;color:#aaa;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.business_name || ''}</div>
+            <div style="font-size:14px;font-weight:800;color:var(--primary);margin-top:4px;">$${price}${disc > 0 ? ` <span style="font-size:11px;color:#aaa;text-decoration:line-through;font-weight:400;">$${p.price}</span>` : ''}</div>
+          </div>
+        </div>`;
+    }).join('');
+    html += `</div>`;
+  }
+
+  results.innerHTML = html;
+}
+
+function clearInlineSearch() {
+  const input   = document.getElementById('search-input');
+  const results = document.getElementById('inline-search-results');
+  const feed    = document.getElementById('feed-container');
+  const paraVos = document.getElementById('para-vos-section');
+  const clearBtn = document.getElementById('search-clear-btn');
+  const goBtn    = document.getElementById('search-go-btn');
+  if (input) input.value = '';
+  if (results) { results.style.display = 'none'; results.innerHTML = ''; }
+  if (feed) feed.style.display = 'block';
+  if (window._session && paraVos) paraVos.style.display = 'block';
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (goBtn)    goBtn.style.display    = 'flex';
+  _inlineSearchActive = false;
+  if (input) input.blur();
+}
+
+// Keep openGlobalSearch working (called from deep links, recommendations, etc.)
+// Now it just fills the inline search instead of opening the panel
+function openGlobalSearch(prefill) {
+  const input = document.getElementById('search-input');
+  if (!input) return;
+  if (prefill) {
+    input.value = prefill;
+    inlineSearch(prefill);
+  } else {
+    input.focus();
+    renderInlineHistory();
+  }
+  // Scroll to top so user sees results
+  const homePage = document.getElementById('page-home');
+  if (homePage) homePage.scrollTop = 0;
+}
+
+function closeGlobalSearch() { clearInlineSearch(); }
 
 // ── Search history ───────────────────────────
 const SEARCH_HISTORY_KEY = 'blow_search_history';
@@ -9061,7 +9231,10 @@ if (deepCategory) {
 const deepSearch = urlP.get('q');
 if (deepSearch) {
   window.history.replaceState({}, '', '/');
-  setTimeout(() => openGlobalSearch(deepSearch), 500);
+  setTimeout(() => {
+    const inp = document.getElementById('search-input');
+    if (inp) { inp.value = deepSearch; inlineSearch(deepSearch); }
+  }, 500);
 }
 
 // Handle SEO redirect (from seoPage JS redirect)
