@@ -348,6 +348,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .owner-login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 32px));background:var(--bg);}
 #ob-emoji-picker span{font-size:24px;cursor:pointer;padding:6px;border-radius:8px;transition:background .15s;}
 #ob-emoji-picker span:hover,#ob-emoji-picker span.selected{background:#fff0f3;}
+.eta-quick-btn{background:#fff;border:1.5px solid #d1fae5;color:#166534;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
+.eta-quick-btn:hover{background:#dcfce7;}
+.eta-quick-btn.eta-default{background:#dcfce7;border-color:#86efac;}
+.eta-bar-wrap{background:#f8f8f8;border-radius:12px;padding:10px 14px;margin-top:10px;}
 .plans-grid{display:flex;flex-direction:column;gap:12px;width:100%;margin-bottom:20px;}
 .plan-card{background:#fff;border:2px solid var(--border);border-radius:var(--r);padding:18px;cursor:pointer;transition:border-color .2s;position:relative;}
 .plan-card.selected{border-color:var(--primary);}
@@ -2492,6 +2496,10 @@ function connectWS() {
         showToast(msg.message || '💸 Reembolso procesado');
         if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
       }
+      if (msg.type === 'eta_update') {
+        showToast(msg.message || '🕐 El tiempo de entrega fue actualizado');
+        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+      }
     } catch {}
   };
   ws.onclose = () => {
@@ -3948,6 +3956,7 @@ async function loadTracking() {
     renderTrackingSummary();
     populateBizFilter();
     renderTrackingOrders();
+    startEtaTicker();
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
 }
 
@@ -3995,6 +4004,46 @@ function populateBizFilter() {
   const businesses = [...new Map(_allOrders.map(o => [o.business_id, o.business_name||o.business_id])).entries()];
   sel.innerHTML = '<option value="">Todos los negocios</option>' +
     businesses.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+}
+
+// ── ETA countdown ─────────────────────────────
+function renderEtaBar(o) {
+  const elapsedMin = (Date.now() - new Date(o.confirmed_at).getTime()) / 60000;
+  const remaining = Math.max(0, Math.round(o.eta_minutes - elapsedMin));
+  const percent = Math.min(100, Math.round((elapsedMin / o.eta_minutes) * 100));
+  const isLate = remaining === 0;
+  const color = isLate ? '#e74c3c' : percent > 75 ? '#f39c12' : '#27ae60';
+  return `<div class="eta-bar-wrap" id="eta-wrap-${o.id}" data-confirmed="${o.confirmed_at}" data-eta="${o.eta_minutes}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:12px;font-weight:700;color:#555;">🕐 Tiempo estimado</span>
+      <span id="eta-remaining-${o.id}" style="font-size:14px;font-weight:900;color:${color};">${isLate ? '¡En camino pronto!' : `~${remaining} min`}</span>
+    </div>
+    <div style="background:#f0f0f0;border-radius:99px;height:6px;overflow:hidden;">
+      <div id="eta-progress-${o.id}" style="background:${color};height:100%;border-radius:99px;transition:width .5s ease;width:${percent}%;"></div>
+    </div>
+  </div>`;
+}
+
+let _etaTicker = null;
+function startEtaTicker() {
+  if (_etaTicker) return;
+  _etaTicker = setInterval(() => {
+    document.querySelectorAll('.eta-bar-wrap').forEach(wrap => {
+      const orderId = wrap.id.replace('eta-wrap-','');
+      const confirmed = new Date(wrap.dataset.confirmed);
+      const etaMin = parseInt(wrap.dataset.eta);
+      if (!confirmed || !etaMin) return;
+      const elapsedMin = (Date.now() - confirmed.getTime()) / 60000;
+      const remaining = Math.max(0, Math.round(etaMin - elapsedMin));
+      const percent = Math.min(100, Math.round((elapsedMin / etaMin) * 100));
+      const isLate = remaining === 0;
+      const color = isLate ? '#e74c3c' : percent > 75 ? '#f39c12' : '#27ae60';
+      const remEl = document.getElementById(`eta-remaining-${orderId}`);
+      const progEl = document.getElementById(`eta-progress-${orderId}`);
+      if (remEl) { remEl.textContent = isLate ? '¡En camino pronto!' : `~${remaining} min`; remEl.style.color = color; }
+      if (progEl) { progEl.style.width = `${percent}%`; progEl.style.background = color; }
+    });
+  }, 30000); // update every 30s
 }
 
 function renderTrackingOrders() {
@@ -4047,6 +4096,7 @@ function renderTrackingOrders() {
           <div class="step-info"><div class="step-label ${s.done||s.cur?'done':''}">${s.label}</div></div>
         </div>`).join('')}
       </div>` : ''}
+      ${['confirmed','preparing'].includes(o.status) && o.eta_minutes && o.confirmed_at ? renderEtaBar(o) : ''}
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
         <div onclick="toggleOrderDetail('${o.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
           <span style="font-size:13px;color:#666;">${(o.items||[]).length} producto${(o.items||[]).length!==1?'s':''} · <strong style="color:#1a1a1a;">$${o.total}</strong></span>
@@ -4985,9 +5035,9 @@ function renderOwnerOrders(orders) {
       <div class="ooc-total">$${o.total}</div>
       ${o.owner_message?`<div style="margin:8px 0 0;background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:8px 12px;font-size:12px;color:#7d6000;">💬 Mensaje enviado: <em>${o.owner_message}</em></div>`:''}
       <div class="ooc-actions">
-        ${o.status==='pending'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','confirmed')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
-        ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
-        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">✅ Listo</button>`:''}
+        ${o.status==='pending'?`<button class="btn-sm green" onclick="ownerAcceptOrder('${o.id}')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
+        ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button><button class="btn-sm" onclick="toggleEtaAdjust('${o.id}')" style="background:#fff8e1;border:1px solid #fde68a;color:#854d0e;font-size:11px;">🕐 Ajustar tiempo</button>`:''}
+        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">✅ Listo</button><button class="btn-sm" onclick="toggleEtaAdjust('${o.id}')" style="background:#fff8e1;border:1px solid #fde68a;color:#854d0e;font-size:11px;">🕐 Ajustar tiempo</button>`:''}
         ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')">🛵 Salió para entrega</button>`:''}
         ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">🏁 Entregado</button>`:''}
         ${o.status==='delivered'?`<span style="font-size:13px;color:var(--success);font-weight:700;">✅ Entregado</span>`:''}
@@ -5003,7 +5053,79 @@ function renderOwnerOrders(orders) {
         </div>
         <div style="font-size:11px;color:#aaa;margin-top:4px;padding-left:2px;">El cliente verá este mensaje en su seguimiento</div>
       </div>
+      <!-- ETA accept panel (shown when accepting pending order) -->
+      <div id="eta-accept-${o.id}" style="display:none;margin-top:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;">
+        <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:10px;">🕐 ¿Cuánto tarda el pedido?</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          <button onclick="quickAccept('${o.id}',15)" class="eta-quick-btn">15 min</button>
+          <button onclick="quickAccept('${o.id}',20)" class="eta-quick-btn">20 min</button>
+          <button onclick="quickAccept('${o.id}',30)" class="eta-quick-btn eta-default">30 min</button>
+          <button onclick="quickAccept('${o.id}',45)" class="eta-quick-btn">45 min</button>
+          <button onclick="quickAccept('${o.id}',60)" class="eta-quick-btn">1 hora</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="eta-custom-${o.id}" type="number" min="5" max="180" placeholder="Otro..." style="width:90px;padding:8px 10px;border:1.5px solid #86efac;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;">
+          <span style="font-size:13px;color:#888;">min</span>
+          <button onclick="quickAccept('${o.id}', parseInt(document.getElementById('eta-custom-${o.id}').value)||30)" style="background:#16a34a;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Aceptar →</button>
+        </div>
+      </div>
+      <!-- ETA adjust panel -->
+      <div id="eta-adjust-${o.id}" style="display:none;margin-top:10px;background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;">
+        <div style="font-size:13px;font-weight:700;color:#854d0e;margin-bottom:10px;">🕐 Ajustar tiempo de entrega</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          <button onclick="adjustEta('${o.id}',10)" class="eta-quick-btn">+10 min</button>
+          <button onclick="adjustEta('${o.id}',20)" class="eta-quick-btn">+20 min</button>
+          <button onclick="adjustEta('${o.id}',30)" class="eta-quick-btn">+30 min</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="eta-adj-${o.id}" type="number" min="5" max="180" placeholder="Total min" style="width:90px;padding:8px 10px;border:1.5px solid #fde68a;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;">
+          <button onclick="saveEtaAdjust('${o.id}')" style="background:#d97706;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Guardar</button>
+        </div>
+      </div>
     </div>`).join('');
+}
+
+// ── ETA owner functions ───────────────────────
+function ownerAcceptOrder(orderId) {
+  // Show the ETA accept panel instead of immediately confirming
+  const panel = document.getElementById(`eta-accept-${orderId}`);
+  if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; }
+  else changeOrderStatus(orderId, 'confirmed'); // fallback
+}
+
+async function quickAccept(orderId, etaMinutes) {
+  try {
+    await api(`/api/orders/${orderId}/status`, { method:'PATCH', body: JSON.stringify({ status:'confirmed', eta_minutes: etaMinutes }) });
+    showToast(`✅ Pedido aceptado · ~${etaMinutes} min`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+function toggleEtaAdjust(orderId) {
+  const panel = document.getElementById(`eta-adjust-${orderId}`);
+  if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+async function adjustEta(orderId, addMinutes) {
+  // Get current ETA remaining and add to it
+  try {
+    const eta = await api(`/api/orders/${orderId}/eta`);
+    const newEta = (eta.remaining || 0) + addMinutes;
+    await api(`/api/orders/${orderId}/eta`, { method:'PATCH', body: JSON.stringify({ eta_minutes: newEta }) });
+    showToast(`🕐 Tiempo ajustado: ~${newEta} min`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function saveEtaAdjust(orderId) {
+  const inp = document.getElementById(`eta-adj-${orderId}`);
+  const val = parseInt(inp?.value);
+  if (!val || val < 1) { showToast('⚠️ Ingresá un tiempo válido'); return; }
+  try {
+    await api(`/api/orders/${orderId}/eta`, { method:'PATCH', body: JSON.stringify({ eta_minutes: val }) });
+    showToast(`🕐 Tiempo actualizado: ~${val} min`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 function toggleOwnerMsgInput(orderId) {
