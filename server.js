@@ -251,6 +251,8 @@ async function initDB() {
     UPDATE businesses SET rating = NULL WHERE id NOT IN (
       SELECT business_id FROM reviews GROUP BY business_id HAVING COUNT(*) >= 3
     );
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule_enabled BOOLEAN DEFAULT FALSE;
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -421,6 +423,45 @@ async function deletePhoto(cloudinaryId) {
     try { await cloudinary.uploader.destroy(cloudinaryId); } catch {}
   }
 }
+
+// ── Schedule helpers ──────────────────────────
+// schedule format: { mon:[{open:'09:00',close:'23:00'}], tue:[...], ... }
+// days: mon tue wed thu fri sat sun
+function isBusinessOpenNow(schedule) {
+  if (!schedule) return false;
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Montevideo' }));
+  const days = ['sun','mon','tue','wed','thu','fri','sat'];
+  const dayKey = days[now.getDay()];
+  const slots = schedule[dayKey];
+  if (!slots || !slots.length) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  return slots.some(slot => {
+    const [oh, om] = slot.open.split(':').map(Number);
+    const [ch, cm] = slot.close.split(':').map(Number);
+    const openMin = oh * 60 + om;
+    let closeMin = ch * 60 + cm;
+    if (closeMin <= openMin) closeMin += 1440; // past midnight
+    if (closeMin <= openMin) return false;
+    const curAdj = closeMin > 1440 && cur < openMin ? cur + 1440 : cur;
+    return curAdj >= openMin && curAdj < closeMin;
+  });
+}
+
+// Cron: every minute, auto open/close businesses that have schedule_enabled
+setInterval(async () => {
+  try {
+    const businesses = await qa(
+      'SELECT id, schedule, is_open FROM businesses WHERE schedule_enabled=TRUE AND schedule IS NOT NULL', []
+    );
+    for (const biz of businesses) {
+      const shouldBeOpen = isBusinessOpenNow(biz.schedule);
+      if (shouldBeOpen !== biz.is_open) {
+        await q('UPDATE businesses SET is_open=$1 WHERE id=$2', [shouldBeOpen, biz.id]);
+        console.log(`⏰ Auto-${shouldBeOpen ? 'opened' : 'closed'} business ${biz.id}`);
+      }
+    }
+  } catch(e) { console.error('Schedule cron error:', e.message); }
+}, 60 * 1000);
 
 // ── MercadoPago ───────────────────────────────
 let mp = null;
@@ -795,6 +836,27 @@ app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE owner_id=$12`,
     [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id]);
   res.json(await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]));
+});
+
+// ── Schedule ──────────────────────────────────────────
+app.get('/api/businesses/mine/schedule', auth, role('owner'), async (req, res) => {
+  const b = await q1('SELECT schedule, schedule_enabled FROM businesses WHERE owner_id=$1',[req.user.id]);
+  if (!b) return res.status(404).json({ error:'Sin negocio' });
+  res.json({ schedule: b.schedule, schedule_enabled: b.schedule_enabled });
+});
+
+app.patch('/api/businesses/mine/schedule', auth, role('owner'), async (req, res) => {
+  const { schedule, schedule_enabled } = req.body;
+  const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+  if (!b) return res.status(404).json({ error:'Sin negocio' });
+  await q('UPDATE businesses SET schedule=$1, schedule_enabled=$2 WHERE id=$3',
+    [schedule ? JSON.stringify(schedule) : null, !!schedule_enabled, b.id]);
+  // Immediately apply schedule if enabled
+  if (schedule_enabled && schedule) {
+    const isOpen = isBusinessOpenNow(schedule);
+    await q('UPDATE businesses SET is_open=$1 WHERE id=$2', [isOpen, b.id]);
+  }
+  res.json({ success: true });
 });
 
 // ════════════════════════════════════════════════
