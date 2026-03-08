@@ -950,6 +950,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <!-- Delivery info row -->
     <div class="sd-delivery-info" id="sd-delivery-info"></div>
 
+    <!-- Loyalty points badge (shown when store has loyalty program) -->
+    <div id="store-loyalty-badge" style="display:none;margin:0 16px 0;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;border-radius:14px;padding:12px 16px;"></div>
+
     <!-- Promo banners -->
     <div class="sd-promo-row" id="sd-promo-row" style="display:none;"></div>
 
@@ -961,6 +964,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         </button>
         <button class="sd-mtab" onclick="filterStoreTab('discounted',this)">Descuentos</button>
         <button class="sd-mtab" onclick="filterStoreTab('featured',this)">Más vendidos</button>
+        <button class="sd-mtab" id="sd-news-tab" onclick="filterStoreTab('news',this)" style="display:none;">📢 Novedades</button>
       </div>
       <!-- Search bar (hidden until lupa is tapped) -->
       <div class="sd-search-bar" id="sd-search-bar">
@@ -1012,6 +1016,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
       <div id="fulfillment-note" style="font-size:12px;color:#888;margin-top:8px;text-align:center;"></div>
     </div>
+    <!-- Address selector (shown when logged in) -->
+    <div id="checkout-address-selector" style="margin:14px 16px 0;display:none;"></div>
+    <!-- Schedule picker -->
+    <div id="checkout-schedule"></div>
     <!-- Promo code input -->
     <div id="cart-promo-section" style="margin:14px 16px 0;display:none;">
       <div style="background:#fff8f0;border:1.5px dashed #FFB800;border-radius:14px;padding:14px;">
@@ -1358,6 +1366,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <button class="otab" onclick="switchOTab('otab-blowplus',this)" style="position:relative;">⚡ Blow+</button>
       <button class="otab" onclick="switchOTab('otab-coupons',this)">🎟️ Cupones</button>
       <button class="otab" onclick="switchOTab('otab-settings',this)">⚙️ Config</button>
+      <button class="otab" onclick="switchOTab('otab-news',this)">📢 Novedades</button>
+      <button class="otab" onclick="switchOTab('otab-loyalty',this)">⭐ Puntos</button>
     </div>
     <!-- Pedidos -->
     <div class="otab-content active" id="otab-orders">
@@ -1381,6 +1391,62 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
 
     <!-- Cupones -->
+    <!-- Novedades del negocio -->
+    <div class="otab-content" id="otab-news" style="padding:16px;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:16px;">📢 Novedades del negocio</div>
+      <!-- New post form -->
+      <div style="background:#fff;border-radius:16px;border:1.5px solid #f0f0f0;padding:16px;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Publicar novedad</div>
+        <div class="form-group">
+          <label class="form-label">Emoji</label>
+          <input class="form-input" id="news-emoji" type="text" placeholder="📢" maxlength="2" style="width:60px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Título *</label>
+          <input class="form-input" id="news-title" type="text" placeholder="Ej: ¡Nueva pizza de temporada!">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción (opcional)</label>
+          <textarea class="form-input" id="news-body" rows="3" placeholder="Contales a tus clientes los detalles..." style="resize:none;"></textarea>
+        </div>
+        <button onclick="saveNews()" style="width:100%;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Publicar →</button>
+      </div>
+      <!-- News list -->
+      <div id="owner-news-list"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Programa de puntos -->
+    <div class="otab-content" id="otab-loyalty" style="padding:16px;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px;">⭐ Programa de puntos</div>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">Tus clientes acumulan puntos y los canjean por descuentos</div>
+      <div style="background:#fff;border-radius:16px;border:1.5px solid #f0f0f0;padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div>
+            <div style="font-size:14px;font-weight:800;">Activar programa</div>
+            <div style="font-size:12px;color:#888;margin-top:2px;">Los clientes acumulan puntos por cada compra</div>
+          </div>
+          <input type="checkbox" id="loy-enabled" style="width:44px;height:24px;accent-color:var(--primary);cursor:pointer;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Puntos por cada $100 gastados</label>
+          <input class="form-input" id="loy-pts-per-100" type="number" min="1" max="10" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Puntos necesarios para canjear</label>
+          <input class="form-input" id="loy-redeem-pts" type="number" min="10" value="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descuento al canjear ($UYU)</label>
+          <input class="form-input" id="loy-redeem-disc" type="number" min="10" value="50">
+        </div>
+        <div style="background:#f0fdf4;border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px;color:#166534;">
+          <strong>Ejemplo:</strong> Con 1 pto/$100 y canje de 100 pts → $50 de descuento.<br>
+          El cliente necesita gastar $10.000 para obtener $50 de descuento (0.5% de cashback efectivo).
+        </div>
+        <button onclick="saveLoyaltyConfig()" style="width:100%;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">Guardar configuración</button>
+      </div>
+    </div>
+
     <div class="otab-content" id="otab-coupons" style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:17px;font-weight:800;">🎟️ Mis Cupones</div>
@@ -2689,7 +2755,11 @@ function nav(pageId) {
   if (sMap[pageId]) document.getElementById(sMap[pageId])?.classList.add('active');
 
   // Page-specific load
-  if (pageId === 'page-cart') renderCart();
+  if (pageId === 'page-cart') {
+    renderCart();
+    loadSavedAddresses().then(() => renderAddressSelector());
+    renderScheduleOption();
+  }
   if (pageId === 'page-home') loadBankPromoStrip();
   if (pageId === 'page-owner-login') { ownerTab('register'); updateOwnerPriceDisplay(); }
   if (pageId === 'page-coupons') loadCoupons();
@@ -3412,6 +3482,18 @@ async function openStore(id) {
     try {
       const b = await api(`/api/businesses/${id}`);
       renderStoreDetail(b, b.products||[]);
+      // Load news in background
+      api(`/api/businesses/${id}/news`).then(news => {
+        window._currentStoreNews = news || [];
+        const tab = document.getElementById('sd-news-tab');
+        if (tab) tab.style.display = news?.length ? 'flex' : 'none';
+        // Show news badge
+        if (news?.length) {
+          const dot = document.createElement('span');
+          dot.style.cssText='background:#FA0050;border-radius:50%;width:7px;height:7px;display:inline-block;margin-left:3px;';
+          tab.appendChild(dot);
+        }
+      }).catch(()=>{});
     } catch(e) { showToast('❌ Error cargando tienda'); }
   }
   currentBizId = id;
@@ -3666,6 +3748,10 @@ function filterStoreTab(tab, el) {
   currentStoreTab = tab;
   document.querySelectorAll('.sd-mtab').forEach(b => b.classList.remove('active'));
   if (el) el.classList.add('active');
+  if (tab === 'news') {
+    renderStoreNews();
+    return;
+  }
   renderStoreProducts(currentSdProducts, tab);
 }
 
@@ -4030,7 +4116,9 @@ async function checkout() {
 
   // Get best available address
   const fulfillmentType = currentSdFulfillment || 'delivery';
-  const orderAddress = user.address || activeCity || '';
+  // Prefer active saved address, then user.address, then activeCity
+  const activeAddr = _savedAddresses.find(a => a.is_active);
+  const orderAddress = window._checkoutAddress || activeAddr?.full_address || user.address || activeCity || '';
   if (fulfillmentType === 'delivery' && !orderAddress) {
     showToast('❌ Primero agregá tu dirección de entrega');
     document.getElementById('loc-modal').classList.add('open');
@@ -4041,7 +4129,9 @@ async function checkout() {
   btn.disabled = true; btn.textContent = '⏳ Procesando...';
   try {
     const items = cart.map(i=>({ product_id:i.id, quantity:i.qty, variant_id: i.variant_id||null }));
-    const res = await api('/api/orders', { method:'POST', body:JSON.stringify({ business_id:bizId, items, address:orderAddress, fulfillment_type: fulfillmentType }) });
+    const body = { business_id:bizId, items, address:orderAddress, fulfillment_type: fulfillmentType };
+    if (window._scheduledFor) body.scheduled_for = window._scheduledFor;
+    const res = await api('/api/orders', { method:'POST', body:JSON.stringify(body) });
     cart=[]; saveCart(); updateCartBadge();
     if (res.payment?.init_point) {
       showToast('💳 Redirigiendo a MercadoPago...');
@@ -4169,6 +4259,244 @@ function startEtaTicker() {
   }, 30000); // update every 30s
 }
 
+// ── Store News ────────────────────────────────
+function renderStoreNews() {
+  const container = document.getElementById('store-prods');
+  if (!container) return;
+  const news = window._currentStoreNews || [];
+  if (!news.length) {
+    container.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#aaa;font-size:14px;">Este negocio no tiene novedades por ahora</div>';
+    return;
+  }
+  container.innerHTML = `<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+    ${news.map(n => `
+    <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 1px 8px rgba(0,0,0,.07);">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:32px;flex-shrink:0;">${n.emoji||'📢'}</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:800;color:#1a1a1a;margin-bottom:4px;">${n.title}</div>
+          ${n.body ? `<div style="font-size:13px;color:#555;line-height:1.5;">${n.body}</div>` : ''}
+          <div style="font-size:11px;color:#bbb;margin-top:6px;">${new Date(n.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short',year:'numeric'})}</div>
+        </div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ── Owner: News management in dashboard ───────
+async function loadOwnerNews() {
+  const el = document.getElementById('owner-news-list');
+  if (!el) return;
+  try {
+    const news = await api('/api/businesses/mine/news');
+    if (!news.length) { el.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px;">No hay novedades publicadas</div>'; return; }
+    el.innerHTML = news.map(n => `
+      <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #f0f0f0;display:flex;gap:12px;align-items:flex-start;">
+        <span style="font-size:28px;">${n.emoji||'📢'}</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:800;">${n.title}</div>
+          ${n.body ? `<div style="font-size:12px;color:#666;margin-top:3px;">${n.body.substring(0,80)}${n.body.length>80?'…':''}</div>` : ''}
+          <div style="font-size:11px;color:#bbb;margin-top:4px;">${new Date(n.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="toggleNews('${n.id}',${n.active})" style="background:${n.active?'#dcfce7':'#f5f5f5'};border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">${n.active?'✅ Activa':'⭕ Oculta'}</button>
+          <button onclick="deleteNews('${n.id}')" style="background:#fef2f2;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;">🗑️</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px;">Error cargando novedades</div>'; }
+}
+
+async function saveNews() {
+  const title = document.getElementById('news-title')?.value.trim();
+  const body  = document.getElementById('news-body')?.value.trim();
+  const emoji = document.getElementById('news-emoji')?.value.trim() || '📢';
+  if (!title) { showToast('⚠️ El título es requerido'); return; }
+  try {
+    await api('/api/businesses/mine/news', { method:'POST', body: JSON.stringify({ title, body, emoji }) });
+    showToast('✅ Novedad publicada');
+    document.getElementById('news-title').value = '';
+    document.getElementById('news-body').value = '';
+    loadOwnerNews();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function toggleNews(id, active) {
+  try {
+    await api(`/api/businesses/mine/news/${id}`, { method:'PATCH', body: JSON.stringify({ active: !active }) });
+    loadOwnerNews();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function deleteNews(id) {
+  if (!confirm('¿Eliminar esta novedad?')) return;
+  try { await api(`/api/businesses/mine/news/${id}`, { method:'DELETE' }); loadOwnerNews(); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── Loyalty points — customer ─────────────────
+let _loyaltyBalance = 0;
+let _loyaltyConfig = null;
+
+async function loadLoyaltyForStore(bizId) {
+  if (!user || user.role !== 'customer') return;
+  try {
+    const [balRows, cfg] = await Promise.all([
+      api(`/api/loyalty/balance?business_id=${bizId}`),
+      api(`/api/loyalty/config/${bizId}`)
+    ]);
+    _loyaltyConfig = cfg;
+    _loyaltyBalance = parseInt(balRows[0]?.total || 0);
+    renderLoyaltyBadge();
+  } catch(e) {}
+}
+
+function renderLoyaltyBadge() {
+  const el = document.getElementById('store-loyalty-badge');
+  if (!el || !_loyaltyConfig?.enabled) return;
+  el.style.display = 'block';
+  const canRedeem = _loyaltyBalance >= (_loyaltyConfig.redeem_points || 100);
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:20px;">⭐</span>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:800;color:#1a1a1a;">Tus puntos: <span style="color:#f59e0b;">${_loyaltyBalance} pts</span></div>
+      <div style="font-size:11px;color:#888;">${canRedeem ? `¡Podés canjear ${_loyaltyConfig.redeem_points} pts por $${_loyaltyConfig.redeem_discount} de descuento!` : `Acumulá ${(_loyaltyConfig.redeem_points||100) - _loyaltyBalance} pts más para canjear`}</div>
+    </div>
+    ${canRedeem ? '<span style="font-size:12px;background:#fef9c3;color:#854d0e;border-radius:8px;padding:4px 10px;font-weight:700;">¡Canjear!</span>' : ''}
+  </div>`;
+}
+
+// ── Loyalty points — owner config ─────────────
+async function loadLoyaltyConfig() {
+  try {
+    const biz = await api('/api/businesses/mine/dashboard');
+    const cfg = await api(`/api/loyalty/config/${biz.business.id}`);
+    document.getElementById('loy-enabled').checked = cfg.enabled !== false;
+    document.getElementById('loy-pts-per-100').value = cfg.points_per_100 || 1;
+    document.getElementById('loy-redeem-pts').value = cfg.redeem_points || 100;
+    document.getElementById('loy-redeem-disc').value = cfg.redeem_discount || 50;
+  } catch(e) {}
+}
+
+async function saveLoyaltyConfig() {
+  try {
+    await api('/api/loyalty/config', { method:'PUT', body: JSON.stringify({
+      enabled: document.getElementById('loy-enabled').checked,
+      points_per_100: parseInt(document.getElementById('loy-pts-per-100').value)||1,
+      redeem_points: parseInt(document.getElementById('loy-redeem-pts').value)||100,
+      redeem_discount: parseInt(document.getElementById('loy-redeem-disc').value)||50,
+    })});
+    showToast('✅ Programa de puntos guardado');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── Saved addresses in checkout ───────────────
+let _savedAddresses = [];
+
+async function loadSavedAddresses() {
+  if (!user) return;
+  try { _savedAddresses = await api('/api/addresses'); }
+  catch(e) { _savedAddresses = []; }
+}
+
+function renderAddressSelector() {
+  const el = document.getElementById('checkout-address-selector');
+  if (!el) return;
+  if (!_savedAddresses.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:8px;">📍 ¿A dónde entregamos?</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${_savedAddresses.map(a => `
+        <label style="display:flex;align-items:center;gap:10px;background:${a.is_active?'#f0fdf4':'#f8f8f8'};border:1.5px solid ${a.is_active?'#86efac':'#e0e0e0'};border-radius:12px;padding:10px 14px;cursor:pointer;" onclick="activateAddress('${a.id}')">
+          <span style="font-size:18px;">${a.label==='Casa'?'🏠':a.label==='Trabajo'?'🏢':a.label==='Otro'?'📍':'📍'}</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;">${a.label}</div>
+            <div style="font-size:12px;color:#666;">${a.full_address}</div>
+          </div>
+          ${a.is_active ? '<span style="font-size:16px;">✅</span>' : ''}
+        </label>`).join('')}
+      <button onclick="showAddAddressForm()" style="background:none;border:1.5px dashed #ddd;border-radius:12px;padding:10px;font-size:13px;color:#aaa;cursor:pointer;font-family:inherit;">+ Agregar dirección</button>
+    </div>`;
+}
+
+async function activateAddress(id) {
+  try {
+    await api(`/api/addresses/${id}/activate`, { method:'PATCH' });
+    _savedAddresses.forEach(a => a.is_active = a.id === id);
+    renderAddressSelector();
+    // Update checkout address
+    const active = _savedAddresses.find(a => a.id === id);
+    if (active) window._checkoutAddress = active.full_address;
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+function showAddAddressForm() {
+  const el = document.getElementById('checkout-address-selector');
+  el.insertAdjacentHTML('beforeend', `
+    <div id="add-addr-form" style="background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:14px;margin-top:6px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Nueva dirección</div>
+      <select id="addr-label" style="width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:10px;margin-bottom:8px;font-family:inherit;font-size:13px;">
+        <option>Casa</option><option>Trabajo</option><option>Otro</option>
+      </select>
+      <input id="addr-full" type="text" placeholder="Calle y número" style="width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;">
+        <button onclick="saveNewAddress()" style="flex:1;background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">Guardar</button>
+        <button onclick="document.getElementById('add-addr-form').remove()" style="background:#f5f5f5;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-family:inherit;">✕</button>
+      </div>
+    </div>`);
+}
+
+async function saveNewAddress() {
+  const label = document.getElementById('addr-label')?.value;
+  const full_address = document.getElementById('addr-full')?.value.trim();
+  if (!full_address) { showToast('⚠️ Ingresá la dirección'); return; }
+  try {
+    await api('/api/addresses', { method:'POST', body: JSON.stringify({ label, full_address, city: activeCity }) });
+    await loadSavedAddresses();
+    renderAddressSelector();
+    showToast('✅ Dirección guardada');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── Scheduled orders ──────────────────────────
+function renderScheduleOption() {
+  const el = document.getElementById('checkout-schedule');
+  if (!el) return;
+  const now = new Date();
+  // Minimum: 30 minutes from now
+  const min = new Date(now.getTime() + 30 * 60000);
+  const minStr = min.toISOString().slice(0,16);
+  el.innerHTML = `
+    <div style="margin:14px 16px 0;background:#f8f8f8;border-radius:14px;padding:14px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:#333;">🕐 ¿Cuándo querés recibir tu pedido?</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button id="sched-now" onclick="setSchedule('now')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--primary);background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Ahora</button>
+        <button id="sched-later" onclick="setSchedule('later')" style="flex:1;padding:9px;border-radius:10px;border:2px solid #ddd;background:#fff;color:#555;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Programar</button>
+      </div>
+      <div id="sched-picker" style="display:none;">
+        <input type="datetime-local" id="sched-time" min="${minStr}" style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+        <div style="font-size:11px;color:#aaa;margin-top:4px;">Mínimo 30 min desde ahora</div>
+      </div>
+    </div>`;
+  window._scheduledFor = null;
+}
+
+function setSchedule(mode) {
+  const nowBtn = document.getElementById('sched-now');
+  const laterBtn = document.getElementById('sched-later');
+  const picker = document.getElementById('sched-picker');
+  const on = 'flex:1;padding:9px;border-radius:10px;border:2px solid var(--primary);background:var(--primary);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;';
+  const off = 'flex:1;padding:9px;border-radius:10px;border:2px solid #ddd;background:#fff;color:#555;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;';
+  if (mode === 'now') {
+    nowBtn.style.cssText = on; laterBtn.style.cssText = off;
+    picker.style.display = 'none'; window._scheduledFor = null;
+  } else {
+    nowBtn.style.cssText = off; laterBtn.style.cssText = on;
+    picker.style.display = 'block';
+    document.getElementById('sched-time').onchange = e => { window._scheduledFor = e.target.value || null; };
+  }
+}
+
 function renderTrackingOrders() {
   const body = document.getElementById('tracking-body');
   const bizFilter = document.getElementById('trk-biz-filter')?.value || '';
@@ -4208,7 +4536,7 @@ function renderTrackingOrders() {
       <div class="oc-top">
         <div style="flex:1;min-width:0;">
           <div class="oc-store" style="cursor:pointer;" onclick="openStore('${o.business_id}')">${o.business_name||o.business_id}</div>
-          <div class="oc-time">${dateStr} · ${timeStr}</div>
+          <div class="oc-time">${dateStr} · ${timeStr}${o.is_scheduled && o.scheduled_for ? ` · <span style="color:#f59e0b;font-weight:700;">🕐 Programado ${new Date(o.scheduled_for).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}</div>
         </div>
         <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
       </div>
@@ -6309,6 +6637,8 @@ function switchOTab(id, el) {
   if (id === 'otab-coupons') loadOwnerCoupons();
   if (id === 'otab-stats') loadOwnerStatsHistory(7);
   if (id === 'otab-export') initExportTab();
+  if (id === 'otab-news') loadOwnerNews();
+  if (id === 'otab-loyalty') loadLoyaltyConfig();
 }
 
 // ═══════════════════════════════════════════════
