@@ -2208,6 +2208,61 @@ app.get('/api/admin/top-customers', auth, async (req,res)=>{
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
+app.get('/api/owner/stats/history', auth, async (req,res)=>{
+  if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if(!biz) return res.json({});
+    const days = parseInt(req.query.days)||30;
+    const interval = days + ' days';
+
+    const daily = await db.query(`
+      SELECT DATE(created_at AT TIME ZONE 'America/Montevideo') as day,
+             COUNT(*) as orders,
+             COALESCE(SUM(total),0) as revenue
+      FROM orders
+      WHERE business_id=$1
+        AND created_at >= NOW() - INTERVAL '` + interval + `'
+        AND status NOT IN ('cancelled','pending')
+      GROUP BY day ORDER BY day ASC
+    `,[biz.id]);
+
+    const summary = await q1(`
+      SELECT COUNT(*) as orders,
+             COALESCE(SUM(total),0) as revenue,
+             COUNT(DISTINCT customer_id) as unique_customers,
+             COALESCE(AVG(total),0) as avg_ticket
+      FROM orders
+      WHERE business_id=$1
+        AND created_at >= NOW() - INTERVAL '` + interval + `'
+        AND status NOT IN ('cancelled','pending')
+    `,[biz.id]);
+
+    const topProducts = await db.query(`
+      SELECT item->>'name' as name,
+             SUM((item->>'quantity')::int) as qty,
+             SUM((item->>'price')::numeric * (item->>'quantity')::int) as revenue
+      FROM orders,
+           jsonb_array_elements(items) as item
+      WHERE business_id=$1
+        AND created_at >= NOW() - INTERVAL '` + interval + `'
+        AND status NOT IN ('cancelled','pending')
+      GROUP BY name ORDER BY qty DESC LIMIT 5
+    `,[biz.id]);
+
+    const topCustomers = await db.query(`
+      SELECT u.name, COUNT(o.id) as orders, SUM(o.total) as spent
+      FROM orders o JOIN users u ON o.customer_id=u.id
+      WHERE o.business_id=$1
+        AND o.created_at >= NOW() - INTERVAL '` + interval + `'
+        AND o.status NOT IN ('cancelled','pending')
+      GROUP BY u.id, u.name ORDER BY spent DESC LIMIT 5
+    `,[biz.id]);
+
+    res.json({ daily: daily.rows, summary, topProducts: topProducts.rows, topCustomers: topCustomers.rows });
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
 app.get('/api/owner/top-customers', auth, async (req,res)=>{
   if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
   try {
