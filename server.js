@@ -259,6 +259,7 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS lat REAL DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS lng REAL DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS delivery_radius_km REAL DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT FALSE;
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -880,6 +881,12 @@ app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
 });
 
 // ── Schedule ──────────────────────────────────────────
+// ── Onboarding complete ────────────────────────────────────
+app.post('/api/businesses/mine/onboarding-done', auth, role('owner'), async (req, res) => {
+  await q('UPDATE businesses SET onboarding_done=TRUE WHERE owner_id=$1', [req.user.id]);
+  res.json({ ok: true });
+});
+
 app.get('/api/businesses/mine/schedule', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT schedule, schedule_enabled FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
