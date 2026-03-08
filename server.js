@@ -256,6 +256,9 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_message TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_message_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS lat REAL DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS lng REAL DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS delivery_radius_km REAL DEFAULT NULL;
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -718,7 +721,18 @@ app.get('/api/businesses', async (req, res) => {
     const { category, city, department } = req.query;
     const limit  = Math.min(parseInt(req.query.limit)  || 12, 50);
     const offset = parseInt(req.query.offset) || 0;
-    let sql = `SELECT b.* FROM businesses b
+    const clientLat = parseFloat(req.query.lat) || null;
+    const clientLng = parseFloat(req.query.lng) || null;
+
+    let sql = `SELECT b.*${clientLat && clientLng
+      ? `,CASE WHEN b.lat IS NOT NULL AND b.lng IS NOT NULL
+          THEN ROUND((6371 * acos(cos(radians(${clientLat})) * cos(radians(b.lat)) * cos(radians(b.lng) - radians(${clientLng})) + sin(radians(${clientLat})) * sin(radians(b.lat))))::numeric, 1)
+          ELSE NULL END AS distance_km,
+        CASE WHEN b.delivery_radius_km IS NULL THEN true
+             WHEN b.lat IS NULL THEN true
+             WHEN (6371 * acos(cos(radians(${clientLat})) * cos(radians(b.lat)) * cos(radians(b.lng) - radians(${clientLng})) + sin(radians(${clientLat})) * sin(radians(b.lat)))) <= b.delivery_radius_km THEN true
+             ELSE false END AS delivers_to_me`
+      : ''} FROM businesses b
       LEFT JOIN subscriptions s ON s.business_id = b.id
       WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active = TRUE`;
     const params = [];
@@ -726,8 +740,11 @@ app.get('/api/businesses', async (req, res) => {
     if (category)   { sql += ` AND b.category=$${i++}`;                params.push(category); }
     if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;      params.push(city); }
     if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
-    const countSql = sql.replace('SELECT b.*', 'SELECT COUNT(*) as total');
-    const totalRow = await q1(countSql, params);
+    const countSql = `SELECT COUNT(*) as total FROM businesses b LEFT JOIN subscriptions s ON s.business_id = b.id WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active = TRUE` +
+      (category ? ` AND b.category='${category.replace(/'/g,"''")}' ` : '') +
+      (city ? ` AND LOWER(b.city)=LOWER('${city.replace(/'/g,"''")}')` : '') +
+      (department ? ` AND LOWER(b.department)=LOWER('${department.replace(/'/g,"''")}')` : '');
+    const totalRow = await q1(countSql, []);
     const total = parseInt(totalRow?.total || 0);
     sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.is_open DESC, b.created_at DESC`;
     sql += ` LIMIT $${i++} OFFSET $${i++}`;
@@ -842,9 +859,23 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department } = req.body;
-  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE owner_id=$12`,
-    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id]);
+  const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, lat, lng, delivery_radius_km } = req.body;
+  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),lat=COALESCE($13,lat),lng=COALESCE($14,lng),delivery_radius_km=COALESCE($15,delivery_radius_km) WHERE owner_id=$12`,
+    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id,lat!=null?parseFloat(lat):null,lng!=null?parseFloat(lng):null,delivery_radius_km!=null?parseFloat(delivery_radius_km):null]);
+  // Auto-geocode address if address changed and no explicit lat/lng provided
+  if (address && lat == null && lng == null) {
+    try {
+      const query = encodeURIComponent(`${address}, ${city||''}, Uruguay`);
+      const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
+        headers: { 'User-Agent': 'BlowApp/1.0' }
+      });
+      const geoData = await geoRes.json();
+      if (geoData && geoData[0]) {
+        await q('UPDATE businesses SET lat=$1, lng=$2 WHERE owner_id=$3',
+          [parseFloat(geoData[0].lat), parseFloat(geoData[0].lon), req.user.id]);
+      }
+    } catch(e) { /* geocode failed silently */ }
+  }
   res.json(await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]));
 });
 
