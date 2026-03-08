@@ -2409,6 +2409,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 const API = ''; // mismo servidor — vacío = relativo
 let token    = localStorage.getItem('da_token') || null;
 let user     = JSON.parse(localStorage.getItem('da_user') || 'null');
+// Re-subscribe to push if already logged in (e.g. returning visitor)
+if (token && user && Notification.permission === 'granted') {
+  window.addEventListener('load', () => setTimeout(subscribeToPush, 2000));
+}
 let cart     = JSON.parse(localStorage.getItem('da_cart') || '[]');
 let currentBizId  = null;
 let modalProduct  = null;
@@ -4438,6 +4442,12 @@ function saveSession(t, u) {
   localStorage.setItem('da_token',t);
   localStorage.setItem('da_user',JSON.stringify(u));
   connectWS();
+  // Subscribe to push after login (request permission if needed)
+  if (Notification.permission === 'granted') {
+    subscribeToPush();
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => { if (p === 'granted') subscribeToPush(); });
+  }
 }
 
 function doLogout() {
@@ -7554,9 +7564,43 @@ if (token) connectWS();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registrado:', reg.scope))
+      .then(reg => {
+        console.log('SW registrado:', reg.scope);
+        window._swReg = reg;
+      })
       .catch(err => console.log('SW error:', err));
   });
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const keyRes = await fetch('/api/push/vapid-key');
+    if (!keyRes.ok) return;
+    const { publicKey } = await keyRes.json();
+    if (!publicKey) return;
+    const reg = window._swReg || await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    const subJson = sub.toJSON();
+    await api('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+    });
+    console.log('✅ Push subscribed');
+  } catch(e) { console.log('Push subscribe skipped:', e.message); }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
 // Banner de instalación Android (Chrome muestra el evento beforeinstallprompt)
@@ -7627,6 +7671,14 @@ const payStatus = urlP.get('payment');
 const blowplusStatus = urlP.get('blowplus');
 const mpCollectionStatus = urlP.get('collection_status');
 const mpOrderId = urlP.get('external_reference'); // MP sends back external_reference
+
+// Handle push notification deep link (?order=orderId)
+const pushOrderId = urlP.get('order');
+if (pushOrderId && user) {
+  window.history.replaceState({}, '', '/');
+  // Wait for app to init then open tracking
+  setTimeout(() => { nav('page-tracking'); loadTracking(); }, 600);
+}
 
 // MP redirects back with collection_status=approved/rejected/pending + external_reference=orderId
 if (mpCollectionStatus || mpOrderId) {
