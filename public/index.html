@@ -2694,8 +2694,8 @@ function renderStores(list) {
         <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
         <div class="store-meta">
           <div class="store-rating">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            ${s.rating||'4.5'}
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="${s.rating ? '#FFB800' : '#ccc'}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            ${s.rating ? s.rating : '<span style="color:#bbb;font-size:11px;">Sin reseñas</span>'}
           </div>
           <div class="store-meta-dot"></div>
           <span>🕐 ${s.delivery_time||'20-35'} min</span>
@@ -2836,18 +2836,19 @@ function renderStoreDetail(s, products) {
   const ratingEl = document.getElementById('sd-rating');
   if (ratingEl) {
     const isOpen = s.is_open !== false && s.is_open !== 0;
-    const openBadge = `<span style="color:${isOpen?'#27ae60':'#e74c3c'};font-weight:700;font-size:12px;">● ${isOpen?'Abierto':'Cerrado'}</span>`;
     const reviewCount = s.review_count || 0;
-    const reviewLink = reviewCount > 0
-      ? `<span style="color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;" onclick="document.getElementById('sd-reviews-section')?.scrollIntoView({behavior:'smooth'})">(${reviewCount} opiniones)</span>`
-      : `<span style="color:#bbb;font-size:12px;">Sin reseñas aún</span>`;
+    const hasRating = s.rating != null && reviewCount >= 3;
+    const starColor = hasRating ? '#FFB800' : '#ccc';
+    const ratingText = hasRating
+      ? `<strong>${s.rating}</strong>&nbsp;<span style="color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;" onclick="document.getElementById('sd-reviews-section')?.scrollIntoView({behavior:'smooth'})">(${reviewCount} opiniones)</span>`
+      : `<span style="color:#bbb;font-size:12px;">${reviewCount > 0 ? `${reviewCount} reseña${reviewCount>1?'s':''} · faltan ${3-reviewCount} para puntaje` : 'Sin reseñas aún'}</span>`;
     ratingEl.innerHTML = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="#FFB800" style="vertical-align:middle;margin-right:2px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      <strong>${s.rating||'—'}</strong> ${reviewLink}
-      <span style="color:#ddd;margin:0 4px;">·</span>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="${starColor}" style="vertical-align:middle;margin-right:3px;flex-shrink:0;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      ${ratingText}
+      <span style="color:#ddd;margin:0 5px;">·</span>
       <span style="color:#999;">${s.category||''}</span>
-      <span style="color:#ddd;margin:0 4px;">·</span>
-      ${openBadge}
+      <span style="color:#ddd;margin:0 5px;">·</span>
+      <span style="color:${isOpen?'#27ae60':'#e74c3c'};font-weight:700;font-size:12px;">● ${isOpen?'Abierto':'Cerrado'}</span>
       ${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff4080);color:#fff;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:800;">⚡ Blow+</span>' : ''}
     `;
   }
