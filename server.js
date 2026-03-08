@@ -247,6 +247,16 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS department TEXT DEFAULT '';
+    CREATE TABLE IF NOT EXISTS reviews (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+      customer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(order_id)
+    );
     CREATE TABLE IF NOT EXISTS promotions (
       id TEXT PRIMARY KEY,
       business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
@@ -1152,7 +1162,9 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
 app.get('/api/orders', auth, async (req, res) => {
   let orders;
-  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
+  if (req.user.role==='customer') orders=await qa(`SELECT o.*,b.name as business_name,b.logo_emoji,
+    EXISTS(SELECT 1 FROM reviews r WHERE r.order_id=o.id) as has_review
+    FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
   const result=await Promise.all(orders.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])})));
@@ -1207,6 +1219,46 @@ app.get('/api/orders/:id/payment-status', auth, async (req, res) => {
   const order = await q1('SELECT id,status,mp_status,total,created_at FROM orders WHERE id=$1 AND customer_id=$2',[req.params.id, req.user.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
   res.json({ status: order.status, mp_status: order.mp_status, total: order.total });
+});
+
+// ── Reviews ──────────────────────────────────────
+// Post a review for a delivered order
+app.post('/api/orders/:id/review', auth, role('customer'), async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating debe ser entre 1 y 5' });
+    const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (order.status !== 'delivered') return res.status(400).json({ error: 'Solo podés reseñar pedidos entregados' });
+    // Check not already reviewed
+    const existing = await q1('SELECT id FROM reviews WHERE order_id=$1', [order.id]);
+    if (existing) return res.status(400).json({ error: 'Ya reseñaste este pedido' });
+    // Insert review
+    await q('INSERT INTO reviews (id,order_id,business_id,customer_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6)',
+      [uuid(), order.id, order.business_id, req.user.id, parseInt(rating), comment||'']);
+    // Recalculate business rating
+    const avg = await q1('SELECT ROUND(AVG(rating)::numeric, 1) as avg FROM reviews WHERE business_id=$1', [order.business_id]);
+    if (avg?.avg) await q('UPDATE businesses SET rating=$1 WHERE id=$2', [parseFloat(avg.avg), order.business_id]);
+    res.json({ success: true });
+  } catch(e) {
+    if (e.code === '23505') return res.status(400).json({ error: 'Ya reseñaste este pedido' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get reviews for a business (public)
+app.get('/api/businesses/:id/reviews', async (req, res) => {
+  try {
+    const reviews = await qa(`
+      SELECT r.*, u.name as customer_name
+      FROM reviews r
+      JOIN users u ON u.id = r.customer_id
+      WHERE r.business_id=$1
+      ORDER BY r.created_at DESC
+      LIMIT 20
+    `, [req.params.id]);
+    res.json(reviews);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -1495,7 +1547,8 @@ app.get('/api/businesses/:id', async (req, res) => {
     variants: await qa('SELECT * FROM product_variants WHERE product_id=$1 ORDER BY group_name,sort_order',[p.id]),
   })));
   const cats = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
-  res.json({ ...b, products:prods, categories:cats });
+  const reviewStats = await q1('SELECT COUNT(*) as count, ROUND(AVG(rating)::numeric,1) as avg FROM reviews WHERE business_id=$1',[b.id]);
+  res.json({ ...b, products:prods, categories:cats, review_count: parseInt(reviewStats?.count||0), rating: reviewStats?.avg ? parseFloat(reviewStats.avg) : (b.rating||4.5) });
 });
 
 // Public: get active promotions for a business
