@@ -446,7 +446,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 /* Owner app wrapper — completely replaces client UI when active */
 #owner-app{position:fixed;inset:0;z-index:500;display:none;flex-direction:column;background:#f4f5f7;}
-#owner-app.active{display:flex;}
+body.owner-mode #owner-app{display:flex;}
 
 /* Owner top bar */
 #owner-topbar{background:var(--owner-dark);padding:0 20px;padding-top:calc(env(safe-area-inset-top,0px) + 16px);padding-bottom:14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
@@ -845,9 +845,7 @@ body.owner-mode #page-admin,
 body.owner-mode .search-bar,
 /* owner-transition is controlled manually via JS */
 
-/* Owner app: hidden by default, shown in owner-mode */
-#owner-app { display: none; }
-body.owner-mode #owner-app { display: flex !important; }
+/* Owner app visibility is controlled by body.owner-mode class */
 
 
 /* Legacy panel overlay — shows old owner-dash tabs over owner app */
@@ -5785,48 +5783,43 @@ const LEGACY_TAB_LABELS = {
 };
 
 async function openOwnerPanel(tabId) {
-  // Make sure dash data is loaded
-  if (!ownerData) {
-    try { await loadOwnerDash(); } catch(e) {}
-  } else {
-    loadOwnerDash();
-  }
-
-  // Switch tab in the old dash
-  const tabBtn = document.querySelector(`[onclick*="${tabId}"]`);
-  switchOTab(tabId, tabBtn);
-
-  // Move the page-owner-dash content into the overlay
-  const overlay = document.getElementById('owner-legacy-overlay');
+  const overlay     = document.getElementById('owner-legacy-overlay');
   const legacyContent = document.getElementById('owner-legacy-content');
-  const ownerDash = document.getElementById('page-owner-dash');
-  const titleEl = document.getElementById('owner-legacy-title');
+  const ownerDash   = document.getElementById('page-owner-dash');
+  const titleEl     = document.getElementById('owner-legacy-title');
 
   if (!overlay || !legacyContent || !ownerDash) return;
 
-  titleEl.textContent = LEGACY_TAB_LABELS[tabId] || 'Panel';
-
-  // Move dash into overlay (non-destructive)
-  legacyContent.appendChild(ownerDash);
+  // Move dash into overlay FIRST so loadOwnerDash renders into the right place
+  if (ownerDash.parentElement !== legacyContent) {
+    legacyContent.appendChild(ownerDash);
+  }
   ownerDash.style.display = 'block';
+  if (titleEl) titleEl.textContent = LEGACY_TAB_LABELS[tabId] || 'Panel';
 
   overlay.classList.add('open');
   document.body.classList.add('legacy-open');
   haptic('light');
+
+  // Load data and switch tab AFTER overlay is visible
+  try { await loadOwnerDash(); } catch(e) { console.warn('loadOwnerDash:', e.message); }
+  const tabBtn = document.querySelector(`#page-owner-dash [onclick*="${tabId}"]`);
+  switchOTab(tabId, tabBtn || null);
 }
 
 function closeLegacyPanel() {
-  const overlay = document.getElementById('owner-legacy-overlay');
+  const overlay   = document.getElementById('owner-legacy-overlay');
   const ownerDash = document.getElementById('page-owner-dash');
-
-  // Move dash back to its original place (body)
-  if (ownerDash) {
-    document.body.appendChild(ownerDash);
-    ownerDash.style.display = '';
-  }
 
   if (overlay) overlay.classList.remove('open');
   document.body.classList.remove('legacy-open');
+
+  // Move dash back to body so it's hidden by body.owner-mode CSS
+  if (ownerDash && ownerDash.parentElement !== document.body) {
+    document.body.appendChild(ownerDash);
+  }
+  if (ownerDash) ownerDash.style.display = '';
+
   haptic('light');
 }
 
@@ -5843,8 +5836,13 @@ async function enterOwnerMode(animate = true) {
   if (_ownerAppActive) return;
   _ownerAppActive = true;
 
-  // Load biz data
-  try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
+  // Load biz data — critical for topbar
+  try {
+    _ownerBiz = await api('/api/businesses/mine');
+  } catch(e) {
+    console.warn('enterOwnerMode: could not load biz data', e.message);
+    _ownerBiz = null;
+  }
 
   if (animate) {
     // Flash transition — show dark screen, then switch
@@ -5918,17 +5916,17 @@ async function exitOwnerMode() {
 }
 
 function ownerAppUpdateTopbar() {
-  if (!_ownerBiz) return;
-  const isOpen = _ownerBiz.is_open;
+  const biz = _ownerBiz || {};
+  const isOpen = biz.is_open;
   const nameEl  = document.getElementById('owner-app-name');
   const emojiEl = document.getElementById('owner-app-emoji');
   const cityEl  = document.getElementById('owner-app-city');
   const dot     = document.getElementById('owner-status-dot');
   const label   = document.getElementById('owner-status-label');
   const toggle  = document.getElementById('owner-topbar-toggle');
-  if (nameEl)  nameEl.textContent  = _ownerBiz.name;
-  if (emojiEl) emojiEl.textContent = _ownerBiz.logo_emoji || '🏪';
-  if (cityEl)  cityEl.textContent  = _ownerBiz.city || _ownerBiz.address || '';
+  if (nameEl)  nameEl.textContent  = biz.name  || 'Mi Negocio';
+  if (emojiEl) emojiEl.textContent = biz.logo_emoji || '🏪';
+  if (cityEl)  cityEl.textContent  = biz.city  || biz.address || '';
   if (dot)     dot.className = 'owner-status-dot' + (isOpen ? '' : ' closed');
   if (label)   label.textContent = isOpen ? 'Abierto' : 'Cerrado';
   if (toggle)  {
@@ -6189,6 +6187,9 @@ function ownerAppOrderCard(o) {
   const icon  = OA_STATUS_ICON[o.status] || '•';
   const time  = new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
   const actions = ownerAppOrderActions(o);
+  const payBadge = o.pay_on_delivery
+    ? `<span style="background:#fef3c7;color:#d97706;font-size:10px;font-weight:800;border-radius:6px;padding:2px 7px;margin-left:6px;">💵 Paga al recibir</span>`
+    : '';
   return `
     <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);">
       <div style="background:${color};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;">
@@ -6198,7 +6199,7 @@ function ownerAppOrderCard(o) {
       <div style="padding:14px 16px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
           <div>
-            <div style="font-size:16px;font-weight:900;color:#1a1a1a;">${o.customer_name || 'Cliente'}</div>
+            <div style="font-size:16px;font-weight:900;color:#1a1a1a;">${o.customer_name || 'Cliente'}${payBadge}</div>
             <div style="font-size:12px;color:#bbb;margin-top:2px;font-weight:600;">#${o.id.slice(-6).toUpperCase()}</div>
           </div>
           <div style="font-size:22px;font-weight:900;color:#1a1a1a;">$${o.total}</div>
@@ -6282,7 +6283,7 @@ async function ownerAppRenderMenu() {
 async function ownerAppToggleProduct(id, available) {
   haptic('light');
   try {
-    await api(`/api/products/${id}`, { method:'PATCH', body: JSON.stringify({ is_available: available }) });
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ is_available: available }) });
     ownerAppRenderMenu();
   } catch(e) { showToast(`❌ ${e.message}`); }
 }
@@ -6397,14 +6398,15 @@ function ownerAppRenderMore() {
 }
 
 async function ownerAppToggleStore() {
-  if (!_ownerBiz) return;
   haptic('medium');
-  const newState = !_ownerBiz.is_open;
+  const currentState = _ownerBiz?.is_open || false;
+  const newState = !currentState;
   try {
-    await api('/api/businesses/mine/toggle', { method:'POST', body: JSON.stringify({ is_open: newState }) });
-    _ownerBiz.is_open = newState;
+    const result = await api('/api/businesses/mine/toggle', { method:'POST', body: JSON.stringify({ is_open: newState }) });
+    if (!_ownerBiz) _ownerBiz = {};
+    _ownerBiz.is_open = result.is_open !== undefined ? result.is_open : newState;
     ownerAppUpdateTopbar();
-    showToast(newState ? '🟢 Negocio abierto' : '🔴 Negocio cerrado');
+    showToast(_ownerBiz.is_open ? '🟢 Negocio abierto' : '🔴 Negocio cerrado');
   } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
