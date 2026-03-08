@@ -2396,6 +2396,11 @@ function connectWS() {
         showToast(msg.message || '❌ Pedido cancelado');
         if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
       }
+      if (msg.type === 'owner_message') {
+        // Show toast + update card if tracking is open
+        showToast(`💬 ${msg.business_name}: ${msg.message}`);
+        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+      }
     } catch {}
   };
   ws.onclose = () => {
@@ -3733,6 +3738,13 @@ function renderTrackingOrders() {
           <div style="display:flex;justify-content:space-between;padding-top:8px;font-size:14px;font-weight:900;"><span>Total</span><span>$${o.total}</span></div>
         </div>
       </div>
+      ${o.owner_message ? `<div style="margin-top:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:18px;flex-shrink:0;">💬</span>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#b8860b;margin-bottom:3px;">${o.business_name||'El negocio'} dice:</div>
+          <div style="font-size:13px;color:#5d4037;line-height:1.4;">${o.owner_message}</div>
+        </div>
+      </div>` : ''}
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
         ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
         ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\'")}\')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
@@ -4449,6 +4461,7 @@ function renderOwnerOrders(orders) {
       <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px;">👤 ${o.customer_name||''}</div>
       <div class="ooc-items">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
       <div class="ooc-total">$${o.total}</div>
+      ${o.owner_message?`<div style="margin:8px 0 0;background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:8px 12px;font-size:12px;color:#7d6000;">💬 Mensaje enviado: <em>${o.owner_message}</em></div>`:''}
       <div class="ooc-actions">
         ${o.status==='pending'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','confirmed')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
         ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
@@ -4457,9 +4470,41 @@ function renderOwnerOrders(orders) {
         ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">🏁 Entregado</button>`:''}
         ${o.status==='delivered'?`<span style="font-size:13px;color:var(--success);font-weight:700;">✅ Entregado</span>`:''}
         ${o.status==='cancelled'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span>`:''}
+        <button class="btn-sm" onclick="toggleOwnerMsgInput('${o.id}')" style="background:#f5f5f5;color:#333;border:1px solid #ddd;margin-left:auto;">💬</button>
+      </div>
+      <div id="msg-input-${o.id}" style="display:none;margin-top:8px;">
+        <div style="display:flex;gap:8px;">
+          <input id="msg-text-${o.id}" type="text" placeholder="Ej: Cambiamos un ingrediente..." maxlength="200"
+            style="flex:1;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;"
+            onkeydown="if(event.key==='Enter')sendOwnerMessage('${o.id}')">
+          <button onclick="sendOwnerMessage('${o.id}')" style="background:var(--primary);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑</button>
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:4px;padding-left:2px;">El cliente verá este mensaje en su seguimiento</div>
       </div>
     </div>`).join('');
 }
+
+function toggleOwnerMsgInput(orderId) {
+  const el = document.getElementById(`msg-input-${orderId}`);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) setTimeout(() => document.getElementById(`msg-text-${orderId}`)?.focus(), 80);
+}
+
+async function sendOwnerMessage(orderId) {
+  const input = document.getElementById(`msg-text-${orderId}`);
+  const message = input?.value?.trim();
+  if (!message) { showToast('⚠️ Escribí un mensaje'); return; }
+  try {
+    await api(`/api/orders/${orderId}/message`, { method:'POST', body: JSON.stringify({ message }) });
+    showToast('✅ Mensaje enviado al cliente');
+    input.value = '';
+    document.getElementById(`msg-input-${orderId}`).style.display = 'none';
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
 
 async function changeOrderStatus(id, status) {
   try {
