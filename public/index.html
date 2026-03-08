@@ -5951,6 +5951,26 @@ async function exitOwnerMode() {
   haptic('light');
 }
 
+
+// -- Wallet carousel helpers --
+function ownerUpdateCarouselDots(carouselId, dotsId) {
+  const carousel = document.getElementById(carouselId);
+  const dotsEl   = document.getElementById(dotsId);
+  if (!carousel || !dotsEl) return;
+  const idx = Math.round(carousel.scrollLeft / carousel.offsetWidth);
+  const dots = dotsEl.querySelectorAll('div');
+  dots.forEach((d, i) => {
+    const active = i === idx;
+    d.style.width      = active ? '18px' : '6px';
+    d.style.background = active ? '#FA0050' : '#d1d5db';
+  });
+}
+function ownerCarouselGoTo(carouselId, dotsId, idx) {
+  const carousel = document.getElementById(carouselId);
+  if (!carousel) return;
+  carousel.scrollTo({ left: idx * carousel.offsetWidth, behavior: 'smooth' });
+}
+
 function ownerAppUpdateTopbar() {
   const biz = _ownerBiz || {};
   const isOpen = biz.is_open;
@@ -6036,45 +6056,84 @@ async function ownerAppRenderHome() {
 
     let html = '<div style="padding:16px;display:flex;flex-direction:column;gap:16px;">';
 
-    // -- SALDO (split online / en persona) --------------
+    // -- SALDO: carrusel 3 slides ----------------------
     let walletData = { online_balance: balance, cash_total: 0, card_pos_total: 0, in_person_today: 0, online_today: 0 };
     try { walletData = await api('/api/owner/wallet-summary'); } catch(e) {}
     const inPersonTotal = (walletData.cash_total || 0) + (walletData.card_pos_total || 0);
+    const ventaTotal = (walletData.online_balance || 0) + inPersonTotal;
+    const ventaHoy   = (walletData.online_today || 0) + (walletData.in_person_today || 0);
+
+    // Slides data
+    const walletSlides = [
+      {
+        id: 'slide-online',
+        gradient: 'linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%)',
+        icon: '💳',
+        label: 'PAGOS ONLINE',
+        amount: fmtCurrency(walletData.online_balance||0),
+        todayAmount: fmtCurrency(walletData.online_today||0),
+        sub: 'Disponible para retirar',
+        btn: `<button onclick="ownerNav('otab-payments')" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Retirar fondos</button>`,
+        textColor: '#fff',
+        mutedColor: 'rgba(255,255,255,.45)',
+        todayColor: 'rgba(255,255,255,.7)',
+      },
+      {
+        id: 'slide-persona',
+        gradient: 'linear-gradient(135deg,#064e3b 0%,#065f46 60%,#047857 100%)',
+        icon: '💵',
+        label: 'PAGOS EN PERSONA',
+        amount: fmtCurrency(inPersonTotal),
+        todayAmount: fmtCurrency(walletData.in_person_today||0),
+        sub: 'Ya en tu bolsillo',
+        btn: `<div style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px;display:flex;justify-content:center;gap:16px;">
+          ${(walletData.cash_total||0)>0 ? `<div style="text-align:center;"><div style="font-size:15px;font-weight:900;color:#fff;">$\${Math.round(walletData.cash_total)}</div><div style="font-size:10px;color:rgba(255,255,255,.55);margin-top:1px;">Efectivo</div></div>` : ''}
+          ${(walletData.card_pos_total||0)>0 ? `<div style="text-align:center;"><div style="font-size:15px;font-weight:900;color:#fff;">$\${Math.round(walletData.card_pos_total)}</div><div style="font-size:10px;color:rgba(255,255,255,.55);margin-top:1px;">Posnet</div></div>` : ''}
+          ${inPersonTotal === 0 ? `<div style="font-size:12px;color:rgba(255,255,255,.5);">Sin cobros en persona aún</div>` : ''}
+        </div>`,
+        textColor: '#fff',
+        mutedColor: 'rgba(255,255,255,.45)',
+        todayColor: 'rgba(255,255,255,.7)',
+      },
+      {
+        id: 'slide-total',
+        gradient: 'linear-gradient(135deg,#3b0764 0%,#4c1d95 60%,#5b21b6 100%)',
+        icon: '📊',
+        label: 'VENTA TOTAL',
+        amount: fmtCurrency(ventaTotal),
+        todayAmount: fmtCurrency(ventaHoy),
+        sub: 'Online + en persona',
+        btn: `<button onclick="ownerAppTab('stats')" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ver estadísticas</button>`,
+        textColor: '#fff',
+        mutedColor: 'rgba(255,255,255,.45)',
+        todayColor: 'rgba(255,255,255,.7)',
+      },
+    ];
+
     html += `
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);border-radius:20px;padding:20px;position:relative;overflow:hidden;">
-          <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-            <div>
-              <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💳 Cobrado online</div>
-              <div style="font-size:32px;font-weight:900;color:#fff;line-height:1;">${fmtCurrency(walletData.online_balance||0)}</div>
+      <div style="position:relative;">
+        <div id="wallet-carousel" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:0;border-radius:20px;" onscroll="ownerUpdateCarouselDots('wallet-carousel','wallet-dots')">
+          <style>#wallet-carousel::-webkit-scrollbar{display:none}</style>
+          ${walletSlides.map((s,i) => `
+          <div style="flex:0 0 100%;scroll-snap-align:start;background:${s.gradient};border-radius:20px;padding:20px;position:relative;overflow:hidden;box-sizing:border-box;">
+            <div style="position:absolute;top:-24px;right:-24px;width:96px;height:96px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
+            <div style="position:absolute;bottom:-16px;left:-16px;width:64px;height:64px;background:rgba(255,255,255,.03);border-radius:50%;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:700;color:${s.mutedColor};text-transform:uppercase;letter-spacing:.8px;">${s.icon} ${s.label}</div>
+              <div style="text-align:right;">
+                <div style="font-size:10px;color:${s.mutedColor};margin-bottom:2px;">Hoy</div>
+                <div style="font-size:14px;font-weight:800;color:${s.todayColor};">${s.todayAmount}</div>
+              </div>
             </div>
-            <div style="text-align:right;">
-              <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:2px;">Hoy</div>
-              <div style="font-size:14px;font-weight:800;color:rgba(255,255,255,.7);">$${Math.round(walletData.online_today||0)}</div>
-            </div>
-          </div>
-          <button onclick="ownerNav('otab-payments')" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            Retirar fondos
-          </button>
+            <div style="font-size:36px;font-weight:900;color:${s.textColor};line-height:1;margin-bottom:4px;">${s.amount}</div>
+            <div style="font-size:11px;color:${s.mutedColor};margin-bottom:14px;">${s.sub}</div>
+            ${s.btn}
+          </div>`).join('')}
         </div>
-        ${inPersonTotal > 0 || (walletData.in_person_today||0) > 0 ? `
-        <div style="background:#fff;border-radius:20px;padding:18px;border:1.5px solid #f0f0f0;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-            <div>
-              <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💵 Cobrado en persona</div>
-              <div style="font-size:28px;font-weight:900;color:#1a1a1a;line-height:1;">${fmtCurrency(inPersonTotal)}</div>
-            </div>
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 12px;text-align:center;">
-              <div style="font-size:11px;color:#16a34a;font-weight:800;">✓ Ya en tu bolsillo</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;">
-            ${(walletData.cash_total||0)>0 ? `<div style="flex:1;background:#f8f8f8;border-radius:12px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;">$${Math.round(walletData.cash_total)}</div><div style="font-size:10px;color:#aaa;margin-top:2px;">💵 Efectivo</div></div>` : ''}
-            ${(walletData.card_pos_total||0)>0 ? `<div style="flex:1;background:#f8f8f8;border-radius:12px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;">$${Math.round(walletData.card_pos_total)}</div><div style="font-size:10px;color:#aaa;margin-top:2px;">🖥️ Posnet</div></div>` : ''}
-          </div>
-        </div>` : ''}
+        <!-- Dots -->
+        <div id="wallet-dots" style="display:flex;justify-content:center;gap:6px;margin-top:10px;">
+          ${walletSlides.map((_,i) => `<div class="wallet-dot${i===0?' wd-active':''}" onclick="ownerCarouselGoTo('wallet-carousel','wallet-dots',${i})" style="width:${i===0?'18':'6'}px;height:6px;border-radius:99px;background:${i===0?'#FA0050':'#d1d5db'};cursor:pointer;transition:all .25s ease;"></div>`).join('')}
+        </div>
       </div>`;
 
     // -- NUEVOS PEDIDOS ----------------------------------
