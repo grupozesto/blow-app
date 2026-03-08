@@ -11,7 +11,7 @@
 
 <!-- Error tracking — Sentry (carga solo si SENTRY_DSN está configurado) -->
 <script>
-// ── Global error boundary ─────────────────────
+// -- Global error boundary ---------------------
 // Si Sentry está configurado, los errores se reportan automáticamente
 // Si no, se loguean en consola con contexto útil
 window._blowErrors = [];
@@ -90,7 +90,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .pq-icon2{width:40px;height:40px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.08);}
 .pq-label2{font-size:13px;font-weight:600;color:#1a1a1a;line-height:1.3;}
 
-/* ── RESPONSIVE LAYOUT ── */
+/* -- RESPONSIVE LAYOUT -- */
 @media(min-width:900px){
   .bottom-nav{display:none!important;}
   .sidebar{display:flex!important;}
@@ -101,7 +101,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   .page-wrap{margin-left:0;padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px));}
 }
 
-/* ── SIDEBAR ── */
+/* -- SIDEBAR -- */
 .sidebar{
   position:fixed;top:0;left:0;width:240px;height:100vh;
   background:#fff;border-right:1px solid var(--border);
@@ -116,7 +116,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .si-badge{margin-left:auto;background:var(--primary);color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;}
 .sidebar-bottom{margin-top:auto;border-top:1px solid var(--border);padding-top:16px;}
 
-/* ── BOTTOM NAV ── */
+/* -- BOTTOM NAV -- */
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav);background:#fff;border-top:1px solid #ebebeb;display:flex;justify-content:space-around;align-items:center;z-index:200;box-shadow:0 -2px 10px rgba(0,0,0,.05);}
 .nb{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;color:#bbb;font-family:'Inter',sans-serif;font-size:10px;font-weight:500;transition:color .18s;padding:8px 10px;min-width:52px;}
 .nb.active{color:var(--text);}
@@ -125,11 +125,11 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .nw{position:relative;}
 .nb-badge{position:absolute;top:-4px;right:-8px;background:var(--primary);color:#fff;border-radius:50%;width:17px;height:17px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
 
-/* ── PAGES ── */
+/* -- PAGES -- */
 .page{display:none;min-height:100vh;flex-direction:column;} .page.active{display:flex;}
 .page.active{display:flex;}
 
-/* ── HEADER — Red PedidosYa style ── */
+/* -- HEADER — Red PedidosYa style -- */
 .app-header{background:var(--primary);padding:14px 16px 14px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);position:sticky;top:0;z-index:100;}
 .hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .hloc{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;}
@@ -158,10 +158,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .srp-biz:active{background:#f5f5f5;}
 .sbtn svg{width:16px;height:16px;color:#fff;}
 
-/* ── SCROLL ── */
+/* -- SCROLL -- */
 .sc{flex:1;overflow-y:auto;background:#fff;}
 
-/* ── BANNER — full width PedidosYa style ── */
+/* -- BANNER — full width PedidosYa style -- */
 .banner-wrap{padding:0;margin-bottom:0;position:relative;overflow:hidden;width:100%;}
 .banner-viewport{position:relative;width:100%;overflow:hidden;}
 .banner-track{display:flex;width:300%;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform;}
@@ -179,13 +179,13 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .bdot{width:7px;height:7px;border-radius:50%;background:#ddd;cursor:pointer;transition:all .2s;}
 .bdot.active{background:var(--primary);width:18px;border-radius:4px;}
 
-/* ── SECTION ── */
+/* -- SECTION -- */
 .section{padding:22px 16px 0;}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .sec-title{font-size:20px;font-weight:900;letter-spacing:-.3px;color:#1a1a1a;}
 .sec-link{font-size:13px;font-weight:600;color:var(--primary);cursor:pointer;}
 
-/* ── PROMO STRIP ── */
+/* -- PROMO STRIP -- */
 .promo-strip{margin:0;background:#fff;border-bottom:1px solid #f0f0f0;padding:12px 16px;display:flex;align-items:center;gap:12px;}
 .promo-strip-icon{font-size:24px;}
 .promo-strip-text{flex:1;}
@@ -193,16 +193,16 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .promo-strip-sub{font-size:11px;color:#999;margin-top:1px;}
 .promo-badge{background:#FFB800;color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;}
 
-/* ── SMALL CATEGORY ICONS ── */
+/* -- SMALL CATEGORY ICONS -- */
 .smallcat{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;cursor:pointer;min-width:110px;max-width:120px;background:#f0f0f0;border-radius:20px;overflow:hidden;height:150px;padding:0 0 14px;flex-shrink:0;}
 .smallcat:hover .sc-icon{transform:scale(1.05);}
 .sc-icon{width:100%;flex:1;display:flex;align-items:center;justify-content:center;font-size:62px;transition:transform .15s;background:transparent;border-radius:0;}
 .smallcat span{font-size:12px;font-weight:800;color:#1a1a1a;text-align:center;white-space:nowrap;padding:0 8px;}
 
-/* ── STORE LOGO CHIP ── */
+/* -- STORE LOGO CHIP -- */
 .store-logo-chip{position:absolute;bottom:10px;left:10px;width:44px;height:44px;border-radius:12px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;}
 
-/* ── BIG CATEGORIES — PedidosYa 2-col large cards ── */
+/* -- BIG CATEGORIES — PedidosYa 2-col large cards -- */
 .bigcat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(min-width:600px){.bigcat-grid{grid-template-columns:repeat(3,1fr);}}
 @media(min-width:900px){.bigcat-grid{grid-template-columns:repeat(4,1fr);}}
@@ -228,14 +228,14 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .bigcat-em{font-size:72px;position:relative;filter:drop-shadow(0 4px 12px rgba(0,0,0,.15));line-height:1;}
 .bigcat-label{font-size:16px;font-weight:800;color:#1a1a1a;position:relative;z-index:1;text-align:center;}
 
-/* ── CHIPS ── */
+/* -- CHIPS -- */
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
 .chips::-webkit-scrollbar{display:none;}
 .chip{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e0e0e0;border-radius:30px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;color:#444;white-space:nowrap;transition:all .15s;}
 .chip:hover{border-color:#999;}
 .chip.active{background:var(--text);border-color:var(--text);color:#fff;}
 
-/* ── STORE CARDS — PedidosYa style ── */
+/* -- STORE CARDS — PedidosYa style -- */
 .stores-grid{display:grid;grid-template-columns:1fr;gap:12px;padding:0 14px 14px;}
 @media(min-width:600px){.stores-grid{grid-template-columns:1fr 1fr;gap:12px;padding:0 4px;}}
 @media(min-width:1000px){.stores-grid{grid-template-columns:repeat(3,1fr);}}
@@ -259,13 +259,13 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .tag.free{background:#e8f8f0;color:var(--success);}
 .tag.new-badge{background:#e8f0ff;color:#3b5bdb;}
 
-/* ── PAGE HEADER ── */
+/* -- PAGE HEADER -- */
 .page-hdr{background:#fff;padding:18px 16px 14px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 14px));border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
 .page-hdr h1{font-size:24px;font-weight:900;}
 .back-btn{position:absolute;top:14px;left:14px;background:#fff;border:none;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);z-index:10;}
 .back-btn svg{width:18px;height:18px;}
 
-/* ── STORE DETAIL ── */
+/* -- STORE DETAIL -- */
 .store-hero{width:100%;height:200px;background:linear-gradient(135deg,#f5f5f5,#e8e8e8);display:flex;align-items:center;justify-content:center;font-size:80px;position:relative;}
 .store-detail-info{padding:16px 16px 12px;background:#fff;border-bottom:1px solid var(--border);}
 .store-detail-name{font-size:22px;font-weight:900;margin-bottom:6px;}
@@ -283,7 +283,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .prod-price{font-size:16px;font-weight:800;}
 .add-btn{background:var(--primary);border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:22px;flex-shrink:0;}
 
-/* ── CART ── */
+/* -- CART -- */
 .cart-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:14px;padding:60px 20px;}
 .cart-empty-icon{font-size:72px;}
 .cart-empty p{color:var(--muted);font-size:16px;text-align:center;font-weight:500;}
@@ -302,7 +302,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .checkout-btn{width:calc(100% - 32px);margin:0 16px 16px;background:var(--primary);border:none;border-radius:var(--r);padding:16px;color:#fff;font-family:'Inter',sans-serif;font-size:16px;font-weight:800;cursor:pointer;}
 .checkout-btn:disabled{opacity:.6;cursor:not-allowed;}
 
-/* ── TRACKING ── */
+/* -- TRACKING -- */
 .order-card{background:#fff;border-radius:var(--r);margin:14px 16px 0;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);}
 .oc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
 .oc-store{font-size:16px;font-weight:800;}
@@ -333,7 +333,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 @keyframes ride{0%,100%{transform:translateX(-20px)}50%{transform:translateX(20px)}}
 .map-grid{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 28px,rgba(0,0,0,.04) 28px,rgba(0,0,0,.04) 29px),repeating-linear-gradient(90deg,transparent,transparent 28px,rgba(0,0,0,.04) 28px,rgba(0,0,0,.04) 29px);}
 
-/* ── PROFILE — PedidosYa white style ── */
+/* -- PROFILE — PedidosYa white style -- */
 .profile-hero{background:#fff;padding:28px 20px 8px;text-align:center;}
 .profile-greeting{font-size:22px;font-weight:900;color:#1a1a1a;margin-bottom:16px;}
 .profile-settings-btn{position:absolute;right:16px;top:20px;width:36px;height:36px;border-radius:50%;background:#f5f5f5;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#666;}
@@ -360,7 +360,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .mi-text small{color:#999;font-size:12px;}
 .mi-arrow{color:#ccc;font-size:18px;font-weight:300;}
 
-/* ── DELIVERY PANEL ── */
+/* -- DELIVERY PANEL -- */
 .panel-hero{background:linear-gradient(135deg,var(--primary),#ff4d6b);padding:28px 20px 22px;}
 .panel-hero h1{font-size:24px;font-weight:900;color:#fff;margin-bottom:4px;}
 .panel-hero p{font-size:13px;color:rgba(255,255,255,.8);}
@@ -394,7 +394,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .earn-meta{font-size:11px;color:var(--muted);margin-top:2px;}
 .earn-amt{font-weight:800;color:var(--success);font-size:14px;}
 
-/* ── OWNER ── */
+/* -- OWNER -- */
 .owner-login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 32px));background:var(--bg);}
 #ob-emoji-picker span{font-size:24px;cursor:pointer;padding:6px;border-radius:8px;transition:background .15s;}
 #ob-emoji-picker span:hover,#ob-emoji-picker span.selected{background:#fff0f3;}
@@ -430,9 +430,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .otab-content{display:none;padding:16px;}
 .otab-content.active{display:block;}
 .owner-order-card{background:#fff;border-radius:var(--r);padding:16px;margin-bottom:10px;border:1px solid var(--border);border-left:4px solid var(--accent);box-shadow:var(--shadow);}
-/* ══════════════════════════════════════════════
+/* ----------------------------------------------
    OWNER APP — Experiencia separada
-══════════════════════════════════════════════ */
+---------------------------------------------- */
 :root { --owner-dark:#111827; --owner-accent:#FA0050; }
 
 /* Transition overlay */
@@ -526,7 +526,7 @@ body.owner-mode #owner-app{display:flex;}
 .settings-label{font-size:14px;font-weight:600;}
 .settings-value{font-size:13px;color:var(--muted);}
 
-/* ── ADMIN PANEL ── */
+/* -- ADMIN PANEL -- */
 .admin-wrap{background:var(--bg);min-height:100vh;padding:16px;}
 .admin-withdraw-card{background:#fff;border-radius:var(--r);padding:16px;margin-bottom:10px;border:1px solid var(--border);box-shadow:var(--shadow);}
 .awc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
@@ -535,7 +535,7 @@ body.owner-mode #owner-app{display:flex;}
 .awc-info{font-size:13px;color:var(--muted);margin-bottom:12px;}
 .awc-actions{display:flex;gap:8px;}
 
-/* ── FORMS ── */
+/* -- FORMS -- */
 .tab-sw{display:flex;background:var(--bg);border-radius:12px;padding:4px;}
 .tab-btn{flex:1;padding:10px;border:none;border-radius:9px;background:none;color:var(--muted);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;}
 .tab-btn.active{background:#fff;color:var(--primary);box-shadow:var(--shadow);}
@@ -547,7 +547,7 @@ body.owner-mode #owner-app{display:flex;}
 .primary-btn:disabled{opacity:.6;cursor:not-allowed;}
 .secondary-btn{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:14px;color:var(--text2);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
 
-/* ── MODAL ── */
+/* -- MODAL -- */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .3s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
 .modal-sheet{background:#fff;border-radius:24px 24px 0 0;width:100%;padding:20px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s;}
@@ -565,7 +565,7 @@ body.owner-mode #owner-app{display:flex;}
 .modal-price{font-size:28px;font-weight:900;}
 .modal-add-btn{width:100%;background:var(--primary);border:none;border-radius:var(--r);padding:16px;color:#fff;font-family:'Inter',sans-serif;font-size:16px;font-weight:800;cursor:pointer;}
 
-/* ── AUTH MODAL ── */
+/* -- AUTH MODAL -- */
 .auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;}
 .auth-box{background:#fff;border-radius:20px;padding:28px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;}
 .auth-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
@@ -573,18 +573,18 @@ body.owner-mode #owner-app{display:flex;}
 .auth-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);}
 .auth-error{color:var(--primary);font-size:13px;margin-top:10px;text-align:center;display:none;}
 
-/* ── WITHDRAW MODAL ── */
+/* -- WITHDRAW MODAL -- */
 .withdraw-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:4000;display:none;align-items:flex-end;justify-content:center;}
 .withdraw-box{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:500px;padding:24px;padding-bottom:36px;}
 
-/* ── TOAST ── */
+/* -- TOAST -- */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(26,26,26,.95);color:#fff;border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.2);pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 @media(min-width:900px){.toast{bottom:24px;}}
 
 
 
-/* ── PRODUCT PHOTOS ── */
+/* -- PRODUCT PHOTOS -- */
 .photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
 .photo-slot{aspect-ratio:1;border-radius:10px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:var(--bg);transition:border-color .2s;}
 .photo-slot:hover{border-color:var(--primary);}
@@ -639,7 +639,7 @@ body.owner-mode #owner-app{display:flex;}
 .vb-add-opt:hover{border-color:var(--success);color:var(--success);}
 .add-variant-group-btn{background:none;border:2px dashed var(--border);border-radius:10px;padding:10px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;width:100%;}
 .add-variant-group-btn:hover{border-color:var(--primary);color:var(--primary);}
-/* ── LOCATION MODAL ── */
+/* -- LOCATION MODAL -- */
 .loc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;display:none;align-items:flex-end;justify-content:center;}
 .loc-overlay.open{display:flex;}
 .loc-sheet{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:560px;padding:20px 20px 36px;max-height:85vh;overflow-y:auto;}
@@ -669,7 +669,7 @@ body.owner-mode #owner-app{display:flex;}
 .add-addr-btn{width:100%;background:none;border:2px dashed var(--border);border-radius:12px;padding:13px;color:var(--muted);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;}
 .add-addr-btn:hover{border-color:var(--primary);color:var(--primary);}
 .loc-status{font-size:12px;color:var(--muted);text-align:center;margin-top:8px;min-height:18px;}
-/* ── LOADING ── */
+/* -- LOADING -- */
 .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin:30px auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-state{text-align:center;padding:40px 20px;color:var(--muted);}
@@ -685,13 +685,13 @@ body.owner-mode #owner-app{display:flex;}
 .skel-product-text{flex:1;display:flex;flex-direction:column;gap:8px;}
 .skel-product-img{width:80px;height:80px;border-radius:12px;flex-shrink:0;}
 .skel-tracking-card{border-radius:20px;padding:20px;border:1px solid #f0f0f0;background:#fff;display:flex;flex-direction:column;gap:12px;}
-/* ── Page transitions ──────────────────────── */
+/* -- Page transitions ------------------------ */
 .page{opacity:0;transform:translateY(8px);transition:opacity .22s ease, transform .22s ease;pointer-events:none;}
 .page.active{opacity:1;transform:translateY(0);pointer-events:auto;}
 
-/* ════════════════════════════════════════
+/* ----------------------------------------
    STORE DETAIL — PedidosYa style
-════════════════════════════════════════ */
+---------------------------------------- */
 .sd-cover{position:relative;width:100%;height:220px;background:linear-gradient(135deg,var(--primary),#6b00cc);overflow:hidden;flex-shrink:0;}
 .sd-cover img{width:100%;height:100%;object-fit:cover;}
 .sd-cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.25) 0%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.4) 100%);}
@@ -783,9 +783,9 @@ body.owner-mode #owner-app{display:flex;}
 .prod-card-h-price .original{font-size:10px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:3px;}
 .prod-card-h-add{position:absolute;bottom:8px;right:8px;width:26px;height:26px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
 
-/* ════════════════════════════════════════
+/* ----------------------------------------
    BLOW+ PREMIUM
-════════════════════════════════════════ */
+---------------------------------------- */
 .blowplus-card{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;margin-bottom:20px;}
 .blowplus-card::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(250,0,80,.3),transparent 70%);}
 .blowplus-card::after{content:'';position:absolute;bottom:-30px;left:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(107,0,204,.4),transparent 70%);}
@@ -820,10 +820,10 @@ body.owner-mode #owner-app{display:flex;}
   .nb{padding:6px 8px;min-width:46px;font-size:9px;}
 }
 
-/* ══ MODE SWITCHING ══════════════════════════════
+/* -- MODE SWITCHING ------------------------------
    body.owner-mode  → hide ALL client UI
    body (default)   → normal client UI
-════════════════════════════════════════════════ */
+------------------------------------------------ */
 body.owner-mode .bottom-nav,
 body.owner-mode .sidebar,
 body.owner-mode #page-home,
@@ -835,15 +835,13 @@ body.owner-mode #page-delivery,
 body.owner-mode #page-user-blowplus,
 body.owner-mode #page-owner-login,
 body.owner-mode #page-owner-plans,
-/* page-owner-dash shown in legacy overlay when needed */
 body.owner-mode:not(.legacy-open) #page-owner-dash,
 body.owner-mode #page-favorites,
 body.owner-mode #page-personal-info,
 body.owner-mode #page-coupons,
 body.owner-mode #page-help,
 body.owner-mode #page-admin,
-body.owner-mode .search-bar,
-/* owner-transition is controlled manually via JS */
+body.owner-mode .search-bar { display: none !important; }
 
 /* Owner app visibility is controlled by body.owner-mode class */
 
@@ -860,7 +858,7 @@ body.owner-mode .search-bar,
 </head>
 <body>
 
-<!-- ══ SIDEBAR ══ -->
+<!-- -- SIDEBAR -- -->
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-logo">⚡ Blow</div>
   <button class="si active" id="si-home" onclick="nav('page-home')">
@@ -893,7 +891,7 @@ body.owner-mode .search-bar,
   </div>
 </nav>
 
-<!-- ══ PAGE: HOME ══ -->
+<!-- -- PAGE: HOME -- -->
 <div class="page active page-wrap" id="page-home">
   <div class="app-header">
     <div class="hrow">
@@ -1061,7 +1059,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: STORE DETAIL ══ -->
+<!-- -- PAGE: STORE DETAIL -- -->
 <div class="page page-wrap" id="page-store">
   <div class="sc" id="store-scroll">
 
@@ -1140,7 +1138,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ REVIEW MODAL ══ -->
+<!-- -- REVIEW MODAL -- -->
 <div id="review-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);align-items:flex-end;justify-content:center;">
   <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 40px;width:100%;max-width:500px;">
     <div style="width:40px;height:4px;background:#e0e0e0;border-radius:4px;margin:0 auto 20px;"></div>
@@ -1160,7 +1158,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: CART ══ -->
+<!-- -- PAGE: CART -- -->
 <div class="page page-wrap" id="page-cart">
   <div class="page-hdr"><h1>Tu Carrito 🛒</h1></div>
   <div class="sc">
@@ -1199,7 +1197,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: TRACKING ══ -->
+<!-- -- PAGE: TRACKING -- -->
 <div class="page page-wrap" id="page-tracking">
   <div class="page-hdr"><h1>Mis Pedidos 📦</h1></div>
   <!-- Summary strip -->
@@ -1218,7 +1216,7 @@ body.owner-mode .search-bar,
   <div class="sc" style="padding-bottom:16px;padding-top:8px;"><div id="tracking-body"><div class="loading-state"><div class="spinner"></div></div></div></div>
 </div>
 
-<!-- ══ PAGE: PROFILE ══ -->
+<!-- -- PAGE: PROFILE -- -->
 <div class="page page-wrap" id="page-profile">
   <div class="sc" style="background:#f5f5f5;">
 
@@ -1348,7 +1346,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: DELIVERY — hidden, not in use ══
+<!-- -- PAGE: DELIVERY — hidden, not in use --
 <div class="page page-wrap" id="page-delivery">
   <div class="sc">
     <div class="panel-hero">
@@ -1384,7 +1382,7 @@ body.owner-mode .search-bar,
 
 -->
 
-<!-- ══ PAGE: USER BLOW+ ══ -->
+<!-- -- PAGE: USER BLOW+ -- -->
 <div class="page page-wrap" id="page-user-blowplus">
   <div style="background:#fff;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 14px));padding-bottom:16px;padding-left:16px;padding-right:16px;position:sticky;top:0;z-index:10;">
     <button class="back-btn-inline" onclick="nav('page-profile')" style="margin-bottom:12px;">
@@ -1398,11 +1396,11 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: OWNER LOGIN ══ -->
+<!-- -- PAGE: OWNER LOGIN -- -->
 
-<!-- ══════════════════════════════════════════════
+<!-- ----------------------------------------------
      OWNER APP — Experiencia separada del negocio
-══════════════════════════════════════════════ -->
+---------------------------------------------- -->
 
 <!-- Transition overlay -->
 <div id="owner-transition">
@@ -1575,7 +1573,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: OWNER PLANS ══ -->
+<!-- -- PAGE: OWNER PLANS -- -->
 <div class="page page-wrap" id="page-owner-plans">
   <div class="sc" style="padding-bottom:40px;">
     <div style="padding:24px 16px 0;background:#fff;border-bottom:1px solid var(--border);">
@@ -1609,7 +1607,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: OWNER DASHBOARD ══ -->
+<!-- -- PAGE: OWNER DASHBOARD -- -->
 <div class="page page-wrap" id="page-owner-dash">
   <div class="sc">
     <div class="owner-header">
@@ -2032,7 +2030,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: ADMIN ══ -->
+<!-- -- PAGE: ADMIN -- -->
 <div class="page page-wrap" id="page-admin">
   <div class="page-hdr">
     <h1>🔧 Admin</h1>
@@ -2192,7 +2190,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ BOTTOM NAV ══ -->
+<!-- -- BOTTOM NAV -- -->
 <nav class="bottom-nav">
   <button class="nb active" id="nb-home" onclick="nav('page-home')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -2222,7 +2220,7 @@ body.owner-mode .search-bar,
   </button>
 </nav>
 
-<!-- ══ PRODUCT MODAL ══ -->
+<!-- -- PRODUCT MODAL -- -->
 <div class="modal-overlay" id="prod-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -2242,7 +2240,7 @@ body.owner-mode .search-bar,
 </div>
 
 
-<!-- ══ PROMO MODAL ══ -->
+<!-- -- PROMO MODAL -- -->
 <div class="modal-overlay" id="promo-modal" onclick="if(event.target===this)closePromoModal()" style="display:none;">
   <div class="modal-box" style="max-width:480px;width:92%;max-height:88vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
@@ -2359,7 +2357,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ ADD/EDIT PRODUCT MODAL ══ -->
+<!-- -- ADD/EDIT PRODUCT MODAL -- -->
 <div class="modal-overlay" id="add-prod-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-sheet" style="max-height:92vh;overflow-y:auto;">
     <div class="modal-handle"></div>
@@ -2417,7 +2415,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ CATEGORY MANAGER MODAL ══ -->
+<!-- -- CATEGORY MANAGER MODAL -- -->
 <div class="modal-overlay" id="cat-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-sheet" style="max-height:85vh;overflow-y:auto;">
     <div class="modal-handle"></div>
@@ -2439,7 +2437,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ AUTH MODAL ══ -->
+<!-- -- AUTH MODAL -- -->
 <div class="auth-overlay" id="auth-modal">
   <div class="auth-box">
     <div class="auth-header"><div class="auth-title" id="auth-modal-title">Iniciar sesión</div><button class="auth-close" onclick="closeAuth()">×</button></div>
@@ -2485,7 +2483,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: FAVORITES ══ -->
+<!-- -- PAGE: FAVORITES -- -->
 <div class="page" id="page-favorites">
   <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
     <button onclick="nav('page-profile')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#333;padding:0;line-height:1;">‹</button>
@@ -2496,7 +2494,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: PERSONAL INFO ══ -->
+<!-- -- PAGE: PERSONAL INFO -- -->
 <div class="page" id="page-personal-info">
   <div class="page-hdr" style="border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
     <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
@@ -2556,7 +2554,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: COUPONS ══ -->
+<!-- -- PAGE: COUPONS -- -->
 <div class="page" id="page-coupons">
   <div class="page-hdr" style="border-bottom:1px solid var(--border);">
     <button class="back-btn-inline" onclick="nav('page-profile')">
@@ -2600,7 +2598,7 @@ body.owner-mode .search-bar,
   </div>
 </div>
 
-<!-- ══ PAGE: HELP ══ -->
+<!-- -- PAGE: HELP -- -->
 <div class="page" id="page-help">
   <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
     <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
@@ -2744,7 +2742,7 @@ body.owner-mode .search-bar,
 </div>
 
 
-<!-- ══ WITHDRAW MODAL ══ -->
+<!-- -- WITHDRAW MODAL -- -->
 <div class="withdraw-overlay" id="withdraw-modal" onclick="if(event.target===this)this.style.display='none'">
   <div class="withdraw-box">
     <div style="width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;"></div>
@@ -2801,7 +2799,7 @@ body.owner-mode .search-bar,
 </div>
 
 
-<!-- ══ LOCATION MODAL ══ -->
+<!-- -- LOCATION MODAL -- -->
 <div class="loc-overlay" id="loc-modal">
   <div class="loc-sheet">
     <div class="loc-handle"></div>
@@ -2852,9 +2850,41 @@ body.owner-mode .search-bar,
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  CONFIG & STATE
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
+// -- Safe locale formatters (iOS Safari doesn't support es-UY) ------
+function fmtCurrency(n) {
+  const num = Math.round(Number(n) || 0);
+  const s = num.toString();
+  let result = '';
+  for (let i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 === 0) result += '.';
+    result += s[i];
+  }
+  return '$' + result;
+}
+
+function fmtTime(dateVal) {
+  if (!dateVal) return '--:--';
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  } catch(e) { return '--:--'; }
+}
+function fmtDate(dateVal, short) {
+  if (!dateVal) return '--';
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '--';
+    const day = d.getDate().toString().padStart(2,'0');
+    const mon = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()];
+    return short ? (day+' '+mon) : (day+' '+mon+' '+d.getFullYear());
+  } catch(e) { return '—'; }
+}
+function fmtDateTime(dateVal) { return fmtDate(dateVal,true)+' '+fmtTime(dateVal); }
+
 const API = ''; // mismo servidor — vacío = relativo
 let token    = localStorage.getItem('da_token') || null;
 let user     = JSON.parse(localStorage.getItem('da_user') || 'null');
@@ -2893,9 +2923,9 @@ const DEMO_PRODUCTS = {
 };
 let allStores = DEMO_STORES;
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  API HELPER
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -2905,9 +2935,9 @@ async function api(path, opts = {}) {
   return data;
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  WEBSOCKET (notificaciones en tiempo real)
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let ws = null;
 function connectWS() {
   if (!token || ws?.readyState === WebSocket.OPEN) return;
@@ -2961,7 +2991,7 @@ function connectWS() {
   };
 }
 
-// ── Order alarm: sound + vibration + system notification ──
+// -- Order alarm: sound + vibration + system notification --
 function playOrderAlarm() {
   // Vibration pattern: long-short-long
   if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
@@ -3015,7 +3045,7 @@ function playOrderAlarm() {
   }
 }
 
-// ── Persistent order banner (doesn't auto-dismiss) ──
+// -- Persistent order banner (doesn't auto-dismiss) --
 function showOrderBanner(msg) {
   // Remove any existing banner
   document.getElementById('order-alert-banner')?.remove();
@@ -3051,9 +3081,9 @@ function showOrderBanner(msg) {
   setTimeout(() => document.getElementById('order-alert-banner')?.remove(), 60000);
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  NAVIGATION
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 function nav(pageId) {
   const prev = document.querySelector('.page.active');
   if (prev && prev.id === pageId) return; // already here
@@ -3110,9 +3140,9 @@ function nav(pageId) {
   window.scrollTo(0,0);
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  BANNER
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let bIdx = 0;
 function goBanner(i) {
   bIdx = i;
@@ -3124,12 +3154,12 @@ function goBanner(i) {
 }
 setInterval(() => goBanner((bIdx+1)%3), 4000);
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  STORES
-// ═══════════════════════════════════════════════
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
+// -----------------------------------------------
 //  SISTEMA DE UBICACIÓN
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let activeCity   = localStorage.getItem('da_city') || '';
 let clientGpsLat = parseFloat(localStorage.getItem('da_lat')) || null;
 let clientGpsLng = parseFloat(localStorage.getItem('da_lng')) || null;
@@ -3333,9 +3363,9 @@ document.getElementById('loc-modal').addEventListener('click', function(e) {
   if (e.target === this) this.classList.remove('open');
 });
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  STORES (location-aware)
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function loadAppSettings() {
   try {
     const s = await fetch('/api/public-settings').then(r => r.json()).catch(() => ({}));
@@ -3396,7 +3426,7 @@ let _storeHasMore = false;
 let _storeLoading = false;
 let _storeCategory = null;
 
-// ── Para Vos — personalized recommendations ───
+// -- Para Vos — personalized recommendations ---
 async function loadRecommendations() {
   const section = document.getElementById('para-vos-section');
   const row = document.getElementById('para-vos-row');
@@ -3658,12 +3688,12 @@ function searchStores(q) {
   renderStores(filtered);
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  GLOBAL SEARCH
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let _searchTimer = null;
 
-// ── Inline search (replaces floating panel) ──
+// -- Inline search (replaces floating panel) --
 let _inlineSearchTimer = null;
 let _inlineSearchActive = false;
 
@@ -3832,7 +3862,7 @@ function openGlobalSearch(prefill) {
 
 function closeGlobalSearch() { clearInlineSearch(); }
 
-// ── Search history ───────────────────────────
+// -- Search history ---------------------------
 const SEARCH_HISTORY_KEY = 'blow_search_history';
 const MAX_HISTORY = 8;
 
@@ -4054,7 +4084,7 @@ function renderStoreDetail(s, products) {
   const sdFavBtn = document.getElementById('sd-fav-btn');
   if (sdFavBtn) sdFavBtn.textContent = isFav(s.id) ? '❤️' : '🤍';
 
-  // ── Cover photo ──
+  // -- Cover photo --
   const coverEl = document.getElementById('sd-cover');
   if (coverEl) {
     if (s.cover_url) {
@@ -4067,7 +4097,7 @@ function renderStoreDetail(s, products) {
     }
   }
 
-  // ── Logo ──
+  // -- Logo --
   const logoEl = document.getElementById('sd-logo');
   if (logoEl) {
     if (s.logo_url) {
@@ -4077,7 +4107,7 @@ function renderStoreDetail(s, products) {
     }
   }
 
-  // ── Name + rating ──
+  // -- Name + rating --
   const nameEl = document.getElementById('sd-name');
   if (nameEl) nameEl.textContent = s.name;
   const stickyName = document.getElementById('sd-sticky-name');
@@ -4103,7 +4133,7 @@ function renderStoreDetail(s, products) {
     `;
   }
 
-  // ── Fulfillment tabs ──
+  // -- Fulfillment tabs --
   const fulfEl = document.getElementById('sd-fulfillment');
   if (fulfEl) {
     const hasDelivery = s.offers_delivery !== false;
@@ -4114,17 +4144,17 @@ function renderStoreDetail(s, products) {
     else { setSdFulfillment('delivery'); }
   }
 
-  // ── Delivery info ──
+  // -- Delivery info --
   renderSdDeliveryInfo(s);
 
-  // ── Promo banners ──
+  // -- Promo banners --
   renderSdPromos(s);
   renderSdReviews(s);
 
-  // ── Products ──
+  // -- Products --
   renderStoreProducts(products, 'all');
 
-  // ── Sticky scroll behavior ──
+  // -- Sticky scroll behavior --
   const scrollEl = document.getElementById('store-scroll');
   const stickyEl = document.getElementById('sd-sticky');
   const headerEl = document.querySelector('.sd-header');
@@ -4245,7 +4275,7 @@ async function renderSdReviews(s) {
   } catch(e) { /* silently fail */ }
 }
 
-// ── Store search ──
+// -- Store search --
 function toggleStoreSearch() {
   const bar = document.getElementById('sd-search-bar');
   const input = document.getElementById('sd-search-input');
@@ -4454,9 +4484,9 @@ function updateFulfillmentSelector(store) {
   }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  PRODUCT MODAL (con fotos y variantes)
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let selectedVariants = {}; // groupName -> variantId
 
 function openProduct(p) {
@@ -4586,10 +4616,10 @@ function quickAdd(p) {
   showToast(`✅ ${p.name} agregado`);
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  CART
-// ═══════════════════════════════════════════════
-// ── Haptic feedback ──────────────────────────
+// -----------------------------------------------
+// -- Haptic feedback --------------------------
 function haptic(type = 'light') {
   if (!navigator.vibrate) return;
   const patterns = {
@@ -4668,7 +4698,7 @@ function renderCart() {
 }
 
 
-// ── Payment method selector ──────────────────────────────
+// -- Payment method selector ------------------------------
 function renderPaymentMethodSelector(store) {
   const wrap = document.getElementById('checkout-payment-method');
   const list = document.getElementById('payment-options-list');
@@ -4765,9 +4795,9 @@ async function checkout() {
   }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  TRACKING
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 const STATUS_LABELS = { pending:'Esperando pago', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', on_way:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
 const STEPS_MAP = ['pending','confirmed','preparing','ready','on_way','delivered'];
 const STEP_LABELS = ['Pago confirmado','Pedido aceptado','Preparando','Listo','En camino','Entregado'];
@@ -4819,7 +4849,7 @@ function renderTrackingSummary() {
     </div>
     <div style="width:1px;background:rgba(255,255,255,.3);"></div>
     <div style="text-align:center;">
-      <div style="font-size:22px;font-weight:900;">$${Math.round(total).toLocaleString('es-UY')}</div>
+      <div style="font-size:22px;font-weight:900;">${fmtCurrency(total)}</div>
       <div style="font-size:11px;opacity:.85;">gastado en total</div>
     </div>
     <div style="width:1px;background:rgba(255,255,255,.3);"></div>
@@ -4837,7 +4867,7 @@ function populateBizFilter() {
     businesses.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
 }
 
-// ── GPS Rider tracking ────────────────────────
+// -- GPS Rider tracking ------------------------
 const _riderMapTimers = {};
 
 function initRiderMap(orderId) {
@@ -4897,7 +4927,7 @@ function stopRiderTracking() {
   if (_riderGpsInterval) { clearInterval(_riderGpsInterval); _riderGpsInterval = null; }
 }
 
-// ── Pull-to-refresh ──────────────────────────
+// -- Pull-to-refresh --------------------------
 (function initPullToRefresh() {
   let startY = 0, pulling = false, indicator = null;
   const THRESHOLD = 70;
@@ -4961,7 +4991,7 @@ function stopRiderTracking() {
   }, { passive: true });
 })();
 
-// ── ETA countdown ─────────────────────────────
+// -- ETA countdown -----------------------------
 function renderEtaBar(o) {
   const elapsedMin = (Date.now() - new Date(o.confirmed_at).getTime()) / 60000;
   const remaining = Math.max(0, Math.round(o.eta_minutes - elapsedMin));
@@ -5001,7 +5031,7 @@ function startEtaTicker() {
   }, 30000); // update every 30s
 }
 
-// ── Store News ────────────────────────────────
+// -- Store News --------------------------------
 function renderStoreNews() {
   const container = document.getElementById('store-prods');
   if (!container) return;
@@ -5018,14 +5048,14 @@ function renderStoreNews() {
         <div style="flex:1;">
           <div style="font-size:15px;font-weight:800;color:#1a1a1a;margin-bottom:4px;">${n.title}</div>
           ${n.body ? `<div style="font-size:13px;color:#555;line-height:1.5;">${n.body}</div>` : ''}
-          <div style="font-size:11px;color:#bbb;margin-top:6px;">${new Date(n.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short',year:'numeric'})}</div>
+          <div style="font-size:11px;color:#bbb;margin-top:6px;">${fmtDate(n.created_at,false)}</div>
         </div>
       </div>
     </div>`).join('')}
   </div>`;
 }
 
-// ── Owner: News management in dashboard ───────
+// -- Owner: News management in dashboard -------
 async function loadOwnerNews() {
   const el = document.getElementById('owner-news-list');
   // Load audience count for push
@@ -5042,7 +5072,7 @@ async function loadOwnerNews() {
         <div style="flex:1;">
           <div style="font-size:14px;font-weight:800;">${n.title}</div>
           ${n.body ? `<div style="font-size:12px;color:#666;margin-top:3px;">${n.body.substring(0,80)}${n.body.length>80?'…':''}</div>` : ''}
-          <div style="font-size:11px;color:#bbb;margin-top:4px;">${new Date(n.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</div>
+          <div style="font-size:11px;color:#bbb;margin-top:4px;">${fmtDate(n.created_at,true)}</div>
         </div>
         <div style="display:flex;gap:6px;">
           <button onclick="toggleNews('${n.id}',${n.active})" style="background:${n.active?'#dcfce7':'#f5f5f5'};border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">${n.active?'✅ Activa':'⭕ Oculta'}</button>
@@ -5099,7 +5129,7 @@ async function deleteNews(id) {
   catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ── Loyalty points — customer ─────────────────
+// -- Loyalty points — customer -----------------
 let _loyaltyBalance = 0;
 let _loyaltyConfig = null;
 
@@ -5131,7 +5161,7 @@ function renderLoyaltyBadge() {
   </div>`;
 }
 
-// ── Loyalty points — owner config ─────────────
+// -- Loyalty points — owner config -------------
 async function loadLoyaltyConfig() {
   try {
     const biz = await api('/api/businesses/mine/dashboard');
@@ -5155,7 +5185,7 @@ async function saveLoyaltyConfig() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ── Saved addresses in checkout ───────────────
+// -- Saved addresses in checkout ---------------
 let _savedAddresses = [];
 
 async function loadSavedAddresses() {
@@ -5224,7 +5254,7 @@ async function saveNewAddress() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ── Scheduled orders ──────────────────────────
+// -- Scheduled orders --------------------------
 function renderScheduleOption() {
   const el = document.getElementById('checkout-schedule');
   if (!el) return;
@@ -5288,8 +5318,8 @@ function renderTrackingOrders() {
     const steps = STEPS_MAP.map((s,i) => ({label:STEP_LABELS[i], done:i<stepIdx, cur:i===stepIdx}));
     const isHistory = historyStatuses.includes(o.status);
     const date = new Date(o.created_at);
-    const dateStr = date.toLocaleDateString('es-UY', {day:'2-digit', month:'short', year:'numeric'});
-    const timeStr = date.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'});
+    const dateStr = fmtDate(o.created_at, false);
+    const timeStr = fmtTime(o.created_at);
     const itemsDetail = (o.items||[]).map(i => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -5302,7 +5332,7 @@ function renderTrackingOrders() {
       <div class="oc-top">
         <div style="flex:1;min-width:0;">
           <div class="oc-store" style="cursor:pointer;" onclick="openStore('${o.business_id}')">${o.business_name||o.business_id}</div>
-          <div class="oc-time">${dateStr} · ${timeStr}${o.is_scheduled && o.scheduled_for ? ` · <span style="color:#f59e0b;font-weight:700;">🕐 Programado ${new Date(o.scheduled_for).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}</div>
+          <div class="oc-time">${dateStr} · ${timeStr}${o.is_scheduled && o.scheduled_for ? ` · <span style="color:#f59e0b;font-weight:700;">🕐 Programado ${fmtTime(o.scheduled_for)}</span>` : ''}</div>
         </div>
         <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
       </div>
@@ -5343,7 +5373,7 @@ function renderTrackingOrders() {
         ${o.status==='cancelled' && o.refund_status==='approved'?`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">💸</span><div><div style="font-size:13px;font-weight:700;color:#166534;">Reembolso procesado</div><div style="font-size:12px;color:#15803d;">$${o.total} devueltos a tu método de pago</div></div></div>`:''}
         ${o.status==='cancelled' && o.refund_status==='failed'?`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#dc2626;">⚠️ El reembolso no pudo procesarse. Contactá soporte.</div>`:''}
         ${o.status==='cancelled' && !o.refund_status && o.mp_payment_id?`<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;font-size:12px;color:#854d0e;">⏳ Procesando reembolso...</div>`:''}
-        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\'")}\')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
+        ${o.status==='delivered' && !o.has_review?`<button onclick="reviewOrder('${o.id}')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
         ${o.status==='delivered' && o.has_review?`<div style="text-align:center;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
         ${o.status==='delivered'?`
           <div style="display:flex;gap:8px;margin-top:4px;">
@@ -5472,6 +5502,12 @@ async function expressReorder(order) {
 let _reviewOrderId = null;
 let _reviewRating = 0;
 
+
+function reviewOrder(orderId) {
+  const o = _allOrders.find(x => x.id === orderId);
+  openReviewModal(orderId, o ? (o.business_name || '') : '');
+}
+
 function openReviewModal(orderId, bizName) {
   _reviewOrderId = orderId;
   _reviewRating = 0;
@@ -5508,9 +5544,9 @@ async function submitReview() {
   } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  FAVORITES
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 function getFavs() {
   try { return JSON.parse(localStorage.getItem('blow_favs') || '[]'); } catch { return []; }
 }
@@ -5675,9 +5711,9 @@ function handleOwnerAccess() {
   else { nav('page-owner-login'); ownerTab('register'); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  AUTH
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 function openAuth(title='Iniciar sesión') {
   document.getElementById('auth-modal-title').textContent = title;
   document.getElementById('auth-modal').style.display = 'flex';
@@ -5758,15 +5794,15 @@ async function doVerifyEmail() {
 }
 
 
-// ════════════════════════════════════════════════
+// ------------------------------------------------
 //  OWNER APP — Motor de experiencia separada
-// ════════════════════════════════════════════════
+// ------------------------------------------------
 let _ownerAppActive = false;
 let _ownerAppTab = 'home';
 let _ownerBiz = null;
 
 
-// ── Legacy panel overlay ────────────────────────────────
+// -- Legacy panel overlay --------------------------------
 // Used when owner-mode is active but user needs a tab from page-owner-dash
 const LEGACY_TAB_LABELS = {
   'otab-payments': '💰 Cobros y pagos',
@@ -5971,7 +6007,7 @@ async function ownerAppLoadPanel(tab) {
 }
 
 
-// ── Owner App: Home panel ─────────────────────────────────
+// -- Owner App: Home panel ---------------------------------
 async function ownerAppRenderHome() {
   const panel = document.getElementById('oa-panel-home');
   if (!panel) { console.warn('oa-panel-home not found'); return; }
@@ -6000,7 +6036,7 @@ async function ownerAppRenderHome() {
 
     let html = '<div style="padding:16px;display:flex;flex-direction:column;gap:16px;">';
 
-    // ── SALDO (split online / en persona) ──────────────
+    // -- SALDO (split online / en persona) --------------
     let walletData = { online_balance: balance, cash_total: 0, card_pos_total: 0, in_person_today: 0, online_today: 0 };
     try { walletData = await api('/api/owner/wallet-summary'); } catch(e) {}
     const inPersonTotal = (walletData.cash_total || 0) + (walletData.card_pos_total || 0);
@@ -6011,7 +6047,7 @@ async function ownerAppRenderHome() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
             <div>
               <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💳 Cobrado online</div>
-              <div style="font-size:32px;font-weight:900;color:#fff;line-height:1;">$${(walletData.online_balance||0).toLocaleString('es-UY')}</div>
+              <div style="font-size:32px;font-weight:900;color:#fff;line-height:1;">${fmtCurrency(walletData.online_balance||0)}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:2px;">Hoy</div>
@@ -6028,7 +6064,7 @@ async function ownerAppRenderHome() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
             <div>
               <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💵 Cobrado en persona</div>
-              <div style="font-size:28px;font-weight:900;color:#1a1a1a;line-height:1;">$${inPersonTotal.toLocaleString('es-UY')}</div>
+              <div style="font-size:28px;font-weight:900;color:#1a1a1a;line-height:1;">${fmtCurrency(inPersonTotal)}</div>
             </div>
             <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 12px;text-align:center;">
               <div style="font-size:11px;color:#16a34a;font-weight:800;">✓ Ya en tu bolsillo</div>
@@ -6041,7 +6077,7 @@ async function ownerAppRenderHome() {
         </div>` : ''}
       </div>`;
 
-    // ── NUEVOS PEDIDOS ──────────────────────────────────
+    // -- NUEVOS PEDIDOS ----------------------------------
     if (newOrders.length > 0) {
       html += `<div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -6051,7 +6087,7 @@ async function ownerAppRenderHome() {
         <div style="display:flex;flex-direction:column;gap:10px;">
           ${newOrders.slice(0,3).map(o => {
             const color = OA_STATUS_COLOR[o.status] || '#aaa';
-            const time  = new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+            const time  = fmtTime(o.created_at);
             return `<div style="background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;align-items:center;gap:12px;border-left:4px solid ${color};">
               <div style="flex:1;min-width:0;">
                 <div style="font-size:14px;font-weight:800;color:#1a1a1a;">${o.customer_name||'Cliente'}</div>
@@ -6073,7 +6109,7 @@ async function ownerAppRenderHome() {
       </div>`;
     }
 
-    // ── ACCESOS RÁPIDOS ─────────────────────────────────
+    // -- ACCESOS RÁPIDOS ---------------------------------
     html += `
       <div>
         <div style="font-size:15px;font-weight:900;color:#1a1a1a;margin-bottom:10px;">Acciones rápidas</div>
@@ -6101,7 +6137,7 @@ async function ownerAppRenderHome() {
         </div>
       </div>`;
 
-    // ── STATS RÁPIDOS HOY ───────────────────────────────
+    // -- STATS RÁPIDOS HOY -------------------------------
     html += `
       <div>
         <div style="font-size:15px;font-weight:900;color:#1a1a1a;margin-bottom:10px;">Esta semana</div>
@@ -6185,7 +6221,7 @@ function ownerAppOrderCard(o) {
   const color = OA_STATUS_COLOR[o.status] || '#aaa';
   const label = OA_STATUS[o.status] || o.status;
   const icon  = OA_STATUS_ICON[o.status] || '•';
-  const time  = new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+  const time  = fmtTime(o.created_at);
   const actions = ownerAppOrderActions(o);
   const payBadge = o.pay_on_delivery
     ? `<span style="background:#fef3c7;color:#d97706;font-size:10px;font-weight:800;border-radius:6px;padding:2px 7px;margin-left:6px;">💵 Paga al recibir</span>`
@@ -6464,9 +6500,9 @@ function doLogout() {
   showToast('👋 Sesión cerrada');
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  DELIVERY PANEL
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function loadDeliveryPanel() {
   if (!user) { showToast('⚠️ Iniciá sesión como delivery'); openAuth(); return; }
   document.getElementById('delivery-user-name').textContent = `${user.name}`;
@@ -6506,7 +6542,7 @@ async function loadDeliveryOrders() {
 
 function renderDeliveryEarnings() {
   document.getElementById('delivery-earnings-list').innerHTML = deliveryEarnings.map(t=>`
-    <div class="earn-row"><div><div class="earn-desc">${t.description}</div><div class="earn-meta">${new Date(t.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div><div class="earn-amt">+$${t.amount}</div></div>`).join('');
+    <div class="earn-row"><div><div class="earn-desc">${t.description}</div><div class="earn-meta">${fmtDateTime(t.created_at)}</div></div><div class="earn-amt">+$${t.amount}</div></div>`).join('');
 }
 
 async function takeOrder(id) {
@@ -6534,15 +6570,15 @@ function toggleAvail() {
   else document.getElementById('pending-list').innerHTML='<div style="text-align:center;color:var(--muted);padding:30px 0;font-size:14px;">Activá tu disponibilidad para ver pedidos</div>';
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  OWNER LOGIN / REGISTER
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function updateOwnerPriceDisplay() {
   try {
     const pub = await fetch('/api/public/plan-price');
     const d = await pub.json();
     const price = d.price != null ? d.price : 2990;
-    const fmt = '$' + Number(price).toLocaleString('es-UY');
+    const fmt = fmtCurrency(price);
     ['or-price-display','or-price-btn','or-renew-price'].forEach(id => {
       const el = document.getElementById(id); if(el) el.textContent = fmt;
     });
@@ -6650,9 +6686,9 @@ async function completeRegistration() {
 }
 
 // Handle return from MercadoPago payment
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  OWNER ONBOARDING WIZARD
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 const OB_DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 let obBizId = null;
 
@@ -6846,9 +6882,9 @@ async function obFinish() {
   }
 })();
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  SUSCRIPCIÓN
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function openPlansPage() {
   nav('page-owner-plans');
   await loadSubStatus();
@@ -6869,7 +6905,7 @@ async function loadSubStatus() {
       if (activeCard) activeCard.style.display = 'none';
       if (cancelSect) cancelSect.style.display = 'none';
     } else {
-      const periodEnd = sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString('es-UY') : '—';
+      const periodEnd = sub.current_period_end ? fmtDate(sub.current_period_end,false) : '—';
       if (banner) { banner.style.background='rgba(0,166,80,.1)'; banner.style.color='var(--success)'; banner.textContent=`✅ Suscripción activa hasta ${periodEnd}`; }
       if (renewCard)  renewCard.style.display  = 'none';
       if (activeCard) { activeCard.style.display = 'block'; }
@@ -6909,9 +6945,9 @@ async function cancelSubscription() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  OWNER DASHBOARD
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function loadOwnerDash() {
   if (!user || user.role!=='owner') { nav('page-owner-login'); return; }
 
@@ -6950,7 +6986,7 @@ async function loadOwnerDash() {
     // Settings photo nudge
     renderSettingsPhotoNudge(d.business);
     // Balance
-    document.getElementById('owner-balance').textContent = `$${d.balance.toLocaleString('es-UY')}`;
+    document.getElementById('owner-balance').textContent = `${fmtCurrency(d.balance)}`;
     // Settings
     document.getElementById('s-biz-name').textContent = d.business.name;
     document.getElementById('s-biz-cat').textContent = d.business.category;
@@ -6990,7 +7026,7 @@ function renderOwnerOrders(orders) {
   if (!active.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px 0;">No hay pedidos activos 🎉</div>'; return; }
   el.innerHTML = active.map(o=>`
     <div class="owner-order-card ${o.status}">
-      <div class="ooc-top"><div class="ooc-id">Pedido #${o.id.slice(-6).toUpperCase()}</div><div class="ooc-time">🕐 ${new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div></div>
+      <div class="ooc-top"><div class="ooc-id">Pedido #${o.id.slice(-6).toUpperCase()}</div><div class="ooc-time">🕐 ${fmtTime(o.created_at)}</div></div>
       <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px;">👤 ${o.customer_name||''}</div>
       <div class="ooc-items">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
       <div class="ooc-total">$${o.total}</div>
@@ -7046,7 +7082,7 @@ function renderOwnerOrders(orders) {
     </div>`).join('');
 }
 
-// ── ETA owner functions ───────────────────────
+// -- ETA owner functions -----------------------
 function ownerAcceptOrder(orderId) {
   // Show the ETA accept panel instead of immediately confirming
   const panel = document.getElementById(`eta-accept-${orderId}`);
@@ -7125,9 +7161,9 @@ async function changeOrderStatus(id, status) {
   } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  OWNER MENU — categorías, fotos, variantes
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let ownerCategories = [];
 let npPhotos = [null,null,null,null]; // base64 photos for new product
 let npPhotoSlot = 0; // which slot triggered file input
@@ -7263,7 +7299,7 @@ async function deleteProduct(id) {
   catch(e) { showToast(`❌ ${e.message}`); }
 }
 
-// ── Photo upload ──
+// -- Photo upload --
 function triggerPhotoUpload(slot) {
   npPhotoSlot = slot;
   document.getElementById('photo-file-input').value = '';
@@ -7289,7 +7325,7 @@ function removePhoto(slot, e) {
   document.getElementById(`photo-slot-${slot}`).innerHTML = `<div class="photo-add">${slot===0?'📷':'+'}</div>`;
 }
 
-// ── Variant builder ──
+// -- Variant builder --
 let vbGroups = []; // [{name, options:[{name,delta}]}]
 
 function addVariantGroup() {
@@ -7330,7 +7366,7 @@ function renderVariantBuilder() {
     </div>`).join('');
 }
 
-// ── Category manager ──
+// -- Category manager --
 function openCatModal() {
   renderCatTree();
   document.getElementById('cat-modal').classList.add('open');
@@ -7416,7 +7452,7 @@ function populateCategorySelect() {
   addOpts(ownerCategories);
 }
 
-// ── Open add product form ──
+// -- Open add product form --
 function openAddProduct() {
   npPhotos = [null,null,null,null];
   vbGroups = [];
@@ -7434,7 +7470,7 @@ function openAddProduct() {
   document.getElementById('add-prod-modal').classList.add('open');
 }
 
-// ── Open edit product form ──
+// -- Open edit product form --
 function openEditProduct(p) {
   if (typeof p==='string') p=JSON.parse(p);
   npPhotos = [null,null,null,null];
@@ -7470,7 +7506,7 @@ function openEditProduct(p) {
   document.getElementById('add-prod-modal').classList.add('open');
 }
 
-// ── Save product ──
+// -- Save product --
 async function saveProduct() {
   const editId = document.getElementById('np-edit-id').value;
   const emoji = document.getElementById('np-emoji').value.trim()||'🍽️';
@@ -7506,7 +7542,7 @@ async function saveProduct() {
 function renderOwnerTx(txs) {
   document.getElementById('owner-tx-list').innerHTML = !txs.length
     ? '<div style="text-align:center;color:var(--muted);padding:20px 0;font-size:14px;">Sin transacciones aún</div>'
-    : txs.map(t=>`<div class="tx-row"><div><div class="tx-desc">${t.description||t.type}</div><div class="tx-meta">${new Date(t.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div><div class="tx-amt ${t.type==='credit'?'in':'out'}">${t.type==='credit'?'+':'-'}$${t.amount}</div></div>`).join('');
+    : txs.map(t=>`<div class="tx-row"><div><div class="tx-desc">${t.description||t.type}</div><div class="tx-meta">${fmtDateTime(t.created_at)}</div></div><div class="tx-amt ${t.type==='credit'?'in':'out'}">${t.type==='credit'?'+':'-'}$${t.amount}</div></div>`).join('');
 }
 
 function renderOwnerStats(today, week) {
@@ -7574,7 +7610,7 @@ async function loadAdvancedAnalytics(days = 30) {
     // Retention table
     const retHTML = (d.retention||[]).slice(0,6).map(r => {
       const pct = parseInt(r.total) ? Math.round(parseInt(r.retained)/parseInt(r.total)*100) : 0;
-      const week = new Date(r.week).toLocaleDateString('es-UY',{day:'2-digit',month:'short'});
+      const week = fmtDate(r.week,true);
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f5;">
         <span style="font-size:13px;color:#555;">Semana ${week}</span>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -7662,7 +7698,7 @@ async function loadOwnerStatsHistory(days) {
     // KPI grid
     let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
       <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid var(--primary);">
-        <div style="font-size:22px;font-weight:900;color:var(--primary);">$${Math.round(revenue).toLocaleString('es-UY')}</div>
+        <div style="font-size:22px;font-weight:900;color:var(--primary);">${fmtCurrency(revenue)}</div>
         <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Ingresos</div>
       </div>
       <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #27ae60;">
@@ -7687,7 +7723,7 @@ async function loadOwnerStatsHistory(days) {
       const bars = d.daily.map((r, i) => {
         const h = Math.max(3, Math.round((parseFloat(r.revenue||0) / maxRev) * 72));
         const x = i * (barW + 3);
-        const label = new Date(r.day).toLocaleDateString('es-UY', {day:'2-digit', month:'2-digit'});
+        const label = fmtDate(r.day,true);
         return `<g>
           <rect x="${x}" y="${76 - h}" width="${barW}" height="${h}" rx="3" fill="var(--primary)" opacity=".85"/>
           <title>${label}: $${Math.round(r.revenue)} (${r.orders} ped.)</title>
@@ -7701,8 +7737,8 @@ async function loadOwnerStatsHistory(days) {
           </svg>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#aaa;">
-          <span>${new Date(d.daily[0].day).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</span>
-          <span>${new Date(d.daily[d.daily.length-1].day).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</span>
+          <span>${fmtDate(d.daily[0].day,true)}</span>
+          <span>${fmtDate(d.daily[d.daily.length-1].day,true)}</span>
         </div>
       </div>`;
     }
@@ -7738,7 +7774,7 @@ async function loadOwnerStatsHistory(days) {
               <div style="font-size:13px;font-weight:700;">${c.name||'Cliente'}</div>
               <div style="font-size:11px;color:#888;">${c.orders} pedido${c.orders!=1?'s':''}</div>
             </div>
-            <div style="font-size:14px;font-weight:800;color:var(--primary);">$${Math.round(c.spent).toLocaleString('es-UY')}</div>
+            <div style="font-size:14px;font-weight:800;color:var(--primary);">${fmtCurrency(c.spent)}</div>
           </div>`).join('')}
       </div>`;
     }
@@ -7753,12 +7789,12 @@ async function loadOwnerStatsHistory(days) {
   }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  EDITAR INFO DEL NEGOCIO
-// ═══════════════════════════════════════════════
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
+// -----------------------------------------------
 //  EXPORT DATA
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let _exportDays = 7;
 
 function initExportTab() {
@@ -7817,8 +7853,8 @@ async function exportData(type) {
         const date = new Date(o.created_at);
         rows.push([
           '#' + o.id.slice(-6).toUpperCase(),
-          date.toLocaleDateString('es-UY'),
-          date.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'}),
+          fmtDate(o.created_at, false),
+          fmtTime(o.created_at),
           o.customer_name || '',
           o.customer_phone || '',
           (o.items||[]).map(i => `${i.quantity}x ${i.name}`).join(' | '),
@@ -7860,7 +7896,7 @@ async function exportData(type) {
         .forEach(c => rows.push([
           c.name, c.phone, c.orders,
           Math.round(c.spent),
-          new Date(c.last).toLocaleDateString('es-UY'),
+          fmtDate(c.last,false),
         ]));
       downloadCSV(`${bizName}_clientes_${dateStr}.csv`, rows);
     }
@@ -7931,9 +7967,9 @@ async function saveBizInfo() {
   } catch(e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  CUPONES DEL OWNER
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 function openOwnerCouponForm() {
   const f = document.getElementById('owner-coupon-form');
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
@@ -8014,7 +8050,7 @@ async function toggleStore() {
   }
 }
 
-// ── Schedule ──
+// -- Schedule --
 const SCHED_DAYS = [
   { key:'mon', label:'Lunes' },
   { key:'tue', label:'Martes' },
@@ -8171,9 +8207,9 @@ async function saveDeliveryRadius() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  PROFILE COMPLETENESS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 async function togglePaymentMethod(method) {
   if (!ownerData?.business) return;
@@ -8296,9 +8332,9 @@ function switchOTab(id, el) {
   if (id === 'otab-loyalty') loadLoyaltyConfig();
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  WITHDRAW MODAL
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 function openWithdrawModal(target) {
   withdrawTarget = target;
   const balance = target==='owner'
@@ -8366,9 +8402,9 @@ async function confirmWithdraw() {
   } catch(e) { err.textContent=e.message; err.style.display='block'; }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  PROMOTIONS — Owner Panel
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 let editingPromoId = null;
 let ownerProducts = []; // cached for selects
@@ -8405,7 +8441,7 @@ async function loadPromos() {
       else if (p.type === 'bogo') detail = `2x1 en producto`;
       else if (p.type === 'combo') detail = `Combo $${p.combo_price}`;
       const bpBadge = p.blow_plus_only ? ' <span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:800;">⚡ Blow+</span>' : '';
-      const dateStr = p.ends_at ? ` · Vence ${new Date(p.ends_at).toLocaleDateString('es-UY')}` : '';
+      const dateStr = p.ends_at ? ` · Vence ${fmtDate(p.ends_at,false)}` : '';
       const codeStr = p.requires_code && p.code ? ` · Código: <strong>${p.code}</strong>` : '';
       return `<div style="background:#fff;border:1px solid #eee;border-radius:14px;padding:16px;margin-bottom:12px;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
@@ -8584,9 +8620,9 @@ async function deletePromo(id) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  PROMOTIONS — Cart / Customer Side
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 let activePromo = null;   // currently applied promo
 let activePromoDiscount = 0;
@@ -8672,9 +8708,9 @@ async function applyPromoCode() {
   }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  BLOW+ USUARIO
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 let userBlowPlusActive = false;
 
@@ -8732,7 +8768,7 @@ function _renderBPContent(status) {
 
   if (status.active) {
     const exp = status.period_end
-      ? new Date(status.period_end).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'})
+      ? fmtDate(status.period_end,false)
       : null;
     container.innerHTML =
       '<div style="padding:20px;">' +
@@ -8782,9 +8818,9 @@ function _renderBPContent(status) {
 }
 
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  BLOW+ PREMIUM
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 async function loadBlowPlus() {
   const el = document.getElementById('blowplus-content');
@@ -8792,8 +8828,8 @@ async function loadBlowPlus() {
   try {
     const status = await api('/api/businesses/mine/blow-plus');
     if (status.active) {
-      const exp = status.expires ? new Date(status.expires).toLocaleDateString('es-UY', { day:'numeric', month:'long', year:'numeric' }) : 'indefinido';
-      const since = status.since ? new Date(status.since).toLocaleDateString('es-UY', { day:'numeric', month:'long', year:'numeric' }) : '—';
+      const exp = status.expires ? fmtDate(status.expires,false) : 'indefinido';
+      const since = status.since ? fmtDate(status.since,false) : '—';
       el.innerHTML = `
         <div class="blowplus-active-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -8917,9 +8953,9 @@ async function cancelBlowPlus() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  PHOTO UPLOADS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 async function uploadBusinessPhoto(type, input) {
   if (!input.files?.[0]) return;
@@ -9016,9 +9052,9 @@ function populatePhotoSettings() {
   }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  ADMIN PANEL
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let adminUsersCache = [];
 let adminBizCache = [];
 
@@ -9174,7 +9210,7 @@ async function loadAdminOrders() {
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-weight:700;">${o.customer_name||'Cliente'} → ${o.business_name||'Negocio'}</div>
-            <div style="font-size:12px;color:var(--muted);">${new Date(o.created_at).toLocaleString('es-UY')}</div>
+            <div style="font-size:12px;color:var(--muted);">${fmtDateTime(o.created_at)}</div>
           </div>
           <div style="text-align:right;">
             <div style="font-weight:800;">$${o.total}</div>
@@ -9194,7 +9230,7 @@ async function loadAdminSubs() {
       <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
         <div style="flex:1;">
           <div style="font-weight:700;">${s.business_name||s.id}</div>
-          <div style="font-size:12px;color:var(--muted);">Estado: ${s.status} · Vence: ${s.expires_at?new Date(s.expires_at).toLocaleDateString('es-UY'):'N/A'}</div>
+          <div style="font-size:12px;color:var(--muted);">Estado: ${s.status} · Vence: ${s.expires_at?fmtDate(s.expires_at,false):'N/A'}</div>
         </div>
         <div style="display:flex;gap:6px;">
           ${s.status!=='active'?`<button onclick="adminActivateSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:12px;">✅ Activar</button>`:''}
@@ -9277,7 +9313,7 @@ async function loadAdminWithdrawals() {
     el.innerHTML = ws.map(w=>`
       <div class="admin-withdraw-card">
         <div class="awc-top"><div class="awc-name">${w.owner_name}</div><div class="awc-amt">$${w.amount}</div></div>
-        <div class="awc-info">📧 ${w.email}<br>💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia bancaria'}: <strong>${w.destination}</strong><br>📅 ${new Date(w.created_at).toLocaleString('es-UY')}</div>
+        <div class="awc-info">📧 ${w.email}<br>💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia bancaria'}: <strong>${w.destination}</strong><br>📅 ${fmtDateTime(w.created_at)}</div>
         <div class="awc-actions">
           <button class="btn-sm green" onclick="approveWithdraw('${w.id}')">✓ Aprobar (pagado)</button>
           <button class="btn-sm red" onclick="rejectWithdraw('${w.id}')">✕ Rechazar</button>
@@ -9297,11 +9333,11 @@ async function rejectWithdraw(id) {
   catch(e) { showToast(`❌ ${e.message}`); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  TOAST
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 let toastTimer;
-// ── Native Share API ─────────────────────────
+// -- Native Share API -------------------------
 async function shareCurrentStore() {
   const s = currentStoreForCart;
   if (!s) return;
@@ -9346,7 +9382,7 @@ async function shareOrder(orderId, bizName) {
   } catch { showToast(`🔗 ${url}`); }
 }
 
-// ── Skeleton loading helpers ─────────────────
+// -- Skeleton loading helpers -----------------
 function skelStoreCards(n=4) {
   return Array.from({length:n}, () => `
     <div class="skel-store-card">
@@ -9391,9 +9427,9 @@ function showToast(msg) {
   toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  COUPONS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function loadCoupons() {
   const extraEl = document.getElementById('coupons-extra-list');
   if (!extraEl) return;
@@ -9405,9 +9441,9 @@ async function loadCoupons() {
     const res = await api('/api/coupons/available');
     if (!res.length) { extraEl.innerHTML = ''; return; }
     extraEl.innerHTML = res.map(c => {
-      const label = c.discount_type==='percent' ? `${c.discount_value}% OFF` : `$ ${Number(c.discount_value).toLocaleString('es-UY')}`;
-      const minLabel = c.min_order > 0 ? `Mínimo de compra: $ ${Number(c.min_order).toLocaleString('es-UY')}` : 'Sin mínimo de compra';
-      const expiry = c.expires_at ? new Date(c.expires_at).toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : null;
+      const label = c.discount_type==='percent' ? `${c.discount_value}% OFF` : `$ ${fmtCurrency(c.discount_value).slice(1)}`;
+      const minLabel = c.min_order > 0 ? `Mínimo de compra: $ ${fmtCurrency(c.min_order).slice(1)}` : 'Sin mínimo de compra';
+      const expiry = c.expires_at ? fmtDate(c.expires_at,false) : null;
       return `<div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
         <div style="display:flex;min-height:100px;">
           <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border-right:2px dashed #e0e0e0;gap:6px;">
@@ -9466,9 +9502,9 @@ async function validateCouponManual() {
   } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);font-weight:600;">❌ ${e.message}</span>`; }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  HELP / AYUDA
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 function toggleFaq(el) {
   el.classList.toggle('open');
 }
@@ -9519,7 +9555,7 @@ async function loadHelpTickets() {
     if (!tickets?.length) { if (wrap) wrap.style.display = 'none'; return; }
     if (wrap) wrap.style.display = 'block';
     list.innerHTML = tickets.map(t => {
-      const date = new Date(t.created_at).toLocaleDateString('es-UY', {day:'2-digit',month:'short'});
+      const date = fmtDate(t.created_at,false);
       const statusBadge = t.status === 'resolved'
         ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">✅ Respondida</span>'
         : '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">⏳ Pendiente</span>';
@@ -9571,9 +9607,9 @@ function initHelpPage() {
   checkServiceStatus();
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  ADMIN — COUPONS SECTION
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function loadAdminCoupons() {
   const el = document.getElementById('admin-coupons-list');
   if (!el) return;
@@ -9597,7 +9633,7 @@ async function loadAdminCoupons() {
           ${c.discount_type==='percent'?`${c.discount_value}% descuento`:`$${c.discount_value} descuento fijo`}
           ${c.min_order>0?` · Mínimo $${c.min_order}`:''}
           ${c.max_uses?` · ${c.uses_count}/${c.max_uses} usos`:''}
-          ${c.expires_at?` · Vence ${new Date(c.expires_at).toLocaleDateString('es-UY')}`:''}
+          ${c.expires_at?` · Vence ${fmtDate(c.expires_at,false)}`:''}
         </div>
         ${c.description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">${c.description}</div>`:''}
       </div>`).join('');
@@ -9637,9 +9673,9 @@ async function createAdminCoupon() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  ADMIN — HELP MESSAGES
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 async function loadAdminHelp() {
   const el = document.getElementById('admin-help-list');
   if (!el) return;
@@ -9662,7 +9698,7 @@ async function loadAdminHelp() {
         + '<p style="font-size:12px;color:var(--muted);margin:-4px 0 8px;">' + m.user_email + '</p>'
         + '<p style="font-size:13px;color:#333;">' + m.message + '</p>'
         + replyHtml
-        + '<p style="font-size:11px;color:var(--muted);margin-top:6px;">' + new Date(m.created_at).toLocaleString('es-UY') + '</p>'
+        + '<p style="font-size:11px;color:var(--muted);margin-top:6px;">' + fmtDateTime(m.created_at) + '</p>'
         + '</div>';
     });
     el.innerHTML = rows.join('');
@@ -9675,10 +9711,10 @@ async function replyHelp(id) {
   catch(e) { showToast('❌ ' + e.message); }
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  OWNER — COUPONS
-// ═══════════════════════════════════════════════
-// ── Safari vs PWA padding fix ──
+// -----------------------------------------------
+// -- Safari vs PWA padding fix --
 (function() {
   // Prevent zoom on double-tap and pinch for all browsers
   document.addEventListener('touchstart', function(e){ if(e.touches.length > 1) e.preventDefault(); }, {passive:false});
@@ -9691,7 +9727,7 @@ async function replyHelp(id) {
 })();
 
 
-// ── DYNAMIC HOME ──
+// -- DYNAMIC HOME --
 function goToBlowPlus() {
   if (!user) { openAuth(); return; }
   // Check blow plus status directly from cached user or hit API
@@ -9700,7 +9736,7 @@ function goToBlowPlus() {
     .then(status=>{
       if (status.active) {
         const until = status.period_end
-          ? new Date(status.period_end).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'})
+          ? fmtDate(status.period_end,false)
           : '';
         const msg = until ? 'Tu membresía está activa hasta el ' + until : 'Tu membresía está activa';
         alert('⚡ ¡Sos Blow+!\n\n' + msg + '\n\n✅ Envíos gratis en todos tus pedidos\n✅ Acceso a promociones exclusivas');
@@ -9729,7 +9765,7 @@ async function loadHomeDynamic() {
   await Promise.all([loadPromoBanners(), loadFeatured()]);
 }
 
-// ── ADMIN BANNERS ──
+// -- ADMIN BANNERS --
 async function loadAdminBanners() {
   try {
     const res = await fetch('/api/admin/banners', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
@@ -9783,7 +9819,7 @@ async function deleteAdminBanner(id) {
   loadAdminBanners(); loadPromoBanners();
 }
 
-// ── ADMIN FEATURED ──
+// -- ADMIN FEATURED --
 async function loadAdminFeatured() {
   try {
     const [featRes, bizRes] = await Promise.all([
@@ -9836,7 +9872,7 @@ async function deleteAdminFeatured(id) {
 }
 
 
-// ── PERSONAL INFO PAGE ──
+// -- PERSONAL INFO PAGE --
 function loadPersonalInfo() {
   if (!user) return;
   const nameEl = document.getElementById('pi-name');
@@ -9999,9 +10035,9 @@ function populateDeptSelect(deptId, cityId) {
   citySel.disabled = true;
 }
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  INIT
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 updateCartBadge();
 renderProfile();
 updateHeaderCity();
@@ -10063,9 +10099,9 @@ if (activeCity) {
 
 if (token) connectWS();
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 //  PWA — Service Worker + Install Banner
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 
 // Registrar Service Worker
 if ('serviceWorker' in navigator) {
@@ -10179,7 +10215,7 @@ const blowplusStatus = urlP.get('blowplus');
 const mpCollectionStatus = urlP.get('collection_status');
 const mpOrderId = urlP.get('external_reference'); // MP sends back external_reference
 
-// ── Deep linking ─────────────────────────────
+// -- Deep linking -----------------------------
 // ?order=ID — push notification or share link
 const pushOrderId = urlP.get('order');
 if (pushOrderId && user) {
@@ -10295,7 +10331,7 @@ if (mpCollectionStatus || mpOrderId) {
   else if (payStatus==='pending') showToast('⏳ Pago pendiente. Te notificaremos cuando se confirme.');
   window.history.replaceState({}, '', '/');
 }
-// ── Secret admin access via URL ──────────────────
+// -- Secret admin access via URL ------------------
 const secretPath = window.location.pathname;
 if (secretPath === '/blow-admin-panel') {
   window.history.replaceState({}, '', '/');
@@ -10333,7 +10369,7 @@ if (blowplususerStatus === 'success') {
 }
 </script>
 
-<!-- ══ PWA INSTALL BANNER — Android ══ -->
+<!-- -- PWA INSTALL BANNER — Android -- -->
 <div id="pwa-install-banner" style="display:none;position:fixed;bottom:80px;left:12px;right:12px;background:#1a1a2e;color:#fff;border-radius:16px;padding:16px;z-index:9999;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);">
   <img src="/icons/icon-72x72.png" style="width:48px;height:48px;flex-shrink:0;" alt="icon">
   <div style="flex:1;">
@@ -10346,7 +10382,7 @@ if (blowplususerStatus === 'success') {
   </div>
 </div>
 
-<!-- ══ PWA INSTALL BANNER — iOS ══ -->
+<!-- -- PWA INSTALL BANNER — iOS -- -->
 <div id="pwa-ios-banner" style="display:none;position:fixed;bottom:80px;left:12px;right:12px;background:#1a1a2e;color:#fff;border-radius:16px;padding:16px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);flex-direction:column;">
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
     <img src="/icons/icon-72x72.png" style="width:48px;height:48px;" alt="icon">
@@ -10365,7 +10401,7 @@ if (blowplususerStatus === 'success') {
   <div style="font-size:11px;opacity:.5;margin-top:8px;text-align:center;width:100%;">Solo funciona desde Safari</div>
 </div>
 
-<!-- ══ GLOBAL SEARCH OVERLAY ══ -->
+<!-- -- GLOBAL SEARCH OVERLAY -- -->
 <div class="search-overlay" id="search-overlay" onclick="closeGlobalSearch()"></div>
 <div class="search-results-panel" id="search-results-panel">
   <div class="srp-header">
@@ -10384,7 +10420,7 @@ if (blowplususerStatus === 'success') {
   </div>
 </div>
 
-<!-- ══ OWNER ONBOARDING WIZARD ══ -->
+<!-- -- OWNER ONBOARDING WIZARD -- -->
 <div id="onboarding-overlay" style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;overflow-y:auto;">
   <div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;">
     <!-- Header -->
