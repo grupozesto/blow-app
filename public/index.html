@@ -1368,6 +1368,25 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
     <!-- Settings -->
     <div class="otab-content" id="otab-settings" style="padding:16px;">
+      <!-- Horarios automáticos -->
+      <div class="settings-sec">
+        <div class="settings-sec-title">🕐 Horarios de atención</div>
+        <div style="background:#fff;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;">
+          <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5;">
+            <div>
+              <div style="font-size:14px;font-weight:800;">Horarios automáticos</div>
+              <div style="font-size:12px;color:#888;margin-top:2px;">El negocio se abre y cierra solo</div>
+            </div>
+            <div class="tgl" id="schedule-enabled-toggle" onclick="toggleScheduleEnabled()"></div>
+          </div>
+          <div id="schedule-editor" style="padding:14px 16px;display:none;">
+            <div style="font-size:12px;color:#888;margin-bottom:14px;">Dejá vacío los días que no trabajás</div>
+            <div id="schedule-days-list"></div>
+            <button onclick="saveSchedule()" style="width:100%;margin-top:14px;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Guardar horarios</button>
+          </div>
+          <div id="schedule-disabled-msg" style="padding:12px 16px;font-size:13px;color:#aaa;">Activá para configurar horarios automáticos</div>
+        </div>
+      </div>
       <!-- Photos -->
       <div class="settings-sec" style="margin-bottom:18px;">
         <div class="settings-sec-title">📸 Fotos del negocio</div>
@@ -4031,7 +4050,8 @@ async function loadOwnerDash() {
     ownerData = d;
     // Header
     document.getElementById('owner-store-name').textContent = `${d.business.logo_emoji} ${d.business.name}`;
-    document.getElementById('owner-store-sub').textContent = `${d.business.is_open?'Abierto':'Cerrado'} · ${d.business.address||'Montevideo'}`;
+    const schedNote = d.business.schedule_enabled ? ' · ⏰ Horario automático' : '';
+    document.getElementById('owner-store-sub').textContent = `${d.business.is_open?'Abierto':'Cerrado'}${schedNote} · ${d.business.address||'Montevideo'}`;
     const chip = document.getElementById('owner-plan-chip');
     chip.textContent = '✅ Plan Activo';
     chip.onclick = () => openPlansPage();
@@ -4573,7 +4593,6 @@ async function toggleStore() {
   const current = ownerData.business.is_open;
   const newVal = !current;
   const toggleEl = document.getElementById('store-toggle');
-  // Update DOM immediately (optimistic)
   if (toggleEl) toggleEl.classList.toggle('on', newVal);
   ownerData.business.is_open = newVal;
   document.getElementById('owner-store-sub').textContent =
@@ -4582,13 +4601,110 @@ async function toggleStore() {
     await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ is_open: newVal ? 1 : 0 }) });
     showToast(newVal ? '🟢 Tienda abierta' : '🔴 Tienda cerrada');
   } catch(e) {
-    // Revert on error
     if (toggleEl) toggleEl.classList.toggle('on', !!current);
     ownerData.business.is_open = current;
     document.getElementById('owner-store-sub').textContent =
       `${current ? 'Abierto' : 'Cerrado'} · ${ownerData.business.address || 'Montevideo'}`;
     showToast(`❌ ${e.message}`);
   }
+}
+
+// ── Schedule ──
+const SCHED_DAYS = [
+  { key:'mon', label:'Lunes' },
+  { key:'tue', label:'Martes' },
+  { key:'wed', label:'Miércoles' },
+  { key:'thu', label:'Jueves' },
+  { key:'fri', label:'Viernes' },
+  { key:'sat', label:'Sábado' },
+  { key:'sun', label:'Domingo' },
+];
+let currentSchedule = {};
+let scheduleEnabled = false;
+
+async function loadSchedule() {
+  try {
+    const data = await api('/api/businesses/mine/schedule');
+    currentSchedule = data.schedule || {};
+    scheduleEnabled = !!data.schedule_enabled;
+    renderScheduleEditor();
+  } catch(e) { console.warn('No se pudo cargar horario'); }
+}
+
+function renderScheduleEditor() {
+  const toggle = document.getElementById('schedule-enabled-toggle');
+  const editor = document.getElementById('schedule-editor');
+  const disabledMsg = document.getElementById('schedule-disabled-msg');
+  if (toggle) toggle.classList.toggle('on', scheduleEnabled);
+  if (editor) editor.style.display = scheduleEnabled ? '' : 'none';
+  if (disabledMsg) disabledMsg.style.display = scheduleEnabled ? 'none' : '';
+
+  const list = document.getElementById('schedule-days-list');
+  if (!list) return;
+  list.innerHTML = SCHED_DAYS.map(d => {
+    const slots = currentSchedule[d.key] || [];
+    const hasSlot = slots.length > 0;
+    const slot = slots[0] || { open:'09:00', close:'23:00' };
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f5f5f5;">
+      <div style="width:90px;font-size:13px;font-weight:700;color:#1a1a1a;">${d.label}</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;">
+        <input type="checkbox" id="sched-active-${d.key}" ${hasSlot?'checked':''} onchange="toggleSchedDay('${d.key}')"
+          style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;">
+        <span style="font-size:12px;color:#666;">${hasSlot?'Abierto':'Cerrado'}</span>
+      </label>
+      <div id="sched-times-${d.key}" style="display:${hasSlot?'flex':'none'};align-items:center;gap:6px;flex:1;">
+        <input type="time" id="sched-open-${d.key}" value="${slot.open}"
+          style="flex:1;padding:7px 8px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;min-width:0;">
+        <span style="color:#999;font-size:12px;">a</span>
+        <input type="time" id="sched-close-${d.key}" value="${slot.close}"
+          style="flex:1;padding:7px 8px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;min-width:0;">
+      </div>
+      <div id="sched-closed-${d.key}" style="display:${hasSlot?'none':'flex'};flex:1;align-items:center;">
+        <span style="font-size:12px;color:#ccc;">— No trabaja</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSchedDay(dayKey) {
+  const isChecked = document.getElementById(`sched-active-${dayKey}`)?.checked;
+  document.getElementById(`sched-times-${dayKey}`).style.display = isChecked ? 'flex' : 'none';
+  document.getElementById(`sched-closed-${dayKey}`).style.display = isChecked ? 'none' : 'flex';
+  const label = document.querySelector(`#sched-active-${dayKey} + span`);
+  if (label) label.textContent = isChecked ? 'Abierto' : 'Cerrado';
+}
+
+async function toggleScheduleEnabled() {
+  scheduleEnabled = !scheduleEnabled;
+  const toggle = document.getElementById('schedule-enabled-toggle');
+  if (toggle) toggle.classList.toggle('on', scheduleEnabled);
+  document.getElementById('schedule-editor').style.display = scheduleEnabled ? '' : 'none';
+  document.getElementById('schedule-disabled-msg').style.display = scheduleEnabled ? 'none' : '';
+  if (!scheduleEnabled) {
+    // Disable without saving schedule
+    try {
+      await api('/api/businesses/mine/schedule', { method:'PATCH', body:JSON.stringify({ schedule: currentSchedule, schedule_enabled: false }) });
+      showToast('⏰ Horarios automáticos desactivados');
+    } catch(e) { showToast(`❌ ${e.message}`); }
+  }
+}
+
+async function saveSchedule() {
+  const schedule = {};
+  SCHED_DAYS.forEach(d => {
+    const active = document.getElementById(`sched-active-${d.key}`)?.checked;
+    if (active) {
+      const open = document.getElementById(`sched-open-${d.key}`)?.value || '09:00';
+      const close = document.getElementById(`sched-close-${d.key}`)?.value || '23:00';
+      schedule[d.key] = [{ open, close }];
+    }
+  });
+  try {
+    await api('/api/businesses/mine/schedule', { method:'PATCH', body:JSON.stringify({ schedule, schedule_enabled: scheduleEnabled }) });
+    currentSchedule = schedule;
+    showToast('✅ Horarios guardados');
+    loadOwnerDash(); // refresh open/closed status
+  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
 async function toggleBusinessOption(option) {
@@ -4639,7 +4755,7 @@ function switchOTab(id, el) {
   el.classList.add('active');
   if (id === 'otab-promos') loadPromos();
   if (id === 'otab-blowplus') loadBlowPlus();
-  if (id === 'otab-settings') populatePhotoSettings();
+  if (id === 'otab-settings') { populatePhotoSettings(); loadSchedule(); }
   if (id === 'otab-coupons') loadOwnerCoupons();
 }
 
