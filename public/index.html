@@ -8,6 +8,37 @@
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#FA0050">
+
+<!-- Error tracking — Sentry (carga solo si SENTRY_DSN está configurado) -->
+<script>
+// ── Global error boundary ─────────────────────
+// Si Sentry está configurado, los errores se reportan automáticamente
+// Si no, se loguean en consola con contexto útil
+window._blowErrors = [];
+window.onerror = function(msg, src, line, col, err) {
+  const entry = { msg, src: src?.split('/').pop(), line, col, t: Date.now() };
+  window._blowErrors.push(entry);
+  if (window._blowErrors.length > 20) window._blowErrors.shift();
+  if (window.Sentry) { Sentry.captureException(err || new Error(msg)); return false; }
+  // Fallback: report to our own endpoint (throttled to 1/min)
+  const now = Date.now();
+  if (!window._lastErrReport || now - window._lastErrReport > 60000) {
+    window._lastErrReport = now;
+    fetch('/api/client-error', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message: msg, source: src, line, stack: err?.stack, url: location.href, userAgent: navigator.userAgent })
+    }).catch(()=>{});
+  }
+  console.error('[Blow Error]', entry);
+  return false;
+};
+window.addEventListener('unhandledrejection', e => {
+  const entry = { msg: e.reason?.message || String(e.reason), t: Date.now(), type: 'promise' };
+  window._blowErrors.push(entry);
+  if (window._blowErrors.length > 20) window._blowErrors.shift();
+  if (window.Sentry) { Sentry.captureException(e.reason); return; }
+  console.error('[Blow Unhandled Promise]', entry);
+});
+</script>
 <meta name="mobile-web-app-capable" content="yes">
 
 <!-- iOS / Safari -->
@@ -950,6 +981,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
       <button id="sd-fav-btn" onclick="toggleFavStore()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:58px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:10;">🤍</button>
+      <button id="sd-share-btn" onclick="shareCurrentStore()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:100px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;z-index:10;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      </button>
     </div>
 
     <!-- Sticky mini header (aparece al hacer scroll) -->
@@ -3401,6 +3435,46 @@ function searchStores(q) {
 // ═══════════════════════════════════════════════
 let _searchTimer = null;
 
+// ── Search history ───────────────────────────
+const SEARCH_HISTORY_KEY = 'blow_search_history';
+const MAX_HISTORY = 8;
+
+function getSearchHistory() {
+  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function addSearchHistory(q) {
+  if (!q?.trim() || q.trim().length < 2) return;
+  let h = getSearchHistory().filter(x => x.toLowerCase() !== q.toLowerCase().trim());
+  h.unshift(q.trim());
+  h = h.slice(0, MAX_HISTORY);
+  try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(h)); } catch {}
+}
+function clearSearchHistory() {
+  try { localStorage.removeItem(SEARCH_HISTORY_KEY); } catch {}
+  renderSearchHistory();
+}
+function renderSearchHistory() {
+  const el = document.getElementById('srp-history');
+  const body = document.getElementById('srp-body');
+  if (!el) return;
+  const h = getSearchHistory();
+  if (!h.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  body.style.display = 'none';
+  el.innerHTML = `
+    <div style="padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.5px;">Búsquedas recientes</span>
+      <button onclick="clearSearchHistory()" style="background:none;border:none;font-size:12px;color:#aaa;cursor:pointer;font-family:inherit;">Borrar todo</button>
+    </div>
+    ${h.map(q => `
+      <div onclick="document.getElementById('srp-input').value='${q.replace(/'/g,"\'")}';globalSearch('${q.replace(/'/g,"\'")}');"
+        style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid #f8f8f8;active:background:#f8f8f8;">
+        <span style="color:#ccc;font-size:16px;">🕐</span>
+        <span style="font-size:14px;color:#333;flex:1;">${q}</span>
+        <span style="color:#ccc;font-size:14px;">↗</span>
+      </div>`).join('')}`;
+}
+
 function openGlobalSearch(prefill) {
   const overlay = document.getElementById('search-overlay');
   const panel   = document.getElementById('search-results-panel');
@@ -3412,6 +3486,7 @@ function openGlobalSearch(prefill) {
   setTimeout(() => {
     input.focus();
     if (prefill) { input.value = prefill; globalSearch(prefill); }
+    else { renderSearchHistory(); }
   }, 120);
 }
 
@@ -3426,11 +3501,16 @@ function closeGlobalSearch() {
 
 async function globalSearch(q) {
   const body = document.getElementById('srp-body');
+  const hist = document.getElementById('srp-history');
   clearTimeout(_searchTimer);
   if (!q.trim()) {
+    body.style.display = 'block';
     body.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#bbb;"><div style="font-size:40px;margin-bottom:10px;">🔍</div><div style="font-size:14px;">Buscá platos, ingredientes o locales</div></div>`;
+    renderSearchHistory();
     return;
   }
+  if (hist) hist.style.display = 'none';
+  body.style.display = 'block';
   if (q.trim().length < 2) return;
   body.innerHTML = `<div style="text-align:center;padding:40px 20px;"><div class="spinner"></div></div>`;
 
@@ -3438,6 +3518,7 @@ async function globalSearch(q) {
     try {
       const cityParam = activeCity ? `&city=${encodeURIComponent(activeCity)}` : '';
       const data = await api(`/api/search?q=${encodeURIComponent(q.trim())}${cityParam}`);
+      addSearchHistory(q.trim());
       renderSearchResults(data, q.trim());
     } catch(e) {
       body.innerHTML = `<div style="text-align:center;padding:40px;color:#e74c3c;">${e.message}</div>`;
@@ -8056,6 +8137,51 @@ async function rejectWithdraw(id) {
 //  TOAST
 // ═══════════════════════════════════════════════
 let toastTimer;
+// ── Native Share API ─────────────────────────
+async function shareCurrentStore() {
+  const s = currentStoreForCart;
+  if (!s) return;
+  haptic('light');
+  const url = `${window.location.origin}/negocio/${s.id}`;
+  const title = `${s.logo_emoji || '🏪'} ${s.name}`;
+  const text = `Pedí en ${s.name}${s.city ? ` — ${s.city}` : ''} a través de Blow`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return; // user cancelled, no fallback needed
+    }
+  }
+  // Fallback: copy link
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('✅ Link copiado al portapapeles');
+  } catch {
+    // Last fallback: show the URL
+    showToast(`🔗 ${url}`);
+  }
+}
+
+async function shareOrder(orderId, bizName) {
+  const url = `${window.location.origin}/?order=${orderId}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `Mi pedido en ${bizName}`,
+        text: `Seguí mi pedido en ${bizName} — Blow`,
+        url,
+      });
+      return;
+    } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('✅ Link del pedido copiado');
+  } catch { showToast(`🔗 ${url}`); }
+}
+
 // ── Skeleton loading helpers ─────────────────
 function skelStoreCards(n=4) {
   return Array.from({length:n}, () => `
@@ -8889,12 +9015,81 @@ const blowplusStatus = urlP.get('blowplus');
 const mpCollectionStatus = urlP.get('collection_status');
 const mpOrderId = urlP.get('external_reference'); // MP sends back external_reference
 
-// Handle push notification deep link (?order=orderId)
+// ── Deep linking ─────────────────────────────
+// ?order=ID — push notification or share link
 const pushOrderId = urlP.get('order');
 if (pushOrderId && user) {
   window.history.replaceState({}, '', '/');
-  // Wait for app to init then open tracking
   setTimeout(() => { nav('page-tracking'); loadTracking(); }, 600);
+}
+
+// ?store=ID — direct link to a store (from SEO pages, share links)
+const deepStoreId = urlP.get('store');
+if (deepStoreId) {
+  window.history.replaceState({}, '', '/');
+  setTimeout(async () => {
+    try {
+      const biz = await api(`/api/businesses/${deepStoreId}`);
+      if (biz) openStoreDetail(biz);
+    } catch(e) { console.warn('Deep link store not found:', deepStoreId); }
+  }, 400);
+}
+
+// ?city=montevideo — set active city from SEO page redirect
+const deepCity = urlP.get('city');
+if (deepCity) {
+  window.history.replaceState({}, '', '/');
+  setTimeout(() => {
+    const city = decodeURIComponent(deepCity).replace(/-/g,' ');
+    const btn = document.querySelector(`.city-btn[data-city="${city}"]`);
+    if (btn) btn.click();
+    else { activeCity = city; loadStores(true); }
+  }, 400);
+}
+
+// ?category=food — pre-filter feed by category
+const deepCategory = urlP.get('category');
+if (deepCategory) {
+  window.history.replaceState({}, '', '/');
+  setTimeout(() => {
+    const btn = document.querySelector(`.cat-btn[data-cat="${deepCategory}"]`);
+    if (btn) btn.click();
+  }, 500);
+}
+
+// ?q=pizza — pre-fill search
+const deepSearch = urlP.get('q');
+if (deepSearch) {
+  window.history.replaceState({}, '', '/');
+  setTimeout(() => openGlobalSearch(deepSearch), 500);
+}
+
+// Handle SEO redirect (from seoPage JS redirect)
+const seoRedirect = sessionStorage.getItem('blow_seo_redirect');
+if (seoRedirect) {
+  sessionStorage.removeItem('blow_seo_redirect');
+  const storeMatch = seoRedirect.match(/^\/negocio\/([^/]+)/);
+  const cityMatch  = seoRedirect.match(/^\/delivery\/([^/]+)/);
+  const catMatch   = seoRedirect.match(/^\/categoria\/([^/]+)/);
+  if (storeMatch) {
+    setTimeout(async () => {
+      try {
+        const biz = await api(`/api/businesses/${storeMatch[1]}`);
+        if (biz) openStoreDetail(biz);
+      } catch {}
+    }, 400);
+  } else if (cityMatch) {
+    const city = decodeURIComponent(cityMatch[1]).replace(/-/g,' ');
+    setTimeout(() => {
+      const btn = document.querySelector(`.city-btn[data-city="${city}"]`);
+      if (btn) btn.click();
+    }, 500);
+  } else if (catMatch) {
+    setTimeout(() => {
+      const btn = document.querySelector(`.cat-btn[data-cat="${catMatch[1]}"]`);
+      if (btn) btn.click();
+    }, 500);
+  }
 }
 
 // MP redirects back with collection_status=approved/rejected/pending + external_reference=orderId
@@ -9014,6 +9209,7 @@ if (blowplususerStatus === 'success') {
       onkeydown="if(event.key==='Escape')closeGlobalSearch()">
     <button onclick="document.getElementById('srp-input').value='';globalSearch('')" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:20px;padding:0;line-height:1;">✕</button>
   </div>
+  <div id="srp-history" style="display:none;"></div>
   <div id="srp-body">
     <div style="text-align:center;padding:48px 20px;color:#bbb;">
       <div style="font-size:40px;margin-bottom:10px;">🔍</div>
