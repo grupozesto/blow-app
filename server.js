@@ -260,6 +260,9 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS lng REAL DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS delivery_radius_km REAL DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_id TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ DEFAULT NULL;
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -1348,18 +1351,72 @@ app.post('/api/orders/:id/message', auth, role('owner'), async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Refund helper ──────────────────────────────────────────
+async function issueRefund(order) {
+  if (!order.mp_payment_id || order.mp_status !== 'approved') return { ok: false, reason: 'no_payment' };
+  if (order.refund_status === 'approved') return { ok: true, reason: 'already_refunded' };
+  try {
+    if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
+      await q(`UPDATE orders SET refund_status='approved',refunded_at=NOW() WHERE id=$1`, [order.id]);
+      return { ok: true, reason: 'demo' };
+    }
+    const refundRes = await fetch(
+      `https://api.mercadopago.com/v1/payments/${order.mp_payment_id}/refunds`,
+      { method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}) }
+    );
+    const refundData = await refundRes.json();
+    if (refundData.id || refundData.status === 'approved') {
+      await q(`UPDATE orders SET refund_status='approved',refund_id=$1,refunded_at=NOW() WHERE id=$2`,
+        [String(refundData.id || 'mp-refunded'), order.id]);
+      return { ok: true, refund_id: refundData.id };
+    } else {
+      await q(`UPDATE orders SET refund_status='failed' WHERE id=$1`, [order.id]);
+      return { ok: false, reason: refundData.message || 'mp_error' };
+    }
+  } catch(e) {
+    await q(`UPDATE orders SET refund_status='failed' WHERE id=$1`, [order.id]);
+    return { ok: false, reason: e.message };
+  }
+}
+
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
   if (!['pending','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
   if (req.user.role==='customer'&&order.customer_id!==req.user.id) return res.status(403).json({ error:'No es tu pedido' });
   await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[order.id]);
-  const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
+  const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
-  res.json({ success:true });
+  let refund = { ok: false, reason: 'no_payment' };
+  if (order.mp_payment_id && order.mp_status === 'approved') {
+    refund = await issueRefund(order);
+    if (refund.ok) notify(order.customer_id, { type:'refund_issued', message:`💸 Reembolso procesado por $${order.total}`, order_id: order.id });
+  }
+  res.json({ success:true, refund });
 });
 
+
 // Poll order payment status (frontend polls while waiting for MP webhook)
+// Manual refund endpoint (admin or owner)
+app.post('/api/orders/:id/refund', auth, async (req, res) => {
+  const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+  if (!order) return res.status(404).json({ error: 'No encontrado' });
+  // Only admin or the business owner can trigger manual refund
+  if (req.user.role === 'customer') return res.status(403).json({ error: 'Sin permisos' });
+  if (req.user.role === 'owner') {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz || biz.id !== order.business_id) return res.status(403).json({ error: 'No es tu negocio' });
+  }
+  if (order.refund_status === 'approved') return res.status(400).json({ error: 'Ya fue reembolsado' });
+  const refund = await issueRefund(order);
+  if (refund.ok) {
+    notify(order.customer_id, { type:'refund_issued', message:`💸 Reembolso procesado por $${order.total}`, order_id: order.id });
+  }
+  res.json({ ok: refund.ok, refund });
+});
+
 app.get('/api/orders/:id/payment-status', auth, async (req, res) => {
   const order = await q1('SELECT id,status,mp_status,total,created_at FROM orders WHERE id=$1 AND customer_id=$2',[req.params.id, req.user.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
