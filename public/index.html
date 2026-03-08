@@ -5799,16 +5799,9 @@ async function ownerAppRenderOrders() {
     const badge = document.getElementById('oa-badge-orders');
     if (badge) { badge.textContent = pendingCount; badge.className = pendingCount > 0 ? 'owner-nb-badge show' : 'owner-nb-badge'; }
 
-    // Load items for each order
-    const ordersWithItems = await Promise.all(orders.map(async o => {
-      try {
-        const full = await api(`/api/orders/${o.id}`);
-        return { ...o, items: full.items || [] };
-      } catch(e) { return { ...o, items: [] }; }
-    }));
-
-    const active = ordersWithItems.filter(o => !['delivered','cancelled'].includes(o.status));
-    const done   = ordersWithItems.filter(o => o.status === 'delivered').slice(0, 8);
+    // Items are now embedded in dashboard response — no extra fetches needed
+    const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
+    const done   = orders.filter(o => o.status === 'delivered').slice(0, 8);
 
     if (!active.length && !done.length) {
       panel.innerHTML = `
