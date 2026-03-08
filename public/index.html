@@ -589,6 +589,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 /* Sticky tabs */
 .sd-menu-tabs-wrap{position:sticky;top:0;z-index:99;background:#fff;border-bottom:2px solid #f0f0f0;}
+.sd-search-bar{padding:10px 16px;background:#fff;display:none;}
+.sd-search-bar.open{display:block;}
+.sd-search-input{width:100%;padding:11px 16px 11px 40px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;box-sizing:border-box;background:#f8f8f8;}
+.sd-search-input:focus{border-color:var(--primary);background:#fff;}
+.sd-search-input-wrap{position:relative;}
+.sd-search-input-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;pointer-events:none;}
 .sd-menu-tabs{display:flex;gap:0;padding:0 8px;overflow-x:auto;scrollbar-width:none;}
 .sd-menu-tabs::-webkit-scrollbar{display:none;}
 .sd-mtab{padding:12px 14px;border:none;background:transparent;font-size:13px;font-weight:700;color:#999;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:5px;}
@@ -875,7 +881,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <button class="back-btn sd-back" onclick="nav('page-home')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
       </button>
-      <button class="sd-search-btn" onclick="showToast('🔍 Búsqueda próximamente')">
+      <button class="sd-search-btn" onclick="toggleStoreSearch()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
       <button id="sd-fav-btn" onclick="toggleFavStore()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:58px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:10;">🤍</button>
@@ -885,7 +891,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <div class="sd-sticky" id="sd-sticky">
       <button onclick="nav('page-home')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#333;padding:0;line-height:1;">‹</button>
       <div class="sd-sticky-name" id="sd-sticky-name">—</div>
-      <button onclick="showToast('🔍 Búsqueda próximamente')" style="background:none;border:none;cursor:pointer;color:#333;padding:0;">
+      <button onclick="toggleStoreSearch()" style="background:none;border:none;cursor:pointer;color:#333;padding:0;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
     </div>
@@ -919,6 +925,15 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         </button>
         <button class="sd-mtab" onclick="filterStoreTab('discounted',this)">Descuentos</button>
         <button class="sd-mtab" onclick="filterStoreTab('featured',this)">Más vendidos</button>
+      </div>
+      <!-- Search bar (hidden until lupa is tapped) -->
+      <div class="sd-search-bar" id="sd-search-bar">
+        <div class="sd-search-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="sd-search-input" id="sd-search-input" type="text" placeholder="Buscar en el menú..."
+            oninput="searchStoreProducts(this.value)"
+            onkeydown="if(event.key==='Escape')toggleStoreSearch()">
+        </div>
       </div>
     </div>
 
@@ -979,7 +994,20 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 <!-- ══ PAGE: TRACKING ══ -->
 <div class="page page-wrap" id="page-tracking">
   <div class="page-hdr"><h1>Mis Pedidos 📦</h1></div>
-  <div class="sc" style="padding-bottom:16px;"><div id="tracking-body"><div class="loading-state"><div class="spinner"></div></div></div></div>
+  <!-- Summary strip -->
+  <div id="tracking-summary" style="display:none;margin:0 16px 4px;background:linear-gradient(135deg,#FA0050,#c0003c);border-radius:16px;padding:16px;color:#fff;display:flex;justify-content:space-around;"></div>
+  <!-- Tabs: active vs history -->
+  <div style="display:flex;margin:12px 16px 0;background:#f0f0f0;border-radius:12px;padding:4px;gap:4px;">
+    <button id="trk-tab-active" onclick="switchTrkTab('active')" style="flex:1;padding:9px;border:none;border-radius:9px;background:#1a1a1a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">En curso</button>
+    <button id="trk-tab-history" onclick="switchTrkTab('history')" style="flex:1;padding:9px;border:none;border-radius:9px;background:transparent;color:#666;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Historial</button>
+  </div>
+  <!-- Filter bar (shown in history tab) -->
+  <div id="trk-filter-bar" style="display:none;padding:10px 16px 0;">
+    <select id="trk-biz-filter" onchange="renderTrackingOrders()" style="width:100%;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;outline:none;color:#333;">
+      <option value="">Todos los negocios</option>
+    </select>
+  </div>
+  <div class="sc" style="padding-bottom:16px;padding-top:8px;"><div id="tracking-body"><div class="loading-state"><div class="spinner"></div></div></div></div>
 </div>
 
 <!-- ══ PAGE: PROFILE ══ -->
@@ -1364,10 +1392,14 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
     <!-- Stats -->
     <div class="otab-content" id="otab-stats">
-      <div style="font-size:16px;font-weight:800;margin-bottom:14px;">Resumen semanal</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;" id="owner-stats-grid"><div class="loading-state" style="grid-column:span 2"><div class="spinner"></div></div></div>
-      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">Más vendidos</div>
-      <div id="owner-top-products"></div>
+      <!-- Period selector -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button onclick="loadOwnerStatsHistory(7)"  class="stats-period-btn" id="spbtn-7"  style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#1a1a1a;color:#fff;font-family:'Inter',sans-serif;">7 días</button>
+        <button onclick="loadOwnerStatsHistory(30)" class="stats-period-btn" id="spbtn-30" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">30 días</button>
+        <button onclick="loadOwnerStatsHistory(90)" class="stats-period-btn" id="spbtn-90" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">3 meses</button>
+        <button onclick="loadOwnerStatsHistory(365)" class="stats-period-btn" id="spbtn-365" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">Todo</button>
+      </div>
+      <div id="owner-stats-body"><div class="loading-state"><div class="spinner"></div></div></div>
     </div>
     <!-- Settings -->
     <div class="otab-content" id="otab-settings" style="padding:16px;">
@@ -3032,6 +3064,12 @@ function renderStoreDetail(s, products) {
     };
   }
 
+  // Reset search bar when opening a new store
+  const searchBar = document.getElementById('sd-search-bar');
+  const searchInput = document.getElementById('sd-search-input');
+  if (searchBar) searchBar.classList.remove('open');
+  if (searchInput) searchInput.value = '';
+
   if (document.getElementById('store-scroll')) document.getElementById('store-scroll').scrollTop = 0;
 }
 
@@ -3130,6 +3168,51 @@ async function renderSdReviews(s) {
     const tabsWrap = document.querySelector('.sd-menu-tabs-wrap');
     if (tabsWrap) tabsWrap.parentNode.insertBefore(section, tabsWrap);
   } catch(e) { /* silently fail */ }
+}
+
+// ── Store search ──
+function toggleStoreSearch() {
+  const bar = document.getElementById('sd-search-bar');
+  const input = document.getElementById('sd-search-input');
+  if (!bar) return;
+  const isOpen = bar.classList.toggle('open');
+  if (isOpen) {
+    setTimeout(() => input?.focus(), 80);
+  } else {
+    if (input) input.value = '';
+    // Restore full menu
+    renderStoreProducts(currentSdProducts, currentStoreTab);
+  }
+}
+
+function searchStoreProducts(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    renderStoreProducts(currentSdProducts, 'all');
+    return;
+  }
+  const filtered = currentSdProducts.filter(p =>
+    p.name?.toLowerCase().includes(q) ||
+    p.description?.toLowerCase().includes(q) ||
+    p.emoji?.toLowerCase().includes(q)
+  );
+  const container = document.getElementById('store-prods');
+  if (!container) return;
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:48px 20px;">
+        <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">Sin resultados</div>
+        <div style="font-size:13px;color:#999;">No encontramos productos para "<strong>${query}</strong>"</div>
+      </div>`;
+    return;
+  }
+  // Show results as flat list with match count
+  let html = `<div style="padding:14px 16px 8px;font-size:13px;color:#999;font-weight:600;">${filtered.length} resultado${filtered.length>1?'s':''} para "${query}"</div>`;
+  html += `<div class="prod-list">`;
+  filtered.forEach(p => { html += renderProductRow(p, currentStoreForCart); });
+  html += `</div>`;
+  container.innerHTML = html;
 }
 
 function filterStoreTab(tab, el) {
@@ -3526,6 +3609,9 @@ const STATUS_LABELS = { pending:'Esperando pago', confirmed:'Confirmado', prepar
 const STEPS_MAP = ['pending','confirmed','preparing','ready','on_way','delivered'];
 const STEP_LABELS = ['Pago confirmado','Pedido aceptado','Preparando','Listo','En camino','Entregado'];
 
+let _allOrders = [];
+let _trkTab = 'active';
+
 async function loadTracking() {
   const body = document.getElementById('tracking-body');
   if (!user) {
@@ -3534,35 +3620,138 @@ async function loadTracking() {
   }
   body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
   try {
-    const orders = await api('/api/orders');
-    if (!orders.length) { body.innerHTML='<div class="loading-state">No tenés pedidos aún 😊</div>'; return; }
-    body.innerHTML = orders.map(o => {
-      const stepIdx = STEPS_MAP.indexOf(o.status);
-      const steps = STEPS_MAP.map((s,i)=>({label:STEP_LABELS[i],done:i<stepIdx,cur:i===stepIdx}));
-      return `<div class="order-card">
-        <div class="oc-top">
-          <div><div class="oc-store">${o.business_name||o.business_id}</div><div class="oc-time">Pedido · ${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>
-          <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
-        </div>
-        ${o.status==='on_way'?`<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>`:''}
-        <div class="track-steps">${steps.map((s,i)=>`
-          <div class="track-step ${s.done?'done':''}">
-            <div class="step-dot ${s.done?'done':''} ${s.cur?'cur':''}">${s.done?'✓':s.cur?'●':'○'}</div>
-            <div class="step-info"><div class="step-label ${s.done||s.cur?'done':''}">${s.label}</div></div>
-          </div>`).join('')}
-        </div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:13px;color:var(--muted);">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</span>
-          <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
-        </div>
-        ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
-        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\\'")}')" style="width:100%;margin-top:10px;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}  
-        ${o.status==='delivered' && o.has_review?`<div style="text-align:center;margin-top:10px;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
-        ${o.status==='delivered'?`<button onclick='reorderFromOrder(${JSON.stringify(o).replace(/'/g,"&apos;")})' style="width:100%;margin-top:8px;background:#f5f5f5;border:none;border-radius:10px;padding:11px;color:#1a1a1a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔁 Repetir pedido</button>`:''}
-      </div>`;
-    }).join('');
+    _allOrders = await api('/api/orders');
+    renderTrackingSummary();
+    populateBizFilter();
+    renderTrackingOrders();
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
 }
+
+function switchTrkTab(tab) {
+  _trkTab = tab;
+  const btnActive  = document.getElementById('trk-tab-active');
+  const btnHistory = document.getElementById('trk-tab-history');
+  const filterBar  = document.getElementById('trk-filter-bar');
+  const on  = "flex:1;padding:9px;border:none;border-radius:9px;background:#1a1a1a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;";
+  const off = "flex:1;padding:9px;border:none;border-radius:9px;background:transparent;color:#666;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;";
+  if (btnActive)  btnActive.style.cssText  = tab === 'active'  ? on : off;
+  if (btnHistory) btnHistory.style.cssText = tab === 'history' ? on : off;
+  if (filterBar)  filterBar.style.display  = tab === 'history' ? 'block' : 'none';
+  renderTrackingOrders();
+}
+
+function renderTrackingSummary() {
+  const el = document.getElementById('tracking-summary');
+  if (!el || !_allOrders.length) { if(el) el.style.display='none'; return; }
+  const delivered = _allOrders.filter(o => o.status === 'delivered');
+  if (!delivered.length) { el.style.display='none'; return; }
+  const total = delivered.reduce((s, o) => s + parseFloat(o.total||0), 0);
+  const uniqueBiz = new Set(delivered.map(o => o.business_id)).size;
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">${delivered.length}</div>
+      <div style="font-size:11px;opacity:.85;">pedidos</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,.3);"></div>
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">$${Math.round(total).toLocaleString('es-UY')}</div>
+      <div style="font-size:11px;opacity:.85;">gastado en total</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,.3);"></div>
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">${uniqueBiz}</div>
+      <div style="font-size:11px;opacity:.85;">tienda${uniqueBiz!==1?'s':''}</div>
+    </div>`;
+}
+
+function populateBizFilter() {
+  const sel = document.getElementById('trk-biz-filter');
+  if (!sel) return;
+  const businesses = [...new Map(_allOrders.map(o => [o.business_id, o.business_name||o.business_id])).entries()];
+  sel.innerHTML = '<option value="">Todos los negocios</option>' +
+    businesses.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+}
+
+function renderTrackingOrders() {
+  const body = document.getElementById('tracking-body');
+  const bizFilter = document.getElementById('trk-biz-filter')?.value || '';
+  const activeStatuses  = ['pending','confirmed','preparing','ready','on_way'];
+  const historyStatuses = ['delivered','cancelled'];
+
+  let orders = _trkTab === 'active'
+    ? _allOrders.filter(o => activeStatuses.includes(o.status))
+    : _allOrders.filter(o => historyStatuses.includes(o.status));
+
+  if (bizFilter) orders = orders.filter(o => o.business_id === bizFilter);
+
+  if (!orders.length) {
+    const msg = _trkTab === 'active'
+      ? '¡Todo al día! No tenés pedidos en curso 😊'
+      : (bizFilter ? 'No hay pedidos de ese negocio' : 'Todavía no completaste ningún pedido');
+    body.innerHTML = `<div class="loading-state" style="padding:48px 20px;">${msg}</div>`;
+    return;
+  }
+
+  body.innerHTML = orders.map(o => {
+    const stepIdx = STEPS_MAP.indexOf(o.status);
+    const steps = STEPS_MAP.map((s,i) => ({label:STEP_LABELS[i], done:i<stepIdx, cur:i===stepIdx}));
+    const isHistory = historyStatuses.includes(o.status);
+    const date = new Date(o.created_at);
+    const dateStr = date.toLocaleDateString('es-UY', {day:'2-digit', month:'short', year:'numeric'});
+    const timeStr = date.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'});
+    const itemsDetail = (o.items||[]).map(i => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="background:#f5f5f5;border-radius:8px;padding:4px 8px;font-size:13px;font-weight:700;color:#555;">${i.quantity}×</span>
+          <span style="font-size:13px;color:#1a1a1a;">${i.name}</span>
+        </div>
+        <span style="font-size:13px;font-weight:700;color:#1a1a1a;">$${Math.round(i.price * i.quantity)}</span>
+      </div>`).join('');
+    return `<div class="order-card" id="ocard-${o.id}">
+      <div class="oc-top">
+        <div style="flex:1;min-width:0;">
+          <div class="oc-store" style="cursor:pointer;" onclick="openStore('${o.business_id}')">${o.business_name||o.business_id}</div>
+          <div class="oc-time">${dateStr} · ${timeStr}</div>
+        </div>
+        <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
+      </div>
+      ${o.status==='on_way'?`<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>`:''}
+      ${!isHistory ? `<div class="track-steps">${steps.map((s,i)=>`
+        <div class="track-step ${s.done?'done':''}">
+          <div class="step-dot ${s.done?'done':''} ${s.cur?'cur':''}">${s.done?'✓':s.cur?'●':'○'}</div>
+          <div class="step-info"><div class="step-label ${s.done||s.cur?'done':''}">${s.label}</div></div>
+        </div>`).join('')}
+      </div>` : ''}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div onclick="toggleOrderDetail('${o.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+          <span style="font-size:13px;color:#666;">${(o.items||[]).length} producto${(o.items||[]).length!==1?'s':''} · <strong style="color:#1a1a1a;">$${o.total}</strong></span>
+          <span id="ocard-arrow-${o.id}" style="font-size:16px;color:#aaa;transition:transform .2s;">›</span>
+        </div>
+        <div id="ocard-detail-${o.id}" style="display:none;margin-top:10px;">
+          ${itemsDetail}
+          <div style="display:flex;justify-content:space-between;padding-top:8px;font-size:14px;font-weight:900;"><span>Total</span><span>$${o.total}</span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+        ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
+        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\'")}\')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
+        ${o.status==='delivered' && o.has_review?`<div style="text-align:center;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
+        ${o.status==='delivered'?`<button onclick='reorderFromOrder(${JSON.stringify(o).replace(/'/g,"&apos;")})' style="width:100%;background:#f5f5f5;border:none;border-radius:10px;padding:11px;color:#1a1a1a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔁 Repetir pedido</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleOrderDetail(orderId) {
+  const detail = document.getElementById(`ocard-detail-${orderId}`);
+  const arrow  = document.getElementById(`ocard-arrow-${orderId}`);
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
+}
+
 
 async function cancelOrder(id) {
   if (!confirm('¿Cancelar este pedido?')) return;
@@ -4614,11 +4803,120 @@ function renderOwnerTx(txs) {
 }
 
 function renderOwnerStats(today, week) {
-  document.getElementById('owner-stats-grid').innerHTML = `
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--primary)"><div style="font-size:22px;font-weight:900;color:var(--primary)">$${week.revenue.toFixed(0)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Ingresos semana</div></div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--success)"><div style="font-size:22px;font-weight:900;color:var(--success)">${week.orders}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Pedidos semana</div></div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--accent)"><div style="font-size:22px;font-weight:900;color:#b37a00">$${today.orders?Math.round(today.revenue/today.orders):0}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Ticket promedio</div></div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--info)"><div style="font-size:22px;font-weight:900;color:var(--info)">${today.orders}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Pedidos hoy</div></div>`;
+  // Legacy — keep for dashboard header KPIs loaded with ownerData
+  const grid = document.getElementById('owner-stats-grid');
+  if (grid) grid.innerHTML = '';
+}
+
+async function loadOwnerStatsHistory(days) {
+  // Update period buttons
+  [7,30,90,365].forEach(d => {
+    const btn = document.getElementById(`spbtn-${d}`);
+    if (btn) { btn.style.background = d===days ? '#1a1a1a' : '#f0f0f0'; btn.style.color = d===days ? '#fff' : '#666'; }
+  });
+  const body = document.getElementById('owner-stats-body');
+  if (!body) return;
+  body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  try {
+    const d = await api(`/api/owner/stats/history?days=${days}`);
+    const s = d.summary || {};
+    const revenue   = parseFloat(s.revenue||0);
+    const orders    = parseInt(s.orders||0);
+    const customers = parseInt(s.unique_customers||0);
+    const avgTicket = parseFloat(s.avg_ticket||0);
+
+    // KPI grid
+    let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid var(--primary);">
+        <div style="font-size:22px;font-weight:900;color:var(--primary);">$${Math.round(revenue).toLocaleString('es-UY')}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Ingresos</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #27ae60;">
+        <div style="font-size:22px;font-weight:900;color:#27ae60;">${orders}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Pedidos</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #f39c12;">
+        <div style="font-size:22px;font-weight:900;color:#f39c12;">$${Math.round(avgTicket)}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Ticket promedio</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #3b5bdb;">
+        <div style="font-size:22px;font-weight:900;color:#3b5bdb;">${customers}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Clientes únicos</div>
+      </div>
+    </div>`;
+
+    // Daily bar chart (SVG)
+    if (d.daily && d.daily.length > 0) {
+      const maxRev = Math.max(...d.daily.map(r => parseFloat(r.revenue||0)), 1);
+      const barW = Math.max(8, Math.min(28, Math.floor(320 / d.daily.length) - 3));
+      const chartW = d.daily.length * (barW + 3);
+      const bars = d.daily.map((r, i) => {
+        const h = Math.max(3, Math.round((parseFloat(r.revenue||0) / maxRev) * 72));
+        const x = i * (barW + 3);
+        const label = new Date(r.day).toLocaleDateString('es-UY', {day:'2-digit', month:'2-digit'});
+        return `<g>
+          <rect x="${x}" y="${76 - h}" width="${barW}" height="${h}" rx="3" fill="var(--primary)" opacity=".85"/>
+          <title>${label}: $${Math.round(r.revenue)} (${r.orders} ped.)</title>
+        </g>`;
+      }).join('');
+      html += `<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;overflow:hidden;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px;">Ingresos por día</div>
+        <div style="overflow-x:auto;">
+          <svg width="${Math.max(chartW, 300)}" height="80" style="display:block;">
+            ${bars}
+          </svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#aaa;">
+          <span>${new Date(d.daily[0].day).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</span>
+          <span>${new Date(d.daily[d.daily.length-1].day).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</span>
+        </div>
+      </div>`;
+    }
+
+    // Top products
+    if (d.topProducts && d.topProducts.length) {
+      const maxQty = Math.max(...d.topProducts.map(p => parseInt(p.qty||0)), 1);
+      html += `<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:14px;">🏆 Más vendidos</div>
+        ${d.topProducts.map((p, i) => {
+          const pct = Math.round((parseInt(p.qty||0) / maxQty) * 100);
+          const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+          return `<div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:13px;font-weight:700;">${medals[i]} ${p.name}</span>
+              <span style="font-size:12px;color:#888;">${p.qty} uds · $${Math.round(p.revenue)}</span>
+            </div>
+            <div style="background:#f5f5f5;border-radius:6px;height:7px;">
+              <div style="background:var(--primary);border-radius:6px;height:7px;width:${pct}%;transition:width .4s;"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // Top customers
+    if (d.topCustomers && d.topCustomers.length) {
+      html += `<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:8px;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px;">❤️ Mejores clientes</div>
+        ${d.topCustomers.map((c, i) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;${i<d.topCustomers.length-1?'border-bottom:1px solid #f5f5f5;':''}">
+            <div>
+              <div style="font-size:13px;font-weight:700;">${c.name||'Cliente'}</div>
+              <div style="font-size:11px;color:#888;">${c.orders} pedido${c.orders!=1?'s':''}</div>
+            </div>
+            <div style="font-size:14px;font-weight:800;color:var(--primary);">$${Math.round(c.spent).toLocaleString('es-UY')}</div>
+          </div>`).join('')}
+      </div>`;
+    }
+
+    if (!orders) {
+      html += `<div style="text-align:center;padding:20px;color:#999;font-size:13px;">Sin pedidos en este período</div>`;
+    }
+
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = `<div class="loading-state" style="color:#e74c3c;">Error: ${e.message}</div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -4917,6 +5215,7 @@ function switchOTab(id, el) {
   if (id === 'otab-blowplus') loadBlowPlus();
   if (id === 'otab-settings') { populatePhotoSettings(); loadSchedule(); }
   if (id === 'otab-coupons') loadOwnerCoupons();
+  if (id === 'otab-stats') loadOwnerStatsHistory(7);
 }
 
 // ═══════════════════════════════════════════════
