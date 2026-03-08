@@ -253,6 +253,8 @@ async function initDB() {
     );
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule_enabled BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_message TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_message_at TIMESTAMPTZ DEFAULT NULL;
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -1267,6 +1269,24 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_update',status,order_id:order.id });
   res.json(await q1('SELECT * FROM orders WHERE id=$1',[order.id]));
+});
+
+// Owner sends a message to the customer about their order
+app.post('/api/orders/:id/message', auth, role('owner'), async (req, res) => {
+  const { message } = req.body;
+  if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
+  const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+  if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+  const biz = await q1('SELECT id, name FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!biz || biz.id !== order.business_id) return res.status(403).json({ error: 'No es tu pedido' });
+  await q('UPDATE orders SET owner_message=$1, owner_message_at=NOW() WHERE id=$2', [message.trim(), order.id]);
+  notify(order.customer_id, {
+    type: 'owner_message',
+    message: message.trim(),
+    business_name: biz.name,
+    order_id: order.id,
+  });
+  res.json({ ok: true });
 });
 
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
