@@ -516,15 +516,6 @@ try {
   } else { console.warn('⚠️  MP_ACCESS_TOKEN no configurado'); }
 } catch(e) { console.warn('⚠️  mercadopago no instalado'); }
 
-let mp = null;
-try {
-  mp = require('mercadopago');
-  if (process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
-    mp.configure({ access_token: process.env.MP_ACCESS_TOKEN });
-    console.log('✅ MercadoPago listo');
-  } else { console.warn('⚠️  MP_ACCESS_TOKEN no configurado'); }
-} catch(e) { console.warn('⚠️  mercadopago no instalado'); }
-
 // ── Web Push / VAPID ──────────────────────────
 let webpush = null;
 let VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || null;
