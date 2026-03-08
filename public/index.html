@@ -2890,70 +2890,124 @@ async function loadAppSettings() {
   } catch(e) { console.log('loadAppSettings error:', e.message); }
 }
 
-async function loadStores() {
+let _storeOffset = 0;
+const _storeLimit = 12;
+let _storeHasMore = false;
+let _storeLoading = false;
+let _storeCategory = null;
+
+async function loadStores(reset = true) {
   const g = document.getElementById('stores-grid');
-  g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
+  if (reset) {
+    _storeOffset = 0;
+    _storeHasMore = false;
+    g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
+  }
+  _storeLoading = true;
   try {
-    let url = '/api/businesses';
-    if (activeCity) url += `?city=${encodeURIComponent(activeCity)}`;
+    let url = `/api/businesses?limit=${_storeLimit}&offset=${_storeOffset}`;
+    if (activeCity) url += `&city=${encodeURIComponent(activeCity)}`;
+    if (_storeCategory) url += `&category=${encodeURIComponent(_storeCategory)}`;
     const data = await api(url);
-    if (activeCity && data.length === 0) {
-      // No hay negocios en esta ciudad — mostrar mensaje amigable
+    const stores = data.businesses || data; // backwards compat
+    _storeHasMore = data.hasMore || false;
+
+    if (reset && stores.length === 0 && activeCity) {
       g.innerHTML = `<div class="loading-state" style="grid-column:1/-1;padding:40px 20px;text-align:center;">
         <div style="font-size:48px;margin-bottom:12px;">🔍</div>
         <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Todavía no hay negocios en ${activeCity}</div>
         <div style="color:var(--muted);font-size:14px;margin-bottom:16px;">¿Sos dueño de un negocio? ¡Registrate y empezá a recibir pedidos!</div>
         <button onclick="openLocModal()" style="background:none;border:2px solid var(--primary);color:var(--primary);border-radius:12px;padding:10px 20px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cambiar ciudad</button>
       </div>`;
-      allStores = [];
-      isDemoMode = false;
-      return;
+      allStores = []; isDemoMode = false; _storeLoading = false; return;
     }
-    if (data.length > 0) {
-      allStores = data;
-      isDemoMode = false;
+
+    if (reset && stores.length === 0) {
+      allStores = DEMO_STORES; isDemoMode = true;
+      renderStores(allStores); _storeLoading = false; return;
+    }
+
+    isDemoMode = false;
+    if (reset) {
+      allStores = stores;
+      renderStores(stores);
     } else {
-      allStores = DEMO_STORES;
-      isDemoMode = true;
+      allStores = [...allStores, ...stores];
+      appendStores(stores);
     }
+    _storeOffset += stores.length;
+    renderLoadMoreBtn();
   } catch(e) {
-    allStores = DEMO_STORES;
-    isDemoMode = true;
+    if (reset) { allStores = DEMO_STORES; isDemoMode = true; renderStores(allStores); }
   }
-  renderStores(allStores);
+  _storeLoading = false;
+}
+
+function renderLoadMoreBtn() {
+  const g = document.getElementById('stores-grid');
+  // Remove old sentinel
+  const old = document.getElementById('load-more-sentinel');
+  if (old) old.remove();
+  if (!_storeHasMore) return;
+  const sentinel = document.createElement('div');
+  sentinel.id = 'load-more-sentinel';
+  sentinel.style.cssText = 'grid-column:1/-1;text-align:center;padding:20px;';
+  sentinel.innerHTML = `<button onclick="loadStores(false)" style="background:var(--primary);border:none;border-radius:12px;padding:12px 32px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Ver más negocios</button>`;
+  g.appendChild(sentinel);
+  // Also set up IntersectionObserver for auto-load
+  const obs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !_storeLoading && _storeHasMore) loadStores(false);
+  }, { rootMargin: '200px' });
+  obs.observe(sentinel);
+}
+
+function appendStores(list) {
+  const g = document.getElementById('stores-grid');
+  const sentinel = document.getElementById('load-more-sentinel');
+  list.forEach(s => {
+    const div = document.createElement('div');
+    div.innerHTML = renderStoreCard(s);
+    const card = div.firstElementChild;
+    if (sentinel) g.insertBefore(card, sentinel);
+    else g.appendChild(card);
+  });
+}
+
+function renderStoreCard(s) {
+  const isFree = s.delivery_cost === 0;
+  const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>' : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
+  const pickupTag = s.offers_pickup && !s.offers_delivery ? '<span class="tag" style="background:#edf4ff;color:#3b5bdb;">Retiro en tienda</span>' : '';
+  const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
+  const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
+  return `
+  <div class="store-card" onclick="openStore('${s.id}')">
+    <div class="store-img-wrap" style="background:${bg};">
+      <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
+      <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${s.id}')" id="fav-btn-${s.id}" title="Guardar favorito">${isFav(s.id)?'❤️':'🤍'}</button>
+    </div>
+    <div class="store-info">
+      <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
+      <div class="store-meta">
+        <div class="store-rating">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="${s.rating ? '#FFB800' : '#ccc'}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          ${s.rating ? s.rating : '<span style="color:#bbb;font-size:11px;">Sin reseñas</span>'}
+        </div>
+        <div class="store-meta-dot"></div>
+        <span>🕐 ${s.delivery_time||'20-35'} min</span>
+        <div class="store-meta-dot"></div>
+        ${s.offers_delivery !== false ? deliveryTag : pickupTag}
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderStores(list) {
   const g = document.getElementById('stores-grid');
   if (!list.length) { g.innerHTML = '<div class="loading-state" style="padding:40px 20px;text-align:center;color:#999;grid-column:1/-1;">No hay tiendas disponibles en esta zona</div>'; return; }
-  g.innerHTML = list.map(s => {
-    const isFree = s.delivery_cost === 0;
-    const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>' : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
-    const pickupTag = s.offers_pickup && !s.offers_delivery ? '<span class="tag" style="background:#edf4ff;color:#3b5bdb;">Retiro en tienda</span>' : '';
-    const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
-    const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
-    return `
-    <div class="store-card" onclick="openStore('${s.id}')">
-      <div class="store-img-wrap" style="background:${bg};">
-        <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
-        <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${s.id}')" id="fav-btn-${s.id}" title="Guardar favorito">${isFav(s.id)?'❤️':'🤍'}</button>
-      </div>
-      <div class="store-info">
-        <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
-        <div class="store-meta">
-          <div class="store-rating">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="${s.rating ? '#FFB800' : '#ccc'}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            ${s.rating ? s.rating : '<span style="color:#bbb;font-size:11px;">Sin reseñas</span>'}
-          </div>
-          <div class="store-meta-dot"></div>
-          <span>🕐 ${s.delivery_time||'20-35'} min</span>
-          <div class="store-meta-dot"></div>
-          ${s.offers_delivery !== false ? deliveryTag : pickupTag}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  g.innerHTML = list.map(s => renderStoreCard(s)).join('');
+  renderLoadMoreBtn();
 }
+
 
 // Load dynamic categories from API
 // Called once on page init
@@ -3009,13 +3063,8 @@ function getCatBg(id) {
 }
 
 function filterCat(cat) {
-  const filtered = cat==='all' ? allStores : allStores.filter(s => s.category===cat);
-  if (!filtered.length && activeCity) {
-    document.getElementById('stores-grid').innerHTML = `<div class="loading-state" style="grid-column:1/-1">No hay negocios de esta categoría en ${activeCity}</div>`;
-    document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
-    return;
-  }
-  renderStores(filtered);
+  _storeCategory = cat === 'all' ? null : cat;
+  loadStores(true);
   document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
 }
 
@@ -3027,7 +3076,7 @@ function chipFilter(el, cat) {
 
 function searchStores(q) {
   if (!q.trim()) { renderStores(allStores); return; }
-  const filtered = allStores.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.category.toLowerCase().includes(q.toLowerCase()));
+  const filtered = allStores.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || (s.category||'').toLowerCase().includes(q.toLowerCase()));
   renderStores(filtered);
 }
 
@@ -4133,10 +4182,10 @@ async function loadFavorites() {
   body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
   try {
     // Load all stores and filter by fav ids
-    const all = await api(`/api/businesses${activeCity ? '?city='+encodeURIComponent(activeCity) : ''}`);
+    const allRaw = await api(`/api/businesses?limit=100${activeCity ? '&city='+encodeURIComponent(activeCity) : ''}`); const all = allRaw.businesses || allRaw;
     // Include favs even from other cities
     const allCities = all.length < favIds.length
-      ? await api('/api/businesses').catch(() => all)
+      ? await api('/api/businesses?limit=100').then(r=>(r.businesses||r)).catch(() => all)
       : all;
     const favStores = favIds
       .map(id => allCities.find(s => s.id === id))
@@ -6964,10 +7013,11 @@ async function loadAdminFeatured() {
   try {
     const [featRes, bizRes] = await Promise.all([
       fetch('/api/admin/featured',{headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}}),
-      fetch('/api/businesses')
+      fetch('/api/businesses?limit=100')
     ]);
     const feats = await featRes.json();
-    const bizAll = await bizRes.json();
+    const bizAllRaw = await bizRes.json();
+    const bizAll = bizAllRaw.businesses || bizAllRaw;
     // Populate business select
     const sel = document.getElementById('feat-biz-select');
     if(sel) sel.innerHTML = '<option value="">-- Elegir negocio --</option>' + bizAll.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
