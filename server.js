@@ -1768,6 +1768,31 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 //  PEDIDOS
 // ════════════════════════════════════════════════
+// ── Error tracking ───────────────────────────
+let Sentry = null;
+try {
+  Sentry = require('@sentry/node');
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: 0.1,
+    });
+    console.log('✅ Sentry inicializado');
+  }
+} catch(e) { console.warn('Sentry no disponible:', e.message); }
+
+// Recibir errores del frontend (cuando no hay Sentry en el cliente)
+app.post('/api/client-error', (req, res) => {
+  const { message, source, line, stack, url, userAgent } = req.body || {};
+  const entry = { message, source, line, stack: stack?.slice(0,500), url, userAgent, t: new Date().toISOString() };
+  console.error('[CLIENT ERROR]', JSON.stringify(entry));
+  if (Sentry && process.env.SENTRY_DSN) {
+    Sentry.captureException(new Error(message || 'Client error'), { extra: entry });
+  }
+  res.json({ ok: true });
+});
+
 // ── Fraud detection ───────────────────────────
 async function checkFraud(userId, ip) {
   const issues = [];
@@ -3439,11 +3464,14 @@ function seoPage({ title, description, url, image, bodyContent }) {
     <p>© ${new Date().getFullYear()} <a href="${APP_URL}">Blow</a> · Delivery en Uruguay · <a href="${APP_URL}">Abrir app</a></p>
   </footer>
   <script>
-    // If JS loaded, redirect to the app with the right page
-    if (window.location.pathname !== '/') {
-      const path = window.location.pathname;
-      sessionStorage.setItem('blow_seo_redirect', path);
-    }
+    // Redirect to SPA with deep link params
+    const path = window.location.pathname;
+    const storeMatch = path.match(/\/negocio\/([^/]+)/);
+    const cityMatch  = path.match(/\/delivery\/([^/]+)/);
+    const catMatch   = path.match(/\/categoria\/([^/]+)/);
+    if (storeMatch) window.location.replace('/?store=' + storeMatch[1]);
+    else if (cityMatch) window.location.replace('/?city=' + cityMatch[1]);
+    else if (catMatch) window.location.replace('/?category=' + catMatch[1]);
   </script>
 </body>
 </html>`;
