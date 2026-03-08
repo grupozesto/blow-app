@@ -923,6 +923,26 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   </div>
 </div>
 
+<!-- ══ REVIEW MODAL ══ -->
+<div id="review-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);align-items:flex-end;justify-content:center;">
+  <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 40px;width:100%;max-width:500px;">
+    <div style="width:40px;height:4px;background:#e0e0e0;border-radius:4px;margin:0 auto 20px;"></div>
+    <div style="font-size:19px;font-weight:900;margin-bottom:6px;">¿Cómo fue tu pedido?</div>
+    <div id="review-biz-name" style="font-size:14px;color:#888;margin-bottom:20px;"></div>
+    <!-- Stars -->
+    <div id="review-stars" style="display:flex;gap:10px;margin-bottom:20px;font-size:38px;">
+      <span onclick="setReviewStar(1)" style="cursor:pointer;transition:transform .1s;" data-star="1">☆</span>
+      <span onclick="setReviewStar(2)" style="cursor:pointer;transition:transform .1s;" data-star="2">☆</span>
+      <span onclick="setReviewStar(3)" style="cursor:pointer;transition:transform .1s;" data-star="3">☆</span>
+      <span onclick="setReviewStar(4)" style="cursor:pointer;transition:transform .1s;" data-star="4">☆</span>
+      <span onclick="setReviewStar(5)" style="cursor:pointer;transition:transform .1s;" data-star="5">☆</span>
+    </div>
+    <textarea id="review-comment" placeholder="Contanos tu experiencia (opcional)..." style="width:100%;border:1.5px solid #e0e0e0;border-radius:14px;padding:14px;font-size:14px;font-family:'Inter',sans-serif;resize:none;height:90px;box-sizing:border-box;outline:none;"></textarea>
+    <button onclick="submitReview()" style="width:100%;margin-top:14px;background:var(--primary);border:none;border-radius:14px;padding:15px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Enviar reseña</button>
+    <button onclick="closeReviewModal()" style="width:100%;margin-top:10px;background:none;border:none;color:#999;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar</button>
+  </div>
+</div>
+
 <!-- ══ PAGE: CART ══ -->
 <div class="page page-wrap" id="page-cart">
   <div class="page-hdr"><h1>Tu Carrito 🛒</h1></div>
@@ -2817,11 +2837,17 @@ function renderStoreDetail(s, products) {
   if (ratingEl) {
     const isOpen = s.is_open !== false && s.is_open !== 0;
     const openBadge = `<span style="color:${isOpen?'#27ae60':'#e74c3c'};font-weight:700;font-size:12px;">● ${isOpen?'Abierto':'Cerrado'}</span>`;
+    const reviewCount = s.review_count || 0;
+    const reviewLink = reviewCount > 0
+      ? `<span style="color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;" onclick="document.getElementById('sd-reviews-section')?.scrollIntoView({behavior:'smooth'})">(${reviewCount} opiniones)</span>`
+      : `<span style="color:#bbb;font-size:12px;">Sin reseñas aún</span>`;
     ratingEl.innerHTML = `
       <svg viewBox="0 0 24 24" width="14" height="14" fill="#FFB800" style="vertical-align:middle;margin-right:2px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      <strong>${s.rating||'4.5'}</strong>
-      <span style="color:#999;">· ${s.category||''}</span>
-      &nbsp;${openBadge}
+      <strong>${s.rating||'—'}</strong> ${reviewLink}
+      <span style="color:#ddd;margin:0 4px;">·</span>
+      <span style="color:#999;">${s.category||''}</span>
+      <span style="color:#ddd;margin:0 4px;">·</span>
+      ${openBadge}
       ${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff4080);color:#fff;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:800;">⚡ Blow+</span>' : ''}
     `;
   }
@@ -2842,6 +2868,7 @@ function renderStoreDetail(s, products) {
 
   // ── Promo banners ──
   renderSdPromos(s);
+  renderSdReviews(s);
 
   // ── Products ──
   renderStoreProducts(products, 'all');
@@ -2910,6 +2937,55 @@ async function renderSdPromos(s) {
       </div>`;
     }).join('');
   } catch(e) { el.style.display='none'; }
+}
+
+async function renderSdReviews(s) {
+  // Remove previous reviews section if any
+  const old = document.getElementById('sd-reviews-section');
+  if (old) old.remove();
+
+  if (s.id?.startsWith('demo-')) return;
+
+  try {
+    const reviews = await api(`/api/businesses/${s.id}/reviews`);
+    if (!reviews.length) return;
+
+    const section = document.createElement('div');
+    section.id = 'sd-reviews-section';
+    section.style.cssText = 'padding:16px 16px 4px;border-bottom:1px solid #f5f5f5;';
+
+    const stars = (n) => '⭐'.repeat(n) + '☆'.repeat(5-n);
+    const timeAgo = (d) => {
+      const diff = Date.now() - new Date(d).getTime();
+      const days = Math.floor(diff/86400000);
+      if (days === 0) return 'Hoy';
+      if (days === 1) return 'Hace 1 día';
+      if (days < 7) return `Hace ${days} días`;
+      if (days < 30) return `Hace ${Math.floor(days/7)} sem.`;
+      return `Hace ${Math.floor(days/30)} mes.`;
+    };
+
+    section.innerHTML = `
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;color:#1a1a1a;">
+        Opiniones de clientes
+        <span style="font-size:13px;font-weight:500;color:#888;margin-left:6px;">(${reviews.length})</span>
+      </div>
+      <div style="display:flex;overflow-x:auto;gap:10px;padding-bottom:12px;scrollbar-width:none;">
+        ${reviews.map(r => `
+          <div style="flex-shrink:0;width:220px;background:#f8f8f8;border-radius:14px;padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <div style="font-size:13px;font-weight:700;color:#1a1a1a;">${r.customer_name?.split(' ')[0] || 'Cliente'}</div>
+              <div style="font-size:11px;color:#999;">${timeAgo(r.created_at)}</div>
+            </div>
+            <div style="font-size:14px;margin:3px 0 6px;">${'⭐'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
+            ${r.comment ? `<div style="font-size:12px;color:#555;line-height:1.5;">${r.comment}</div>` : ''}
+          </div>`).join('')}
+      </div>`;
+
+    // Insert before the sticky tabs wrapper
+    const tabsWrap = document.querySelector('.sd-menu-tabs-wrap');
+    if (tabsWrap) tabsWrap.parentNode.insertBefore(section, tabsWrap);
+  } catch(e) { /* silently fail */ }
 }
 
 function filterStoreTab(tab, el) {
@@ -3336,6 +3412,8 @@ async function loadTracking() {
           <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
         </div>
         ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
+        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\\'")}\')" style="width:100%;margin-top:10px;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
+        ${o.status==='delivered' && o.has_review?`<div style="text-align:center;margin-top:10px;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
       </div>`;
     }).join('');
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
@@ -3345,6 +3423,45 @@ async function cancelOrder(id) {
   if (!confirm('¿Cancelar este pedido?')) return;
   try { await api(`/api/orders/${id}/cancel`,{method:'POST'}); showToast('✅ Pedido cancelado'); loadTracking(); }
   catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+let _reviewOrderId = null;
+let _reviewRating = 0;
+
+function openReviewModal(orderId, bizName) {
+  _reviewOrderId = orderId;
+  _reviewRating = 0;
+  document.getElementById('review-biz-name').textContent = bizName;
+  document.getElementById('review-comment').value = '';
+  document.querySelectorAll('#review-stars span').forEach(s => s.textContent = '☆');
+  const modal = document.getElementById('review-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => modal.querySelector('div').style.transform = 'translateY(0)', 10);
+}
+
+function closeReviewModal() {
+  document.getElementById('review-modal').style.display = 'none';
+}
+
+function setReviewStar(n) {
+  _reviewRating = n;
+  document.querySelectorAll('#review-stars span').forEach(s => {
+    const star = parseInt(s.dataset.star);
+    s.textContent = star <= n ? '⭐' : '☆';
+    s.style.transform = star === n ? 'scale(1.3)' : 'scale(1)';
+    setTimeout(() => s.style.transform = 'scale(1)', 200);
+  });
+}
+
+async function submitReview() {
+  if (!_reviewRating) { showToast('⭐ Elegí una puntuación'); return; }
+  const comment = document.getElementById('review-comment').value.trim();
+  try {
+    await api(`/api/orders/${_reviewOrderId}/review`, { method:'POST', body: JSON.stringify({ rating: _reviewRating, comment }) });
+    closeReviewModal();
+    showToast('🎉 ¡Gracias por tu reseña!');
+    loadTracking();
+  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
 // ═══════════════════════════════════════════════
