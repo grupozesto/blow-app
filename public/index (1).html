@@ -436,8 +436,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 :root { --owner-dark:#111827; --owner-accent:#FA0050; }
 
 /* Transition overlay */
-#owner-transition{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
-#owner-transition.entering{opacity:1;pointer-events:auto;}
+#owner-transition{position:fixed;inset:0;z-index:10000;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
+#owner-transition.entering{opacity:1;pointer-events:auto;display:flex;}
 #owner-transition.exiting{opacity:1;pointer-events:auto;}
 #owner-transition-icon{font-size:56px;margin-bottom:12px;transform:scale(.7);transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
 #owner-transition.entering #owner-transition-icon{transform:scale(1);}
@@ -819,6 +819,35 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   .banner-slide{min-height:160px;}
   .nb{padding:6px 8px;min-width:46px;font-size:9px;}
 }
+
+/* ══ MODE SWITCHING ══════════════════════════════
+   body.owner-mode  → hide ALL client UI
+   body (default)   → normal client UI
+════════════════════════════════════════════════ */
+body.owner-mode .bottom-nav,
+body.owner-mode .sidebar,
+body.owner-mode #page-home,
+body.owner-mode #page-store,
+body.owner-mode #page-cart,
+body.owner-mode #page-tracking,
+body.owner-mode #page-profile,
+body.owner-mode #page-delivery,
+body.owner-mode #page-user-blowplus,
+body.owner-mode #page-owner-login,
+body.owner-mode #page-owner-plans,
+body.owner-mode #page-owner-dash,
+body.owner-mode #page-favorites,
+body.owner-mode #page-personal-info,
+body.owner-mode #page-coupons,
+body.owner-mode #page-help,
+body.owner-mode #page-admin,
+body.owner-mode .search-bar,
+/* owner-transition is controlled manually via JS */
+
+/* Owner app: hidden by default, shown in owner-mode */
+#owner-app { display: none; }
+body.owner-mode #owner-app { display: flex !important; }
+
 </style>
 </head>
 <body>
@@ -2779,7 +2808,7 @@ const API = ''; // mismo servidor — vacío = relativo
 let token    = localStorage.getItem('da_token') || null;
 let user     = JSON.parse(localStorage.getItem('da_user') || 'null');
 // Re-subscribe to push if already logged in (e.g. returning visitor)
-if (token && user && Notification.permission === 'granted') {
+if (token && user && (typeof Notification !== 'undefined') && Notification.permission === 'granted') {
   window.addEventListener('load', () => setTimeout(subscribeToPush, 2000));
 }
 let cart     = JSON.parse(localStorage.getItem('da_cart') || '[]');
@@ -2916,7 +2945,7 @@ function playOrderAlarm() {
   } catch(e) {}
 
   // System notification (works when tab is in background)
-  if ('Notification' in window) {
+  if (typeof Notification !== 'undefined') {
     if (Notification.permission === 'granted') {
       new Notification('🔔 Nuevo pedido en Blow', {
         body: '¡Tenés un nuevo pedido esperando confirmación!',
@@ -5631,45 +5660,40 @@ async function enterOwnerMode(animate = true) {
   if (_ownerAppActive) return;
   _ownerAppActive = true;
 
+  // Load biz data
+  try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
+
   if (animate) {
-    // Transition animation
+    // Flash transition — show dark screen, then switch
     const overlay = document.getElementById('owner-transition');
     const icon    = document.getElementById('owner-transition-icon');
     const label   = document.getElementById('owner-transition-label');
     const sub     = document.getElementById('owner-transition-sub');
     if (overlay) {
-      label.textContent = 'Entrando a tu negocio';
-      sub.textContent   = 'Preparando todo...';
-      overlay.classList.add('entering');
-      await new Promise(r => setTimeout(r, 700));
-    }
-    // Load biz data during transition
-    try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
-    if (overlay) {
       if (_ownerBiz) {
         icon.textContent  = _ownerBiz.logo_emoji || '🏪';
         label.textContent = _ownerBiz.name;
-        sub.textContent   = 'Todo listo 🎉';
+        sub.textContent   = 'Abriendo panel de gestión...';
       }
-      await new Promise(r => setTimeout(r, 500));
+      // Temporarily show overlay BEFORE switching modes
+      overlay.style.display = 'flex';
+      overlay.classList.add('entering');
+      await new Promise(r => setTimeout(r, 900));
+      // NOW switch to owner mode (body class change)
+      document.body.classList.add('owner-mode');
+      await new Promise(r => setTimeout(r, 100));
       overlay.classList.remove('entering');
-      await new Promise(r => setTimeout(r, 350));
+      overlay.style.display = '';
+    } else {
+      document.body.classList.add('owner-mode');
     }
   } else {
-    try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
+    document.body.classList.add('owner-mode');
   }
 
-  // Show owner app, hide client bottom nav
-  const app = document.getElementById('owner-app');
-  const clientNav = document.querySelector('.bottom-nav');
-  if (app) app.classList.add('active');
-  if (clientNav) clientNav.style.display = 'none';
-
-  // Populate top bar
+  // Populate top bar & load content
   ownerAppUpdateTopbar();
-  // Load active tab
   ownerAppTab(_ownerAppTab, false);
-  // Start polling for new orders
   ownerAppStartPolling();
   haptic('medium');
 }
@@ -5677,29 +5701,30 @@ async function enterOwnerMode(animate = true) {
 async function exitOwnerMode() {
   if (!_ownerAppActive) return;
 
-  // Transition out
+  // Flash transition out
   const overlay = document.getElementById('owner-transition');
+  const icon    = document.getElementById('owner-transition-icon');
   const label   = document.getElementById('owner-transition-label');
   const sub     = document.getElementById('owner-transition-sub');
-  const icon    = document.getElementById('owner-transition-icon');
   if (overlay) {
-    icon.textContent  = '💨';
+    icon.textContent  = '⚡';
     label.textContent = 'Volviendo a Blow';
     sub.textContent   = '';
-    overlay.classList.add('exiting');
+    overlay.style.display = 'flex';
+    overlay.classList.add('entering');
     await new Promise(r => setTimeout(r, 600));
-    overlay.classList.remove('exiting');
-    await new Promise(r => setTimeout(r, 350));
+    // Switch back to client mode
+    document.body.classList.remove('owner-mode');
+    await new Promise(r => setTimeout(r, 100));
+    overlay.classList.remove('entering');
+    overlay.style.display = '';
+  } else {
+    document.body.classList.remove('owner-mode');
   }
 
   _ownerAppActive = false;
+  _ownerBiz = null;
   ownerAppStopPolling();
-
-  const app = document.getElementById('owner-app');
-  const clientNav = document.querySelector('.bottom-nav');
-  if (app) app.classList.remove('active');
-  if (clientNav) clientNav.style.display = '';
-
   nav('page-home');
   haptic('light');
 }
@@ -6030,10 +6055,12 @@ function saveSession(t, u) {
   localStorage.setItem('da_user',JSON.stringify(u));
   connectWS();
   // Subscribe to push after login (request permission if needed)
-  if (Notification.permission === 'granted') {
-    subscribeToPush();
-  } else if (Notification.permission !== 'denied') {
-    Notification.requestPermission().then(p => { if (p === 'granted') subscribeToPush(); });
+  if (typeof Notification !== 'undefined') {
+    if (Notification.permission === 'granted') {
+      subscribeToPush();
+    } else if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => { if (p === 'granted') subscribeToPush(); });
+    }
   }
   // Refresh personalized recommendations
   setTimeout(() => loadRecommendations(), 500);
@@ -6161,7 +6188,7 @@ async function ownerLogin() {
     if (data.user.role!=='owner') { err.textContent='Esta cuenta no es de dueño de negocio'; err.style.display='block'; return; }
     saveSession(data.token, data.user);
     showToast(`👋 ¡Bienvenido, ${data.user.name}!`);
-    nav('page-owner-dash');
+    setTimeout(() => enterOwnerMode(true), 200);
   } catch(e) { err.textContent=e.message; err.style.display='block'; }
 }
 
@@ -6231,8 +6258,7 @@ async function completeRegistration() {
     const data = await api('/api/register/complete', { method:'POST', body:JSON.stringify({ reg_id: pendingRegId }) });
     saveSession(data.token, data.user);
     showToast('🎉 ¡Bienvenido a Blow!');
-    nav('page-owner-dash');
-    loadOwnerDash();
+    setTimeout(() => enterOwnerMode(true), 200);
   } catch(e) {
     document.getElementById('or-pending-msg').textContent = '❌ ' + e.message;
     btn.disabled = false; btn.textContent = 'Reintentar';
@@ -6507,7 +6533,7 @@ async function loadOwnerDash() {
   if (!user || user.role!=='owner') { nav('page-owner-login'); return; }
 
   // Request notification permission for new order alerts
-  if ('Notification' in window && Notification.permission === 'default') {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
     Notification.requestPermission();
   }
 
