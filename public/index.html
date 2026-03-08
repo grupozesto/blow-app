@@ -1177,6 +1177,13 @@ body.owner-mode #owner-app { display: flex !important; }
     </div>
     <!-- Address selector (shown when logged in) -->
     <div id="checkout-address-selector" style="margin:14px 16px 0;display:none;"></div>
+    <!-- Payment method selector — shown when business accepts in-person payment -->
+    <div id="checkout-payment-method" style="display:none;margin:14px 16px 0;">
+      <div style="background:#fff;border-radius:16px;padding:16px;border:1.5px solid #f0f0f0;">
+        <div style="font-size:13px;font-weight:800;margin-bottom:12px;">💳 ¿Cómo querés pagar?</div>
+        <div style="display:flex;flex-direction:column;gap:8px;" id="payment-options-list"></div>
+      </div>
+    </div>
     <!-- Schedule picker -->
     <div id="checkout-schedule"></div>
     <!-- Promo code input -->
@@ -1910,6 +1917,24 @@ body.owner-mode #owner-app { display: flex !important; }
       </div>
       <!-- Delivery / Pickup config -->
       <div class="settings-sec">
+        <div class="settings-sec-title">💳 Métodos de pago aceptados</div>
+        <div style="background:#fff;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:16px;">
+          <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f5f5f5;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">💵 Efectivo al recibir</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">El cliente te paga en mano</div>
+            </div>
+            <div class="tgl" id="toggle-accepts-cash" onclick="togglePaymentMethod('cash')"></div>
+          </div>
+          <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">🖥️ Tarjeta por posnet</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">El cliente pasa su tarjeta al recibir</div>
+            </div>
+            <div class="tgl" id="toggle-accepts-card-pos" onclick="togglePaymentMethod('card_pos')"></div>
+          </div>
+        </div>
+
         <div class="settings-sec-title">🛵 Delivery y retiro</div>
         <div style="display:flex;flex-direction:column;gap:12px;">
           <label style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:#f8f8f8;border-radius:12px;cursor:pointer;">
@@ -4607,6 +4632,9 @@ function changeCartQty(id, d) {
 function renderCart() {
   const body = document.getElementById('cart-body');
   if (!cart.length) {
+    // Hide payment selector when cart is empty
+    const pmSel = document.getElementById('checkout-payment-method');
+    if (pmSel) pmSel.style.display = 'none';
     body.innerHTML=`<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>Tu carrito está vacío.<br>¡Agrega algo delicioso!</p><button onclick="nav('page-home')" style="background:var(--primary);border:none;border-radius:12px;padding:12px 24px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;">Ver tiendas</button></div>`;
     return;
   }
@@ -4614,6 +4642,8 @@ function renderCart() {
   // Use store's delivery cost — 0 if pickup
   const store = currentStoreForCart || allStores.find(s=>s.id===cart[0]?.biz_id);
   const fee = selectedFulfillment === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0);
+  // Show payment method selector if store accepts in-person payment
+  renderPaymentMethodSelector(store);
   const feeLabel = selectedFulfillment === 'pickup' ? 'Retiro en tienda · Gratis' : (fee === 0 ? 'Envío · Gratis' : `Envío · $${fee}`);
   body.innerHTML=`
     <div class="cart-items">${cart.map(item=>`
@@ -4637,6 +4667,52 @@ function renderCart() {
       <div class="sum-row total"><span>Total</span><span>$${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</span></div>
     </div>
     <button class="checkout-btn" onclick="checkout()">Confirmar pedido · $${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</button>`;
+}
+
+
+// ── Payment method selector ──────────────────────────────
+function renderPaymentMethodSelector(store) {
+  const wrap = document.getElementById('checkout-payment-method');
+  const list = document.getElementById('payment-options-list');
+  if (!wrap || !list) return;
+
+  const hasCash   = store?.accepts_cash;
+  const hasCard   = store?.accepts_card_pos;
+
+  if (!hasCash && !hasCard) {
+    wrap.style.display = 'none';
+    window._selectedPaymentMethod = 'online';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  if (!window._selectedPaymentMethod) window._selectedPaymentMethod = 'online';
+
+  const options = [
+    { id:'online',   icon:'💳', label:'Pagar online', sub:'Con débito/crédito vía MercadoPago', always: true },
+    { id:'cash',     icon:'💵', label:'Efectivo al recibir', sub:'Pagás en mano cuando llega el pedido', show: hasCash },
+    { id:'card_pos', icon:'🖥️', label:'Tarjeta al recibir', sub:'Pasás la tarjeta por el posnet del negocio', show: hasCard },
+  ].filter(o => o.always || o.show);
+
+  list.innerHTML = options.map(o => `
+    <label onclick="selectPaymentMethod('${o.id}')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:2px solid ${window._selectedPaymentMethod===o.id ? 'var(--primary)' : '#f0f0f0'};cursor:pointer;background:${window._selectedPaymentMethod===o.id ? '#fff5f7' : '#fff'};transition:all .15s;" id="pm-opt-${o.id}">
+      <span style="font-size:22px;width:32px;text-align:center;">${o.icon}</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:800;color:#1a1a1a;">${o.label}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${o.sub}</div>
+      </div>
+      <div style="width:18px;height:18px;border-radius:50%;border:2px solid ${window._selectedPaymentMethod===o.id ? 'var(--primary)' : '#ddd'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        ${window._selectedPaymentMethod===o.id ? '<div style="width:8px;height:8px;border-radius:50%;background:var(--primary);"></div>' : ''}
+      </div>
+    </label>`).join('');
+}
+
+function selectPaymentMethod(method) {
+  window._selectedPaymentMethod = method;
+  haptic('light');
+  // Re-render just the selector
+  const store = currentStoreForCart || allStores.find(s=>s.id===cart[0]?.biz_id);
+  renderPaymentMethodSelector(store);
 }
 
 async function checkout() {
@@ -4667,15 +4743,21 @@ async function checkout() {
   btn.disabled = true; btn.textContent = '⏳ Procesando...';
   try {
     const items = cart.map(i=>({ product_id:i.id, quantity:i.qty, variant_id: i.variant_id||null }));
-    const body = { business_id:bizId, items, address:orderAddress, fulfillment_type: fulfillmentType };
+    const selectedPayment = window._selectedPaymentMethod || 'online';
+    const payOnDelivery = selectedPayment !== 'online';
+    const body = { business_id:bizId, items, address:orderAddress, fulfillment_type: fulfillmentType,
+      pay_on_delivery: payOnDelivery, payment_method: selectedPayment };
     if (window._scheduledFor) body.scheduled_for = window._scheduledFor;
     const res = await api('/api/orders', { method:'POST', body:JSON.stringify(body) });
     cart=[]; saveCart(); updateCartBadge();
-    if (res.payment?.init_point) {
+    window._selectedPaymentMethod = null;
+    if (res.pay_on_delivery) {
+      showToast('✅ ¡Pedido confirmado! Pagás al recibir.');
+      setTimeout(()=>nav('page-tracking'),800);
+    } else if (res.payment?.init_point) {
       showToast('💳 Redirigiendo a MercadoPago...');
       setTimeout(()=>{ window.location.href = res.payment.init_point; }, 800);
     } else {
-      // Demo mode - no MP configured
       showToast('🎉 ¡Pedido creado!');
       setTimeout(()=>nav('page-tracking'),800);
     }
@@ -5920,23 +6002,45 @@ async function ownerAppRenderHome() {
 
     let html = '<div style="padding:16px;display:flex;flex-direction:column;gap:16px;">';
 
-    // ── SALDO ───────────────────────────────────────────
+    // ── SALDO (split online / en persona) ──────────────
+    let walletData = { online_balance: balance, cash_total: 0, card_pos_total: 0, in_person_today: 0, online_today: 0 };
+    try { walletData = await api('/api/owner/wallet-summary'); } catch(e) {}
+    const inPersonTotal = (walletData.cash_total || 0) + (walletData.card_pos_total || 0);
     html += `
-      <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);border-radius:20px;padding:22px;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
-        <div style="position:absolute;bottom:-30px;right:20px;width:60px;height:60px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Saldo disponible</div>
-        <div style="font-size:36px;font-weight:900;color:#fff;margin-bottom:16px;">$${balance.toLocaleString('es-UY')}</div>
-        <div style="display:flex;gap:10px;">
-          <button onclick="ownerNav('otab-payments');" style="flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);border-radius:20px;padding:20px;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💳 Cobrado online</div>
+              <div style="font-size:32px;font-weight:900;color:#fff;line-height:1;">$${(walletData.online_balance||0).toLocaleString('es-UY')}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:10px;color:rgba(255,255,255,.4);margin-bottom:2px;">Hoy</div>
+              <div style="font-size:14px;font-weight:800;color:rgba(255,255,255,.7);">$${Math.round(walletData.online_today||0)}</div>
+            </div>
+          </div>
+          <button onclick="ownerNav('otab-payments')" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:11px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            Retirar
-          </button>
-          <button onclick="ownerNav('otab-payments');" style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:11px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/></svg>
-            Historial
+            Retirar fondos
           </button>
         </div>
+        ${inPersonTotal > 0 || (walletData.in_person_today||0) > 0 ? `
+        <div style="background:#fff;border-radius:20px;padding:18px;border:1.5px solid #f0f0f0;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">💵 Cobrado en persona</div>
+              <div style="font-size:28px;font-weight:900;color:#1a1a1a;line-height:1;">$${inPersonTotal.toLocaleString('es-UY')}</div>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 12px;text-align:center;">
+              <div style="font-size:11px;color:#16a34a;font-weight:800;">✓ Ya en tu bolsillo</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            ${(walletData.cash_total||0)>0 ? `<div style="flex:1;background:#f8f8f8;border-radius:12px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;">$${Math.round(walletData.cash_total)}</div><div style="font-size:10px;color:#aaa;margin-top:2px;">💵 Efectivo</div></div>` : ''}
+            ${(walletData.card_pos_total||0)>0 ? `<div style="flex:1;background:#f8f8f8;border-radius:12px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;">$${Math.round(walletData.card_pos_total)}</div><div style="font-size:10px;color:#aaa;margin-top:2px;">🖥️ Posnet</div></div>` : ''}
+          </div>
+        </div>` : ''}
       </div>`;
 
     // ── NUEVOS PEDIDOS ──────────────────────────────────
@@ -6831,6 +6935,10 @@ async function loadOwnerDash() {
     chip.onclick = () => openPlansPage();
     chip.style.cursor = 'pointer';
     document.getElementById('store-toggle').classList.toggle('on', !!d.business.is_open);
+    const cashTgl    = document.getElementById('toggle-accepts-cash');
+    const cardPosTgl = document.getElementById('toggle-accepts-card-pos');
+    if (cashTgl)    cashTgl.classList.toggle('on',    !!d.business.accepts_cash);
+    if (cardPosTgl) cardPosTgl.classList.toggle('on', !!d.business.accepts_card_pos);
     // KPIs
     document.getElementById('kpi-orders').textContent = d.today.orders;
     document.getElementById('kpi-revenue').textContent = d.today.revenue>999?`$${(d.today.revenue/1000).toFixed(1)}k`:`$${d.today.revenue}`;
@@ -8064,6 +8172,24 @@ async function saveDeliveryRadius() {
 // ═══════════════════════════════════════════════
 //  PROFILE COMPLETENESS
 // ═══════════════════════════════════════════════
+
+async function togglePaymentMethod(method) {
+  if (!ownerData?.business) return;
+  const field = method === 'cash' ? 'accepts_cash' : 'accepts_card_pos';
+  const toggleEl = document.getElementById(`toggle-accepts-${method === 'cash' ? 'cash' : 'card-pos'}`);
+  const current = ownerData.business[field] || false;
+  const newVal = !current;
+  try {
+    const updated = await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ [field]: newVal }) });
+    ownerData.business = updated;
+    if (toggleEl) toggleEl.classList.toggle('on', newVal);
+    showToast(newVal
+      ? `✅ ${method === 'cash' ? 'Efectivo' : 'Tarjeta posnet'} activado`
+      : `⛔ ${method === 'cash' ? 'Efectivo' : 'Tarjeta posnet'} desactivado`);
+    haptic('light');
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
 function renderSettingsPhotoNudge(biz) {
   const nudge = document.getElementById('settings-photo-nudge');
   const items = document.getElementById('settings-photo-nudge-items');
