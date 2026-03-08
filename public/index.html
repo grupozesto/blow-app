@@ -6162,7 +6162,12 @@ async function ownerAppRenderHome() {
     panel.innerHTML = html;
 
   } catch(e) {
-    panel.innerHTML = `<div style="padding:24px;color:#e74c3c;font-size:14px;">${e.message}</div>`;
+    console.error('ownerAppRenderHome error:', e);
+    panel.innerHTML = `<div style="padding:24px;color:#e74c3c;font-size:14px;">
+      <div style="font-weight:700;margin-bottom:8px;">Error al cargar el panel</div>
+      <div style="font-size:12px;color:#999;">${e.message||'Error desconocido'}</div>
+      <button onclick="ownerAppRenderHome()" style="margin-top:12px;background:#FA0050;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Reintentar</button>
+    </div>`;
   }
 }
 
@@ -8320,8 +8325,10 @@ function completenessAction(key) {
 function switchOTab(id, el) {
   document.querySelectorAll('.otab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.otab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  el.classList.add('active');
+  const tabContent = document.getElementById(id);
+  if (!tabContent) { console.warn('switchOTab: tab not found:', id); return; }
+  tabContent.classList.add('active');
+  if (el) el.classList.add('active');
   if (id === 'otab-promos') loadPromos();
   if (id === 'otab-blowplus') loadBlowPlus();
   if (id === 'otab-settings') { populatePhotoSettings(); loadSchedule(); }
