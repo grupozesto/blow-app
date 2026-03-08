@@ -5343,7 +5343,7 @@ function renderTrackingOrders() {
         </div>
         <div id="map-status-${o.id}" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:20px;padding:3px 10px;white-space:nowrap;">Cargando ubicación...</div>
       </div>
-      <script>initRiderMap('${o.id}')<\/script>`:''}
+      <span data-init-rider="${o.id}" style="display:none;"></span>`:''}
       ${!isHistory ? `<div class="track-steps">${steps.map((s,i)=>`
         <div class="track-step ${s.done?'done':''}">
           <div class="step-dot ${s.done?'done':''} ${s.cur?'cur':''}">${s.done?'✓':s.cur?'●':'○'}</div>
@@ -5383,6 +5383,11 @@ function renderTrackingOrders() {
       </div>
     </div>`;
   }).join('');
+
+  // Init rider maps after innerHTML is set (can't use inline <script> in Safari)
+  document.querySelectorAll('[data-init-rider]').forEach(el => {
+    initRiderMap(el.dataset.initRider);
+  });
 }
 
 function toggleOrderDetail(orderId) {
@@ -6112,8 +6117,7 @@ async function ownerAppRenderHome() {
 
     html += `
       <div style="position:relative;">
-        <div id="wallet-carousel" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:0;border-radius:20px;" onscroll="ownerUpdateCarouselDots('wallet-carousel','wallet-dots')">
-          <style>#wallet-carousel::-webkit-scrollbar{display:none}</style>
+        <div id="wallet-carousel" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;border-radius:20px;" onscroll="ownerUpdateCarouselDots('wallet-carousel','wallet-dots')">
           ${walletSlides.map((s,i) => `
           <div style="flex:0 0 100%;scroll-snap-align:start;background:${s.gradient};border-radius:20px;padding:20px;position:relative;overflow:hidden;box-sizing:border-box;">
             <div style="position:absolute;top:-24px;right:-24px;width:96px;height:96px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
@@ -6349,7 +6353,13 @@ async function ownerAppRenderMenu() {
   if (!panel) return;
   panel.innerHTML = `<div style="padding:16px;">${skelProductRows(4)}</div>`;
   try {
-    const data = await api('/api/businesses/mine/products');
+    // Use cached dashboard data if available, otherwise fetch
+    let data;
+    if (ownerData && ownerData.products) {
+      data = { products: ownerData.products, categories: ownerData.categories || [] };
+    } else {
+      data = await api('/api/businesses/mine/products');
+    }
     // Reuse existing owner menu render but target new panel
     window._ownerMenuData = data;
     const products = data.products || data || [];
