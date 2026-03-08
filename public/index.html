@@ -1331,6 +1331,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <div class="kpi"><div class="kpi-num" id="kpi-pending">—</div><div class="kpi-label">Pendientes</div></div>
       </div>
     </div>
+    <!-- Profile completeness banner -->
+    <div id="owner-completeness-banner" style="display:none;margin:0 0 0 0;"></div>
     <div class="owner-tabs">
       <button class="otab active" onclick="switchOTab('otab-orders',this)">📋 Pedidos</button>
       <button class="otab" onclick="switchOTab('otab-menu',this)">🍔 Menú</button>
@@ -1480,6 +1482,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
     <!-- Settings -->
     <div class="otab-content" id="otab-settings" style="padding:16px;">
+      <!-- Photo nudge banner — shown when logo or cover is missing -->
+      <div id="settings-photo-nudge" style="display:none;background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #fcd34d;border-radius:16px;padding:14px 16px;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:800;color:#92400e;margin-bottom:6px;">📸 Las fotos aumentan tus ventas</div>
+        <div style="font-size:13px;color:#78350f;margin-bottom:12px;">Los negocios con fotos reciben hasta 3× más pedidos. Completá tu perfil visual:</div>
+        <div id="settings-photo-nudge-items" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
       <!-- Horarios automáticos -->
       <div class="settings-sec">
         <div class="settings-sec-title">🕐 Horarios de atención</div>
@@ -2208,90 +2216,137 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
-    <h1 style="flex:1;margin:0;font-size:20px;">Ayuda</h1>
+    <h1 style="flex:1;margin:0;font-size:20px;">Ayuda y soporte</h1>
+    <div id="help-status-dot" style="width:8px;height:8px;border-radius:50%;background:#ccc;" title="Estado del servicio"></div>
   </div>
-  <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:40px;">
+  <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:60px;">
+
+    <!-- Status banner -->
+    <div id="help-status-banner" style="display:none;border-radius:14px;padding:10px 16px;margin-bottom:14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;"></div>
+
+    <!-- Role tabs -->
+    <div style="display:flex;background:#ebebeb;border-radius:12px;padding:3px;margin-bottom:16px;">
+      <button id="help-tab-customer" onclick="switchHelpTab('customer')" style="flex:1;padding:8px;border:none;border-radius:9px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;">🧑 Cliente</button>
+      <button id="help-tab-owner" onclick="switchHelpTab('owner')" style="flex:1;padding:8px;border:none;border-radius:9px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#888;">🏪 Negocio</button>
+    </div>
 
     <!-- WhatsApp CTA -->
-    <a href="https://wa.me/59899000000" target="_blank" style="text-decoration:none;display:block;margin-bottom:20px;">
+    <a href="https://wa.me/59899000000?text=Hola%2C%20necesito%20ayuda%20con%20Blow" target="_blank" style="text-decoration:none;display:block;margin-bottom:16px;">
       <div style="background:linear-gradient(135deg,#25D366,#1da851);border-radius:20px;padding:18px 20px;display:flex;align-items:center;gap:16px;">
         <div style="width:48px;height:48px;background:rgba(255,255,255,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">💬</div>
         <div style="flex:1;">
           <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:2px;">Escribinos por WhatsApp</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.8);">Respuesta rápida · Lun a Vie 9-18hs</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.8);">Respuesta rápida · Lun a Vie 9–18hs</div>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2.5" width="18" height="18"><polyline points="9,18 15,12 9,6"/></svg>
       </div>
     </a>
 
-    <!-- FAQ -->
-    <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Preguntas frecuentes</div>
-    <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cómo hago un pedido?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+    <!-- Customer FAQs -->
+    <div id="help-faqs-customer">
+      <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Preguntas frecuentes</div>
+      <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo hago un pedido?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Buscá el negocio que quieras, agregá productos al carrito y tocá "Confirmar pedido". Serás redirigido a MercadoPago para pagar de forma segura.</div>
         </div>
-        <div class="faq2-a">Buscá el negocio que quieras, agregá productos al carrito y tocá "Confirmar pedido". Serás redirigido a MercadoPago para pagar de forma segura.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cuánto tarda la entrega?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cuánto tarda la entrega?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Varía por negocio. Cuando el dueño acepta tu pedido te informa el tiempo exacto, y podés seguirlo en tiempo real desde "Mis Pedidos".</div>
         </div>
-        <div class="faq2-a">Depende del negocio, generalmente entre 30 y 60 minutos. Podés seguir el estado en "Mis Pedidos".</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cómo uso un cupón?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Puedo cancelar un pedido?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Podés cancelarlo mientras está en estado "Pendiente" o "Confirmado" desde "Mis Pedidos". Si ya pagaste, el reembolso se procesa automáticamente en 1–5 días hábiles.</div>
         </div>
-        <div class="faq2-a">Tus cupones aparecen en "Cupones" dentro de tu perfil. Se aplican automáticamente al confirmar tu próximo pedido.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Qué es Blow+?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Qué pasa si mi pago falla?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">El pedido queda en estado "Pendiente" y no se confirma. Podés intentar de nuevo ingresando al pedido desde "Mis Pedidos". Si el dinero fue debitado contactanos.</div>
         </div>
-        <div class="faq2-a">Blow+ es la membresía premium de Blow. Por $200 UYU/mes tenés envíos gratis en todos tus pedidos y acceso a promociones exclusivas.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Puedo cancelar un pedido?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo activo las notificaciones?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Al iniciar sesión la app te pide permiso. Si rechazaste, podés activarlas en Ajustes del navegador → Notificaciones → blow.uy → Permitir.</div>
         </div>
-        <div class="faq2-a">Una vez confirmado, un pedido no se puede modificar. Si necesitás cancelarlo escribinos por WhatsApp lo antes posible.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cómo registro mi negocio?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Qué es Blow+?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Blow+ es la membresía premium por $200 UYU/mes. Incluye envíos gratis en todos tus pedidos y acceso a descuentos exclusivos.</div>
         </div>
-        <div class="faq2-a">Tocá "Portal Negocios" en tu perfil, completá los datos de tu negocio y realizá el pago de suscripción. Tu cuenta se activa automáticamente.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)" style="border-bottom:none;">
-        <div class="faq2-q">
-          <span>¿Qué métodos de pago aceptan?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)" style="border-bottom:none;">
+          <div class="faq2-q"><span>¿Qué métodos de pago aceptan?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Procesamos pagos con MercadoPago: débito, crédito, transferencia y efectivo en Abitab o RedPagos.</div>
         </div>
-        <div class="faq2-a">Procesamos pagos con MercadoPago: tarjeta de débito, crédito, transferencia bancaria y efectivo en Abitab o RedPagos.</div>
       </div>
-
     </div>
 
-    <!-- Mensaje directo -->
-    <div style="margin-top:20px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+    <!-- Owner FAQs -->
+    <div id="help-faqs-owner" style="display:none;">
+      <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Preguntas frecuentes para negocios</div>
+      <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cuándo recibo el dinero de mis ventas?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">El dinero se acredita en tu billetera Blow al marcar cada pedido como entregado. Podés solicitar el retiro a tu cuenta bancaria cuando quieras desde el panel.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cuánto cobra Blow de comisión?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">La comisión es del 8% sobre el subtotal de cada pedido (sin contar el costo de delivery). El resto va directo a tu billetera.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo agrego o edito productos?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Desde tu panel → tab Productos. Podés agregar, editar, activar/desactivar y subir fotos. Los cambios son inmediatos para los clientes.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Qué pasa si un cliente cancela un pedido pagado?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">El reembolso al cliente se procesa automáticamente. A vos no te descontamos nada — la comisión no se cobra en pedidos cancelados antes de la entrega.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo configuro los horarios automáticos?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">En tu panel → Configuración → Horarios. Activá "Horario automático" y definí la apertura y cierre para cada día. La app abre y cierra sola.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Puedo pausar mi negocio temporalmente?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Sí. Desde el panel podés cerrar tu negocio con un toggle. Seguís apareciendo en el feed pero marcado como "Cerrado" y los clientes no pueden pedir.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)" style="border-bottom:none;">
+          <div class="faq2-q"><span>¿Cómo cancelo mi suscripción?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Desde tu panel → Mi suscripción → Cancelar. El débito automático se detiene y tu cuenta queda activa hasta el fin del período pagado.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Previous support tickets -->
+    <div id="help-my-tickets" style="display:none;margin-top:16px;">
+      <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Mis consultas anteriores</div>
+      <div id="help-tickets-list" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);"></div>
+    </div>
+
+    <!-- Contact form -->
+    <div style="margin-top:16px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px;">¿No encontraste lo que buscás?</div>
-      <div style="font-size:13px;color:#888;margin-bottom:14px;">Dejanos tu consulta y te respondemos a la brevedad.</div>
-      <textarea id="help-msg" rows="3" placeholder="Escribí tu consulta..." style="width:100%;border:1.5px solid #eee;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;resize:none;box-sizing:border-box;outline:none;"></textarea>
-      <button onclick="sendHelpMessage()" style="width:100%;margin-top:10px;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Enviar mensaje →</button>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">Dejanos tu consulta y te respondemos en menos de 24hs.</div>
+
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input class="form-input" id="help-name" type="text" placeholder="Tu nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="help-email" type="email" placeholder="tu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de consulta</label>
+        <select class="form-input" id="help-type" style="appearance:none;cursor:pointer;">
+          <option value="pedido">📦 Problema con un pedido</option>
+          <option value="pago">💳 Problema con un pago o reembolso</option>
+          <option value="cuenta">👤 Problema con mi cuenta</option>
+          <option value="negocio">🏪 Consulta sobre mi negocio</option>
+          <option value="sugerencia">💡 Sugerencia o feedback</option>
+          <option value="otro">❓ Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mensaje <span style="color:var(--primary)">*</span></label>
+        <textarea id="help-msg" rows="4" placeholder="Describí tu consulta con el mayor detalle posible..." style="width:100%;border:1.5px solid #eee;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;resize:none;box-sizing:border-box;outline:none;transition:border .2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#eee'"></textarea>
+      </div>
+      <button onclick="sendHelpMessage()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Enviar consulta →</button>
       <div id="help-result" style="font-size:13px;margin-top:10px;display:none;text-align:center;"></div>
     </div>
 
@@ -4988,6 +5043,10 @@ async function loadOwnerDash() {
     document.getElementById('kpi-orders').textContent = d.today.orders;
     document.getElementById('kpi-revenue').textContent = d.today.revenue>999?`$${(d.today.revenue/1000).toFixed(1)}k`:`$${d.today.revenue}`;
     document.getElementById('kpi-pending').textContent = d.orders.filter(o=>!['delivered','cancelled'].includes(o.status)).length;
+    // Profile completeness banner
+    renderCompletenessBanner(d.business, d.products || []);
+    // Settings photo nudge
+    renderSettingsPhotoNudge(d.business);
     // Balance
     document.getElementById('owner-balance').textContent = `$${d.balance.toLocaleString('es-UY')}`;
     // Settings
@@ -5210,6 +5269,10 @@ function renderOwnerMenu(products, categories) {
         <div class="mpc-price" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span style="font-weight:900;">$${p.price}</span>${badges}
         </div>
+        ${!p.photo_url ? `<label style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-top:5px;background:#fff8e1;border:1px dashed #fbbf24;border-radius:8px;padding:3px 8px;">
+          <span style="font-size:11px;color:#92400e;font-weight:700;">📷 Agregar foto</span>
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadProductPhoto('${p.id}',this)">
+        </label>` : ''}
         <!-- Stock controls -->
         <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
           <span style="font-size:11px;color:#888;font-weight:600;">Stock:</span>
@@ -6073,6 +6136,98 @@ async function saveDeliveryRadius() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
+// ═══════════════════════════════════════════════
+//  PROFILE COMPLETENESS
+// ═══════════════════════════════════════════════
+function renderSettingsPhotoNudge(biz) {
+  const nudge = document.getElementById('settings-photo-nudge');
+  const items = document.getElementById('settings-photo-nudge-items');
+  if (!nudge || !items) return;
+  const missing = [];
+  if (!biz.logo_url)  missing.push({ label: 'Logo o foto del negocio', id: 'logo-upload-label' });
+  if (!biz.cover_url) missing.push({ label: 'Foto de portada',         id: 'cover-upload-label' });
+  if (!missing.length) { nudge.style.display = 'none'; return; }
+  nudge.style.display = 'block';
+  items.innerHTML = missing.map(m => `
+    <label id="${m.id}" style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px dashed #fbbf24;border-radius:12px;padding:10px 14px;cursor:pointer;">
+      <span style="font-size:20px;">📷</span>
+      <span style="font-size:13px;font-weight:700;color:#92400e;flex:1;">${m.label}</span>
+      <span style="font-size:12px;color:#f59e0b;font-weight:700;">Subir →</span>
+      <input type="file" accept="image/*" style="display:none;" onchange="uploadBizPhoto('${m.id.includes('logo') ? 'logo' : 'cover'}', this)">
+    </label>`).join('');
+}
+
+function calcCompleteness(biz, products) {
+  const checks = [
+    { key: 'logo',     label: 'Foto o logo del negocio',           done: !!(biz.logo_url),                               action: () => switchOTab('otab-settings', document.querySelector('.otab:last-child')) },
+    { key: 'cover',    label: 'Foto de portada',                    done: !!(biz.cover_url),                              action: () => switchOTab('otab-settings', document.querySelector('.otab:last-child')) },
+    { key: 'address',  label: 'Dirección configurada',              done: !!(biz.address?.trim()),                        action: () => switchOTab('otab-settings', document.querySelector('.otab:last-child')) },
+    { key: 'schedule', label: 'Horario automático activado',        done: !!(biz.schedule_enabled),                       action: () => switchOTab('otab-settings', document.querySelector('.otab:last-child')) },
+    { key: 'products', label: 'Al menos 3 productos en el menú',    done: products.filter(p=>p.is_available).length >= 3, action: () => switchOTab('otab-menu', document.querySelectorAll('.otab')[1]) },
+    { key: 'photos',   label: 'Al menos 1 producto con foto',       done: products.some(p => p.photo_url),                action: () => switchOTab('otab-menu', document.querySelectorAll('.otab')[1]) },
+    { key: 'radius',   label: 'Zona de delivery configurada',       done: !!(biz.delivery_radius_km),                    action: () => switchOTab('otab-settings', document.querySelector('.otab:last-child')) },
+  ];
+  const done = checks.filter(c => c.done).length;
+  const total = checks.length;
+  const pct = Math.round((done / total) * 100);
+  return { checks, done, total, pct };
+}
+
+function renderCompletenessBanner(biz, products) {
+  const banner = document.getElementById('owner-completeness-banner');
+  if (!banner) return;
+  const { checks, done, total, pct } = calcCompleteness(biz, products);
+
+  // Hide if 100%
+  if (pct >= 100) { banner.style.display = 'none'; return; }
+
+  const barColor = pct >= 70 ? '#f59e0b' : pct >= 40 ? '#3b82f6' : '#FA0050';
+  const emoji    = pct >= 70 ? '🌟' : pct >= 40 ? '🚀' : '💡';
+  const pending  = checks.filter(c => !c.done);
+
+  banner.style.display = 'block';
+  banner.innerHTML = `
+    <div style="background:#fff;border-radius:0;border-bottom:1px solid #f0f0f0;padding:14px 16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:800;color:#1a1a1a;">${emoji} Perfil del negocio</div>
+        <div style="font-size:13px;font-weight:900;color:${barColor};">${pct}%</div>
+      </div>
+      <div style="background:#f0f0f0;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;">
+        <div style="background:${barColor};height:100%;border-radius:99px;width:${pct}%;transition:width .5s ease;"></div>
+      </div>
+      <div style="font-size:12px;color:#888;margin-bottom:10px;">${done} de ${total} pasos completados — completá tu perfil para aparecer mejor en el feed</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${pending.slice(0,3).map((c,i) => `
+          <div style="display:flex;align-items:center;gap:8px;background:#f8f8f8;border-radius:10px;padding:8px 12px;cursor:pointer;" onclick="completenessAction('${c.key}')">
+            <span style="font-size:16px;">⬜</span>
+            <span style="font-size:13px;color:#1a1a1a;flex:1;">${c.label}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" width="14" height="14"><polyline points="9,18 15,12 9,6"/></svg>
+          </div>`).join('')}
+        ${pending.length > 3 ? `<div style="text-align:center;font-size:12px;color:#aaa;padding-top:2px;">+ ${pending.length - 3} más por completar</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// Map key → action when user taps a completeness item
+function completenessAction(key) {
+  const tabMap = {
+    logo: 'otab-settings', cover: 'otab-settings',
+    address: 'otab-settings', schedule: 'otab-settings', radius: 'otab-settings',
+    products: 'otab-menu', photos: 'otab-menu',
+  };
+  const tabId = tabMap[key] || 'otab-settings';
+  const tabBtn = document.querySelector(`[onclick*="${tabId}"]`);
+  switchOTab(tabId, tabBtn);
+  // Scroll to relevant section + flash
+  setTimeout(() => {
+    const target = key === 'photos' ? document.querySelector('.prod-card-img') :
+                   key === 'schedule' ? document.getElementById('toggle-schedule-enabled') :
+                   key === 'radius' ? document.getElementById('inp-delivery-radius') :
+                   key === 'logo' ? document.querySelector('[onclick*="uploadLogo"]') : null;
+    if (target) { target.scrollIntoView({ behavior:'smooth', block:'center' }); target.style.outline='2px solid var(--primary)'; setTimeout(()=>target.style.outline='',2000); }
+  }, 300);
+}
+
 function switchOTab(id, el) {
   document.querySelectorAll('.otab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.otab').forEach(t=>t.classList.remove('active'));
@@ -6756,6 +6911,27 @@ async function uploadProductPhoto(productId, input) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
+async function uploadBizPhoto(type, input) {
+  // type: 'logo' | 'cover'
+  if (!input.files?.[0]) return;
+  const file = input.files[0];
+  const formData = new FormData();
+  formData.append('photo', file);
+  showToast('⏳ Subiendo foto...');
+  try {
+    const endpoint = type === 'logo' ? '/api/businesses/mine/upload-logo' : '/api/businesses/mine/upload-cover';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al subir');
+    showToast(`✅ ${type === 'logo' ? 'Logo' : 'Portada'} actualizado`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
 async function toggleFeatured(productId, isFeatured) {
   try {
     await api(`/api/businesses/mine/products/${productId}`, {
@@ -7160,30 +7336,101 @@ function toggleFaq(el) {
 }
 
 async function sendHelpMessage() {
-  const name = document.getElementById('help-name').value.trim();
-  const email = document.getElementById('help-email').value.trim();
-  const msg = document.getElementById('help-msg').value.trim();
+  const name  = document.getElementById('help-name')?.value.trim();
+  const email = document.getElementById('help-email')?.value.trim();
+  const type  = document.getElementById('help-type')?.value || 'otro';
+  const msg   = document.getElementById('help-msg')?.value.trim();
   const res_el = document.getElementById('help-result');
   if (!email || !msg) return showToast('Email y mensaje son requeridos');
   res_el.style.display = 'block';
-  res_el.innerHTML = '<span style="color:var(--muted);">Enviando...</span>';
+  res_el.innerHTML = '<span style="color:var(--muted);">⏳ Enviando...</span>';
   try {
-    await api('/api/help', 'POST', { name: name || (user?.name || 'Anónimo'), email: email || user?.email, message: msg });
-    res_el.innerHTML = '<span style="color:var(--success);font-weight:700;">✅ Mensaje enviado — te responderemos a la brevedad</span>';
-    document.getElementById('help-name').value = '';
-    document.getElementById('help-email').value = '';
+    await api('/api/help', { method:'POST', body: JSON.stringify({
+      name: name || user?.name || 'Anónimo',
+      email: email || user?.email,
+      message: `[${type}] ${msg}`,
+    }) });
+    res_el.innerHTML = '<span style="color:#27ae60;font-weight:700;">✅ Consulta enviada — te respondemos en menos de 24hs</span>';
     document.getElementById('help-msg').value = '';
+    // Reload tickets
+    setTimeout(() => loadHelpTickets(), 800);
   } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);">❌ ${e.message}</span>`; }
 }
 
-// Pre-fill help form if user is logged in
+function switchHelpTab(tab) {
+  const isCust = tab === 'customer';
+  document.getElementById('help-tab-customer').style.cssText = isCust
+    ? 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;'
+    : 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#888;';
+  document.getElementById('help-tab-owner').style.cssText = !isCust
+    ? 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;'
+    : 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#888;';
+  document.getElementById('help-faqs-customer').style.display = isCust ? 'block' : 'none';
+  document.getElementById('help-faqs-owner').style.display = !isCust ? 'block' : 'none';
+  // Update help-type options
+  const sel = document.getElementById('help-type');
+  if (!isCust && sel) sel.value = 'negocio';
+}
+
+async function loadHelpTickets() {
+  if (!user) return;
+  try {
+    const tickets = await api('/api/help/mine');
+    const wrap = document.getElementById('help-my-tickets');
+    const list = document.getElementById('help-tickets-list');
+    if (!tickets?.length) { if (wrap) wrap.style.display = 'none'; return; }
+    if (wrap) wrap.style.display = 'block';
+    list.innerHTML = tickets.map(t => {
+      const date = new Date(t.created_at).toLocaleDateString('es-UY', {day:'2-digit',month:'short'});
+      const statusBadge = t.status === 'resolved'
+        ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">✅ Respondida</span>'
+        : '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">⏳ Pendiente</span>';
+      return `<div style="padding:14px;border-bottom:1px solid #f5f5f5;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div style="font-size:13px;color:#555;flex:1;">${t.message?.substring(0,80)}${t.message?.length > 80 ? '…' : ''}</div>
+          ${statusBadge}
+        </div>
+        <div style="font-size:11px;color:#aaa;">${date}</div>
+        ${t.admin_reply ? `<div style="margin-top:8px;background:#f0fdf4;border-radius:10px;padding:10px 12px;font-size:13px;color:#166534;"><strong>Respuesta:</strong> ${t.admin_reply}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { /* tickets failed silently */ }
+}
+
+async function checkServiceStatus() {
+  const dot = document.getElementById('help-status-dot');
+  const banner = document.getElementById('help-status-banner');
+  try {
+    const r = await fetch('/health');
+    const ok = r.ok;
+    if (dot) dot.style.background = ok ? '#27ae60' : '#e74c3c';
+    if (banner) {
+      banner.style.display = 'flex';
+      if (ok) {
+        banner.style.background = '#f0fdf4'; banner.style.color = '#166534';
+        banner.innerHTML = '✅ Todos los servicios funcionan con normalidad';
+      } else {
+        banner.style.background = '#fef2f2'; banner.style.color = '#dc2626';
+        banner.innerHTML = '⚠️ Estamos experimentando inconvenientes. El equipo ya está al tanto.';
+      }
+    }
+  } catch(e) {
+    if (dot) dot.style.background = '#e74c3c';
+  }
+}
+
 function initHelpPage() {
+  // Pre-fill form if logged in
   if (user) {
     const nameEl = document.getElementById('help-name');
     const emailEl = document.getElementById('help-email');
     if (nameEl && !nameEl.value) nameEl.value = user.name || '';
     if (emailEl && !emailEl.value) emailEl.value = user.email || '';
+    // Auto-switch to owner tab if user is owner
+    if (user.role === 'owner') switchHelpTab('owner');
+    loadHelpTickets();
   }
+  checkServiceStatus();
 }
 
 // ═══════════════════════════════════════════════
