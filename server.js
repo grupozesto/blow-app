@@ -255,6 +255,7 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule_enabled BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_message TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS owner_message_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT NULL;
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -924,9 +925,9 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants } = req.body;
-  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent) WHERE id=$9 AND business_id=$10`,
-    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,req.params.pid,b.id]);
+  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, stock } = req.body;
+  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),stock=CASE WHEN $11::text IS NULL THEN stock ELSE $11::integer END WHERE id=$9 AND business_id=$10`,
+    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,req.params.pid,b.id,stock!==undefined?(stock===null?null:parseInt(stock)):null]);
   if (Array.isArray(photos) && photos.length > 0) {
     const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
     await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
@@ -1183,6 +1184,11 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       const p = await q1('SELECT * FROM products WHERE id=$1 AND business_id=$2 AND is_available=TRUE',[item.product_id,business_id]);
       if (!p) return res.status(400).json({ error:'Producto no disponible' });
       const qty = parseInt(item.quantity)||1;
+      // Stock check
+      if (p.stock !== null && p.stock !== undefined && p.stock < qty) {
+        if (p.stock === 0) return res.status(400).json({ error:`"${p.name}" está sin stock` });
+        return res.status(400).json({ error:`Solo quedan ${p.stock} unidades de "${p.name}"` });
+      }
       let unitPrice = p.price; let variantLabel = '';
       if (item.variant_id) {
         const v = await q1('SELECT * FROM product_variants WHERE id=$1 AND product_id=$2',[item.variant_id,p.id]);
@@ -1259,6 +1265,14 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   }
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
+  // Decrement stock when confirmed
+  if (status==='confirmed') {
+    const items = await db.query('SELECT * FROM order_items WHERE order_id=$1',[order.id]);
+    for (const item of items.rows) {
+      await q('UPDATE products SET stock = stock - $1 WHERE id=$2 AND stock IS NOT NULL AND stock > 0',
+        [item.quantity, item.product_id]);
+    }
+  }
   if (status==='delivered') {
     // Since owner does their own delivery, credit them business + delivery amounts
     const totalOwnerAmount = parseFloat(order.business_amount||0) + parseFloat(order.delivery_amount||0);
