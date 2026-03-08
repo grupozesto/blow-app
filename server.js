@@ -431,6 +431,11 @@ async function initDB() {
     -- Scheduled orders
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_scheduled BOOLEAN DEFAULT FALSE;
+    -- Cash / in-person payment support
+    ALTER TABLE orders  ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'online';
+    ALTER TABLE orders  ADD COLUMN IF NOT EXISTS pay_on_delivery BOOLEAN DEFAULT FALSE;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS accepts_cash    BOOLEAN DEFAULT FALSE;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS accepts_card_pos BOOLEAN DEFAULT FALSE;
     -- Business news / posts
     CREATE TABLE IF NOT EXISTS business_news (
       id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -1395,7 +1400,13 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
     variants: await qa('SELECT * FROM product_variants WHERE product_id=$1 ORDER BY group_name,sort_order',[p.id]),
   })));
   const categories  = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
-  const orders      = await qa(`SELECT o.*,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN users u ON o.customer_id=u.id WHERE o.business_id=$1 ORDER BY o.created_at DESC LIMIT 50`,[b.id]);
+  const rawOrders   = await qa(`SELECT o.*,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN users u ON o.customer_id=u.id WHERE o.business_id=$1 ORDER BY o.created_at DESC LIMIT 50`,[b.id]);
+  // Attach items to each order in one extra query (no N+1)
+  const orderIds    = rawOrders.map(o => o.id);
+  const allItems    = orderIds.length ? await qa(`SELECT * FROM order_items WHERE order_id = ANY($1::text[])`, [orderIds]) : [];
+  const itemsByOrder = {};
+  allItems.forEach(i => { if (!itemsByOrder[i.order_id]) itemsByOrder[i.order_id] = []; itemsByOrder[i.order_id].push(i); });
+  const orders      = rawOrders.map(o => ({ ...o, items: itemsByOrder[o.id] || [] }));
   const wallet      = await q1('SELECT * FROM wallets WHERE owner_id=$1',[b.id]) || { balance:0, id:null };
   const transactions= wallet.id ? await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]) : [];
   const withdrawals = await qa('SELECT * FROM withdrawals WHERE owner_id=$1 ORDER BY created_at DESC',[req.user.id]);
@@ -1411,9 +1422,9 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, lat, lng, delivery_radius_km } = req.body;
-  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),lat=COALESCE($13,lat),lng=COALESCE($14,lng),delivery_radius_km=COALESCE($15,delivery_radius_km) WHERE owner_id=$12`,
-    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id,lat!=null?parseFloat(lat):null,lng!=null?parseFloat(lng):null,delivery_radius_km!=null?parseFloat(delivery_radius_km):null]);
+  const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, lat, lng, delivery_radius_km, accepts_cash, accepts_card_pos } = req.body;
+  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),lat=COALESCE($13,lat),lng=COALESCE($14,lng),delivery_radius_km=COALESCE($15,delivery_radius_km),accepts_cash=COALESCE($16,accepts_cash),accepts_card_pos=COALESCE($17,accepts_card_pos) WHERE owner_id=$12`,
+    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id,lat!=null?parseFloat(lat):null,lng!=null?parseFloat(lng):null,delivery_radius_km!=null?parseFloat(delivery_radius_km):null,accepts_cash!=null?Boolean(accepts_cash):null,accepts_card_pos!=null?Boolean(accepts_card_pos):null]);
   // Auto-geocode address if address changed and no explicit lat/lng provided
   if (address && lat == null && lng == null) {
     try {
@@ -1873,8 +1884,17 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const cust=await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
     const scheduledFor = req.body.scheduled_for ? new Date(req.body.scheduled_for) : null;
     const isScheduled = !!scheduledFor;
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,scheduled_for,is_scheduled) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,scheduledFor,isScheduled]);
+    // Pay-on-delivery: validate the business accepts it
+    const payOnDelivery = !!req.body.pay_on_delivery;
+    const paymentMethod = req.body.payment_method || 'online'; // 'online' | 'cash' | 'card_pos'
+    if (payOnDelivery) {
+      if (paymentMethod === 'cash' && !biz.accepts_cash)
+        return res.status(400).json({ error: 'Este negocio no acepta pago en efectivo' });
+      if (paymentMethod === 'card_pos' && !biz.accepts_card_pos)
+        return res.status(400).json({ error: 'Este negocio no acepta tarjeta en persona' });
+    }
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,scheduled_for,is_scheduled,pay_on_delivery,payment_method) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,scheduledFor,isScheduled,payOnDelivery,paymentMethod]);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -1883,6 +1903,15 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
     const mpReady = mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-');
     const isProduction = process.env.NODE_ENV === 'production';
+
+    // Pay-on-delivery: skip MP, confirm order immediately
+    if (payOnDelivery) {
+      await q(`UPDATE orders SET status='confirmed', confirmed_at=NOW() WHERE id=$1`, [orderId]);
+      notify(biz.owner_id, { type:'new_order', message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total} (pago al recibir)`, order_id:orderId, total });
+      notify(req.user.id, { type:'status_change', message:'✅ Pedido confirmado. Pagás al recibir.', status:'confirmed', order_id:orderId });
+      return res.json({ order_id:orderId, pay_on_delivery:true });
+    }
+
     if (mpReady) {
       const pref = await mp.preferences.create({
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
@@ -2153,6 +2182,36 @@ app.post('/api/orders/:id/review', auth, role('customer'), async (req, res) => {
 // Get reviews for a business (public)
 
 // ── Global search ──────────────────────────────────────────
+// ── Wallet summary — split online vs in-person ──────────
+app.get('/api/owner/wallet-summary', auth, role('owner'), async (req, res) => {
+  const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!b) return res.status(404).json({ error: 'Sin negocio' });
+  const wallet = await q1('SELECT balance FROM wallets WHERE owner_id=$1', [b.id]) || { balance: 0 };
+  const inPerson = await q1(`
+    SELECT
+      COALESCE(SUM(CASE WHEN payment_method='cash'     THEN total ELSE 0 END),0) as cash_total,
+      COALESCE(SUM(CASE WHEN payment_method='card_pos' THEN total ELSE 0 END),0) as card_pos_total,
+      COUNT(*) FILTER (WHERE pay_on_delivery=TRUE AND status='delivered') as in_person_orders
+    FROM orders
+    WHERE business_id=$1 AND pay_on_delivery=TRUE AND status='delivered'
+  `, [b.id]);
+  const today = await q1(`
+    SELECT
+      COALESCE(SUM(CASE WHEN pay_on_delivery=FALSE THEN total ELSE 0 END),0) as online_today,
+      COALESCE(SUM(CASE WHEN pay_on_delivery=TRUE  THEN total ELSE 0 END),0) as in_person_today
+    FROM orders
+    WHERE business_id=$1 AND status='delivered' AND DATE(created_at)=CURRENT_DATE
+  `, [b.id]);
+  res.json({
+    online_balance:   parseFloat(wallet.balance) || 0,
+    cash_total:       parseFloat(inPerson.cash_total) || 0,
+    card_pos_total:   parseFloat(inPerson.card_pos_total) || 0,
+    in_person_orders: parseInt(inPerson.in_person_orders) || 0,
+    online_today:     parseFloat(today.online_today) || 0,
+    in_person_today:  parseFloat(today.in_person_today) || 0,
+  });
+});
+
 app.get('/api/search', async (req, res) => {
   try {
     const rawQ = (req.query.q || '').trim();
