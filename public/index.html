@@ -436,8 +436,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 :root { --owner-dark:#111827; --owner-accent:#FA0050; }
 
 /* Transition overlay */
-#owner-transition{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
-#owner-transition.entering{opacity:1;pointer-events:auto;}
+#owner-transition{position:fixed;inset:0;z-index:10000;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
+#owner-transition.entering{opacity:1;pointer-events:auto;display:flex;}
 #owner-transition.exiting{opacity:1;pointer-events:auto;}
 #owner-transition-icon{font-size:56px;margin-bottom:12px;transform:scale(.7);transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
 #owner-transition.entering #owner-transition-icon{transform:scale(1);}
@@ -449,7 +449,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 #owner-app.active{display:flex;}
 
 /* Owner top bar */
-#owner-topbar{background:var(--owner-dark);padding:0 16px;padding-top:env(safe-area-inset-top,0);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;min-height:56px;}
+#owner-topbar{background:var(--owner-dark);padding:0 16px;padding-top:max(env(safe-area-inset-top,0px),12px);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;min-height:64px;}
 #owner-topbar-title{font-size:16px;font-weight:900;color:#fff;display:flex;align-items:center;gap:8px;}
 #owner-topbar-status{display:flex;align-items:center;gap:8px;}
 .owner-status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;}
@@ -460,7 +460,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 #owner-topbar-toggle.closed{background:#ef4444;}
 
 /* Owner KPI strip */
-#owner-kpi-strip{background:var(--owner-dark);padding:0 16px 16px;display:flex;gap:10px;flex-shrink:0;}
+#owner-kpi-strip{background:var(--owner-dark);padding:4px 16px 20px;display:flex;gap:10px;flex-shrink:0;}
 .owner-kpi-card{flex:1;background:rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center;}
 .owner-kpi-val{font-size:22px;font-weight:900;color:#fff;line-height:1;}
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
@@ -819,6 +819,35 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   .banner-slide{min-height:160px;}
   .nb{padding:6px 8px;min-width:46px;font-size:9px;}
 }
+
+/* ══ MODE SWITCHING ══════════════════════════════
+   body.owner-mode  → hide ALL client UI
+   body (default)   → normal client UI
+════════════════════════════════════════════════ */
+body.owner-mode .bottom-nav,
+body.owner-mode .sidebar,
+body.owner-mode #page-home,
+body.owner-mode #page-store,
+body.owner-mode #page-cart,
+body.owner-mode #page-tracking,
+body.owner-mode #page-profile,
+body.owner-mode #page-delivery,
+body.owner-mode #page-user-blowplus,
+body.owner-mode #page-owner-login,
+body.owner-mode #page-owner-plans,
+body.owner-mode #page-owner-dash,
+body.owner-mode #page-favorites,
+body.owner-mode #page-personal-info,
+body.owner-mode #page-coupons,
+body.owner-mode #page-help,
+body.owner-mode #page-admin,
+body.owner-mode .search-bar,
+/* owner-transition is controlled manually via JS */
+
+/* Owner app: hidden by default, shown in owner-mode */
+#owner-app { display: none; }
+body.owner-mode #owner-app { display: flex !important; }
+
 </style>
 </head>
 <body>
@@ -5631,45 +5660,40 @@ async function enterOwnerMode(animate = true) {
   if (_ownerAppActive) return;
   _ownerAppActive = true;
 
+  // Load biz data
+  try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
+
   if (animate) {
-    // Transition animation
+    // Flash transition — show dark screen, then switch
     const overlay = document.getElementById('owner-transition');
     const icon    = document.getElementById('owner-transition-icon');
     const label   = document.getElementById('owner-transition-label');
     const sub     = document.getElementById('owner-transition-sub');
     if (overlay) {
-      label.textContent = 'Entrando a tu negocio';
-      sub.textContent   = 'Preparando todo...';
-      overlay.classList.add('entering');
-      await new Promise(r => setTimeout(r, 700));
-    }
-    // Load biz data during transition
-    try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
-    if (overlay) {
       if (_ownerBiz) {
         icon.textContent  = _ownerBiz.logo_emoji || '🏪';
         label.textContent = _ownerBiz.name;
-        sub.textContent   = 'Todo listo 🎉';
+        sub.textContent   = 'Abriendo panel de gestión...';
       }
-      await new Promise(r => setTimeout(r, 500));
+      // Temporarily show overlay BEFORE switching modes
+      overlay.style.display = 'flex';
+      overlay.classList.add('entering');
+      await new Promise(r => setTimeout(r, 900));
+      // NOW switch to owner mode (body class change)
+      document.body.classList.add('owner-mode');
+      await new Promise(r => setTimeout(r, 100));
       overlay.classList.remove('entering');
-      await new Promise(r => setTimeout(r, 350));
+      overlay.style.display = '';
+    } else {
+      document.body.classList.add('owner-mode');
     }
   } else {
-    try { _ownerBiz = await api('/api/businesses/mine'); } catch(e) {}
+    document.body.classList.add('owner-mode');
   }
 
-  // Show owner app, hide client bottom nav
-  const app = document.getElementById('owner-app');
-  const clientNav = document.querySelector('.bottom-nav');
-  if (app) app.classList.add('active');
-  if (clientNav) clientNav.style.display = 'none';
-
-  // Populate top bar
+  // Populate top bar & load content
   ownerAppUpdateTopbar();
-  // Load active tab
   ownerAppTab(_ownerAppTab, false);
-  // Start polling for new orders
   ownerAppStartPolling();
   haptic('medium');
 }
@@ -5677,29 +5701,30 @@ async function enterOwnerMode(animate = true) {
 async function exitOwnerMode() {
   if (!_ownerAppActive) return;
 
-  // Transition out
+  // Flash transition out
   const overlay = document.getElementById('owner-transition');
+  const icon    = document.getElementById('owner-transition-icon');
   const label   = document.getElementById('owner-transition-label');
   const sub     = document.getElementById('owner-transition-sub');
-  const icon    = document.getElementById('owner-transition-icon');
   if (overlay) {
-    icon.textContent  = '💨';
+    icon.textContent  = '⚡';
     label.textContent = 'Volviendo a Blow';
     sub.textContent   = '';
-    overlay.classList.add('exiting');
+    overlay.style.display = 'flex';
+    overlay.classList.add('entering');
     await new Promise(r => setTimeout(r, 600));
-    overlay.classList.remove('exiting');
-    await new Promise(r => setTimeout(r, 350));
+    // Switch back to client mode
+    document.body.classList.remove('owner-mode');
+    await new Promise(r => setTimeout(r, 100));
+    overlay.classList.remove('entering');
+    overlay.style.display = '';
+  } else {
+    document.body.classList.remove('owner-mode');
   }
 
   _ownerAppActive = false;
+  _ownerBiz = null;
   ownerAppStopPolling();
-
-  const app = document.getElementById('owner-app');
-  const clientNav = document.querySelector('.bottom-nav');
-  if (app) app.classList.remove('active');
-  if (clientNav) clientNav.style.display = '';
-
   nav('page-home');
   haptic('light');
 }
@@ -5721,16 +5746,12 @@ function ownerAppUpdateTopbar() {
 
 async function ownerAppUpdateKpis() {
   try {
-    const data = await api('/api/owner/stats/history?days=1');
-    const s = data.summary || {};
+    const d = await api('/api/businesses/mine/dashboard');
     const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
-    el('oa-kpi-orders',  s.orders  || '0');
-    el('oa-kpi-revenue', s.revenue ? `$${Math.round(s.revenue)}` : '$0');
-    // Pending orders count
-    const orders = await api('/api/orders');
-    const pending = (orders || []).filter(o => ['confirmed','preparing','ready'].includes(o.status)).length;
+    el('oa-kpi-orders',  d.today?.orders  || '0');
+    el('oa-kpi-revenue', d.today?.revenue ? `$${Math.round(d.today.revenue)}` : '$0');
+    const pending = (d.orders||[]).filter(o => !['delivered','cancelled'].includes(o.status)).length;
     el('oa-kpi-pending', pending);
-    // Badge
     const badge = document.getElementById('oa-badge-orders');
     if (badge) { badge.textContent = pending; badge.className = pending > 0 ? 'owner-nb-badge show' : 'owner-nb-badge'; }
   } catch(e) {}
@@ -5763,62 +5784,96 @@ async function ownerAppLoadPanel(tab) {
 async function ownerAppRenderOrders() {
   const panel = document.getElementById('oa-panel-orders');
   if (!panel) return;
-  panel.innerHTML = `<div style="padding:16px;">${skelTrackingCards(3)}</div>`;
+  panel.innerHTML = `<div style="padding:20px 16px;display:flex;flex-direction:column;gap:12px;">${skelTrackingCards(3)}</div>`;
   try {
-    const orders = await api('/api/orders');
-    const active = (orders||[]).filter(o => !['delivered','cancelled'].includes(o.status));
-    const done   = (orders||[]).filter(o => o.status === 'delivered').slice(0,10);
+    // Use the same dashboard endpoint as the old panel — has items, customer_name, etc.
+    const d = await api('/api/businesses/mine/dashboard');
+    const orders = d.orders || [];
+
+    // Update KPIs while we have the data
+    const el = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+    el('oa-kpi-orders',  d.today?.orders  || '0');
+    el('oa-kpi-revenue', d.today?.revenue ? `$${Math.round(d.today.revenue)}` : '$0');
+    const pendingCount = orders.filter(o => !['delivered','cancelled'].includes(o.status)).length;
+    el('oa-kpi-pending', pendingCount);
+    const badge = document.getElementById('oa-badge-orders');
+    if (badge) { badge.textContent = pendingCount; badge.className = pendingCount > 0 ? 'owner-nb-badge show' : 'owner-nb-badge'; }
+
+    // Load items for each order
+    const ordersWithItems = await Promise.all(orders.map(async o => {
+      try {
+        const full = await api(`/api/orders/${o.id}`);
+        return { ...o, items: full.items || [] };
+      } catch(e) { return { ...o, items: [] }; }
+    }));
+
+    const active = ordersWithItems.filter(o => !['delivered','cancelled'].includes(o.status));
+    const done   = ordersWithItems.filter(o => o.status === 'delivered').slice(0, 8);
+
     if (!active.length && !done.length) {
-      panel.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#aaa;"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="font-size:15px;font-weight:700;">Sin pedidos aún</div><div style="font-size:13px;margin-top:6px;">Cuando lleguen, aparecen acá</div></div>`;
+      panel.innerHTML = `
+        <div style="text-align:center;padding:72px 24px;">
+          <div style="font-size:56px;margin-bottom:16px;">📭</div>
+          <div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:8px;">Sin pedidos todavía</div>
+          <div style="font-size:14px;color:#aaa;line-height:1.5;">Cuando llegue un pedido<br>lo ves acá al instante</div>
+        </div>`;
       return;
     }
-    let html = '';
+
+    let html = '<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">';
     if (active.length) {
-      html += `<div style="padding:16px 16px 8px;font-size:13px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">Activos (${active.length})</div>`;
-      html += active.map(o => ownerAppOrderCard(o, true)).join('');
+      html += `<div style="font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding:4px 0 2px;">🔥 Activos · ${active.length}</div>`;
+      html += active.map(o => ownerAppOrderCard(o)).join('');
     }
     if (done.length) {
-      html += `<div style="padding:16px 16px 8px;font-size:13px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">Completados hoy</div>`;
-      html += done.map(o => ownerAppOrderCard(o, false)).join('');
+      html += `<div style="font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding:12px 0 2px;">✅ Completados hoy</div>`;
+      html += done.map(o => ownerAppOrderCard(o)).join('');
     }
+    html += '</div>';
     panel.innerHTML = html;
-  } catch(e) { panel.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+  } catch(e) { panel.innerHTML = `<div style="padding:24px;color:#e74c3c;font-size:14px;">${e.message}</div>`; }
 }
 
-const OA_STATUS = { pending:'Esperando pago', confirmed:'Confirmado ✅', preparing:'Preparando 👨‍🍳', ready:'Listo 📦', on_way:'En camino 🛵', delivered:'Entregado ✅', cancelled:'Cancelado ❌' };
-const OA_STATUS_COLOR = { pending:'#aaa', confirmed:'#3b82f6', preparing:'#f59e0b', ready:'#8b5cf6', on_way:'#FA0050', delivered:'#22c55e', cancelled:'#ef4444' };
+const OA_STATUS = { pending:'Esperando pago', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo para enviar', on_way:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
+const OA_STATUS_ICON = { pending:'⏳', confirmed:'✅', preparing:'👨‍🍳', ready:'📦', on_way:'🛵', delivered:'🏁', cancelled:'❌' };
+const OA_STATUS_COLOR = { pending:'#94a3b8', confirmed:'#3b82f6', preparing:'#f59e0b', ready:'#8b5cf6', on_way:'#FA0050', delivered:'#22c55e', cancelled:'#ef4444' };
 
-function ownerAppOrderCard(o, isActive) {
+function ownerAppOrderCard(o) {
   const items = (o.items||[]).map(i => `${i.quantity}× ${i.name}`).join(', ');
   const color = OA_STATUS_COLOR[o.status] || '#aaa';
   const label = OA_STATUS[o.status] || o.status;
+  const icon  = OA_STATUS_ICON[o.status] || '•';
   const time  = new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
   const actions = ownerAppOrderActions(o);
   return `
-    <div style="margin:8px 16px;background:#fff;border-radius:16px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid ${color};">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
-          <span style="font-size:15px;font-weight:800;">#${o.id.slice(-6).toUpperCase()}</span>
-          <span style="font-size:12px;color:#aaa;margin-left:8px;">${time}</span>
-        </div>
-        <span style="font-size:11px;font-weight:800;color:${color};background:${color}18;border-radius:20px;padding:3px 10px;">${label}</span>
+    <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);">
+      <div style="background:${color};padding:10px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:.2px;">${icon} ${label}</span>
+        <span style="font-size:12px;color:rgba(255,255,255,.8);">${time}</span>
       </div>
-      <div style="font-size:13px;color:#555;margin-bottom:4px;">${o.customer_name || 'Cliente'}</div>
-      <div style="font-size:12px;color:#aaa;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${items}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:16px;font-weight:900;">$${o.total}</span>
-        <div style="display:flex;gap:8px;">${actions}</div>
+      <div style="padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#1a1a1a;">${o.customer_name || 'Cliente'}</div>
+            <div style="font-size:12px;color:#bbb;margin-top:2px;font-weight:600;">#${o.id.slice(-6).toUpperCase()}</div>
+          </div>
+          <div style="font-size:22px;font-weight:900;color:#1a1a1a;">$${o.total}</div>
+        </div>
+        ${items ? `<div style="font-size:13px;color:#666;background:#f8f8f8;border-radius:12px;padding:10px 12px;margin-bottom:12px;line-height:1.6;">${items}</div>` : ''}
+        ${o.delivery_address ? `<div style="font-size:12px;color:#999;margin-bottom:12px;display:flex;gap:6px;align-items:flex-start;"><span>📍</span><span style="line-height:1.4;">${o.delivery_address}</span></div>` : ''}
+        ${actions ? `<div style="display:flex;gap:8px;justify-content:flex-end;">${actions}</div>` : ''}
       </div>
     </div>`;
 }
 
 function ownerAppOrderActions(o) {
-  const btn = (label, color, fn) => `<button onclick="${fn}" style="background:${color};border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">${label}</button>`;
-  if (o.status === 'confirmed') return btn('✅ Preparar', '#3b82f6', `ownerAppChangeStatus('${o.id}','preparing')`);
+  if (o.status === 'delivered' || o.status === 'cancelled') return '';
+  const btn = (label, color, fn) => `<button onclick="${fn}" style="background:${color};border:none;border-radius:12px;padding:10px 18px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">${label}</button>`;
+  if (o.status === 'pending')   return btn('✅ Confirmar', '#22c55e', `ownerAppAcceptOrder('${o.id}','${o.business_id}')`);
+  if (o.status === 'confirmed') return btn('👨‍🍳 Preparar', '#3b82f6', `ownerAppChangeStatus('${o.id}','preparing')`);
   if (o.status === 'preparing') return btn('📦 Listo', '#8b5cf6', `ownerAppChangeStatus('${o.id}','ready')`);
   if (o.status === 'ready')     return btn('🛵 En camino', '#FA0050', `ownerAppChangeStatus('${o.id}','on_way')`);
   if (o.status === 'on_way')    return btn('🏁 Entregado', '#22c55e', `ownerAppChangeStatus('${o.id}','delivered')`);
-  if (o.status === 'pending')   return btn('✅ Confirmar', '#22c55e', `ownerAppAcceptOrder('${o.id}','${o.business_id}')`);
   return '';
 }
 
