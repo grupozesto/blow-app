@@ -85,6 +85,27 @@ wss.on('connection', ws => {
 function notify(userId, payload) {
   const ws = clients.get(userId);
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
+  // Also send push notification (works when app is closed)
+  // Map event types to human-readable push titles/bodies
+  const pushMap = {
+    new_order:       { title: '🛍️ Nuevo pedido', body: payload.message },
+    order_cancelled: { title: '❌ Pedido cancelado', body: payload.message },
+    status_change:   { title: '📦 Tu pedido fue actualizado', body: payload.message },
+    owner_message:   { title: `💬 ${payload.business_name || 'Tu negocio'}`, body: payload.message },
+    refund_issued:   { title: '💸 Reembolso procesado', body: payload.message },
+  };
+  const push = pushMap[payload.type];
+  if (push) {
+    sendPush(userId, {
+      title: push.title,
+      body: push.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-72.png',
+      tag: payload.order_id || payload.type,
+      url: payload.order_id ? `/?order=${payload.order_id}` : '/',
+      data: payload,
+    }).catch(() => {});
+  }
 }
 
 // ── PostgreSQL ─────────────────────────────────
@@ -263,6 +284,18 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_id TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ DEFAULT NULL;
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -482,6 +515,62 @@ try {
     console.log('✅ MercadoPago listo');
   } else { console.warn('⚠️  MP_ACCESS_TOKEN no configurado'); }
 } catch(e) { console.warn('⚠️  mercadopago no instalado'); }
+
+let mp = null;
+try {
+  mp = require('mercadopago');
+  if (process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
+    mp.configure({ access_token: process.env.MP_ACCESS_TOKEN });
+    console.log('✅ MercadoPago listo');
+  } else { console.warn('⚠️  MP_ACCESS_TOKEN no configurado'); }
+} catch(e) { console.warn('⚠️  mercadopago no instalado'); }
+
+// ── Web Push / VAPID ──────────────────────────
+let webpush = null;
+let VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || null;
+let VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || null;
+
+async function initVapid() {
+  try {
+    webpush = require('web-push');
+    // Load or generate VAPID keys from DB
+    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+      const row = await q1("SELECT value FROM app_settings WHERE key='vapid_public'");
+      const row2 = await q1("SELECT value FROM app_settings WHERE key='vapid_private'");
+      if (row && row2) {
+        VAPID_PUBLIC = row.value; VAPID_PRIVATE = row2.value;
+      } else {
+        const keys = webpush.generateVAPIDKeys();
+        VAPID_PUBLIC = keys.publicKey; VAPID_PRIVATE = keys.privateKey;
+        await q("INSERT INTO app_settings (key,value) VALUES ('vapid_public',$1),('vapid_private',$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
+          [VAPID_PUBLIC, VAPID_PRIVATE]);
+        console.log('✅ VAPID keys generated');
+      }
+    }
+    webpush.setVapidDetails(`mailto:hola@blow.uy`, VAPID_PUBLIC, VAPID_PRIVATE);
+    console.log('✅ Web Push listo');
+  } catch(e) { console.warn('⚠️  web-push no disponible:', e.message); }
+}
+
+async function sendPush(userId, payload) {
+  if (!webpush) return;
+  try {
+    const subs = await qa('SELECT * FROM push_subscriptions WHERE user_id=$1', [userId]);
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch(e) {
+        // 410 Gone = subscription expired, remove it
+        if (e.statusCode === 410 || e.statusCode === 404) {
+          await q('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]);
+        }
+      }
+    }
+  } catch(e) { console.error('sendPush error:', e.message); }
+}
 
 // ── Middlewares ───────────────────────────────
 
@@ -767,6 +856,32 @@ app.get('/api/businesses', async (req, res) => {
 });
 
 // Public APIs
+// ── Push notifications ────────────────────────
+app.get('/api/push/vapid-key', (req, res) => {
+  if (!VAPID_PUBLIC) return res.status(503).json({ error: 'Push no disponible' });
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+app.post('/api/push/subscribe', auth, async (req, res) => {
+  const { endpoint, keys } = req.body;
+  if (!endpoint || !keys?.p256dh || !keys?.auth)
+    return res.status(400).json({ error: 'Suscripción inválida' });
+  try {
+    await q(`INSERT INTO push_subscriptions (id,user_id,endpoint,p256dh,auth)
+      VALUES ($1,$2,$3,$4,$5)
+      ON CONFLICT (endpoint) DO UPDATE SET user_id=$2, p256dh=$4, auth=$5`,
+      [uuid(), req.user.id, endpoint, keys.p256dh, keys.auth]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/push/subscribe', auth, async (req, res) => {
+  const { endpoint } = req.body;
+  if (endpoint) await q('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, req.user.id]);
+  else await q('DELETE FROM push_subscriptions WHERE user_id=$1', [req.user.id]);
+  res.json({ ok: true });
+});
+
 app.get('/api/plans', async (_, res) => {
   const plans = await qa('SELECT * FROM subscription_plans WHERE is_active=TRUE ORDER BY sort_order',[]);
   res.json(plans.map(p => ({
@@ -2577,7 +2692,8 @@ app.get('/api/public/plan-price', async (req,res)=>{
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 // ── Start ─────────────────────────────────────
-initDB().then(()=>{
+initDB().then(async ()=>{
+  await initVapid();
   server.listen(PORT,()=>{
     console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
     console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
