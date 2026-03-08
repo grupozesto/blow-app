@@ -4838,6 +4838,7 @@ function stopRiderTracking() {
   }
 
   document.addEventListener('touchstart', e => {
+    if (typeof _ownerAppActive !== 'undefined' && _ownerAppActive) return;
     const el = getScrollEl();
     if (el.scrollTop > 0) return;
     startY = e.touches[0].clientY;
