@@ -5835,7 +5835,8 @@ async function openOwnerPanel(tabId) {
   if (ownerDash.parentElement !== legacyContent) {
     legacyContent.appendChild(ownerDash);
   }
-  ownerDash.style.display = 'block';
+  ownerDash.classList.add('active');
+  ownerDash.style.display = '';
   if (titleEl) titleEl.textContent = LEGACY_TAB_LABELS[tabId] || 'Panel';
 
   overlay.classList.add('open');
@@ -5859,7 +5860,7 @@ function closeLegacyPanel() {
   if (ownerDash && ownerDash.parentElement !== document.body) {
     document.body.appendChild(ownerDash);
   }
-  if (ownerDash) ownerDash.style.display = '';
+  if (ownerDash) { ownerDash.classList.remove('active'); ownerDash.style.display = ''; }
 
   haptic('light');
 }
