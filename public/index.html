@@ -3538,8 +3538,9 @@ async function loadTracking() {
           <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
         </div>
         ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
-        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\\'")}\')" style="width:100%;margin-top:10px;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
+        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\\'")}')" style="width:100%;margin-top:10px;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}  
         ${o.status==='delivered' && o.has_review?`<div style="text-align:center;margin-top:10px;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
+        ${o.status==='delivered'?`<button onclick='reorderFromOrder(${JSON.stringify(o).replace(/'/g,"&apos;")})' style="width:100%;margin-top:8px;background:#f5f5f5;border:none;border-radius:10px;padding:11px;color:#1a1a1a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔁 Repetir pedido</button>`:''}
       </div>`;
     }).join('');
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
@@ -3549,6 +3550,56 @@ async function cancelOrder(id) {
   if (!confirm('¿Cancelar este pedido?')) return;
   try { await api(`/api/orders/${id}/cancel`,{method:'POST'}); showToast('✅ Pedido cancelado'); loadTracking(); }
   catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function reorderFromOrder(order) {
+  if (!order.items || !order.items.length) { showToast('❌ No hay items en este pedido'); return; }
+  try {
+    showToast('⏳ Preparando tu pedido...');
+    // Load current business + products to get fresh prices
+    const biz = await api(`/api/businesses/${order.business_id}`);
+    if (!biz) { showToast('❌ El negocio ya no está disponible'); return; }
+    if (!biz.is_open) {
+      showToast(`❌ ${biz.name} está cerrado ahora`);
+      return;
+    }
+    // Clear cart and set store
+    cart = [];
+    currentStoreForCart = biz;
+    currentBizId = biz.id;
+    // Match each order item to current product (by id), use current price
+    let added = 0;
+    let unavailable = [];
+    for (const item of order.items) {
+      const currentProd = biz.products?.find(p => p.id === item.product_id);
+      if (!currentProd || !currentProd.is_available) {
+        unavailable.push(item.name);
+        continue;
+      }
+      for (let i = 0; i < item.quantity; i++) {
+        addToCart({
+          ...currentProd,
+          biz_id: biz.id,
+          cart_key: `${currentProd.id}_base`,
+        });
+      }
+      added++;
+    }
+    saveCart();
+    updateCartBadge();
+    if (added === 0) {
+      showToast('❌ Ningún producto está disponible actualmente');
+      return;
+    }
+    if (unavailable.length) {
+      showToast(`⚠️ ${unavailable.join(', ')} no disponible — resto agregado`);
+    } else {
+      showToast(`✅ ${added} producto${added>1?'s':''} agregado${added>1?'s':''} al carrito`);
+    }
+    nav('page-cart');
+  } catch(e) {
+    showToast(`❌ ${e.message}`);
+  }
 }
 
 let _reviewOrderId = null;
