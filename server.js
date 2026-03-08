@@ -1353,6 +1353,64 @@ app.post('/api/orders/:id/review', auth, role('customer'), async (req, res) => {
 });
 
 // Get reviews for a business (public)
+
+// ── Global search ──────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q || q.length < 2) return res.json({ products: [], businesses: [] });
+    const { city, department } = req.query;
+    const like = `%${q.toLowerCase()}%`;
+
+    // Build location filter
+    let locFilter = "";
+    const params = [like, like];
+    let pi = 3;
+    if (city)       { locFilter += ` AND LOWER(b.city)=LOWER($${pi++})`;       params.push(city); }
+    if (department) { locFilter += ` AND LOWER(b.department)=LOWER($${pi++})`; params.push(department); }
+
+    // Products: search name + description, join with business
+    const products = await db.query(`
+      SELECT p.id, p.name, p.description, p.price, p.emoji, p.photo_url,
+             p.discount_percent, p.is_available, p.stock,
+             b.id as business_id, b.name as business_name, b.logo_emoji,
+             b.logo_url, b.is_open, b.delivery_cost, b.delivery_time, b.category
+      FROM products p
+      JOIN businesses b ON p.business_id = b.id
+      LEFT JOIN subscriptions s ON s.business_id = b.id
+      WHERE (s.status = 'active' OR s.id IS NULL)
+        AND b.is_active = TRUE
+        AND p.is_available = TRUE
+        AND (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $2)
+        ${locFilter}
+      ORDER BY b.is_open DESC, b.blow_plus DESC NULLS LAST, p.name ASC
+      LIMIT 30
+    `, params);
+
+    // Businesses: search name + category + tags
+    const bizParams = [like, like, like];
+    let bizLocFilter = "";
+    let bpi = 4;
+    if (city)       { bizLocFilter += ` AND LOWER(b.city)=LOWER($${bpi++})`;       bizParams.push(city); }
+    if (department) { bizLocFilter += ` AND LOWER(b.department)=LOWER($${bpi++})`; bizParams.push(department); }
+
+    const businesses = await db.query(`
+      SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url,
+             b.is_open, b.delivery_cost, b.delivery_time, b.rating, b.review_count
+      FROM businesses b
+      LEFT JOIN subscriptions s ON s.business_id = b.id
+      WHERE (s.status = 'active' OR s.id IS NULL)
+        AND b.is_active = TRUE
+        AND (LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $2 OR LOWER(b.tags::text) LIKE $3)
+        ${bizLocFilter}
+      ORDER BY b.is_open DESC, b.blow_plus DESC NULLS LAST
+      LIMIT 10
+    `, bizParams);
+
+    res.json({ products: products.rows, businesses: businesses.rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/businesses/:id/reviews', async (req, res) => {
   try {
     const reviews = await qa(`
