@@ -433,7 +433,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 /* ----------------------------------------------
    OWNER APP — Experiencia separada
 ---------------------------------------------- */
-:root { --owner-dark:#111827; --owner-accent:#FA0050; }
+:root { --owner-dark:#111827;--owner-blue:#2563eb;--owner-blue-light:#eff6ff;--owner-blue-mid:#1d4ed8; --owner-accent:#FA0050; }
 
 /* Transition overlay */
 #owner-transition{position:fixed;inset:0;z-index:10000;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
@@ -449,7 +449,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 body.owner-mode #owner-app{display:flex;}
 
 /* Owner top bar */
-#owner-topbar{background:var(--owner-dark);padding:0 20px;padding-top:calc(env(safe-area-inset-top,0px) + 16px);padding-bottom:14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+#owner-topbar{background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:0 20px;padding-top:calc(env(safe-area-inset-top,0px) + 16px);padding-bottom:14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
 #owner-topbar-title{font-size:16px;font-weight:900;color:#fff;display:flex;align-items:center;gap:8px;}
 #owner-topbar-status{display:flex;align-items:center;gap:8px;}
 .owner-status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;}
@@ -460,7 +460,7 @@ body.owner-mode #owner-app{display:flex;}
 #owner-topbar-toggle.closed{background:#ef4444;}
 
 /* Owner KPI strip */
-#owner-kpi-strip{background:var(--owner-dark);padding:0 20px 20px;display:flex;gap:10px;flex-shrink:0;}
+#owner-kpi-strip{background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:0 20px 20px;display:flex;gap:10px;flex-shrink:0;}
 .owner-kpi-card{flex:1;background:rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center;}
 .owner-kpi-val{font-size:22px;font-weight:900;color:#fff;line-height:1;}
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
@@ -473,9 +473,9 @@ body.owner-mode #owner-app{display:flex;}
 #owner-bottom-nav{background:#fff;border-top:1px solid #f0f0f0;display:flex;padding-bottom:env(safe-area-inset-bottom,0);flex-shrink:0;box-shadow:0 -2px 12px rgba(0,0,0,.06);}
 .owner-nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;background:none;border:none;cursor:pointer;font-family:inherit;color:#aaa;font-size:10px;font-weight:600;gap:4px;transition:color .15s;position:relative;}
 .owner-nb svg{width:22px;height:22px;}
-.owner-nb.active{color:var(--owner-dark);}
-.owner-nb.active svg{stroke:var(--owner-dark);}
-.owner-nb-badge{position:absolute;top:6px;right:calc(50% - 16px);background:var(--owner-accent);color:#fff;border-radius:99px;font-size:10px;font-weight:800;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px;display:none;}
+.owner-nb.active{color:#2563eb;}
+.owner-nb.active svg{stroke:#2563eb;}
+.owner-nb-badge{position:absolute;top:6px;right:calc(50% - 16px);background:#2563eb;color:#fff;border-radius:99px;font-size:10px;font-weight:800;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px;display:none;}
 .owner-nb-badge.show{display:flex;}
 
 /* Owner tab panels */
@@ -854,7 +854,13 @@ body.owner-mode .search-bar { display: none !important; }
 #oa-topbar-back.visible{display:flex;}
 .oa-sub-header{flex-shrink:0;display:flex;align-items:center;gap:12px;padding:16px 16px 12px;background:#fff;border-bottom:1px solid #f0f0f0;position:sticky;top:0;z-index:5;}
 .oa-sub-title{font-size:17px;font-weight:900;color:#1a1a1a;flex:1;}
-.oa-sub-back{background:#f5f5f5;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.oa-sub-back{background:#eff6ff;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+
+
+/* ===== OWNER APP - BLUE THEME ===== */
+#owner-app { --primary: #2563eb; }
+#owner-app button[style*="var(--primary)"] { background: #2563eb; }
+
 
 </style>
 </head>
@@ -5976,7 +5982,7 @@ function ownerUpdateCarouselDots(carouselId, dotsId) {
   dots.forEach((d, i) => {
     const active = i === idx;
     d.style.width      = active ? '18px' : '6px';
-    d.style.background = active ? '#FA0050' : '#d1d5db';
+    d.style.background = active ? '#2563eb' : '#bfdbfe';
   });
 }
 function ownerCarouselGoTo(carouselId, dotsId, idx) {
@@ -6591,7 +6597,7 @@ async function ownerAppRenderPromos(body) {
     const promos = await api('/api/businesses/mine/promotions');
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 8px;">
       <div style="font-size:15px;font-weight:800;">Mis promociones</div>
-      <button onclick="openPromoModal()" style="background:var(--primary);border:none;border-radius:12px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Nueva</button>
+      <button onclick="openPromoModal()" style="background:var(--owner-blue);border:none;border-radius:12px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Nueva</button>
     </div>`;
     if (!promos.length) {
       html += `<div style="background:#fff;border-radius:16px;padding:40px 20px;text-align:center;">
@@ -6626,10 +6632,22 @@ async function ownerAppRenderPromos(body) {
 async function ownerAppRenderSettings(body) {
   body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
   try {
-    const [biz, sched] = await Promise.all([
-      api('/api/businesses/mine'),
-      api('/api/businesses/mine/schedule').catch(() => ({})),
-    ]);
+    // Use cached biz data if available, refresh in background
+    let biz = _ownerBiz || {};
+    let sched = {};
+    try {
+      const [freshBiz, freshSched] = await Promise.all([
+        api('/api/businesses/mine'),
+        api('/api/businesses/mine/schedule').catch(() => ({})),
+      ]);
+      biz = freshBiz;
+      sched = freshSched;
+      _ownerBiz = biz; // update cache
+    } catch(fetchErr) {
+      if (!biz.id) throw fetchErr; // no cache either, real error
+      // else use cache silently
+      sched = {};
+    }
     const days = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
     const schedule = sched.schedule || {};
 
@@ -6658,7 +6676,7 @@ async function ownerAppRenderSettings(body) {
             <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Tiempo de entrega</div>
             <input id="oas-biz-time" class="form-input" type="text" value="${biz.delivery_time||''}" placeholder="Ej: 30-45 min" style="margin:0;">
           </div>
-          <button onclick="oasSaveBizInfo()" style="background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;">Guardar cambios</button>
+          <button onclick="oasSaveBizInfo()" style="background:var(--owner-blue);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;">Guardar cambios</button>
         </div>
       </div>
 
@@ -6723,7 +6741,7 @@ async function ownerAppRenderSettings(body) {
             <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Costo de delivery</div>
             <div style="display:flex;gap:8px;">
               <input class="form-input" id="oas-delivery-cost" type="number" min="0" value="${biz.delivery_cost||0}" style="flex:1;margin:0;" placeholder="0 = gratis">
-              <button onclick="oasSaveDeliveryCost()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px;">✓</button>
+              <button onclick="oasSaveDeliveryCost()" style="background:var(--owner-blue);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px;">✓</button>
             </div>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
@@ -6752,7 +6770,7 @@ async function ownerAppRenderSettings(body) {
               <input type="time" class="form-input" id="oas-close-${i}" value="${row.close||''}" style="flex:1;margin:0;font-size:13px;padding:8px 10px;" placeholder="--:--">
             </div>`;
           }).join('')}
-          <button onclick="oasSaveSchedule()" style="width:100%;margin-top:12px;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Guardar horarios</button>
+          <button onclick="oasSaveSchedule()" style="width:100%;margin-top:12px;background:var(--owner-blue);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Guardar horarios</button>
         </div>
         <div id="oas-sched-off" style="padding:12px 16px;font-size:13px;color:#aaa;${sched.schedule_enabled?'display:none;':''}">Activá para configurar horarios automáticos</div>
       </div>
@@ -6847,13 +6865,13 @@ async function ownerAppRenderNews(body) {
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;">Nueva campaña push</div>
         <input class="form-input" id="oan-push-title" placeholder="Título" style="margin-bottom:10px;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;">
         <textarea id="oan-push-msg" placeholder="Mensaje..." rows="3" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 12px;color:#fff;font-size:14px;font-family:inherit;box-sizing:border-box;resize:none;"></textarea>
-        <button onclick="oaSendPush()" style="width:100%;margin-top:10px;background:#FA0050;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Enviar push 🚀</button>
+        <button onclick="oaSendPush()" style="width:100%;margin-top:10px;background:#2563eb;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Enviar push 🚀</button>
       </div>
 
       <div style="background:#fff;border-radius:16px;overflow:hidden;">
         <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between;align-items:center;">
           <div style="font-size:15px;font-weight:800;">Novedades publicadas</div>
-          <button onclick="oaAddNews()" style="background:var(--primary);border:none;border-radius:10px;padding:7px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">+ Nueva</button>
+          <button onclick="oaAddNews()" style="background:var(--owner-blue);border:none;border-radius:10px;padding:7px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">+ Nueva</button>
         </div>`;
     if (!news.length) {
       html += `<div style="padding:32px;text-align:center;color:#aaa;">Sin novedades publicadas</div>`;
@@ -6928,7 +6946,7 @@ async function ownerAppRenderLoyalty(body) {
             <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Puntos mínimos para canjear</div>
             <input class="form-input" id="oal-min-pts" type="number" min="0" value="${cfg.min_points||500}" style="margin:0;">
           </div>
-          <button onclick="oasSaveLoyalty()" style="background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;">Guardar configuración</button>
+          <button onclick="oasSaveLoyalty()" style="background:var(--owner-blue);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;">Guardar configuración</button>
         </div>
       </div>
       <div style="background:#fff;border-radius:16px;padding:16px;">
@@ -6971,7 +6989,7 @@ async function ownerAppRenderExport(body) {
             <option value="365">Último año</option>
           </select>
         </div>
-        <button onclick="oasExportCSV()" style="background:var(--primary);border:none;border-radius:12px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <button onclick="oasExportCSV()" style="background:var(--owner-blue);border:none;border-radius:12px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar CSV
         </button>
@@ -7008,7 +7026,7 @@ async function ownerAppRenderBlowPlus(body) {
     let html;
     if (status.active) {
       const exp = status.expires ? fmtDate(status.expires, false) : 'indefinido';
-      html = `<div style="background:linear-gradient(135deg,#FA0050,#c0001e);border-radius:20px;padding:24px;text-align:center;">
+      html = `<div style="background:linear-gradient(135deg,#2563eb,#c0001e);border-radius:20px;padding:24px;text-align:center;">
         <div style="font-size:36px;margin-bottom:8px;">⚡</div>
         <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">Blow+ Activo</div>
         <div style="font-size:14px;color:rgba(255,255,255,.7);">Válido hasta ${exp}</div>
@@ -7023,7 +7041,7 @@ async function ownerAppRenderBlowPlus(body) {
         <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">Blow+</div>
         <div style="font-size:14px;color:rgba(255,255,255,.7);margin-bottom:20px;">Destacate entre todos los negocios</div>
         <div style="font-size:32px;font-weight:900;color:#fff;margin-bottom:4px;">$990<span style="font-size:14px;font-weight:400;opacity:.7;">/mes</span></div>
-        <button onclick="activateBlowPlus()" style="width:100%;margin-top:16px;background:#FA0050;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;">Activar Blow+ ⚡</button>
+        <button onclick="activateBlowPlus()" style="width:100%;margin-top:16px;background:#2563eb;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;">Activar Blow+ ⚡</button>
       </div>
       <div style="background:#fff;border-radius:16px;padding:16px;">
         ${['🔝 Aparecés primero en búsquedas','🏷️ Banner destacado en portada','🚀 Envío gratis para tus clientes Blow+','📊 Analytics avanzados y segmentación'].map(b => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f8f8f8;font-size:14px;">${b}</div>`).join('')}
@@ -7040,7 +7058,7 @@ async function ownerAppRenderCoupons(body) {
     const coupons = await api('/api/businesses/mine/coupons').catch(() => []);
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 8px;">
       <div style="font-size:15px;font-weight:800;">🎟️ Mis cupones</div>
-      <button onclick="openCouponModal()" style="background:var(--primary);border:none;border-radius:12px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Nuevo</button>
+      <button onclick="openCouponModal()" style="background:var(--owner-blue);border:none;border-radius:12px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Nuevo</button>
     </div>`;
     if (!coupons.length) {
       html += `<div style="background:#fff;border-radius:16px;padding:40px 20px;text-align:center;">
@@ -7391,7 +7409,7 @@ function buildObScheduleRows() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
       <div style="width:80px;font-size:13px;font-weight:600;color:#1a1a1a;">${day}</div>
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-        <input type="checkbox" id="ob-day-${i}" ${i < 5 ? 'checked' : ''} onchange="obToggleDay(${i})" style="width:16px;height:16px;accent-color:var(--primary);">
+        <input type="checkbox" id="ob-day-${i}" ${i < 5 ? 'checked' : ''} onchange="obToggleDay(${i})" style="width:16px;height:16px;accent-color:var(--owner-blue);">
         <span style="font-size:12px;color:#888;">Abierto</span>
       </label>
       <div id="ob-hours-${i}" style="display:flex;align-items:center;gap:4px;${i < 5 ? '' : 'display:none!important'}">
@@ -7674,7 +7692,7 @@ function renderOwnerOrders(orders) {
         ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')">🛵 Salió para entrega</button>`:''}
         ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">🏁 Entregado</button>`:''}
         ${o.status==='delivered'?`<span style="font-size:13px;color:var(--success);font-weight:700;">✅ Entregado</span>`:''}
-        ${o.status==='cancelled' && o.refund_status==='approved'?`<span style="font-size:13px;color:#166534;font-weight:700;">❌ Cancelado · 💸 Reembolsado</span>`:o.status==='cancelled' && o.mp_payment_id && o.refund_status!=='approved'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span><button class="btn-sm" onclick="ownerRefund('${o.id}')" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;margin-left:4px;font-size:11px;">💸 Reembolsar</button>`:o.status==='cancelled'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span>`:''}
+        ${o.status==='cancelled' && o.refund_status==='approved'?`<span style="font-size:13px;color:#166534;font-weight:700;">❌ Cancelado · 💸 Reembolsado</span>`:o.status==='cancelled' && o.mp_payment_id && o.refund_status!=='approved'?`<span style="font-size:13px;color:var(--owner-blue);font-weight:700;">❌ Cancelado</span><button class="btn-sm" onclick="ownerRefund('${o.id}')" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;margin-left:4px;font-size:11px;">💸 Reembolsar</button>`:o.status==='cancelled'?`<span style="font-size:13px;color:var(--owner-blue);font-weight:700;">❌ Cancelado</span>`:''}
         <button class="btn-sm" onclick="toggleOwnerMsgInput('${o.id}')" style="background:#f5f5f5;color:#333;border:1px solid #ddd;margin-left:auto;">💬</button>
       </div>
       <div id="msg-input-${o.id}" style="display:none;margin-top:8px;">
@@ -7682,7 +7700,7 @@ function renderOwnerOrders(orders) {
           <input id="msg-text-${o.id}" type="text" placeholder="Ej: Cambiamos un ingrediente..." maxlength="200"
             style="flex:1;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;"
             onkeydown="if(event.key==='Enter')sendOwnerMessage('${o.id}')">
-          <button onclick="sendOwnerMessage('${o.id}')" style="background:var(--primary);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑</button>
+          <button onclick="sendOwnerMessage('${o.id}')" style="background:var(--owner-blue);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑</button>
         </div>
         <div style="font-size:11px;color:#aaa;margin-top:4px;padding-left:2px;">El cliente verá este mensaje en su seguimiento</div>
       </div>
@@ -7828,7 +7846,7 @@ function renderOwnerMenu(products, categories) {
       ? `<img src="${p.photo_url}" style="width:56px;height:56px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
       : `<div class="mpc-em" style="width:56px;height:56px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">${p.emoji||'🍽️'}</div>`;
     const featBadge = p.is_featured ? `<span style="font-size:10px;background:#fff8e1;color:#9a6500;padding:2px 6px;border-radius:6px;font-weight:700;">⭐ Destacado</span>` : '';
-    const discBadge = disc > 0 ? `<span style="font-size:10px;background:#fee;color:var(--primary);padding:2px 6px;border-radius:6px;font-weight:700;">${disc}% OFF</span>` : '';
+    const discBadge = disc > 0 ? `<span style="font-size:10px;background:#fee;color:var(--owner-blue);padding:2px 6px;border-radius:6px;font-weight:700;">${disc}% OFF</span>` : '';
     const varBadge = hasVariants ? `<span style="font-size:10px;background:rgba(255,184,0,.15);color:#9a6500;padding:2px 6px;border-radius:6px;font-weight:700;">🔀 variantes</span>` : '';
     const stockNull = p.stock === null || p.stock === undefined;
     const stockBadge = stockNull ? '' : p.stock === 0
@@ -7841,7 +7859,7 @@ function renderOwnerMenu(products, categories) {
     return `<div class="mpc">
       <label style="cursor:pointer;flex-shrink:0;position:relative;" title="Cambiar foto">
         ${thumb}
-        <div style="position:absolute;bottom:-4px;right:-4px;background:var(--primary);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;border:2px solid #fff;">📷</div>
+        <div style="position:absolute;bottom:-4px;right:-4px;background:var(--owner-blue);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;border:2px solid #fff;">📷</div>
         <input type="file" accept="image/*" style="display:none;" onchange="uploadProductPhoto('${p.id}',this)">
       </label>
       <div class="mpc-info" style="flex:1;min-width:0;">
@@ -7859,7 +7877,7 @@ function renderOwnerMenu(products, categories) {
           <button onclick="adjustStock('${p.id}',-1,${p.stock??'null'})" style="width:22px;height:22px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">−</button>
           <span id="stock-label-${p.id}" style="font-size:12px;font-weight:700;min-width:22px;text-align:center;">${stockLabel}</span>
           <button onclick="adjustStock('${p.id}',1,${p.stock??'null'})" style="width:22px;height:22px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">+</button>
-          ${!stockNull ? `<button onclick="setStockUnlimited('${p.id}')" style="font-size:10px;color:#aaa;border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">sin límite</button>` : `<button onclick="initStock('${p.id}')" style="font-size:10px;color:var(--primary);border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">activar</button>`}
+          ${!stockNull ? `<button onclick="setStockUnlimited('${p.id}')" style="font-size:10px;color:#aaa;border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">sin límite</button>` : `<button onclick="initStock('${p.id}')" style="font-size:10px;color:var(--owner-blue);border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">activar</button>`}
         </div>
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;">
@@ -8311,7 +8329,7 @@ async function loadAdvancedAnalytics(days = 30) {
         </div>
 
       </div>`;
-  } catch(e) { body.innerHTML = `<div style="color:var(--primary);text-align:center;padding:20px;">Error: ${e.message}</div>`; }
+  } catch(e) { body.innerHTML = `<div style="color:var(--owner-blue);text-align:center;padding:20px;">Error: ${e.message}</div>`; }
 }
 
 async function loadOwnerStatsHistory(days) {
@@ -8334,7 +8352,7 @@ async function loadOwnerStatsHistory(days) {
     // KPI grid
     let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
       <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid var(--primary);">
-        <div style="font-size:22px;font-weight:900;color:var(--primary);">${fmtCurrency(revenue)}</div>
+        <div style="font-size:22px;font-weight:900;color:var(--owner-blue);">${fmtCurrency(revenue)}</div>
         <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Ingresos</div>
       </div>
       <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #27ae60;">
@@ -8393,7 +8411,7 @@ async function loadOwnerStatsHistory(days) {
               <span style="font-size:12px;color:#888;">${p.qty} uds · $${Math.round(p.revenue)}</span>
             </div>
             <div style="background:#f5f5f5;border-radius:6px;height:7px;">
-              <div style="background:var(--primary);border-radius:6px;height:7px;width:${pct}%;transition:width .4s;"></div>
+              <div style="background:var(--owner-blue);border-radius:6px;height:7px;width:${pct}%;transition:width .4s;"></div>
             </div>
           </div>`;
         }).join('')}
@@ -8410,7 +8428,7 @@ async function loadOwnerStatsHistory(days) {
               <div style="font-size:13px;font-weight:700;">${c.name||'Cliente'}</div>
               <div style="font-size:11px;color:#888;">${c.orders} pedido${c.orders!=1?'s':''}</div>
             </div>
-            <div style="font-size:14px;font-weight:800;color:var(--primary);">${fmtCurrency(c.spent)}</div>
+            <div style="font-size:14px;font-weight:800;color:var(--owner-blue);">${fmtCurrency(c.spent)}</div>
           </div>`).join('')}
       </div>`;
     }
@@ -8647,7 +8665,7 @@ async function loadOwnerCoupons() {
       <div style="background:#fff;border-radius:14px;border:1px solid var(--border);padding:14px;margin-bottom:10px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <span style="font-family:monospace;font-size:15px;font-weight:900;letter-spacing:.5px;color:var(--primary);">${c.code}</span>
+            <span style="font-family:monospace;font-size:15px;font-weight:900;letter-spacing:.5px;color:var(--owner-blue);">${c.code}</span>
             <span style="font-size:11px;background:${c.is_active?'rgba(0,166,80,.12)':'rgba(200,200,200,.3)'};color:${c.is_active?'var(--success)':'var(--muted)'};padding:2px 8px;border-radius:20px;font-weight:700;">${c.is_active?'Activo':'Inactivo'}</span>
           </div>
           <div style="font-size:12px;color:#555;margin-bottom:4px;">${c.description||''}</div>
@@ -8726,7 +8744,7 @@ function renderScheduleEditor() {
       <div style="width:90px;font-size:13px;font-weight:700;color:#1a1a1a;">${d.label}</div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;">
         <input type="checkbox" id="sched-active-${d.key}" ${hasSlot?'checked':''} onchange="toggleSchedDay('${d.key}')"
-          style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;">
+          style="width:16px;height:16px;accent-color:var(--owner-blue);cursor:pointer;">
         <span style="font-size:12px;color:#666;">${hasSlot?'Abierto':'Cerrado'}</span>
       </label>
       <div id="sched-times-${d.key}" style="display:${hasSlot?'flex':'none'};align-items:center;gap:6px;flex:1;">
@@ -8906,7 +8924,7 @@ function renderCompletenessBanner(biz, products) {
   // Hide if 100%
   if (pct >= 100) { banner.style.display = 'none'; return; }
 
-  const barColor = pct >= 70 ? '#f59e0b' : pct >= 40 ? '#3b82f6' : '#FA0050';
+  const barColor = pct >= 70 ? '#f59e0b' : pct >= 40 ? '#3b82f6' : '#2563eb';
   const emoji    = pct >= 70 ? '🌟' : pct >= 40 ? '🚀' : '💡';
   const pending  = checks.filter(c => !c.done);
 
@@ -9096,7 +9114,7 @@ async function loadPromos() {
       else if (p.type === 'free_delivery') detail = `Envío gratis${p.min_order_amount > 0 ? ` (mín. $${p.min_order_amount})` : ''}`;
       else if (p.type === 'bogo') detail = `2x1 en producto`;
       else if (p.type === 'combo') detail = `Combo $${p.combo_price}`;
-      const bpBadge = p.blow_plus_only ? ' <span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:800;">⚡ Blow+</span>' : '';
+      const bpBadge = p.blow_plus_only ? ' <span style="background:linear-gradient(90deg,#2563eb,#ff6b6b);color:#fff;border-radius:5px;padding:1px 6px;font-size:10px;font-weight:800;">⚡ Blow+</span>' : '';
       const dateStr = p.ends_at ? ` · Vence ${fmtDate(p.ends_at,false)}` : '';
       const codeStr = p.requires_code && p.code ? ` · Código: <strong>${p.code}</strong>` : '';
       return `<div style="background:#fff;border:1px solid #eee;border-radius:14px;padding:16px;margin-bottom:12px;">
@@ -9428,7 +9446,7 @@ function _renderBPContent(status) {
       : null;
     container.innerHTML =
       '<div style="padding:20px;">' +
-        '<div style="background:linear-gradient(135deg,#FA0050,#c0003c);border-radius:24px;padding:24px;color:#fff;margin-bottom:20px;">' +
+        '<div style="background:linear-gradient(135deg,#2563eb,#c0003c);border-radius:24px;padding:24px;color:#fff;margin-bottom:20px;">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">' +
             '<div>' +
               '<div style="font-size:11px;font-weight:700;letter-spacing:1px;opacity:.7;text-transform:uppercase;margin-bottom:6px;">Membresía activa</div>' +
@@ -9453,7 +9471,7 @@ function _renderBPContent(status) {
   } else {
     container.innerHTML =
       '<div style="padding:20px;">' +
-        '<div style="background:linear-gradient(135deg,#FA0050,#c0003c);border-radius:24px;padding:28px 24px;color:#fff;margin-bottom:20px;text-align:center;">' +
+        '<div style="background:linear-gradient(135deg,#2563eb,#c0003c);border-radius:24px;padding:28px 24px;color:#fff;margin-bottom:20px;text-align:center;">' +
           '<div style="font-size:40px;margin-bottom:12px;">⚡</div>' +
           '<div style="font-size:28px;font-weight:900;line-height:1.1;margin-bottom:8px;">Blow+ Cliente</div>' +
           '<div style="font-size:15px;opacity:.85;margin-bottom:20px;">Pedí más, pagá menos</div>' +
@@ -9465,7 +9483,7 @@ function _renderBPContent(status) {
           '<div style="font-size:13px;opacity:.7;margin-bottom:16px;">Suscripción mensual · cancelá cuando quieras</div>' +
           '<div style="font-size:36px;font-weight:900;margin-bottom:6px;">$200 <span style="font-size:16px;font-weight:600;">UYU / mes</span></div>' +
         '</div>' +
-        '<button id="ubp-pay-btn" onclick="subscribeUserBlowPlus()" style="width:100%;padding:16px;background:var(--primary);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(250,0,80,.3);">' +
+        '<button id="ubp-pay-btn" onclick="subscribeUserBlowPlus()" style="width:100%;padding:16px;background:var(--owner-blue);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(250,0,80,.3);">' +
           '⚡ Suscribirme ahora' +
         '</button>' +
         '<div style="text-align:center;font-size:12px;color:#aaa;margin-top:12px;">Vas a ser redirigido a MercadoPago para pagar</div>' +
@@ -9783,7 +9801,7 @@ function renderAdminUsers(users) {
   if (!users.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay usuarios</div>'; return; }
   el.innerHTML = users.map(u=>`
     <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-      <div style="width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;">${u.name[0].toUpperCase()}</div>
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--owner-blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;">${u.name[0].toUpperCase()}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-weight:700;">${u.name}</div>
         <div style="font-size:12px;color:var(--muted);">${u.email} · ${u.role}</div>
@@ -9828,7 +9846,7 @@ function renderAdminBiz(bizs) {
           <div style="font-weight:700;">${b.name}</div>
           <div style="font-size:12px;color:var(--muted);">${b.city||''} · ${b.is_active!==false?'✅ Activo':'⏸️ Inactivo'}</div>
           <div style="font-size:11px;margin-top:3px;">
-            ${b.sub_status==='active'?'<span style=\"color:var(--success);font-weight:600;\">💳 Suscripción activa</span>':b.sub_status?'<span style=\"color:orange;font-weight:600;\">⚠️ Suscripción: '+b.sub_status+'</span>':'<span style=\"color:var(--primary);font-weight:600;\">❌ Sin suscripción</span>'}
+            ${b.sub_status==='active'?'<span style=\"color:var(--success);font-weight:600;\">💳 Suscripción activa</span>':b.sub_status?'<span style=\"color:orange;font-weight:600;\">⚠️ Suscripción: '+b.sub_status+'</span>':'<span style=\"color:var(--owner-blue);font-weight:600;\">❌ Sin suscripción</span>'}
           </div>
           ${b.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ negocio</div>':''}
         </div>
@@ -10103,7 +10121,7 @@ async function loadCoupons() {
       return `<div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
         <div style="display:flex;min-height:100px;">
           <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border-right:2px dashed #e0e0e0;gap:6px;">
-            <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;">B</div>
+            <div style="width:56px;height:56px;background:var(--owner-blue);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;">B</div>
             ${expiry ? `<div style="font-size:10px;font-weight:700;color:#e67e00;text-align:center;">Vence el<br>${expiry}</div>` : ''}
           </div>
           <div style="flex:1;padding:16px 14px;">
@@ -10114,7 +10132,7 @@ async function loadCoupons() {
         </div>
         <div style="border-top:1px solid #f0f0f0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
           <button onclick="showToast('📋 Código: ${c.code}')" style="background:none;border:none;font-size:13px;font-weight:700;color:#1a1a1a;cursor:pointer;padding:0;">Ver detalles</button>
-          <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Conocer locales</button>
+          <button onclick="nav('page-home')" style="background:var(--owner-blue);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Conocer locales</button>
         </div>
       </div>`;
     }).join('');
@@ -10155,7 +10173,7 @@ async function validateCouponManual() {
     showToast('🎟️ Cupón guardado — se aplicará en tu próximo pedido');
     // Save to localStorage for cart to use
     localStorage.setItem('active_coupon', JSON.stringify(data.coupon));
-  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);font-weight:600;">❌ ${e.message}</span>`; }
+  } catch(e) { res_el.innerHTML = `<span style="color:var(--owner-blue);font-weight:600;">❌ ${e.message}</span>`; }
 }
 
 // -----------------------------------------------
@@ -10184,7 +10202,7 @@ async function sendHelpMessage() {
     document.getElementById('help-msg').value = '';
     // Reload tickets
     setTimeout(() => loadHelpTickets(), 800);
-  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);">❌ ${e.message}</span>`; }
+  } catch(e) { res_el.innerHTML = `<span style="color:var(--owner-blue);">❌ ${e.message}</span>`; }
 }
 
 function switchHelpTab(tab) {
@@ -10276,7 +10294,7 @@ async function loadAdminCoupons() {
       <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
           <div>
-            <span style="font-size:16px;font-weight:900;letter-spacing:1px;color:#FA0050;">${c.code}</span>
+            <span style="font-size:16px;font-weight:900;letter-spacing:1px;color:#2563eb;">${c.code}</span>
             ${c.business_name ? `<span style="font-size:11px;color:var(--muted);margin-left:8px;">🏪 ${c.business_name}</span>` : '<span style="font-size:11px;color:var(--muted);margin-left:8px;">Global</span>'}
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
@@ -10344,7 +10362,7 @@ async function loadAdminHelp() {
         ? '<p style="font-size:13px;background:#f5f5f5;border-radius:8px;padding:10px;color:#666;"><b>Respuesta:</b> ' + m.admin_reply + '</p>'
         : '<div style="display:flex;gap:8px;margin-top:8px;">'
           + '<input class="form-input" id="reply-' + m.id + '" placeholder="Escribi tu respuesta..." style="flex:1;font-size:13px;">'
-          + '<button onclick="replyHelp(\'' + m.id + '\')" style="padding:8px 14px;background:var(--primary);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Responder</button>'
+          + '<button onclick="replyHelp(\'' + m.id + '\')" style="padding:8px 14px;background:var(--owner-blue);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Responder</button>'
           + '</div>';
       return '<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid ' + (r?'#d4edda':'#e5e5e5') + ';">'
         + '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
@@ -10429,7 +10447,7 @@ async function loadAdminBanners() {
     document.getElementById('admin-banners-list').innerHTML = banners.length
       ? banners.map(b=>`<div class="admin-row">
           <div style="flex:1;">
-            <strong>${b.title}</strong> ${b.highlight?`<span style="color:#FA0050">${b.highlight}</span>`:''}
+            <strong>${b.title}</strong> ${b.highlight?`<span style="color:#2563eb">${b.highlight}</span>`:''}
             <div style="font-size:12px;color:#888;">${b.subtitle||''}</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
@@ -10447,7 +10465,7 @@ async function createAdminBanner() {
   const subtitle = document.getElementById('bn-subtitle')?.value?.trim();
   const highlight = document.getElementById('bn-highlight')?.value?.trim();
   const emoji = document.getElementById('bn-emoji')?.value?.trim() || '🍔';
-  const bg_color = document.getElementById('bn-color')?.value || '#FA0050';
+  const bg_color = document.getElementById('bn-color')?.value || '#2563eb';
   if (!title) return showToast('Ingresá un título');
   const res = await fetch('/api/admin/banners',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({title,subtitle,highlight,emoji,bg_color})});
   const d = await res.json();
