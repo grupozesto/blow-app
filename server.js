@@ -2430,7 +2430,20 @@ app.post('/api/help', async (req, res) => {
     let userId = null;
     try { const auth = req.headers.authorization; if (auth) userId = require('jsonwebtoken').verify(auth.split(' ')[1], JWT_SECRET).id; } catch(e) {}
     await q('INSERT INTO help_messages (id,user_id,user_name,user_email,message) VALUES ($1,$2,$3,$4,$5)', [id, userId, name||'Anónimo', email, message]);
+    // Send email notification to support
+    try {
+      await sendEmail('soporte@blow.uy', `Nueva consulta de soporte — ${name||email}`,
+        `<p><b>De:</b> ${name||'Anónimo'} &lt;${email}&gt;</p><p><b>Mensaje:</b><br>${message.replace(/\n/g,'<br>')}</p>`);
+    } catch(e) { /* email failure is non-critical */ }
     res.status(201).json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// User's own tickets
+app.get('/api/help/mine', auth, async (req, res) => {
+  try {
+    const tickets = await qa('SELECT id,message,status,admin_reply,created_at FROM help_messages WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10', [req.user.id]);
+    res.json(tickets);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
