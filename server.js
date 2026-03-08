@@ -284,6 +284,10 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_id TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS preparing_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS eta_minutes INTEGER DEFAULT NULL;
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -1419,6 +1423,23 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   }
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
+  // Record per-status timestamps and set ETA when confirmed
+  if (status==='confirmed') {
+    const biz = await q1('SELECT delivery_time FROM businesses WHERE id=$1',[order.business_id]);
+    // Parse delivery_time like "20-35" → take upper bound, or plain number
+    let etaMin = 30;
+    if (biz?.delivery_time) {
+      const parts = biz.delivery_time.toString().split('-');
+      etaMin = parseInt(parts[parts.length - 1]) || 30;
+    }
+    // Allow owner to override ETA via body
+    if (req.body.eta_minutes && parseInt(req.body.eta_minutes) > 0) {
+      etaMin = parseInt(req.body.eta_minutes);
+    }
+    await q('UPDATE orders SET confirmed_at=NOW(), eta_minutes=$1 WHERE id=$2',[etaMin, order.id]);
+  }
+  if (status==='preparing') await q('UPDATE orders SET preparing_at=NOW() WHERE id=$1',[order.id]);
+  if (status==='ready')     await q('UPDATE orders SET ready_at=NOW() WHERE id=$1',[order.id]);
   // Decrement stock when confirmed
   if (status==='confirmed') {
     const items = await db.query('SELECT * FROM order_items WHERE order_id=$1',[order.id]);
@@ -1433,13 +1454,63 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
     await credit(order.business_id,'business',totalOwnerAmount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
     await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
   }
-  notify(order.customer_id,{ type:'status_change',message:`Tu pedido: ${status}`,status,order_id:order.id });
+  // Calculate remaining ETA for notification
+  const updatedOrder = await q1('SELECT * FROM orders WHERE id=$1',[order.id]);
+  let etaRemaining = null;
+  if (updatedOrder.confirmed_at && updatedOrder.eta_minutes) {
+    const elapsed = (Date.now() - new Date(updatedOrder.confirmed_at).getTime()) / 60000;
+    etaRemaining = Math.max(0, Math.round(updatedOrder.eta_minutes - elapsed));
+  }
+  const statusMessages = {
+    confirmed:  `✅ Pedido aceptado${etaRemaining ? ` · llega en ~${etaRemaining} min` : ''}`,
+    preparing:  '👨‍🍳 Están preparando tu pedido',
+    ready:      '📦 Tu pedido está listo para entrega',
+    on_way:     '🛵 Tu pedido está en camino',
+    delivered:  '🏁 ¡Pedido entregado!'
+  };
+  notify(order.customer_id,{
+    type:'status_change',
+    message: statusMessages[status] || `Tu pedido: ${status}`,
+    status, order_id:order.id,
+    eta_minutes: updatedOrder.eta_minutes,
+    confirmed_at: updatedOrder.confirmed_at,
+    eta_remaining: etaRemaining,
+  });
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_update',status,order_id:order.id });
-  res.json(await q1('SELECT * FROM orders WHERE id=$1',[order.id]));
+  res.json(updatedOrder);
 });
 
 // Owner sends a message to the customer about their order
+// ── ETA ───────────────────────────────────────
+app.get('/api/orders/:id/eta', auth, async (req, res) => {
+  const order = await q1('SELECT id,status,confirmed_at,eta_minutes,business_id FROM orders WHERE id=$1',[req.params.id]);
+  if (!order) return res.status(404).json({ error:'No encontrado' });
+  if (!order.confirmed_at || !order.eta_minutes) return res.json({ eta_minutes: null, remaining: null, status: order.status });
+  const elapsedMin = (Date.now() - new Date(order.confirmed_at).getTime()) / 60000;
+  const remaining = Math.max(0, Math.round(order.eta_minutes - elapsedMin));
+  const percent = Math.min(100, Math.round((elapsedMin / order.eta_minutes) * 100));
+  res.json({ eta_minutes: order.eta_minutes, remaining, elapsed: Math.round(elapsedMin), percent, status: order.status });
+});
+
+app.patch('/api/orders/:id/eta', auth, role('owner'), async (req, res) => {
+  const { eta_minutes } = req.body;
+  if (!eta_minutes || parseInt(eta_minutes) < 1) return res.status(400).json({ error: 'ETA inválido' });
+  const order = await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
+  if (!order) return res.status(404).json({ error:'No encontrado' });
+  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+  if (!biz || biz.id !== order.business_id) return res.status(403).json({ error:'No es tu pedido' });
+  // Reset confirmed_at to now so countdown restarts from new ETA
+  await q('UPDATE orders SET eta_minutes=$1, confirmed_at=NOW() WHERE id=$2',[parseInt(eta_minutes), order.id]);
+  notify(order.customer_id, {
+    type: 'eta_update',
+    message: `🕐 El negocio ajustó el tiempo: ~${eta_minutes} min`,
+    order_id: order.id,
+    eta_minutes: parseInt(eta_minutes),
+  });
+  res.json({ ok: true, eta_minutes: parseInt(eta_minutes) });
+});
+
 app.post('/api/orders/:id/message', auth, role('owner'), async (req, res) => {
   const { message } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
