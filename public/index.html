@@ -178,6 +178,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .store-card:hover{opacity:.92;}
 @media(min-width:600px){.store-card{border-radius:16px;border:none;box-shadow:var(--shadow);}}
 .store-img-wrap{width:100%;height:160px;position:relative;overflow:hidden;border-radius:16px 16px 0 0;}
+.fav-btn{position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;z-index:5;box-shadow:0 1px 4px rgba(0,0,0,.15);transition:transform .15s;}
+.fav-btn:active{transform:scale(1.2);}
 .store-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:80px;line-height:1;}
 .store-img img{width:100%;height:100%;object-fit:cover;}
 .store-logo-chip{position:absolute;bottom:10px;left:10px;width:44px;height:44px;border-radius:12px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;}
@@ -876,6 +878,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <button class="sd-search-btn" onclick="showToast('🔍 Búsqueda próximamente')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
+      <button id="sd-fav-btn" onclick="toggleFavStore()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:58px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:10;">🤍</button>
     </div>
 
     <!-- Sticky mini header (aparece al hacer scroll) -->
@@ -1051,7 +1054,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 1 8 8c0 5.4-7 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z"/></svg></div>
         <div class="mi-text"><span>Direcciones</span></div><span class="mi-arrow">›</span>
       </div>
-      <div class="menu-item" onclick="showToast('❤️ Próximamente — tus favoritos')">
+      <div class="menu-item" onclick="nav('page-favorites');loadFavorites()">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
         <div class="mi-text"><span>Favoritos</span></div><span class="mi-arrow">›</span>
       </div>
@@ -1965,6 +1968,17 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   </div>
 </div>
 
+<!-- ══ PAGE: FAVORITES ══ -->
+<div class="page" id="page-favorites">
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <button onclick="nav('page-profile')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#333;padding:0;line-height:1;">‹</button>
+    <h1 style="margin:0;">❤️ Favoritos</h1>
+  </div>
+  <div class="sc" style="padding:16px;">
+    <div id="favorites-body"></div>
+  </div>
+</div>
+
 <!-- ══ PAGE: PERSONAL INFO ══ -->
 <div class="page" id="page-personal-info">
   <div class="page-hdr" style="border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
@@ -2814,6 +2828,7 @@ function renderStores(list) {
     <div class="store-card" onclick="openStore('${s.id}')">
       <div class="store-img-wrap" style="background:${bg};">
         <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
+        <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${s.id}')" id="fav-btn-${s.id}" title="Guardar favorito">${isFav(s.id)?'❤️':'🤍'}</button>
       </div>
       <div class="store-info">
         <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
@@ -2928,6 +2943,9 @@ function renderStoreDetail(s, products) {
   currentBizId = s.id;
   currentStoreForCart = s;
   nav('page-store');
+  // Update fav button state
+  const sdFavBtn = document.getElementById('sd-fav-btn');
+  if (sdFavBtn) sdFavBtn.textContent = isFav(s.id) ? '❤️' : '🤍';
 
   // ── Cover photo ──
   const coverEl = document.getElementById('sd-cover');
@@ -3642,8 +3660,99 @@ async function submitReview() {
 }
 
 // ═══════════════════════════════════════════════
-//  PROFILE
+//  FAVORITES
 // ═══════════════════════════════════════════════
+function getFavs() {
+  try { return JSON.parse(localStorage.getItem('blow_favs') || '[]'); } catch { return []; }
+}
+function saveFavs(favs) {
+  localStorage.setItem('blow_favs', JSON.stringify(favs));
+}
+function isFav(bizId) {
+  return getFavs().includes(bizId);
+}
+function toggleFav(bizId) {
+  if (!user) { showToast('❤️ Iniciá sesión para guardar favoritos'); openAuth('Iniciar sesión'); return; }
+  let favs = getFavs();
+  const wasFav = favs.includes(bizId);
+  if (wasFav) {
+    favs = favs.filter(id => id !== bizId);
+    showToast('💔 Eliminado de favoritos');
+  } else {
+    favs.push(bizId);
+    showToast('❤️ Guardado en favoritos');
+  }
+  saveFavs(favs);
+  // Update heart in feed card if visible
+  const btn = document.getElementById(`fav-btn-${bizId}`);
+  if (btn) btn.textContent = wasFav ? '🤍' : '❤️';
+  // Update heart in store detail if open
+  const sdBtn = document.getElementById('sd-fav-btn');
+  if (sdBtn && currentBizId === bizId) sdBtn.textContent = wasFav ? '🤍' : '❤️';
+}
+function toggleFavStore() {
+  if (!currentBizId) return;
+  toggleFav(currentBizId);
+}
+
+async function loadFavorites() {
+  const body = document.getElementById('favorites-body');
+  if (!user) {
+    body.innerHTML = `<div class="loading-state"><div style="font-size:48px;margin-bottom:12px;">❤️</div><p style="margin-bottom:16px;">Iniciá sesión para ver tus favoritos</p><button onclick="openAuth('Iniciar sesión')" style="background:var(--primary);border:none;border-radius:12px;padding:12px 24px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Iniciar sesión</button></div>`;
+    return;
+  }
+  const favIds = getFavs();
+  if (!favIds.length) {
+    body.innerHTML = `<div class="loading-state"><div style="font-size:48px;margin-bottom:12px;">🤍</div><p style="color:#999;">Todavía no guardaste ningún favorito.<br>Tocá el corazón en cualquier tienda.</p></div>`;
+    return;
+  }
+  body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  try {
+    // Load all stores and filter by fav ids
+    const all = await api(`/api/businesses${activeCity ? '?city='+encodeURIComponent(activeCity) : ''}`);
+    // Include favs even from other cities
+    const allCities = all.length < favIds.length
+      ? await api('/api/businesses').catch(() => all)
+      : all;
+    const favStores = favIds
+      .map(id => allCities.find(s => s.id === id))
+      .filter(Boolean);
+
+    if (!favStores.length) {
+      body.innerHTML = `<div class="loading-state"><div style="font-size:48px;margin-bottom:12px;">😢</div><p style="color:#999;">Tus tiendas favoritas ya no están disponibles.</p></div>`;
+      return;
+    }
+
+    body.innerHTML = favStores.map(s => {
+      const isFree = s.delivery_cost === 0;
+      const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>' : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
+      const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
+      const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
+      const openBadge = s.is_open ? '<span style="color:#27ae60;font-size:11px;font-weight:700;">● Abierto</span>' : '<span style="color:#e74c3c;font-size:11px;font-weight:700;">● Cerrado</span>';
+      return `<div class="store-card" style="margin-bottom:12px;" onclick="openStore('${s.id}')">
+        <div class="store-img-wrap" style="background:${bg};height:130px;">
+          <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
+          <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${s.id}');loadFavorites();" id="fav-btn-${s.id}">❤️</button>
+        </div>
+        <div class="store-info">
+          <div class="store-name">${s.name}</div>
+          <div class="store-meta">
+            <div class="store-rating">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="${s.rating?'#FFB800':'#ccc'}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              ${s.rating || '<span style="color:#bbb;font-size:11px;">Sin reseñas</span>'}
+            </div>
+            <div class="store-meta-dot"></div>
+            ${openBadge}
+            <div class="store-meta-dot"></div>
+            ${deliveryTag}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = `<div class="loading-state">Error: ${e.message}</div>`;
+  }
+}
 function renderProfile() {
   const el = id => document.getElementById(id);
 
