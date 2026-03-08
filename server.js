@@ -669,6 +669,8 @@ let helmet = null;
 try { helmet = require('helmet'); } catch(e) { console.warn('⚠️  helmet no instalado'); }
 let rateLimit = null;
 try { rateLimit = require('express-rate-limit'); } catch(e) { console.warn('⚠️  express-rate-limit no instalado'); }
+let compression = null;
+try { compression = require("compression"); } catch(e) { console.warn("compression no instalado"); }
 
 // 🔒 Helmet — cabeceras de seguridad HTTP
 if (helmet) app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
@@ -700,8 +702,24 @@ if (rateLimit) {
 }
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
-app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '5mb' }));
+if (compression) app.use(compression({ level: 6, threshold: 1024 }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('sw.js') || filePath.endsWith('manifest.json')) {
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate'); return;
+    }
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate'); return;
+    }
+    if (filePath.match(/\.(png|jpg|jpeg|webp|ico|woff2|woff|ttf)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); return;
+    }
+    if (filePath.match(/\.(js|css)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400'); return;
+    }
+  }
+}));
 
 // ── Helpers ───────────────────────────────────
 const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'7d' });
