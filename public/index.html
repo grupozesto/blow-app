@@ -546,68 +546,90 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 /* ════════════════════════════════════════
    STORE DETAIL — PedidosYa style
 ════════════════════════════════════════ */
-.sd-cover{position:relative;width:100%;height:240px;background:linear-gradient(135deg,var(--primary),#6b00cc);overflow:hidden;flex-shrink:0;}
+.sd-cover{position:relative;width:100%;height:220px;background:linear-gradient(135deg,var(--primary),#6b00cc);overflow:hidden;flex-shrink:0;}
 .sd-cover img{width:100%;height:100%;object-fit:cover;}
+.sd-cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.25) 0%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.4) 100%);}
 .sd-back{position:absolute;top:max(14px,env(safe-area-inset-top,14px));left:14px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;z-index:10;}
-.sd-header{padding:6px 16px 18px;position:relative;z-index:2;background:#fff;}
-.sd-logo-wrap{flex-shrink:0;margin-top:-40px;margin-bottom:14px;}
-.sd-logo{width:72px;height:72px;border-radius:16px;background:#fff;border:3px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;}
+.sd-search-btn{position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:14px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;z-index:10;}
+
+/* Sticky mini-header (shows on scroll) */
+.sd-sticky{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px;padding:10px 16px;transform:translateY(-100%);transition:transform .2s;pointer-events:none;opacity:0;}
+.sd-sticky.visible{transform:translateY(0);pointer-events:auto;opacity:1;}
+.sd-sticky-name{font-size:15px;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.sd-header{padding:0 16px 16px;position:relative;z-index:2;background:#fff;}
+.sd-logo-wrap{margin-top:-36px;margin-bottom:12px;}
+.sd-logo{width:72px;height:72px;border-radius:14px;background:#fff;border:3px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;font-size:34px;overflow:hidden;}
 .sd-logo img{width:100%;height:100%;object-fit:cover;}
-.sd-info{padding-bottom:4px;}
-.sd-name{font-size:20px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#1a1a1a;}
-.sd-rating{font-size:13px;color:#555;margin-bottom:6px;}
-.sd-rating svg{vertical-align:middle;margin-right:2px;}
-.sd-pills{display:flex;flex-wrap:wrap;gap:6px;}
-.sd-pill{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:#555;}
-.sd-pill.open{background:#e8f5e9;color:#27ae60;}
-.sd-pill.closed{background:#fee;color:#e74c3c;}
+.sd-name{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:4px;color:#1a1a1a;}
+.sd-rating{font-size:13px;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:4px;}
+.sd-rating-link{color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;text-decoration:none;}
 
-.sd-fulfillment{display:flex;margin:0 16px 14px;background:#f0f0f0;border-radius:12px;padding:4px;gap:4px;}
-.sd-ftab{flex:1;padding:9px;border:none;border-radius:9px;background:transparent;font-size:13px;font-weight:700;color:#666;cursor:pointer;transition:all .2s;}
-.sd-ftab.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 4px rgba(0,0,0,.12);}
+.sd-fulfillment{display:flex;margin:0 16px 0;background:#f0f0f0;border-radius:12px;padding:4px;gap:4px;}
+.sd-ftab{flex:1;padding:10px;border:none;border-radius:9px;background:transparent;font-size:14px;font-weight:700;color:#666;cursor:pointer;transition:all .2s;}
+.sd-ftab.active{background:#1a1a1a;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);}
 
-.sd-delivery-info{padding:0 16px 14px;font-size:13px;color:#444;display:flex;flex-direction:column;gap:4px;}
+.sd-delivery-info{padding:14px 16px;font-size:13px;color:#444;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid #f5f5f5;}
 .sd-drow{display:flex;align-items:center;gap:8px;}
 .sd-drow svg{flex-shrink:0;color:#888;}
 
-.sd-promo-row{display:flex;gap:10px;padding:0 16px 14px;overflow-x:auto;scrollbar-width:none;}
+.sd-promo-row{display:flex;gap:10px;padding:14px 16px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid #f5f5f5;}
 .sd-promo-row::-webkit-scrollbar{display:none;}
-.sd-promo-card{flex-shrink:0;border-radius:14px;padding:14px 16px;min-width:160px;display:flex;align-items:center;gap:10px;}
+.sd-promo-card{flex-shrink:0;border-radius:14px;padding:12px 14px;min-width:150px;display:flex;align-items:center;gap:10px;cursor:pointer;}
 .sd-promo-card.free-delivery{background:linear-gradient(135deg,#4c1d95,#7c3aed);color:#fff;}
 .sd-promo-card.discount{background:#f8f8f8;border:1px solid #eee;color:#1a1a1a;}
-.sd-promo-icon{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.sd-promo-text{font-size:12px;font-weight:700;line-height:1.3;}
+.sd-promo-card.blowplus{background:linear-gradient(135deg,#FA0050,#c0003c);color:#fff;}
+.sd-promo-icon{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.sd-promo-text{font-size:11px;font-weight:700;line-height:1.4;}
+.sd-promo-sub{font-size:10px;opacity:.75;font-weight:500;}
 
-.sd-menu-tabs{display:flex;gap:0;padding:0 16px;border-bottom:2px solid #f0f0f0;margin-bottom:4px;overflow-x:auto;scrollbar-width:none;}
+/* Sticky tabs */
+.sd-menu-tabs-wrap{position:sticky;top:0;z-index:99;background:#fff;border-bottom:2px solid #f0f0f0;}
+.sd-menu-tabs{display:flex;gap:0;padding:0 8px;overflow-x:auto;scrollbar-width:none;}
 .sd-menu-tabs::-webkit-scrollbar{display:none;}
-.sd-mtab{padding:12px 16px;border:none;background:transparent;font-size:13px;font-weight:700;color:#999;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;}
-.sd-mtab.active{color:var(--primary);border-bottom-color:var(--primary);}
+.sd-mtab{padding:12px 14px;border:none;background:transparent;font-size:13px;font-weight:700;color:#999;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:5px;}
+.sd-mtab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;}
 
-/* Product cards with photo */
-.prod-section-title{font-size:17px;font-weight:900;padding:18px 16px 10px;color:#1a1a1a;}
-.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 8px;}
-.prod-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;position:relative;transition:transform .15s;}
-.prod-card:active{transform:scale(.97);}
-.prod-card-img{width:100%;aspect-ratio:1;background:#f5f5f5;overflow:hidden;position:relative;}
-.prod-card-img img{width:100%;height:100%;object-fit:cover;}
-.prod-card-img .prod-emoji-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;background:linear-gradient(135deg,#f5f5f5,#ebebeb);}
-.prod-card-
-.prod-card-name{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:3px;line-height:1.3;}
-.prod-card-desc{font-size:11px;color:#888;line-height:1.3;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.prod-card-footer{display:flex;align-items:center;justify-content:space-between;}
-.prod-card-price{font-size:15px;font-weight:900;color:#1a1a1a;}
-.prod-card-price .original{font-size:11px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:4px;}
-.prod-card-add{width:32px;height:32px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;}
-.prod-discount-badge{position:absolute;top:8px;left:8px;background:var(--primary);color:#fff;border-radius:8px;padding:3px 7px;font-size:11px;font-weight:800;}
-.prod-featured-badge{position:absolute;top:8px;right:8px;background:#FFB800;color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:800;}
+/* Reviews carousel */
+.sd-reviews{padding:16px 16px 4px;}
+.sd-reviews-title{font-size:15px;font-weight:800;margin-bottom:12px;color:#1a1a1a;}
+.sd-reviews-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;}
+.sd-reviews-scroll::-webkit-scrollbar{display:none;}
+.sd-review-card{flex-shrink:0;width:220px;background:#f8f8f8;border-radius:14px;padding:12px 14px;}
+.sd-review-name{font-size:13px;font-weight:700;color:#1a1a1a;}
+.sd-review-date{font-size:11px;color:#999;}
+.sd-review-stars{color:#FFB800;font-size:12px;margin:4px 0;}
+.sd-review-text{font-size:12px;color:#555;line-height:1.4;}
 
-/* Section with horizontal scroll (featured) */
-.prod-hscroll-wrap{padding:0 16px 12px;overflow-x:auto;scrollbar-width:none;}
+/* Product list style (PedidosYa) */
+.prod-section-title{font-size:18px;font-weight:900;padding:20px 16px 12px;color:#1a1a1a;}
+.prod-list{display:flex;flex-direction:column;}
+.prod-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #f5f5f5;cursor:pointer;background:#fff;transition:background .15s;}
+.prod-row:active{background:#fafafa;}
+.prod-row-info{flex:1;min-width:0;}
+.prod-row-name{font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:3px;line-height:1.3;}
+.prod-row-desc{font-size:12px;color:#888;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.prod-row-price{font-size:16px;font-weight:900;color:#1a1a1a;}
+.prod-row-price .original{font-size:12px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:4px;}
+.prod-row-img{width:96px;height:96px;border-radius:14px;overflow:hidden;flex-shrink:0;background:#f5f5f5;position:relative;}
+.prod-row-img img{width:100%;height:100%;object-fit:cover;}
+.prod-row-img .prod-emoji-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:36px;}
+.prod-row-add{position:absolute;bottom:6px;right:6px;width:28px;height:28px;border-radius:50%;background:#fff;border:none;color:#1a1a1a;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2);line-height:1;}
+.prod-discount-badge{position:absolute;top:6px;left:6px;background:#FFB800;color:#fff;border-radius:6px;padding:2px 6px;font-size:10px;font-weight:800;}
+
+/* Featured horizontal scroll */
+.prod-hscroll-wrap{padding:0 16px 16px;overflow-x:auto;scrollbar-width:none;}
 .prod-hscroll-wrap::-webkit-scrollbar{display:none;}
 .prod-hscroll{display:flex;gap:12px;}
-.prod-card-h{flex-shrink:0;width:150px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;}
-.prod-card-h .prod-card-img{height:130px;aspect-ratio:unset;}
-.prod-card-h .prod-card-
+.prod-card-h{flex-shrink:0;width:148px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;position:relative;}
+.prod-card-h-img{height:120px;background:#f5f5f5;position:relative;overflow:hidden;}
+.prod-card-h-img img{width:100%;height:100%;object-fit:cover;}
+.prod-card-h-img .prod-emoji-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:36px;}
+.prod-card-h-body{padding:8px 10px 10px;}
+.prod-card-h-name{font-size:12px;font-weight:700;color:#1a1a1a;line-height:1.3;margin-bottom:4px;}
+.prod-card-h-price{font-size:13px;font-weight:900;color:#1a1a1a;}
+.prod-card-h-price .original{font-size:10px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:3px;}
+.prod-card-h-add{position:absolute;bottom:8px;right:8px;width:26px;height:26px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
 
 /* ════════════════════════════════════════
    BLOW+ PREMIUM
@@ -845,8 +867,21 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
     <!-- Cover photo -->
     <div class="sd-cover" id="sd-cover">
+      <div class="sd-cover-overlay"></div>
       <button class="back-btn sd-back" onclick="nav('page-home')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
+      </button>
+      <button class="sd-search-btn" onclick="showToast('🔍 Búsqueda próximamente')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+    </div>
+
+    <!-- Sticky mini header (aparece al hacer scroll) -->
+    <div class="sd-sticky" id="sd-sticky">
+      <button onclick="nav('page-home')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#333;padding:0;line-height:1;">‹</button>
+      <div class="sd-sticky-name" id="sd-sticky-name">—</div>
+      <button onclick="showToast('🔍 Búsqueda próximamente')" style="background:none;border:none;cursor:pointer;color:#333;padding:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
     </div>
 
@@ -857,11 +892,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
       <div class="sd-name" id="sd-name">—</div>
       <div class="sd-rating" id="sd-rating"></div>
-      <div class="sd-pills" id="sd-pills"></div>
     </div>
 
     <!-- Fulfillment tabs -->
-    <div class="sd-fulfillment" id="sd-fulfillment">
+    <div class="sd-fulfillment" id="sd-fulfillment" style="margin-bottom:0;">
       <button class="sd-ftab active" id="sdf-delivery" onclick="setSdFulfillment('delivery')">Delivery</button>
       <button class="sd-ftab" id="sdf-pickup" onclick="setSdFulfillment('pickup')">Retiro en el local</button>
     </div>
@@ -872,11 +906,15 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <!-- Promo banners -->
     <div class="sd-promo-row" id="sd-promo-row" style="display:none;"></div>
 
-    <!-- Menu filter tabs -->
-    <div class="sd-menu-tabs" id="sd-menu-tabs">
-      <button class="sd-mtab active" onclick="filterStoreTab('all',this)">Menú</button>
-      <button class="sd-mtab" onclick="filterStoreTab('featured',this)">⭐ Más vendidos</button>
-      <button class="sd-mtab" onclick="filterStoreTab('discounted',this)">🏷️ Descuentos</button>
+    <!-- Menu filter tabs (sticky) -->
+    <div class="sd-menu-tabs-wrap">
+      <div class="sd-menu-tabs" id="sd-menu-tabs">
+        <button class="sd-mtab active" onclick="filterStoreTab('all',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M3 6h18M3 12h18M3 18h18"/></svg> Menú
+        </button>
+        <button class="sd-mtab" onclick="filterStoreTab('discounted',this)">Descuentos</button>
+        <button class="sd-mtab" onclick="filterStoreTab('featured',this)">Más vendidos</button>
+      </div>
     </div>
 
     <!-- Products -->
@@ -2772,18 +2810,20 @@ function renderStoreDetail(s, products) {
   // ── Name + rating ──
   const nameEl = document.getElementById('sd-name');
   if (nameEl) nameEl.textContent = s.name;
+  const stickyName = document.getElementById('sd-sticky-name');
+  if (stickyName) stickyName.textContent = s.name;
 
   const ratingEl = document.getElementById('sd-rating');
-  if (ratingEl) ratingEl.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> <strong>${s.rating||4.5}</strong> · ${s.delivery_time||'20-35'} min`;
-
-  const pillsEl = document.getElementById('sd-pills');
-  if (pillsEl) {
+  if (ratingEl) {
     const isOpen = s.is_open !== false && s.is_open !== 0;
-    pillsEl.innerHTML = `<span class="sd-pill ${isOpen?'open':'closed'}">${isOpen?'● Abierto ahora':'● Cerrado'}</span>`;
-    if (s.blow_plus) pillsEl.innerHTML += `<span class="sd-pill" style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;">⚡ Blow+</span>`;
-    if (s.blow_plus_free_delivery) pillsEl.innerHTML += `<span class="sd-pill" style="background:#e8f5e9;color:#27ae60;">🛵 Envío gratis Blow+</span>`;
-    if (s.category) pillsEl.innerHTML += `<span class="sd-pill">${s.category}</span>`;
-    if (s.tags) { try { const tags = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags; tags.forEach(t => { pillsEl.innerHTML += `<span class="sd-pill">${t}</span>`; }); } catch(e){} }
+    const openBadge = `<span style="color:${isOpen?'#27ae60':'#e74c3c'};font-weight:700;font-size:12px;">● ${isOpen?'Abierto':'Cerrado'}</span>`;
+    ratingEl.innerHTML = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="#FFB800" style="vertical-align:middle;margin-right:2px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <strong>${s.rating||'4.5'}</strong>
+      <span style="color:#999;">· ${s.category||''}</span>
+      &nbsp;${openBadge}
+      ${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff4080);color:#fff;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:800;">⚡ Blow+</span>' : ''}
+    `;
   }
 
   // ── Fulfillment tabs ──
@@ -2805,6 +2845,21 @@ function renderStoreDetail(s, products) {
 
   // ── Products ──
   renderStoreProducts(products, 'all');
+
+  // ── Sticky scroll behavior ──
+  const scrollEl = document.getElementById('store-scroll');
+  const stickyEl = document.getElementById('sd-sticky');
+  const headerEl = document.querySelector('.sd-header');
+  if (scrollEl && stickyEl) {
+    scrollEl.onscroll = () => {
+      const headerBottom = (headerEl?.offsetTop||0) + (headerEl?.offsetHeight||120);
+      if (scrollEl.scrollTop > headerBottom - 60) {
+        stickyEl.classList.add('visible');
+      } else {
+        stickyEl.classList.remove('visible');
+      }
+    };
+  }
 
   if (document.getElementById('store-scroll')) document.getElementById('store-scroll').scrollTop = 0;
 }
@@ -2870,7 +2925,6 @@ function renderStoreProducts(products, tab='all') {
   if (!container) return;
   const s = currentStoreForCart;
 
-  // Filter products based on tab
   let filtered = products;
   if (tab === 'featured') filtered = products.filter(p => p.is_featured);
   if (tab === 'discounted') filtered = products.filter(p => (p.discount_percent||0) > 0);
@@ -2880,33 +2934,26 @@ function renderStoreProducts(products, tab='all') {
     return;
   }
 
-  // Group by category
   const catNames = {};
   if (s?.product_categories) s.product_categories.forEach(c => { catNames[c.id] = c.name; });
 
   let html = '';
 
-  // Featured section (horizontal scroll) — only on 'all' tab
   if (tab === 'all') {
     const featured = products.filter(p => p.is_featured);
     if (featured.length > 0) {
-      html += `<div class="prod-section-title">⭐ Los elegidos para esta hora</div>
-      <div class="prod-hscroll-wrap"><div class="prod-hscroll">`;
+      html += `<div class="prod-section-title">⭐ Los más pedidos</div><div class="prod-hscroll-wrap"><div class="prod-hscroll">`;
       featured.forEach(p => { html += renderProductCardH(p, s); });
       html += `</div></div>`;
     }
-    // Discounted section
     const discounted = products.filter(p => (p.discount_percent||0) > 0);
     if (discounted.length > 0) {
-      html += `<div class="prod-section-title">🏷️ Los mejores descuentos</div>
-      <div class="prod-grid">`;
-      discounted.forEach(p => { html += renderProductCard(p, s); });
+      html += `<div class="prod-section-title">🏷️ Los mejores descuentos</div><div class="prod-list">`;
+      discounted.forEach(p => { html += renderProductRow(p, s); });
       html += `</div>`;
     }
-    html += `<div class="prod-section-title">Menú completo</div>`;
   }
 
-  // Group remaining products by category
   const byCat = {};
   filtered.forEach(p => {
     const k = p.category_id || '__none__';
@@ -2917,39 +2964,42 @@ function renderStoreProducts(products, tab='all') {
   Object.entries(byCat).forEach(([catId, prods]) => {
     if (catId !== '__none__' && catNames[catId]) {
       html += `<div class="prod-section-title">${catNames[catId]}</div>`;
+    } else if (catId === '__none__' && tab === 'all') {
+      html += `<div class="prod-section-title">Menú completo</div>`;
     }
-    html += `<div class="prod-grid">`;
-    prods.forEach(p => { html += renderProductCard(p, s); });
+    html += `<div class="prod-list">`;
+    prods.forEach(p => { html += renderProductRow(p, s); });
     html += `</div>`;
   });
 
-  container.innerHTML = html;
+  container.innerHTML = html || `<div style="text-align:center;padding:40px 20px;color:#999;">Sin productos disponibles</div>`;
 }
 
-function renderProductCard(p, s) {
+function renderProductRow(p, s) {
   const disc = parseInt(p.discount_percent)||0;
   const discPrice = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
   const priceHtml = disc > 0
-    ? `<span class="original">$${p.price}</span>$${discPrice}`
+    ? `<span class="original">$${p.price}</span> $${discPrice}`
     : `$${p.price}`;
   const imgHtml = p.photo_url
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
   const discBadge = disc > 0 ? `<div class="prod-discount-badge">${disc}% OFF</div>` : '';
-  const featBadge = p.is_featured ? `<div class="prod-featured-badge">⭐</div>` : '';
-  const pData = JSON.stringify({...p, biz_id:s?.id}).replace(/'/g,"\'");
-  return `<div class="prod-card" onclick="quickAdd(${pData})">
-    <div class="prod-card-img">${imgHtml}${discBadge}${featBadge}</div>
-    <div class="prod-card-body">
-      <div class="prod-card-name">${p.name}</div>
-      ${p.description ? `<div class="prod-card-desc">${p.description}</div>` : ''}
-      <div class="prod-card-footer">
-        <div class="prod-card-price">${priceHtml}</div>
-        <button class="prod-card-add" onclick="event.stopPropagation();quickAdd(${pData})">+</button>
-      </div>
+  const pStr = JSON.stringify({...p, biz_id:s?.id});
+  return `<div class="prod-row" onclick='quickAdd(${pStr})'>
+    <div class="prod-row-info">
+      <div class="prod-row-name">${p.name}</div>
+      ${p.description ? `<div class="prod-row-desc">${p.description}</div>` : ''}
+      <div class="prod-row-price">${priceHtml}</div>
+    </div>
+    <div class="prod-row-img">
+      ${imgHtml}${discBadge}
+      <button class="prod-row-add" onclick="event.stopPropagation();quickAdd(${pStr.replace(/"/g,'&quot;')})">+</button>
     </div>
   </div>`;
 }
+
+function renderProductCard(p, s) { return renderProductRow(p, s); }
 
 function renderProductCardH(p, s) {
   const disc = parseInt(p.discount_percent)||0;
@@ -2957,13 +3007,14 @@ function renderProductCardH(p, s) {
   const imgHtml = p.photo_url
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
-  const pData = JSON.stringify({...p, biz_id:s?.id}).replace(/'/g,"\'");
-  return `<div class="prod-card-h" onclick="quickAdd(${pData})">
-    <div class="prod-card-img">${imgHtml}</div>
-    <div class="prod-card-body">
-      <div class="prod-card-name">${p.name}</div>
-      <div class="prod-card-price">${disc>0?`<span class="original">$${p.price}</span>`:''}$${discPrice}</div>
+  const pStr = JSON.stringify({...p, biz_id:s?.id});
+  return `<div class="prod-card-h" onclick='quickAdd(${pStr})'>
+    <div class="prod-card-h-img">${imgHtml}${disc>0?`<div class="prod-discount-badge">${disc}% OFF</div>`:''}</div>
+    <div class="prod-card-h-body">
+      <div class="prod-card-h-name">${p.name}</div>
+      <div class="prod-card-h-price">${disc>0?`<span class="original">$${p.price}</span> `:''}$${discPrice}</div>
     </div>
+    <button class="prod-card-h-add" onclick="event.stopPropagation();quickAdd(${pStr.replace(/"/g,'&quot;')})">+</button>
   </div>`;
 }
 
