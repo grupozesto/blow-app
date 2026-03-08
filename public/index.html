@@ -835,7 +835,7 @@ body.owner-mode #page-delivery,
 body.owner-mode #page-user-blowplus,
 body.owner-mode #page-owner-login,
 body.owner-mode #page-owner-plans,
-body.owner-mode:not(.legacy-open) #page-owner-dash,
+body.owner-mode #page-owner-dash,
 body.owner-mode #page-favorites,
 body.owner-mode #page-personal-info,
 body.owner-mode #page-coupons,
@@ -847,12 +847,14 @@ body.owner-mode .search-bar { display: none !important; }
 
 
 /* Legacy panel overlay — shows old owner-dash tabs over owner app */
-#owner-legacy-overlay{position:fixed;inset:0;z-index:600;background:#f4f5f7;display:none;flex-direction:column;}
-#owner-legacy-overlay.open{display:flex;}
-#owner-legacy-topbar{background:var(--owner-dark);padding:0 16px;padding-top:calc(env(safe-area-inset-top,0px) + 12px);padding-bottom:12px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
-#owner-legacy-back{background:rgba(255,255,255,.12);border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
-#owner-legacy-title{font-size:15px;font-weight:800;color:#fff;flex:1;}
-#owner-legacy-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.oa-sub-panel{transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);position:absolute;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;background:#f4f5f7;}
+.oa-sub-panel.active{transform:translateX(0);pointer-events:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#owner-content{position:relative;overflow:hidden;}
+#oa-topbar-back{display:none;background:rgba(255,255,255,.15);border:none;border-radius:10px;width:36px;height:36px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-right:8px;}
+#oa-topbar-back.visible{display:flex;}
+.oa-sub-header{flex-shrink:0;display:flex;align-items:center;gap:12px;padding:16px 16px 12px;background:#fff;border-bottom:1px solid #f0f0f0;position:sticky;top:0;z-index:5;}
+.oa-sub-title{font-size:17px;font-weight:900;color:#1a1a1a;flex:1;}
+.oa-sub-back{background:#f5f5f5;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 
 </style>
 </head>
@@ -1452,6 +1454,14 @@ body.owner-mode .search-bar { display: none !important; }
     <div class="owner-panel" id="oa-panel-menu"></div>
     <div class="owner-panel" id="oa-panel-stats"></div>
     <div class="owner-panel" id="oa-panel-more"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-payments"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-promos"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-settings"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-news"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-loyalty"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-export"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-blowplus"></div>
+    <div class="owner-panel oa-sub-panel" id="oa-panel-coupons"></div>
   </div>
 
   <!-- Bottom nav -->
@@ -1481,18 +1491,7 @@ body.owner-mode .search-bar { display: none !important; }
 </div>
 
 
-<!-- Legacy panel overlay (used by Más options) -->
-<div id="owner-legacy-overlay">
-  <div id="owner-legacy-topbar">
-    <button id="owner-legacy-back" onclick="closeLegacyPanel()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <div id="owner-legacy-title">Panel</div>
-  </div>
-  <div id="owner-legacy-content">
-    <!-- page-owner-dash gets cloned/moved here when needed -->
-  </div>
-</div>
+
 <div class="page page-wrap" id="page-owner-login">
   <div class="owner-login-wrap">
     <div style="font-size:48px;margin-bottom:12px;">🏪</div>
@@ -5823,60 +5822,65 @@ const LEGACY_TAB_LABELS = {
   'otab-coupons':  '🎟️ Cupones',
 };
 
-async function openOwnerPanel(tabId) {
-  const overlay     = document.getElementById('owner-legacy-overlay');
-  const legacyContent = document.getElementById('owner-legacy-content');
-  const ownerDash   = document.getElementById('page-owner-dash');
-  const titleEl     = document.getElementById('owner-legacy-title');
-
-  if (!overlay || !legacyContent || !ownerDash) return;
-
-  // Move dash into overlay FIRST so loadOwnerDash renders into the right place
-  if (ownerDash.parentElement !== legacyContent) {
-    legacyContent.appendChild(ownerDash);
-  }
-  ownerDash.classList.add('active');
-  ownerDash.style.display = '';
-  if (titleEl) titleEl.textContent = LEGACY_TAB_LABELS[tabId] || 'Panel';
-
-  overlay.classList.add('open');
-  document.body.classList.add('legacy-open');
-  haptic('light');
-
-  // Load data and switch tab AFTER overlay is visible
-  try { await loadOwnerDash(); } catch(e) { console.warn('loadOwnerDash:', e.message); }
-  const tabBtn = document.querySelector(`#page-owner-dash [onclick*="${tabId}"]`);
-  switchOTab(tabId, tabBtn || null);
+function ownerAppOpenSub(panelId, title) {
+  _ownerSubStack.push(panelId);
+  const panel = document.getElementById('oa-panel-' + panelId);
+  if (!panel) return;
+  // background and scroll handled via CSS
+  panel.classList.add('active');
+  // Set back button title in topbar
+  const titleEl = document.getElementById('oa-topbar-sub-title');
+  if (titleEl) titleEl.textContent = title || '';
+  document.getElementById('oa-sub-topbar') && (document.getElementById('oa-sub-topbar').style.display = 'flex');
+  // Scroll to top
+  panel.scrollTop = 0;
+  // Render content
+  ownerAppLoadSubPanel(panelId);
 }
 
-function closeLegacyPanel() {
-  const overlay   = document.getElementById('owner-legacy-overlay');
-  const ownerDash = document.getElementById('page-owner-dash');
 
-  if (overlay) overlay.classList.remove('open');
-  document.body.classList.remove('legacy-open');
-
-  // Move dash back to body so it's hidden by body.owner-mode CSS
-  if (ownerDash && ownerDash.parentElement !== document.body) {
-    document.body.appendChild(ownerDash);
-  }
-  if (ownerDash) { ownerDash.classList.remove('active'); ownerDash.style.display = ''; }
-
+function ownerAppCloseSub() {
+  if (!_ownerSubStack.length) return;
+  const panelId = _ownerSubStack.pop();
+  const panel = document.getElementById('oa-panel-' + panelId);
+  if (panel) panel.classList.remove('active');
   haptic('light');
 }
 
-// Convenience: replace all nav('page-owner-dash') calls in owner mode
+function closeLegacyPanel() { ownerAppCloseSub(); }
+
+
+// Map legacy otab-X ids to new sub-panel ids
+const OWNER_SUB_MAP = {
+  'otab-payments': ['payments', '💰 Cobros y pagos'],
+  'otab-promos':   ['promos',   '🏷 Promociones'],
+  'otab-settings': ['settings', '⚙️ Configuración'],
+  'otab-news':     ['news',     '📢 Novedades'],
+  'otab-loyalty':  ['loyalty',  '⭐ Programa de puntos'],
+  'otab-export':   ['export',   '📥 Exportar datos'],
+  'otab-blowplus': ['blowplus', '⚡ Blow+'],
+  'otab-coupons':  ['coupons',  '🎟 Cupones'],
+  'otab-stats':    ['stats',    '📊 Estadísticas'],
+  'otab-menu':     ['menu',     '🍔 Menú'],
+};
+let _ownerSubStack = [];
 function ownerNav(tabId) {
   if (_ownerAppActive) {
-    openOwnerPanel(tabId);
+    const mapped = OWNER_SUB_MAP[tabId];
+    if (mapped) {
+      ownerAppOpenSub(mapped[0], mapped[1]);
+    } else {
+      ownerAppTab(tabId);
+    }
   } else {
-    switchOTab(tabId, null);
+    // Not in new app mode — go legacy
     nav('page-owner-dash');
   }
 }
 async function enterOwnerMode(animate = true) {
   if (_ownerAppActive) return;
   _ownerAppActive = true;
+  _ownerSubStack = [];
 
   // Load biz data — critical for topbar
   try {
@@ -5928,6 +5932,10 @@ async function enterOwnerMode(animate = true) {
 
 async function exitOwnerMode() {
   if (!_ownerAppActive) return;
+
+  // Close any open sub-panels
+  document.querySelectorAll('.oa-sub-panel.active').forEach(p => p.classList.remove('active'));
+  _ownerSubStack = [];
 
   // Flash transition out
   const overlay = document.getElementById('owner-transition');
@@ -6476,13 +6484,14 @@ function ownerAppRenderMore() {
   const panel = document.getElementById('oa-panel-more');
   if (!panel) return;
   const items = [
-    { icon:'🏷️', label:'Promociones y cupones',  fn:`ownerNav('otab-promos');` },
-    { icon:'💰', label:'Cobros y pagos',           fn:`ownerNav('otab-payments');` },
-    { icon:'📢', label:'Novedades y push',         fn:`ownerNav('otab-news');` },
-    { icon:'⭐', label:'Programa de puntos',       fn:`ownerNav('otab-loyalty');` },
-    { icon:'📥', label:'Exportar datos',           fn:`ownerNav('otab-export');` },
-    { icon:'⚡', label:'Blow+',                    fn:`ownerNav('otab-blowplus');` },
-    { icon:'⚙️', label:'Configuración del negocio',fn:`ownerNav('otab-settings');` },
+    { icon:'💰', label:'Cobros y pagos',            fn:`ownerAppOpenSub('payments','💰 Cobros y pagos')` },
+    { icon:'🏷️', label:'Promociones',               fn:`ownerAppOpenSub('promos','🏷 Promociones')` },
+    { icon:'🎟️', label:'Cupones',                   fn:`ownerAppOpenSub('coupons','🎟 Cupones')` },
+    { icon:'📢', label:'Novedades y push',           fn:`ownerAppOpenSub('news','📢 Novedades')` },
+    { icon:'⭐', label:'Programa de puntos',         fn:`ownerAppOpenSub('loyalty','⭐ Programa de puntos')` },
+    { icon:'📥', label:'Exportar datos',             fn:`ownerAppOpenSub('export','📥 Exportar datos')` },
+    { icon:'⚡', label:'Blow+',                      fn:`ownerAppOpenSub('blowplus','⚡ Blow+')` },
+    { icon:'⚙️', label:'Configuración del negocio',  fn:`ownerAppOpenSub('settings','⚙️ Configuración')` },
   ];
   panel.innerHTML = `
     <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
@@ -6507,6 +6516,558 @@ function ownerAppRenderMore() {
       </div>
     </div>`;
 }
+
+// =====================================================
+// SUB-PANEL RENDER FUNCTIONS (new owner-app)
+// =====================================================
+
+// Helper: wrap content in padded container
+function oaWrap(html) {
+  return `<div style="padding:16px;display:flex;flex-direction:column;gap:16px;">${html}</div>`;
+}
+
+// --- PAYMENTS ---
+async function ownerAppRenderPayments(body) {
+  body.innerHTML = `<div style="padding:16px;"><div class="spinner" style="margin:40px auto;"></div></div>`;
+  try {
+    const [wallet, txData] = await Promise.all([
+      api('/api/owner/wallet-summary').catch(() => ({})),
+      api('/api/owner/transactions').catch(() => ({ transactions: [] })),
+    ]);
+    const txs = txData.transactions || txData || [];
+    const onlineBal = wallet.online_balance || 0;
+    const cashTot   = wallet.cash_total || 0;
+    const cardTot   = wallet.card_pos_total || 0;
+    const inPerson  = cashTot + cardTot;
+
+    let html = `
+      <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:20px;padding:20px;margin-bottom:4px;">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">💳 Saldo online disponible</div>
+        <div style="font-size:40px;font-weight:900;color:#fff;line-height:1;margin-bottom:16px;">${fmtCurrency(onlineBal)}</div>
+        <button onclick="openWithdrawModal('owner')" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          Retirar fondos
+        </button>
+      </div>`;
+
+    if (inPerson > 0) {
+      html += `<div style="background:#fff;border-radius:20px;padding:18px;border:1.5px solid #f0f0f0;">
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">💵 Cobrado en persona</div>
+        <div style="font-size:32px;font-weight:900;color:#1a1a1a;margin-bottom:8px;">${fmtCurrency(inPerson)}</div>
+        <div style="font-size:12px;color:#22c55e;font-weight:700;">✓ Ya en tu bolsillo</div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          ${cashTot > 0 ? `<div style="flex:1;background:#f8f8f8;border-radius:12px;padding:10px;text-align:center;"><div style="font-size:18px;font-weight:800;">${fmtCurrency(cashTot)}</div><div style="font-size:11px;color:#aaa;margin-top:2px;">Efectivo</div></div>` : ''}
+          ${cardTot > 0 ? `<div style="flex:1;background:#f8f8f8;border-radius:12px;padding:10px;text-align:center;"><div style="font-size:18px;font-weight:800;">${fmtCurrency(cardTot)}</div><div style="font-size:11px;color:#aaa;margin-top:2px;">Posnet</div></div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    html += `<div style="background:#fff;border-radius:16px;overflow:hidden;">
+      <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;"><div style="font-size:15px;font-weight:800;">Transacciones</div></div>`;
+    if (!txs.length) {
+      html += `<div style="padding:32px;text-align:center;color:#aaa;">Sin transacciones aún</div>`;
+    } else {
+      txs.slice(0,20).forEach(t => {
+        const pos = t.type === 'credit';
+        html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f8f8f8;">
+          <div style="width:36px;height:36px;border-radius:10px;background:${pos?'#f0fdf4':'#fef2f2'};display:flex;align-items:center;justify-content:center;font-size:18px;">${pos?'⬆️':'⬇️'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;">${t.description || (pos ? 'Pago recibido' : 'Retiro')}</div>
+            <div style="font-size:11px;color:#aaa;">${fmtDate(t.created_at,true)}</div>
+          </div>
+          <div style="font-size:15px;font-weight:900;color:${pos?'#22c55e':'#ef4444'}">${pos?'+':''}${fmtCurrency(t.amount)}</div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+
+// --- PROMOS ---
+async function ownerAppRenderPromos(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
+  try {
+    const promos = await api('/api/businesses/mine/promotions');
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 8px;">
+      <div style="font-size:15px;font-weight:800;">Mis promociones</div>
+      <button onclick="openPromoModal()" style="background:var(--primary);border:none;border-radius:12px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Nueva</button>
+    </div>`;
+    if (!promos.length) {
+      html += `<div style="background:#fff;border-radius:16px;padding:40px 20px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:12px;">🏷️</div>
+        <div style="font-size:15px;font-weight:700;">Sin promociones activas</div>
+        <div style="font-size:13px;color:#aaa;margin-top:6px;">Creá descuentos para atraer más clientes</div>
+      </div>`;
+    } else {
+      promos.forEach(p => {
+        const active = p.is_active && (!p.expires_at || new Date(p.expires_at) > new Date());
+        html += `<div style="background:#fff;border-radius:16px;padding:16px;border-left:4px solid ${active?'#22c55e':'#e5e7eb'};">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <div>
+              <div style="font-size:15px;font-weight:800;">${p.name}</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">${p.type === 'percentage' ? p.value+'% descuento' : 'Descuento de '+fmtCurrency(p.value)}</div>
+            </div>
+            <span style="background:${active?'#f0fdf4':'#f9fafb'};color:${active?'#16a34a':'#9ca3af'};border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;">${active?'Activa':'Inactiva'}</span>
+          </div>
+          ${p.code ? `<div style="background:#f8f8f8;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;font-family:monospace;letter-spacing:1px;margin-bottom:8px;">${p.code}</div>` : ''}
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button onclick="editPromo('${p.id}')" style="flex:1;background:#f5f5f5;border:none;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Editar</button>
+            <button onclick="deletePromo('${p.id}')" style="flex:1;background:#fef2f2;border:none;border-radius:10px;padding:9px;font-size:13px;font-weight:700;color:#ef4444;cursor:pointer;font-family:inherit;">Eliminar</button>
+          </div>
+        </div>`;
+      });
+    }
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+
+// --- SETTINGS ---
+async function ownerAppRenderSettings(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
+  try {
+    const [biz, sched] = await Promise.all([
+      api('/api/businesses/mine'),
+      api('/api/businesses/mine/schedule').catch(() => ({})),
+    ]);
+    const days = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    const schedule = sched.schedule || {};
+
+    let html = `
+      <!-- Info del negocio -->
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;"><div style="font-size:15px;font-weight:800;">📋 Info del negocio</div></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Nombre</div>
+            <input id="oas-biz-name" class="form-input" value="${biz.name||''}" placeholder="Nombre del negocio" style="margin:0;">
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Descripción</div>
+            <input id="oas-biz-desc" class="form-input" value="${biz.description||''}" placeholder="Breve descripción" style="margin:0;">
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Dirección</div>
+            <input id="oas-biz-addr" class="form-input" value="${biz.address||''}" placeholder="Dirección" style="margin:0;">
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Teléfono</div>
+            <input id="oas-biz-phone" class="form-input" type="tel" value="${biz.phone||''}" placeholder="09X XXX XXX" style="margin:0;">
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Tiempo de entrega</div>
+            <input id="oas-biz-time" class="form-input" type="text" value="${biz.delivery_time||''}" placeholder="Ej: 30-45 min" style="margin:0;">
+          </div>
+          <button onclick="oasSaveBizInfo()" style="background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;">Guardar cambios</button>
+        </div>
+      </div>
+
+      <!-- Fotos -->
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;"><div style="font-size:15px;font-weight:800;">📸 Fotos del negocio</div></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#444;margin-bottom:8px;">Foto de portada</div>
+            ${biz.cover_url ? `<img src="${biz.cover_url}" style="width:100%;height:120px;object-fit:cover;border-radius:12px;margin-bottom:8px;">` : '<div style="width:100%;height:80px;background:#f5f5f5;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:13px;margin-bottom:8px;">Sin portada</div>'}
+            <label style="display:flex;align-items:center;gap:8px;background:#f8f8f8;border-radius:12px;padding:12px;cursor:pointer;border:1.5px dashed #ddd;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span style="font-size:13px;font-weight:600;">Subir portada</span>
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadBusinessPhoto('cover',this)">
+            </label>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#444;margin-bottom:8px;">Logo</div>
+            ${biz.logo_url ? `<img src="${biz.logo_url}" style="width:64px;height:64px;object-fit:cover;border-radius:14px;margin-bottom:8px;">` : `<div style="width:64px;height:64px;background:#f5f5f5;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:8px;">${biz.emoji||'🏪'}</div>`}
+            <label style="display:flex;align-items:center;gap:8px;background:#f8f8f8;border-radius:12px;padding:12px;cursor:pointer;border:1.5px dashed #ddd;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span style="font-size:13px;font-weight:600;">Subir logo</span>
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadBusinessPhoto('logo',this)">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métodos de pago -->
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;"><div style="font-size:15px;font-weight:800;">💳 Métodos de pago</div></div>
+        <div style="padding:4px 0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #f8f8f8;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">💵 Efectivo al recibir</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">El cliente te paga en mano</div>
+            </div>
+            <div class="tgl ${biz.accepts_cash?'on':''}" id="oas-tgl-cash" onclick="oasTogglePayment('cash')"></div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">🖥️ Tarjeta por posnet</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">El cliente pasa su tarjeta al recibir</div>
+            </div>
+            <div class="tgl ${biz.accepts_card_pos?'on':''}" id="oas-tgl-card" onclick="oasTogglePayment('card_pos')"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delivery -->
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;"><div style="font-size:15px;font-weight:800;">🛵 Delivery y retiro</div></div>
+        <div style="padding:4px 0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #f8f8f8;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">Ofrecer delivery</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">El repartidor lleva el pedido</div>
+            </div>
+            <div class="tgl ${biz.delivery_enabled?'on':''}" id="oas-tgl-delivery" onclick="oasToggleOption('delivery')"></div>
+          </div>
+          <div style="padding:12px 16px;border-bottom:1px solid #f8f8f8;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Costo de delivery</div>
+            <div style="display:flex;gap:8px;">
+              <input class="form-input" id="oas-delivery-cost" type="number" min="0" value="${biz.delivery_cost||0}" style="flex:1;margin:0;" placeholder="0 = gratis">
+              <button onclick="oasSaveDeliveryCost()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px;">✓</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">Ofrecer retiro en local</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">El cliente pasa a retirar</div>
+            </div>
+            <div class="tgl ${biz.pickup_enabled?'on':''}" id="oas-tgl-pickup" onclick="oasToggleOption('pickup')"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horarios -->
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:15px;font-weight:800;">🕐 Horarios de atención</div>
+          <div class="tgl ${sched.schedule_enabled?'on':''}" id="oas-tgl-sched" onclick="oasToggleSchedule()"></div>
+        </div>
+        <div id="oas-sched-content" style="padding:16px;${sched.schedule_enabled?'':'display:none;'}">
+          ${days.map((d,i) => {
+            const row = schedule[i] || {};
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f8f8f8;">
+              <div style="width:36px;font-size:13px;font-weight:700;color:#555;">${d}</div>
+              <input type="time" class="form-input" id="oas-open-${i}" value="${row.open||''}" style="flex:1;margin:0;font-size:13px;padding:8px 10px;" placeholder="--:--">
+              <div style="color:#aaa;font-size:12px;">a</div>
+              <input type="time" class="form-input" id="oas-close-${i}" value="${row.close||''}" style="flex:1;margin:0;font-size:13px;padding:8px 10px;" placeholder="--:--">
+            </div>`;
+          }).join('')}
+          <button onclick="oasSaveSchedule()" style="width:100%;margin-top:12px;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Guardar horarios</button>
+        </div>
+        <div id="oas-sched-off" style="padding:12px 16px;font-size:13px;color:#aaa;${sched.schedule_enabled?'display:none;':''}">Activá para configurar horarios automáticos</div>
+      </div>
+
+      <!-- Suscripción -->
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;"><div style="font-size:15px;font-weight:800;">⚡ Mi suscripción</div></div>
+        <div style="padding:14px 16px;">
+          <button onclick="nav('page-owner-plans')" style="width:100%;background:#f5f5f5;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Ver plan y facturación →</button>
+        </div>
+      </div>
+    `;
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+
+// Settings helpers
+async function oasSaveBizInfo() {
+  const name  = document.getElementById('oas-biz-name')?.value?.trim();
+  const desc  = document.getElementById('oas-biz-desc')?.value?.trim();
+  const addr  = document.getElementById('oas-biz-addr')?.value?.trim();
+  const phone = document.getElementById('oas-biz-phone')?.value?.trim();
+  const time  = document.getElementById('oas-biz-time')?.value?.trim();
+  if (!name) { showToast('❌ El nombre es obligatorio'); return; }
+  try {
+    await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ name, description:desc, address:addr, phone, delivery_time:time }) });
+    showToast('✅ Datos guardados');
+    if (_ownerBiz) Object.assign(_ownerBiz, { name, description:desc, address:addr, phone, delivery_time:time });
+    ownerAppUpdateTopbar();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+async function oasTogglePayment(type) {
+  const tglId = type === 'cash' ? 'oas-tgl-cash' : 'oas-tgl-card';
+  const field  = type === 'cash' ? 'accepts_cash' : 'accepts_card_pos';
+  const tgl = document.getElementById(tglId);
+  const newVal = !tgl?.classList.contains('on');
+  tgl?.classList.toggle('on', newVal);
+  try { await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ [field]: newVal }) }); }
+  catch(e) { tgl?.classList.toggle('on', !newVal); showToast('❌ ' + e.message); }
+}
+async function oasToggleOption(option) {
+  const ids = { delivery:'oas-tgl-delivery', pickup:'oas-tgl-pickup' };
+  const fields = { delivery:'delivery_enabled', pickup:'pickup_enabled' };
+  const tgl = document.getElementById(ids[option]);
+  const newVal = !tgl?.classList.contains('on');
+  tgl?.classList.toggle('on', newVal);
+  try { await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ [fields[option]]: newVal }) }); }
+  catch(e) { tgl?.classList.toggle('on', !newVal); showToast('❌ ' + e.message); }
+}
+async function oasSaveDeliveryCost() {
+  const val = parseFloat(document.getElementById('oas-delivery-cost')?.value || 0);
+  try { await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ delivery_cost: val }) }); showToast('✅ Guardado'); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+function oasToggleSchedule() {
+  const tgl = document.getElementById('oas-tgl-sched');
+  const body = document.getElementById('oas-sched-content');
+  const off  = document.getElementById('oas-sched-off');
+  const newVal = !tgl?.classList.contains('on');
+  tgl?.classList.toggle('on', newVal);
+  if (body) body.style.display = newVal ? '' : 'none';
+  if (off)  off.style.display  = newVal ? 'none' : '';
+  api('/api/businesses/mine/schedule', { method:'PATCH', body: JSON.stringify({ schedule_enabled: newVal }) }).catch(e => showToast('❌ ' + e.message));
+}
+async function oasSaveSchedule() {
+  const days = [0,1,2,3,4,5,6];
+  const schedule = {};
+  days.forEach(i => {
+    const open  = document.getElementById('oas-open-' +i)?.value;
+    const close = document.getElementById('oas-close-'+i)?.value;
+    if (open && close) schedule[i] = { open, close };
+  });
+  try {
+    await api('/api/businesses/mine/schedule', { method:'POST', body: JSON.stringify({ schedule }) });
+    showToast('✅ Horarios guardados');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// --- NEWS ---
+async function ownerAppRenderNews(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
+  try {
+    const [news, audience] = await Promise.all([
+      api('/api/businesses/mine/news').catch(() => []),
+      api('/api/owner/push/audience').catch(() => null),
+    ]);
+    const audCount = audience?.push_enabled || 0;
+    let html = `
+      <div style="background:linear-gradient(135deg,#0f3460,#16213e);border-radius:20px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:4px;">📱 Clientes con notificaciones</div>
+        <div style="font-size:36px;font-weight:900;color:#fff;margin-bottom:16px;">${audCount}</div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;">Nueva campaña push</div>
+        <input class="form-input" id="oan-push-title" placeholder="Título" style="margin-bottom:10px;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff;">
+        <textarea id="oan-push-msg" placeholder="Mensaje..." rows="3" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 12px;color:#fff;font-size:14px;font-family:inherit;box-sizing:border-box;resize:none;"></textarea>
+        <button onclick="oaSendPush()" style="width:100%;margin-top:10px;background:#FA0050;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Enviar push 🚀</button>
+      </div>
+
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:15px;font-weight:800;">Novedades publicadas</div>
+          <button onclick="oaAddNews()" style="background:var(--primary);border:none;border-radius:10px;padding:7px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">+ Nueva</button>
+        </div>`;
+    if (!news.length) {
+      html += `<div style="padding:32px;text-align:center;color:#aaa;">Sin novedades publicadas</div>`;
+    } else {
+      news.forEach(n => {
+        html += `<div style="padding:14px 16px;border-bottom:1px solid #f8f8f8;">
+          <div style="font-size:14px;font-weight:700;margin-bottom:4px;">${n.title||'Sin título'}</div>
+          <div style="font-size:13px;color:#666;margin-bottom:8px;line-height:1.4;">${n.message||''}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:#aaa;">${fmtDate(n.created_at,true)}</span>
+            <button onclick="oaDeleteNews('${n.id}')" style="background:#fef2f2;border:none;border-radius:8px;padding:5px 10px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">Eliminar</button>
+          </div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+async function oaSendPush() {
+  const title = document.getElementById('oan-push-title')?.value?.trim();
+  const msg   = document.getElementById('oan-push-msg')?.value?.trim();
+  if (!title || !msg) { showToast('❌ Completá título y mensaje'); return; }
+  try {
+    await api('/api/owner/push/campaign', { method:'POST', body: JSON.stringify({ title, message: msg }) });
+    showToast('✅ Push enviado!');
+    document.getElementById('oan-push-title').value = '';
+    document.getElementById('oan-push-msg').value = '';
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+async function oaAddNews() {
+  const title = prompt('Título de la novedad:');
+  if (!title) return;
+  const msg = prompt('Mensaje:');
+  if (!msg) return;
+  try {
+    await api('/api/businesses/mine/news', { method:'POST', body: JSON.stringify({ title, message: msg }) });
+    showToast('✅ Novedad publicada');
+    ownerAppLoadSubPanel('news');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+async function oaDeleteNews(id) {
+  if (!confirm('¿Eliminar esta novedad?')) return;
+  try { await api('/api/businesses/mine/news/' + id, { method:'DELETE' }); ownerAppLoadSubPanel('news'); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+// --- LOYALTY ---
+async function ownerAppRenderLoyalty(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
+  try {
+    const cfg = await api('/api/businesses/mine/loyalty').catch(() => ({}));
+    let html = `
+      <div style="background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid #f5f5f5;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:15px;font-weight:800;">⭐ Programa de puntos</div>
+            <div class="tgl ${cfg.enabled?'on':''}" id="oas-tgl-loyalty" onclick="oasToggleLoyalty()"></div>
+          </div>
+          <div style="font-size:13px;color:#aaa;margin-top:4px;">Tus clientes acumulan puntos y los canjean por descuentos</div>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Puntos por $1 gastado</div>
+            <input class="form-input" id="oal-pts-per-peso" type="number" min="0" step="0.1" value="${cfg.points_per_peso||1}" style="margin:0;">
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Puntos para canjear = $1</div>
+            <input class="form-input" id="oal-pts-per-reward" type="number" min="1" value="${cfg.points_per_reward||100}" style="margin:0;">
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:6px;">Puntos mínimos para canjear</div>
+            <input class="form-input" id="oal-min-pts" type="number" min="0" value="${cfg.min_points||500}" style="margin:0;">
+          </div>
+          <button onclick="oasSaveLoyalty()" style="background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;">Guardar configuración</button>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:16px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">¿Cómo funciona?</div>
+        <div style="font-size:13px;color:#666;line-height:1.6;">Los clientes acumulan puntos en cada compra. Cuando tienen suficientes, pueden canjearlos como descuento en su próximo pedido.</div>
+      </div>
+    `;
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+function oasToggleLoyalty() {
+  const tgl = document.getElementById('oas-tgl-loyalty');
+  const newVal = !tgl?.classList.contains('on');
+  tgl?.classList.toggle('on', newVal);
+  api('/api/businesses/mine/loyalty', { method:'PATCH', body: JSON.stringify({ enabled: newVal }) }).catch(e => { tgl?.classList.toggle('on', !newVal); showToast('❌ ' + e.message); });
+}
+async function oasSaveLoyalty() {
+  const ppp = parseFloat(document.getElementById('oal-pts-per-peso')?.value || 1);
+  const ppr = parseInt(document.getElementById('oal-pts-per-reward')?.value || 100);
+  const min = parseInt(document.getElementById('oal-min-pts')?.value || 500);
+  try {
+    await api('/api/businesses/mine/loyalty', { method:'PATCH', body: JSON.stringify({ points_per_peso: ppp, points_per_reward: ppr, min_points: min }) });
+    showToast('✅ Guardado');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// --- EXPORT ---
+async function ownerAppRenderExport(body) {
+  body.innerHTML = oaWrap(`
+    <div style="background:#fff;border-radius:16px;padding:20px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px;">📥 Exportar datos</div>
+      <div style="font-size:13px;color:#888;margin-bottom:20px;">Descargá tu historial de pedidos e ingresos en formato CSV.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Período</div>
+          <select class="form-input" id="oae-period" style="margin:0;">
+            <option value="7">Últimos 7 días</option>
+            <option value="30" selected>Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="365">Último año</option>
+          </select>
+        </div>
+        <button onclick="oasExportCSV()" style="background:var(--primary);border:none;border-radius:12px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </button>
+      </div>
+    </div>
+  `);
+}
+async function oasExportCSV() {
+  const days = document.getElementById('oae-period')?.value || 30;
+  try {
+    const data = await api('/api/owner/export?days=' + days);
+    const orders = data.orders || data || [];
+    if (!orders.length) { showToast('Sin pedidos en ese período'); return; }
+    const headers = ['ID','Fecha','Cliente','Total','Estado','Método de pago','Dirección'];
+    const rows = orders.map(o => [
+      o.id.slice(-8), fmtDate(o.created_at,false), o.customer_name||'', o.total,
+      o.status, o.payment_method||'online', (o.delivery_address||'').replace(/,/g,'')
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pedidos-blow-' + fmtDate(new Date(),false) + '.csv';
+    a.click();
+    showToast('✅ Descargando CSV');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// --- BLOW+ ---
+async function ownerAppRenderBlowPlus(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
+  try {
+    const status = await api('/api/businesses/mine/blow-plus').catch(() => ({}));
+    let html;
+    if (status.active) {
+      const exp = status.expires ? fmtDate(status.expires, false) : 'indefinido';
+      html = `<div style="background:linear-gradient(135deg,#FA0050,#c0001e);border-radius:20px;padding:24px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:8px;">⚡</div>
+        <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">Blow+ Activo</div>
+        <div style="font-size:14px;color:rgba(255,255,255,.7);">Válido hasta ${exp}</div>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:16px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Beneficios activos:</div>
+        ${['Destacado en búsquedas','Banner en portada','Envío gratis para clientes Blow+','Analytics avanzados'].map(b => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f8f8f8;font-size:14px;"><span style="color:#22c55e;font-weight:800;">✓</span>${b}</div>`).join('')}
+      </div>`;
+    } else {
+      html = `<div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:20px;padding:24px;text-align:center;">
+        <div style="font-size:36px;margin-bottom:8px;">⚡</div>
+        <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">Blow+</div>
+        <div style="font-size:14px;color:rgba(255,255,255,.7);margin-bottom:20px;">Destacate entre todos los negocios</div>
+        <div style="font-size:32px;font-weight:900;color:#fff;margin-bottom:4px;">$990<span style="font-size:14px;font-weight:400;opacity:.7;">/mes</span></div>
+        <button onclick="activateBlowPlus()" style="width:100%;margin-top:16px;background:#FA0050;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;">Activar Blow+ ⚡</button>
+      </div>
+      <div style="background:#fff;border-radius:16px;padding:16px;">
+        ${['🔝 Aparecés primero en búsquedas','🏷️ Banner destacado en portada','🚀 Envío gratis para tus clientes Blow+','📊 Analytics avanzados y segmentación'].map(b => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f8f8f8;font-size:14px;">${b}</div>`).join('')}
+      </div>`;
+    }
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+
+// --- COUPONS ---
+async function ownerAppRenderCoupons(body) {
+  body.innerHTML = `<div style="padding:40px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div>`;
+  try {
+    const coupons = await api('/api/businesses/mine/coupons').catch(() => []);
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 8px;">
+      <div style="font-size:15px;font-weight:800;">🎟️ Mis cupones</div>
+      <button onclick="openCouponModal()" style="background:var(--primary);border:none;border-radius:12px;padding:9px 16px;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">+ Nuevo</button>
+    </div>`;
+    if (!coupons.length) {
+      html += `<div style="background:#fff;border-radius:16px;padding:40px 20px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:12px;">🎟️</div>
+        <div style="font-size:15px;font-weight:700;">Sin cupones activos</div>
+        <div style="font-size:13px;color:#aaa;margin-top:6px;">Creá cupones para tus clientes fieles</div>
+      </div>`;
+    } else {
+      coupons.forEach(c => {
+        const active = c.is_active;
+        html += `<div style="background:#fff;border-radius:16px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <div>
+              <div style="font-size:15px;font-weight:800;font-family:monospace;letter-spacing:1px;">${c.code}</div>
+              <div style="font-size:12px;color:#aaa;margin-top:2px;">${c.type==='percentage'?c.value+'% descuento':'Descuento de '+fmtCurrency(c.value)}</div>
+            </div>
+            <span style="background:${active?'#f0fdf4':'#f9fafb'};color:${active?'#16a34a':'#9ca3af'};border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;">${active?'Activo':'Inactivo'}</span>
+          </div>
+          ${c.uses_count!=null?`<div style="font-size:12px;color:#aaa;">Usos: ${c.uses_count}${c.max_uses?'/'+c.max_uses:''}</div>`:''}
+          <button onclick="deleteCoupon('${c.id}')" style="margin-top:8px;background:#fef2f2;border:none;border-radius:10px;padding:8px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;">Eliminar</button>
+        </div>`;
+      });
+    }
+    body.innerHTML = oaWrap(html);
+  } catch(e) { body.innerHTML = `<div style="padding:20px;color:#e74c3c;">${e.message}</div>`; }
+}
+
 
 async function ownerAppToggleStore() {
   haptic('medium');
@@ -8393,21 +8954,39 @@ function completenessAction(key) {
 }
 
 function switchOTab(id, el) {
-  document.querySelectorAll('.otab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.otab').forEach(t=>t.classList.remove('active'));
-  const tabContent = document.getElementById(id);
-  if (!tabContent) { console.warn('switchOTab: tab not found:', id); return; }
-  tabContent.classList.add('active');
-  if (el) el.classList.add('active');
-  if (id === 'otab-promos') loadPromos();
-  if (id === 'otab-blowplus') loadBlowPlus();
-  if (id === 'otab-settings') { populatePhotoSettings(); loadSchedule(); }
-  if (id === 'otab-coupons') loadOwnerCoupons();
-  if (id === 'otab-stats') loadOwnerStatsHistory(7);
-  if (id === 'otab-export') initExportTab();
-  if (id === 'otab-news') loadOwnerNews();
-  if (id === 'otab-loyalty') loadLoyaltyConfig();
+  // Legacy shim - map to new sub-panels
+  const mapped = OWNER_SUB_MAP[id];
+  if (mapped && _ownerAppActive) { ownerAppOpenSub(mapped[0], mapped[1]); return; }
 }
+
+async function ownerAppLoadSubPanel(panelId) {
+  const panel = document.getElementById('oa-panel-' + panelId);
+  if (!panel) return;
+  // Show header with back button inside the panel
+  const headerHtml = `<div class="oa-sub-header">
+    <button class="oa-sub-back" onclick="ownerAppCloseSub()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="oa-sub-title">${({
+      payments:'💰 Cobros y pagos', promos:'🏷 Promociones', settings:'⚙️ Configuración',
+      news:'📢 Novedades', loyalty:'⭐ Programa de puntos', export:'📥 Exportar datos',
+      blowplus:'⚡ Blow+', coupons:'🎟 Cupones'
+    })[panelId] || panelId}</div>
+  </div>
+  <div id="oa-sub-body-${panelId}" style="padding-bottom:40px;"></div>`;
+  panel.innerHTML = headerHtml;
+  const body = panel.querySelector('#oa-sub-body-' + panelId);
+  if (!body) return;
+  if (panelId === 'payments')  await ownerAppRenderPayments(body);
+  if (panelId === 'promos')    await ownerAppRenderPromos(body);
+  if (panelId === 'settings')  await ownerAppRenderSettings(body);
+  if (panelId === 'news')      await ownerAppRenderNews(body);
+  if (panelId === 'loyalty')   await ownerAppRenderLoyalty(body);
+  if (panelId === 'export')    await ownerAppRenderExport(body);
+  if (panelId === 'blowplus')  await ownerAppRenderBlowPlus(body);
+  if (panelId === 'coupons')   await ownerAppRenderCoupons(body);
+}
+
 
 // -----------------------------------------------
 //  WITHDRAW MODAL
