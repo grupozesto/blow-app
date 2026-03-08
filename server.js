@@ -1469,6 +1469,15 @@ app.patch('/api/businesses/mine/schedule', auth, role('owner'), async (req, res)
   res.json({ success: true });
 });
 
+// ── Toggle open/closed ──────────────────────────────────
+app.post('/api/businesses/mine/toggle', auth, role('owner'), async (req, res) => {
+  const b = await q1('SELECT id, is_open FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!b) return res.status(404).json({ error: 'Sin negocio' });
+  const newState = req.body.is_open !== undefined ? Boolean(req.body.is_open) : !b.is_open;
+  await q('UPDATE businesses SET is_open=$1 WHERE id=$2', [newState, b.id]);
+  res.json({ is_open: newState });
+});
+
 // ════════════════════════════════════════════════
 //  CATEGORÍAS
 // ════════════════════════════════════════════════
