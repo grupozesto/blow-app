@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1290" height="2796" viewBox="0 0 1290 2796">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FA0050"/>
+      <stop offset="100%" stop-color="#c0003c"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <text x="50%" y="47%" font-family="system-ui,-apple-system,sans-serif" font-size="160" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">💨</text>
+  <text x="50%" y="56%" font-family="system-ui,-apple-system,sans-serif" font-size="120" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">Blow</text>
+  <text x="50%" y="62%" font-family="system-ui,-apple-system,sans-serif" font-size="56" font-weight="400" fill="rgba(255,255,255,0.7)" text-anchor="middle" dominant-baseline="middle">Delivery Uruguay</text>
+</svg>
