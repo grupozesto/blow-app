@@ -167,6 +167,13 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .bigcat:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
 .biz-card{background:#fff;border-radius:20px;overflow:hidden;cursor:pointer;flex-shrink:0;width:260px;box-shadow:0 2px 16px rgba(0,0,0,.10);transition:transform .18s;}
 .biz-card:hover{transform:translateY(-2px);}
+.rec-card{background:#fff;border-radius:18px;overflow:hidden;cursor:pointer;flex-shrink:0;width:148px;box-shadow:0 2px 12px rgba(0,0,0,.09);transition:transform .18s;}
+.rec-card:hover{transform:translateY(-2px);}
+.rec-card-img{width:148px;height:100px;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:44px;}
+.rec-card-body{padding:8px 10px 10px;}
+.rec-card-name{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1a1a1a;}
+.rec-card-meta{font-size:11px;color:#aaa;margin-top:2px;}
+.rec-card-tag{font-size:10px;background:#ffeef0;color:var(--primary);border-radius:5px;padding:2px 6px;font-weight:700;display:inline-block;margin-top:4px;}
 .biz-img{width:100%;height:180px;object-fit:cover;display:flex;align-items:center;justify-content:center;}
 .biz-info{padding:14px 14px 16px;}
 .biz-name{font-size:16px;font-weight:800;color:#1a1a1a;margin-bottom:5px;}
@@ -887,6 +894,14 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         <div class="chip" onclick="chipFilter(this,'drinks')">🥤 Bebidas</div>
         <div class="chip" onclick="chipFilter(this,'desserts')">🍰 Postres</div>
       </div>
+    </div>
+    <!-- PARA VOS — personalized recommendations -->
+    <div id="para-vos-section" style="display:none;padding:0 0 4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 10px;">
+        <div style="font-size:17px;font-weight:900;letter-spacing:-.3px;">✨ Para vos</div>
+        <span style="font-size:12px;color:#aaa;font-weight:600;">Basado en tus pedidos</span>
+      </div>
+      <div id="para-vos-row" style="display:flex;gap:12px;overflow-x:auto;padding:0 16px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;"></div>
     </div>
     <div style="padding:14px 16px 80px;"><div class="stores-grid" id="stores-grid"><div class="loading-state"><div class="spinner"></div>Cargando tiendas...</div></div></div>
   </div>
@@ -2981,12 +2996,65 @@ let _storeHasMore = false;
 let _storeLoading = false;
 let _storeCategory = null;
 
+// ── Para Vos — personalized recommendations ───
+async function loadRecommendations() {
+  const section = document.getElementById('para-vos-section');
+  const row = document.getElementById('para-vos-row');
+  if (!section || !row || !user) return;
+  try {
+    let url = '/api/recommendations?limit=8';
+    if (clientGpsLat && clientGpsLng) url += `&lat=${clientGpsLat}&lng=${clientGpsLng}`;
+    const data = await api(url);
+    const recs = data.recommendations || [];
+    if (!recs.length) { section.style.display = 'none'; return; }
+
+    const reasonLabel = {
+      same_category: 'Por tus gustos',
+      order_again:   'Pedí de nuevo',
+      discover:      'Para explorar',
+      popular:       'Los más pedidos',
+    };
+
+    row.innerHTML = recs.map(b => {
+      const img = b.cover_url
+        ? `<img src="${b.cover_url}" class="rec-card-img" style="width:148px;height:100px;object-fit:cover;">`
+        : `<div class="rec-card-img" style="background:${bizGradient(b.category)};">${b.logo_emoji||'🏪'}</div>`;
+      const rating = b.rating ? `⭐ ${parseFloat(b.rating).toFixed(1)}` : '';
+      const time = b.delivery_time ? `· ${b.delivery_time} min` : '';
+      const reason = reasonLabel[b.rec_reason] || 'Para vos';
+      const openBadge = b.is_open
+        ? '' : '<span style="background:#fef2f2;color:#dc2626;font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;margin-left:2px;">Cerrado</span>';
+      return `<div class="rec-card" onclick="openStore('${b.id}')">
+        ${img}
+        <div class="rec-card-body">
+          <div class="rec-card-name">${b.name}</div>
+          <div class="rec-card-meta">${rating}${rating&&time?' '+time:time}${openBadge}</div>
+          <div class="rec-card-tag">${reason}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    section.style.display = 'block';
+  } catch(e) {
+    if (section) section.style.display = 'none';
+  }
+}
+
+function bizGradient(cat) {
+  const g = { food:'linear-gradient(135deg,#f7971e,#ffd200)', market:'linear-gradient(135deg,#11998e,#38ef7d)',
+    pharmacy:'linear-gradient(135deg,#4facfe,#00f2fe)', drinks:'linear-gradient(135deg,#6a3093,#a044ff)',
+    desserts:'linear-gradient(135deg,#f953c6,#b91d73)' };
+  return g[cat] || 'linear-gradient(135deg,#1a1a2e,#e94560)';
+}
+
 async function loadStores(reset = true) {
   const g = document.getElementById('stores-grid');
   if (reset) {
     _storeOffset = 0;
     _storeHasMore = false;
     g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
+    if (user) loadRecommendations();
+    else document.getElementById('para-vos-section').style.display = 'none';
   }
   _storeLoading = true;
   try {
@@ -4553,6 +4621,8 @@ function saveSession(t, u) {
   } else if (Notification.permission !== 'denied') {
     Notification.requestPermission().then(p => { if (p === 'granted') subscribeToPush(); });
   }
+  // Refresh personalized recommendations
+  setTimeout(() => loadRecommendations(), 500);
 }
 
 function doLogout() {
