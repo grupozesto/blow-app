@@ -346,6 +346,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 /* ── OWNER ── */
 .owner-login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 32px));background:var(--bg);}
+#ob-emoji-picker span{font-size:24px;cursor:pointer;padding:6px;border-radius:8px;transition:background .15s;}
+#ob-emoji-picker span:hover,#ob-emoji-picker span.selected{background:#fff0f3;}
 .plans-grid{display:flex;flex-direction:column;gap:12px;width:100%;margin-bottom:20px;}
 .plan-card{background:#fff;border:2px solid var(--border);border-radius:var(--r);padding:18px;cursor:pointer;transition:border-color .2s;position:relative;}
 .plan-card.selected{border-color:var(--primary);}
@@ -4613,6 +4615,175 @@ async function completeRegistration() {
 }
 
 // Handle return from MercadoPago payment
+// ═══════════════════════════════════════════════
+//  OWNER ONBOARDING WIZARD
+// ═══════════════════════════════════════════════
+const OB_DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+let obBizId = null;
+
+function showOnboarding(biz) {
+  obBizId = biz.id;
+  const ov = document.getElementById('onboarding-overlay');
+  ov.style.display = 'block';
+  // Pre-fill step 1
+  const nameInp = document.getElementById('ob-bizname');
+  if (nameInp && biz.name) nameInp.value = biz.name;
+  const phoneInp = document.getElementById('ob-phone');
+  if (phoneInp && biz.phone) phoneInp.value = biz.phone;
+  const emojiInp = document.getElementById('ob-emoji');
+  if (emojiInp) emojiInp.value = biz.logo_emoji || '🏪';
+  // Pre-fill step 2
+  const addrInp = document.getElementById('ob-addr');
+  if (addrInp && biz.address) addrInp.value = biz.address;
+  // Init emoji picker
+  document.querySelectorAll('#ob-emoji-picker span').forEach(sp => {
+    sp.onclick = () => {
+      document.querySelectorAll('#ob-emoji-picker span').forEach(x => x.classList.remove('selected'));
+      sp.classList.add('selected');
+      document.getElementById('ob-emoji').value = sp.textContent;
+    };
+    if (sp.textContent === (biz.logo_emoji || '🏪')) sp.classList.add('selected');
+  });
+  // Fill dept/city selectors
+  obFillDepts('ob-dept');
+  if (biz.department) {
+    setTimeout(() => {
+      const sel = document.getElementById('ob-dept');
+      if (sel) sel.value = biz.department;
+      obFillCities(biz.department, 'ob-city');
+      setTimeout(() => {
+        const citySel = document.getElementById('ob-city');
+        if (citySel && biz.city) citySel.value = biz.city;
+      }, 50);
+    }, 50);
+  }
+  // Build schedule rows
+  buildObScheduleRows();
+  obSetStep(1);
+}
+
+function obFillDepts(selId) {
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  const depts = Object.keys(UY_DEPARTMENTS).sort();
+  sel.innerHTML = '<option value="">— Departamento —</option>' +
+    depts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+function obFillCities(dept, citySelId) {
+  const cities = UY_DEPARTMENTS[dept] || [];
+  const sel = document.getElementById(citySelId);
+  if (!sel) return;
+  sel.innerHTML = cities.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function buildObScheduleRows() {
+  const container = document.getElementById('ob-schedule-rows');
+  if (!container) return;
+  container.innerHTML = OB_DAYS.map((day, i) => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:80px;font-size:13px;font-weight:600;color:#1a1a1a;">${day}</div>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="checkbox" id="ob-day-${i}" ${i < 5 ? 'checked' : ''} onchange="obToggleDay(${i})" style="width:16px;height:16px;accent-color:var(--primary);">
+        <span style="font-size:12px;color:#888;">Abierto</span>
+      </label>
+      <div id="ob-hours-${i}" style="display:flex;align-items:center;gap:4px;${i < 5 ? '' : 'display:none!important'}">
+        <input type="time" id="ob-open-${i}" value="09:00" style="border:1px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:13px;font-family:'Inter',sans-serif;width:90px;">
+        <span style="font-size:12px;color:#888;">—</span>
+        <input type="time" id="ob-close-${i}" value="22:00" style="border:1px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:13px;font-family:'Inter',sans-serif;width:90px;">
+      </div>
+    </div>
+  `).join('');
+}
+
+function obToggleDay(i) {
+  const checked = document.getElementById(`ob-day-${i}`)?.checked;
+  const hoursDiv = document.getElementById(`ob-hours-${i}`);
+  if (hoursDiv) hoursDiv.style.display = checked ? 'flex' : 'none';
+}
+
+function obSetStep(n) {
+  document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
+  const step = document.getElementById(`ob-step-${n}`);
+  if (step) step.style.display = 'block';
+  const progress = document.getElementById('ob-progress');
+  if (progress) progress.style.width = `${(n - 1) / 4 * 100}%`;
+  document.getElementById('onboarding-overlay').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function obNext(step) {
+  if (step === 1) {
+    const name  = document.getElementById('ob-bizname')?.value.trim();
+    const emoji = document.getElementById('ob-emoji')?.value.trim() || '🏪';
+    const phone = document.getElementById('ob-phone')?.value.trim();
+    if (!name) { showToast('⚠️ Ingresá el nombre de tu negocio'); return; }
+    try {
+      await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ name, logo_emoji: emoji, phone: phone || undefined }) });
+      obSetStep(2);
+    } catch(e) { showToast('❌ ' + e.message); }
+  } else if (step === 2) {
+    const addr   = document.getElementById('ob-addr')?.value.trim();
+    const dept   = document.getElementById('ob-dept')?.value;
+    const city   = document.getElementById('ob-city')?.value;
+    const radius = document.getElementById('ob-radius')?.value;
+    if (!dept || !city) { showToast('⚠️ Seleccioná departamento y ciudad'); return; }
+    try {
+      await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({
+        address: addr || undefined, department: dept, city,
+        delivery_radius_km: radius ? parseFloat(radius) : null
+      }) });
+      obSetStep(3);
+    } catch(e) { showToast('❌ ' + e.message); }
+  } else if (step === 3) {
+    const name  = document.getElementById('ob-prod-name')?.value.trim();
+    const price = parseFloat(document.getElementById('ob-prod-price')?.value);
+    const desc  = document.getElementById('ob-prod-desc')?.value.trim();
+    const emoji = document.getElementById('ob-prod-emoji')?.value.trim() || '🍽️';
+    if (!name) { showToast('⚠️ Ingresá el nombre del producto'); return; }
+    if (!price || price < 1) { showToast('⚠️ Ingresá un precio válido'); return; }
+    try {
+      const uid = () => Math.random().toString(36).slice(2,10);
+      await api('/api/businesses/mine/products', { method:'POST', body: JSON.stringify({
+        name, price, description: desc || '', emoji, is_available: true
+      }) });
+      const st = document.getElementById('ob-prod-status');
+      if (st) { st.textContent = `✅ "${name}" agregado`; st.style.display = 'block'; }
+      setTimeout(() => obSetStep(4), 600);
+    } catch(e) { showToast('❌ ' + e.message); }
+  }
+}
+
+function obSkip(step) {
+  if (step === 4) { obFinish(); return; }
+  obSetStep(step + 1);
+}
+
+async function obFinish() {
+  // Save schedule
+  try {
+    const schedule = {};
+    const dayKeys = ['mon','tue','wed','thu','fri','sat','sun'];
+    OB_DAYS.forEach((_, i) => {
+      const open = document.getElementById(`ob-day-${i}`)?.checked;
+      schedule[dayKeys[i]] = open ? {
+        open: document.getElementById(`ob-open-${i}`)?.value || '09:00',
+        close: document.getElementById(`ob-close-${i}`)?.value || '22:00'
+      } : null;
+    });
+    await api('/api/businesses/mine/schedule', { method:'PATCH', body: JSON.stringify({ schedule, enabled: true }) });
+  } catch(e) { /* schedule save failure is non-critical */ }
+
+  // Mark onboarding done
+  try { await api('/api/businesses/mine/onboarding-done', { method:'POST' }); } catch(e) {}
+
+  document.getElementById('ob-progress').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('onboarding-overlay').style.display = 'none';
+    showToast('🎉 ¡Todo listo! Ya podés recibir pedidos.');
+    loadOwnerDash();
+  }, 400);
+}
+
 (function checkPaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const regId  = params.get('reg');
@@ -4718,6 +4889,11 @@ async function loadOwnerDash() {
   try {
     const d = await api('/api/businesses/mine/dashboard');
     ownerData = d;
+    // Show onboarding wizard for new owners
+    if (!d.business.onboarding_done && document.getElementById('onboarding-overlay').style.display === 'none') {
+      showOnboarding(d.business);
+      return;
+    }
     // Header
     document.getElementById('owner-store-name').textContent = `${d.business.logo_emoji} ${d.business.name}`;
     const schedNote = d.business.schedule_enabled ? ' · ⏰ Horario automático' : '';
@@ -7553,6 +7729,115 @@ if (blowplususerStatus === 'success') {
       <div style="font-size:40px;margin-bottom:10px;">🔍</div>
       <div style="font-size:14px;">Buscá platos, ingredientes o locales</div>
     </div>
+  </div>
+</div>
+
+<!-- ══ OWNER ONBOARDING WIZARD ══ -->
+<div id="onboarding-overlay" style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;overflow-y:auto;">
+  <div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;">
+    <!-- Header -->
+    <div style="text-align:center;padding-top:max(24px,env(safe-area-inset-top,24px));margin-bottom:32px;">
+      <div style="font-size:36px;margin-bottom:8px;">🚀</div>
+      <div style="font-size:22px;font-weight:900;color:#1a1a1a;">¡Configurá tu negocio!</div>
+      <div style="font-size:14px;color:#888;margin-top:6px;">Completá estos pasos para empezar a recibir pedidos</div>
+    </div>
+    <!-- Progress bar -->
+    <div style="background:#f0f0f0;border-radius:99px;height:6px;margin-bottom:32px;overflow:hidden;">
+      <div id="ob-progress" style="background:linear-gradient(90deg,#FA0050,#ff6b6b);height:100%;border-radius:99px;transition:width .4s ease;width:0%"></div>
+    </div>
+
+    <!-- STEP 1: Logo & nombre -->
+    <div class="ob-step" id="ob-step-1">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">🏪</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 1 de 4 — Tu negocio</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">El nombre y emoji que ven tus clientes</div>
+      <div class="form-group">
+        <label class="form-label">Nombre del negocio</label>
+        <input class="form-input" id="ob-bizname" type="text" placeholder="Ej: Burger Palace">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji del logo</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="ob-emoji-picker">
+          <span>🍔</span><span>🍕</span><span>🌮</span><span>🍜</span><span>🥗</span>
+          <span>🛒</span><span>💊</span><span>🥤</span><span>🍰</span><span>☕</span>
+          <span>🍣</span><span>🌯</span><span>🍗</span><span>🥩</span><span>🏪</span>
+        </div>
+        <input class="form-input" id="ob-emoji" type="text" maxlength="2" placeholder="🏪" style="font-size:24px;text-align:center;width:80px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Teléfono de contacto</label>
+        <input class="form-input" id="ob-phone" type="tel" placeholder="09X XXX XXX">
+      </div>
+      <button class="primary-btn" onclick="obNext(1)">Siguiente →</button>
+    </div>
+
+    <!-- STEP 2: Ubicación -->
+    <div class="ob-step" id="ob-step-2" style="display:none;">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">📍</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 2 de 4 — Ubicación</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">¿Dónde está tu negocio? Esto define quiénes te ven.</div>
+      <div class="form-group">
+        <label class="form-label">Dirección <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="ob-addr" type="text" placeholder="Av. 18 de Julio 1500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Departamento <span style="color:var(--primary)">*</span></label>
+        <select class="form-input" id="ob-dept" style="appearance:none;" onchange="obFillCities(this.value,'ob-city')"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ciudad / Localidad <span style="color:var(--primary)">*</span></label>
+        <select class="form-input" id="ob-city" style="appearance:none;"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Radio de delivery (km)</label>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">¿Hasta dónde llegás? Podés ajustarlo después. Dejá vacío = sin límite.</div>
+        <input class="form-input" id="ob-radius" type="number" min="0.5" max="50" step="0.5" placeholder="ej: 5">
+      </div>
+      <button class="primary-btn" onclick="obNext(2)">Siguiente →</button>
+      <button class="secondary-btn" onclick="obSkip(2)">Omitir por ahora</button>
+    </div>
+
+    <!-- STEP 3: Primer producto -->
+    <div class="ob-step" id="ob-step-3" style="display:none;">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">🍽️</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 3 de 4 — Tu primer producto</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">Agregá algo para que los clientes puedan pedir.</div>
+      <div class="form-group">
+        <label class="form-label">Nombre del producto <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="ob-prod-name" type="text" placeholder="Ej: Hamburguesa doble">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Precio ($) <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="ob-prod-price" type="number" min="1" placeholder="490">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción (opcional)</label>
+        <input class="form-input" id="ob-prod-desc" type="text" placeholder="Carne, queso, lechuga, tomate...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji del producto</label>
+        <input class="form-input" id="ob-prod-emoji" type="text" maxlength="2" placeholder="🍔" style="font-size:24px;text-align:center;width:80px;">
+      </div>
+      <div id="ob-prod-status" style="font-size:13px;color:#27ae60;margin-bottom:8px;display:none;"></div>
+      <button class="primary-btn" onclick="obNext(3)">Siguiente →</button>
+      <button class="secondary-btn" onclick="obSkip(3)">Omitir por ahora</button>
+    </div>
+
+    <!-- STEP 4: Horarios -->
+    <div class="ob-step" id="ob-step-4" style="display:none;">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">🕐</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 4 de 4 — Horario</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">¿Cuándo atendés? La app abre y cierra automáticamente.</div>
+
+      <div style="background:#f8f8f8;border-radius:14px;padding:16px;margin-bottom:16px;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px;">Días y horarios</div>
+        <div id="ob-schedule-rows"></div>
+      </div>
+      <div style="font-size:12px;color:#888;margin-bottom:20px;text-align:center;">Podés ajustar esto en detalle desde Configuración → Horarios</div>
+      <button class="primary-btn" onclick="obFinish()">🎉 ¡Listo! Ir al panel</button>
+      <button class="secondary-btn" onclick="obSkip(4)">Omitir por ahora</button>
+    </div>
+
   </div>
 </div>
 
