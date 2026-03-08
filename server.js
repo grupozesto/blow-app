@@ -455,6 +455,38 @@ async function initDB() {
       is_active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    -- ── Performance indexes ──────────────────────
+    CREATE INDEX IF NOT EXISTS idx_orders_customer_id    ON orders(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_business_id    ON orders(business_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status         ON orders(status);
+    CREATE INDEX IF NOT EXISTS idx_orders_created_at     ON orders(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_orders_mp_payment_id  ON orders(mp_payment_id) WHERE mp_payment_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_products_business_id  ON products(business_id);
+    CREATE INDEX IF NOT EXISTS idx_products_available    ON products(business_id, is_available);
+    CREATE INDEX IF NOT EXISTS idx_businesses_city       ON businesses(city);
+    CREATE INDEX IF NOT EXISTS idx_businesses_category   ON businesses(category);
+    CREATE INDEX IF NOT EXISTS idx_businesses_is_open    ON businesses(is_open, plan) WHERE plan IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_order_items_order_id  ON order_items(order_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_business_id   ON reviews(business_id);
+    CREATE INDEX IF NOT EXISTS idx_loyalty_user_biz      ON loyalty_points(user_id, business_id);
+    CREATE INDEX IF NOT EXISTS idx_push_subs_user_id     ON push_subscriptions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_help_msgs_user_id     ON help_messages(user_id) WHERE user_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_user_addresses_user   ON user_addresses(user_id);
+    CREATE INDEX IF NOT EXISTS idx_business_news_biz     ON business_news(business_id, active);
+    -- Full-text search index on products and businesses
+    CREATE INDEX IF NOT EXISTS idx_products_name_fts     ON products USING gin(to_tsvector('spanish', name || ' ' || COALESCE(description, '')));
+    CREATE INDEX IF NOT EXISTS idx_businesses_name_fts   ON businesses USING gin(to_tsvector('spanish', name));
+    -- Rider GPS positions (upserted, one row per active order)
+    CREATE TABLE IF NOT EXISTS rider_locations (
+      order_id TEXT PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+      rider_id TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      heading REAL DEFAULT 0,
+      speed REAL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_rider_locations_rider ON rider_locations(rider_id);
   `);
   // Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
@@ -609,6 +641,25 @@ async function sendPush(userId, payload) {
       }
     }
   } catch(e) { console.error('sendPush error:', e.message); }
+}
+
+// Send push to all customers of a business
+async function sendPushToBusinessCustomers(businessId, payload, options = {}) {
+  const { limit = 500, onlyRecent = true } = options;
+  // Get unique customers who ordered from this business (optionally only those in last 90 days)
+  const customers = await qa(`
+    SELECT DISTINCT customer_id FROM orders
+    WHERE business_id=$1
+      ${onlyRecent ? "AND created_at > NOW() - INTERVAL '90 days'" : ''}
+      AND status = 'delivered'
+    LIMIT $2
+  `, [businessId, limit]);
+  let sent = 0, failed = 0;
+  for (const c of customers) {
+    try { await sendPush(c.customer_id, payload); sent++; }
+    catch(e) { failed++; }
+  }
+  return { sent, failed, total: customers.length };
 }
 
 // ── Middlewares ───────────────────────────────
@@ -849,6 +900,52 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 //  NEGOCIOS
 // ════════════════════════════════════════════════
 // ── Personalized recommendations ─────────────
+// ═══════════════════════════════════════════════
+//  GPS TRACKING — REPARTIDOR
+// ═══════════════════════════════════════════════
+
+// Repartidor actualiza su posición (llamado cada 10s desde la app)
+app.post('/api/rider/location', auth, async (req, res) => {
+  if (!['delivery','owner'].includes(req.user.role)) return res.status(403).json({ error: 'Sin permisos' });
+  const { order_id, lat, lng, heading = 0, speed = 0 } = req.body;
+  if (!order_id || !lat || !lng) return res.status(400).json({ error: 'order_id, lat y lng requeridos' });
+  try {
+    // Verify the rider is assigned to this order
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [order_id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (req.user.role === 'delivery' && order.delivery_id !== req.user.id) return res.status(403).json({ error: 'No sos el repartidor de este pedido' });
+    // Upsert location
+    await q(`INSERT INTO rider_locations (order_id, rider_id, lat, lng, heading, speed, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW())
+      ON CONFLICT (order_id) DO UPDATE SET lat=$3, lng=$4, heading=$5, speed=$6, updated_at=NOW()`,
+      [order_id, req.user.id, parseFloat(lat), parseFloat(lng), parseFloat(heading), parseFloat(speed)]);
+    // Broadcast to customer via WebSocket
+    notify(order.customer_id, {
+      type: 'rider_location',
+      order_id,
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      heading: parseFloat(heading),
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer polls rider location (fallback if WS disconnected)
+app.get('/api/orders/:id/rider-location', auth, async (req, res) => {
+  try {
+    const order = await q1('SELECT customer_id, delivery_id, status FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (order.customer_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+    if (!['on_way'].includes(order.status)) return res.json({ available: false, status: order.status });
+    const loc = await q1('SELECT lat, lng, heading, speed, updated_at FROM rider_locations WHERE order_id=$1', [req.params.id]);
+    if (!loc) return res.json({ available: false });
+    // Consider stale if > 60 seconds old
+    const ageSeconds = (Date.now() - new Date(loc.updated_at).getTime()) / 1000;
+    res.json({ available: true, lat: loc.lat, lng: loc.lng, heading: loc.heading, stale: ageSeconds > 60, age_seconds: Math.round(ageSeconds) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/recommendations', auth, async (req, res) => {
   try {
     const { lat, lng, limit = 8 } = req.query;
@@ -1151,6 +1248,53 @@ app.delete('/api/push/subscribe', auth, async (req, res) => {
   if (endpoint) await q('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, req.user.id]);
   else await q('DELETE FROM push_subscriptions WHERE user_id=$1', [req.user.id]);
   res.json({ ok: true });
+});
+
+// ── Marketing push from owner panel ──────────
+app.get('/api/owner/push/audience', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'No encontrado' });
+    const stats = await q1(`
+      SELECT
+        COUNT(DISTINCT o.customer_id) as total_customers,
+        COUNT(DISTINCT ps.user_id) as push_enabled
+      FROM orders o
+      JOIN push_subscriptions ps ON ps.user_id = o.customer_id
+      WHERE o.business_id=$1 AND o.status='delivered'
+        AND o.created_at > NOW() - INTERVAL '90 days'
+    `, [biz.id]);
+    res.json(stats);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/owner/push/send', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id, name FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'No encontrado' });
+    const { title, body, url = '/' } = req.body;
+    if (!title?.trim()) return res.status(400).json({ error: 'Título requerido' });
+    // Rate limit: max 1 marketing push per business per day
+    const lastPush = await q1(`
+      SELECT created_at FROM push_log WHERE business_id=$1
+        AND created_at > NOW() - INTERVAL '24 hours' LIMIT 1
+    `, [biz.id]).catch(() => null);
+    // push_log table created inline if doesn't exist
+    await q(`CREATE TABLE IF NOT EXISTS push_log (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      business_id TEXT NOT NULL,
+      title TEXT, body TEXT,
+      sent_count INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    const recent = await q1(`SELECT id FROM push_log WHERE business_id=$1 AND created_at > NOW() - INTERVAL '24 hours'`, [biz.id]).catch(()=>null);
+    if (recent) return res.status(429).json({ error: 'Solo podés enviar 1 campaña por día. Intentá mañana.' });
+    const payload = { title: `${biz.name}: ${title}`, body: body || '', url, type: 'marketing' };
+    const result = await sendPushToBusinessCustomers(biz.id, payload);
+    await q(`INSERT INTO push_log (business_id,title,body,sent_count) VALUES ($1,$2,$3,$4)`,
+      [biz.id, title, body || '', result.sent]);
+    res.json({ ok: true, ...result });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/plans', async (_, res) => {
@@ -1606,7 +1750,50 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 //  PEDIDOS
 // ════════════════════════════════════════════════
+// ── Fraud detection ───────────────────────────
+async function checkFraud(userId, ip) {
+  const issues = [];
+  // 1. Too many orders in last hour (>5)
+  const recentOrders = await q1(
+    `SELECT COUNT(*) as c FROM orders WHERE customer_id=$1 AND created_at > NOW() - INTERVAL '1 hour'`,
+    [userId]
+  );
+  if (parseInt(recentOrders.c) >= 5) issues.push('rate_limit_orders');
+
+  // 2. High refund rate (>50% of last 20 delivered orders were refunded)
+  const refundStats = await q1(
+    `SELECT COUNT(*) FILTER (WHERE refund_status='approved') as refunded,
+            COUNT(*) FILTER (WHERE status='delivered') as delivered
+     FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 20`,
+    [userId]
+  );
+  const refundRate = parseInt(refundStats.delivered) > 5
+    ? parseInt(refundStats.refunded) / parseInt(refundStats.delivered)
+    : 0;
+  if (refundRate > 0.5) issues.push('high_refund_rate');
+
+  // 3. Multiple pending unpaid orders (>3)
+  const pendingUnpaid = await q1(
+    `SELECT COUNT(*) as c FROM orders WHERE customer_id=$1 AND status='pending' AND created_at > NOW() - INTERVAL '2 hours'`,
+    [userId]
+  );
+  if (parseInt(pendingUnpaid.c) >= 3) issues.push('too_many_pending');
+
+  return { blocked: issues.includes('rate_limit_orders') || issues.includes('too_many_pending'), issues };
+}
+
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
+  // Fraud check
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
+  const fraud = await checkFraud(req.user.id, clientIp).catch(() => ({ blocked: false, issues: [] }));
+  if (fraud.blocked) {
+    console.warn(`🚨 Fraude bloqueado: user=${req.user.id} ip=${clientIp} issues=${fraud.issues.join(',')}`);
+    return res.status(429).json({ error: 'Demasiados pedidos en poco tiempo. Esperá unos minutos.' });
+  }
+  if (fraud.issues.includes('high_refund_rate')) {
+    // Log but don't block — flag for manual review
+    console.warn(`⚠️ Alta tasa de reembolsos: user=${req.user.id} issues=${fraud.issues.join(',')}`);
+  }
   try {
     const { business_id, items, address } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
@@ -1651,7 +1838,9 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
-    if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
+    const mpReady = mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-');
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (mpReady) {
       const pref = await mp.preferences.create({
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
         payer: { name:cust.name,email:cust.email },
@@ -1661,10 +1850,17 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         notification_url:`${APP_URL}/api/webhooks/mp`,
       });
       res.json({ order_id:orderId,payment:{ id:pref.body.id,init_point:pref.body.init_point } });
+    } else if (isProduction) {
+      // In production without MP → delete order and fail loudly. Never silently confirm unpaid orders.
+      await q('DELETE FROM order_items WHERE order_id=$1', [orderId]);
+      await q('DELETE FROM orders WHERE id=$1', [orderId]);
+      console.error('🚨 PROD: Intento de pedido sin MP configurado. Orden eliminada:', orderId);
+      return res.status(503).json({ error: 'El sistema de pagos no está disponible. Contactá soporte en hola@blow.uy' });
     } else {
+      // Dev/staging only — demo mode, never runs in production
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
-      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido confirmado #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total });
-      notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
+      notify(biz.owner_id,{ type:'new_order',message:`💰 [DEV] Pedido #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total });
+      notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo dev)',status:'confirmed',order_id:orderId });
       res.json({ order_id:orderId,demo:true });
     }
   } catch(e) { console.error(e); res.status(500).json({ error:e.message }); }
@@ -1916,55 +2112,88 @@ app.post('/api/orders/:id/review', auth, role('customer'), async (req, res) => {
 // ── Global search ──────────────────────────────────────────
 app.get('/api/search', async (req, res) => {
   try {
-    const q = (req.query.q || '').trim();
-    if (!q || q.length < 2) return res.json({ products: [], businesses: [] });
+    const rawQ = (req.query.q || '').trim();
+    if (!rawQ || rawQ.length < 2) return res.json({ products: [], businesses: [] });
     const { city, department } = req.query;
-    const like = `%${q.toLowerCase()}%`;
 
-    // Build location filter
-    let locFilter = "";
-    const params = [like, like];
+    // Build tsquery: each word becomes a prefix lexeme for partial matching
+    const tsquery = rawQ.split(/\s+/)
+      .filter(w => w.length > 1)
+      .map(w => w.replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9]/g, '') + ':*')
+      .filter(Boolean)
+      .join(' & ');
+    if (!tsquery) return res.json({ products: [], businesses: [] });
+
+    // Fallback ILIKE for very short or special queries
+    const like = `%${rawQ.toLowerCase()}%`;
+
+    let locFilter = '';
+    const baseParams = [tsquery, like];
     let pi = 3;
-    if (city)       { locFilter += ` AND LOWER(b.city)=LOWER($${pi++})`;       params.push(city); }
-    if (department) { locFilter += ` AND LOWER(b.department)=LOWER($${pi++})`; params.push(department); }
+    if (city)       { locFilter += ` AND LOWER(b.city)=LOWER($${pi++})`;       baseParams.push(city); }
+    if (department) { locFilter += ` AND LOWER(b.department)=LOWER($${pi++})`; baseParams.push(department); }
 
-    // Products: search name + description, join with business
+    // Products — FTS with relevance ranking, fallback to ILIKE
     const products = await db.query(`
       SELECT p.id, p.name, p.description, p.price, p.emoji, p.photo_url,
              p.discount_percent, p.is_available, p.stock,
              b.id as business_id, b.name as business_name, b.logo_emoji,
-             b.logo_url, b.is_open, b.delivery_cost, b.delivery_time, b.category
+             b.logo_url, b.is_open, b.delivery_cost, b.delivery_time, b.category,
+             ts_rank(to_tsvector('spanish', p.name || ' ' || COALESCE(p.description,'')), to_tsquery('spanish', $1)) as rank
       FROM products p
       JOIN businesses b ON p.business_id = b.id
       LEFT JOIN subscriptions s ON s.business_id = b.id
       WHERE (s.status = 'active' OR s.id IS NULL)
-        AND b.is_active = TRUE
         AND p.is_available = TRUE
-        AND (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $2)
+        AND (
+          to_tsvector('spanish', p.name || ' ' || COALESCE(p.description,'')) @@ to_tsquery('spanish', $1)
+          OR LOWER(p.name) LIKE $2
+        )
         ${locFilter}
-      ORDER BY b.is_open DESC, b.blow_plus DESC NULLS LAST, p.name ASC
+      ORDER BY b.is_open DESC, rank DESC, b.blow_plus DESC NULLS LAST
       LIMIT 30
-    `, params);
+    `, baseParams).catch(() =>
+      // Fallback to ILIKE if FTS fails (e.g. invalid tsquery)
+      db.query(`
+        SELECT p.id, p.name, p.description, p.price, p.emoji, p.photo_url,
+               p.discount_percent, p.is_available, p.stock,
+               b.id as business_id, b.name as business_name, b.logo_emoji,
+               b.logo_url, b.is_open, b.delivery_cost, b.delivery_time, b.category
+        FROM products p JOIN businesses b ON p.business_id = b.id
+        WHERE p.is_available = TRUE AND (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $1)
+        ORDER BY b.is_open DESC LIMIT 30
+      `, [like])
+    );
 
-    // Businesses: search name + category + tags
-    const bizParams = [like, like, like];
-    let bizLocFilter = "";
+    // Businesses — FTS + ILIKE fallback
+    const bizParams = [tsquery, like, like];
+    let bizLocFilter = '';
     let bpi = 4;
     if (city)       { bizLocFilter += ` AND LOWER(b.city)=LOWER($${bpi++})`;       bizParams.push(city); }
     if (department) { bizLocFilter += ` AND LOWER(b.department)=LOWER($${bpi++})`; bizParams.push(department); }
 
     const businesses = await db.query(`
       SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url,
-             b.is_open, b.delivery_cost, b.delivery_time, b.rating, b.review_count
+             b.is_open, b.delivery_cost, b.delivery_time, b.rating, b.review_count,
+             ts_rank(to_tsvector('spanish', b.name), to_tsquery('spanish', $1)) as rank
       FROM businesses b
       LEFT JOIN subscriptions s ON s.business_id = b.id
       WHERE (s.status = 'active' OR s.id IS NULL)
-        AND b.is_active = TRUE
-        AND (LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $2 OR LOWER(b.tags::text) LIKE $3)
+        AND (
+          to_tsvector('spanish', b.name) @@ to_tsquery('spanish', $1)
+          OR LOWER(b.name) LIKE $2 OR LOWER(b.category) LIKE $3
+        )
         ${bizLocFilter}
-      ORDER BY b.is_open DESC, b.blow_plus DESC NULLS LAST
+      ORDER BY b.is_open DESC, rank DESC, b.blow_plus DESC NULLS LAST
       LIMIT 10
-    `, bizParams);
+    `, bizParams).catch(() =>
+      db.query(`
+        SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url,
+               b.is_open, b.delivery_cost, b.delivery_time, b.rating, b.review_count
+        FROM businesses b WHERE LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $1
+        ORDER BY b.is_open DESC LIMIT 10
+      `, [like])
+    );
 
     res.json({ products: products.rows, businesses: businesses.rows });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2927,6 +3156,104 @@ app.get('/api/owner/stats/history', auth, async (req,res)=>{
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
+// ── Advanced analytics ────────────────────────
+app.get('/api/owner/analytics', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const days = Math.min(parseInt(req.query.days) || 30, 365);
+    const interval = days + ' days';
+    const bizId = biz.id;
+
+    const [peakHours, retention, cancelReasons, productAbandon, revenueByDay, clv] = await Promise.all([
+      // Peak hours heatmap
+      db.query(`
+        SELECT EXTRACT(hour FROM created_at AT TIME ZONE 'America/Montevideo') as hour,
+               EXTRACT(dow FROM created_at AT TIME ZONE 'America/Montevideo') as dow,
+               COUNT(*) as orders
+        FROM orders WHERE business_id=$1 AND status='delivered'
+          AND created_at >= NOW() - INTERVAL '${interval}'
+        GROUP BY hour, dow ORDER BY hour, dow
+      `, [bizId]),
+
+      // Weekly retention: customers who ordered in week N and returned in week N+1
+      db.query(`
+        WITH weekly AS (
+          SELECT customer_id,
+                 DATE_TRUNC('week', created_at AT TIME ZONE 'America/Montevideo') as week
+          FROM orders WHERE business_id=$1 AND status='delivered'
+          GROUP BY customer_id, week
+        )
+        SELECT w1.week, COUNT(DISTINCT w2.customer_id) as retained, COUNT(DISTINCT w1.customer_id) as total
+        FROM weekly w1
+        LEFT JOIN weekly w2 ON w1.customer_id=w2.customer_id AND w2.week=w1.week + INTERVAL '1 week'
+        WHERE w1.week >= NOW() - INTERVAL '${interval}'
+        GROUP BY w1.week ORDER BY w1.week DESC LIMIT 8
+      `, [bizId]),
+
+      // Cancellation rate and timing
+      db.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status='cancelled') as cancelled,
+          COUNT(*) FILTER (WHERE status='delivered') as delivered,
+          AVG(EXTRACT(epoch FROM (updated_at - created_at))/60) FILTER (WHERE status='cancelled') as avg_cancel_min
+        FROM orders WHERE business_id=$1 AND created_at >= NOW() - INTERVAL '${interval}'
+      `, [bizId]),
+
+      // Top products with low conversion (viewed but not in completed orders)
+      db.query(`
+        SELECT oi.name, COUNT(DISTINCT o.id) as in_orders,
+               COALESCE(SUM(oi.quantity),0) as units_sold,
+               COALESCE(SUM(oi.price * oi.quantity),0) as revenue
+        FROM order_items oi
+        JOIN orders o ON o.id=oi.order_id
+        WHERE o.business_id=$1 AND o.status='delivered'
+          AND o.created_at >= NOW() - INTERVAL '${interval}'
+        GROUP BY oi.name ORDER BY revenue DESC LIMIT 10
+      `, [bizId]),
+
+      // Revenue 30-day trend with moving average
+      db.query(`
+        SELECT DATE(created_at AT TIME ZONE 'America/Montevideo') as day,
+               COALESCE(SUM(total),0) as revenue,
+               COUNT(*) as orders,
+               AVG(total) as avg_ticket
+        FROM orders WHERE business_id=$1 AND status='delivered'
+          AND created_at >= NOW() - INTERVAL '${interval}'
+        GROUP BY day ORDER BY day ASC
+      `, [bizId]),
+
+      // Customer lifetime value segments
+      db.query(`
+        SELECT
+          CASE
+            WHEN total_orders=1 THEN 'nuevo'
+            WHEN total_orders<=3 THEN 'casual'
+            WHEN total_orders<=10 THEN 'regular'
+            ELSE 'vip'
+          END as segment,
+          COUNT(*) as customers,
+          AVG(total_spent) as avg_spent,
+          AVG(total_orders) as avg_orders
+        FROM (
+          SELECT customer_id, COUNT(*) as total_orders, SUM(total) as total_spent
+          FROM orders WHERE business_id=$1 AND status='delivered'
+          GROUP BY customer_id
+        ) sub GROUP BY segment
+      `, [bizId]),
+    ]);
+
+    res.json({
+      peak_hours: peakHours.rows,
+      retention: retention.rows,
+      cancellations: cancelReasons.rows[0],
+      top_products: productAbandon.rows,
+      revenue_trend: revenueByDay.rows,
+      customer_segments: clv.rows,
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/owner/top-customers', auth, async (req,res)=>{
   if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
   try {
@@ -3042,6 +3369,189 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
 app.get('/api/public/plan-price', async (req,res)=>{
   await loadPlanPrice(); // always fresh from DB
   res.json({ price: PLAN_PRICE });
+});
+
+// ═══════════════════════════════════════════════
+//  SEO LANDING PAGES
+// ═══════════════════════════════════════════════
+function seoPage({ title, description, url, image, bodyContent }) {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <meta name="description" content="${description}">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:url" content="${APP_URL}${url}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="${image || APP_URL + '/icons/icon-512.png'}">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="${APP_URL}${url}">
+  <script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": title,
+    "description": description,
+    "url": APP_URL + url,
+  })}</script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',system-ui,sans-serif;color:#1a1a1a;background:#fff;}
+    .hero{background:linear-gradient(135deg,#FA0050,#c0003c);color:#fff;padding:60px 20px;text-align:center;}
+    .hero h1{font-size:clamp(24px,5vw,42px);font-weight:900;line-height:1.2;margin-bottom:12px;}
+    .hero p{font-size:16px;opacity:.85;max-width:500px;margin:0 auto 24px;}
+    .cta{display:inline-block;background:#fff;color:#FA0050;border-radius:16px;padding:16px 32px;font-size:16px;font-weight:900;text-decoration:none;transition:transform .2s;}
+    .cta:hover{transform:scale(1.03);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;max-width:1000px;margin:40px auto;padding:0 20px;}
+    .card{border:1px solid #f0f0f0;border-radius:20px;padding:20px;text-decoration:none;color:inherit;transition:box-shadow .2s;}
+    .card:hover{box-shadow:0 4px 24px rgba(0,0,0,.1);}
+    .card-emoji{font-size:40px;margin-bottom:12px;}
+    .card-name{font-size:18px;font-weight:800;margin-bottom:4px;}
+    .card-meta{font-size:13px;color:#888;}
+    .footer{text-align:center;padding:40px 20px;color:#aaa;font-size:13px;}
+    .footer a{color:#FA0050;text-decoration:none;}
+    h2{font-size:22px;font-weight:800;text-align:center;padding:40px 20px 0;}
+  </style>
+</head>
+<body>
+  ${bodyContent}
+  <footer class="footer">
+    <p>© ${new Date().getFullYear()} <a href="${APP_URL}">Blow</a> · Delivery en Uruguay · <a href="${APP_URL}">Abrir app</a></p>
+  </footer>
+  <script>
+    // If JS loaded, redirect to the app with the right page
+    if (window.location.pathname !== '/') {
+      const path = window.location.pathname;
+      sessionStorage.setItem('blow_seo_redirect', path);
+    }
+  </script>
+</body>
+</html>`;
+}
+
+// City landing pages: /delivery/montevideo, /delivery/maldonado, etc.
+app.get('/delivery/:city', async (req, res) => {
+  const city = decodeURIComponent(req.params.city).replace(/-/g,' ');
+  const cityTitle = city.charAt(0).toUpperCase() + city.slice(1);
+  try {
+    const businesses = await qa(`
+      SELECT id, name, category, logo_emoji, logo_url, rating, delivery_time, delivery_cost
+      FROM businesses WHERE LOWER(city)=LOWER($1) AND plan IS NOT NULL AND is_open=TRUE
+      ORDER BY COALESCE(rating,0) DESC LIMIT 20
+    `, [city]);
+    const cards = businesses.map(b => `
+      <a class="card" href="${APP_URL}/?store=${b.id}">
+        <div class="card-emoji">${b.logo_emoji || '🏪'}</div>
+        <div class="card-name">${b.name}</div>
+        <div class="card-meta">${b.rating ? `⭐ ${parseFloat(b.rating).toFixed(1)} · ` : ''}${b.delivery_time || '30'} min · $${b.delivery_cost || 0} envío</div>
+      </a>`).join('');
+    res.send(seoPage({
+      title: `Delivery en ${cityTitle} — Blow`,
+      description: `Pedidos a domicilio en ${cityTitle}. ${businesses.length} negocios disponibles. Comida, mercados, farmacias y más.`,
+      url: `/delivery/${req.params.city}`,
+      bodyContent: `
+        <div class="hero">
+          <h1>Delivery en ${cityTitle}</h1>
+          <p>${businesses.length} negocios disponibles ahora mismo</p>
+          <a class="cta" href="${APP_URL}/">Ver todos en la app →</a>
+        </div>
+        <h2>Negocios abiertos en ${cityTitle}</h2>
+        <div class="grid">${cards || '<p style="text-align:center;color:#aaa;padding:20px;">Todavía no hay negocios registrados en esta ciudad.</p>'}</div>`,
+    }));
+  } catch(e) { res.redirect('/'); }
+});
+
+// Category landing pages: /categoria/restaurantes, /categoria/farmacias
+app.get('/categoria/:cat', async (req, res) => {
+  const catMap = { restaurantes:'food', mercados:'market', farmacias:'pharmacy', bebidas:'drinks', postres:'desserts', cafes:'cafe' };
+  const cat = catMap[req.params.cat] || req.params.cat;
+  const catTitle = req.params.cat.charAt(0).toUpperCase() + req.params.cat.slice(1);
+  try {
+    const businesses = await qa(`
+      SELECT id, name, category, logo_emoji, rating, delivery_time, delivery_cost, city
+      FROM businesses WHERE category=$1 AND plan IS NOT NULL
+      ORDER BY COALESCE(rating,0) DESC LIMIT 30
+    `, [cat]);
+    const cards = businesses.map(b => `
+      <a class="card" href="${APP_URL}/?store=${b.id}">
+        <div class="card-emoji">${b.logo_emoji || '🏪'}</div>
+        <div class="card-name">${b.name}</div>
+        <div class="card-meta">${b.city ? `📍 ${b.city} · ` : ''}${b.rating ? `⭐ ${parseFloat(b.rating).toFixed(1)} · ` : ''}${b.delivery_time || '30'} min</div>
+      </a>`).join('');
+    res.send(seoPage({
+      title: `${catTitle} con delivery — Blow Uruguay`,
+      description: `Los mejores ${catTitle} con delivery a domicilio en Uruguay. Pedí online y recibí en tu casa.`,
+      url: `/categoria/${req.params.cat}`,
+      bodyContent: `
+        <div class="hero">
+          <h1>${catTitle} con delivery</h1>
+          <p>Los mejores ${catTitle} de Uruguay en un solo lugar</p>
+          <a class="cta" href="${APP_URL}/">Ver en la app →</a>
+        </div>
+        <h2>${businesses.length} opciones disponibles</h2>
+        <div class="grid">${cards}</div>`,
+    }));
+  } catch(e) { res.redirect('/'); }
+});
+
+// Business profile page: /negocio/slug-del-nombre
+app.get('/negocio/:id', async (req, res) => {
+  try {
+    const biz = await q1('SELECT * FROM businesses WHERE id=$1', [req.params.id]);
+    if (!biz) return res.redirect('/');
+    const products = await qa('SELECT * FROM products WHERE business_id=$1 AND is_available=TRUE ORDER BY is_featured DESC LIMIT 20', [biz.id]);
+    const prodHTML = products.map(p => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f5f5f5;">
+        <div>
+          <div style="font-size:14px;font-weight:700;">${p.emoji||''} ${p.name}</div>
+          ${p.description ? `<div style="font-size:12px;color:#888;margin-top:2px;">${p.description}</div>` : ''}
+        </div>
+        <div style="font-size:15px;font-weight:900;color:#FA0050;margin-left:12px;">$${p.price}</div>
+      </div>`).join('');
+    res.send(seoPage({
+      title: `${biz.name} — Delivery online | Blow`,
+      description: `Pedí de ${biz.name} en Blow. Delivery a domicilio${biz.city ? ` en ${biz.city}` : ''}, ${biz.delivery_time || '30-45'} minutos.`,
+      url: `/negocio/${biz.id}`,
+      image: biz.cover_url || biz.logo_url,
+      bodyContent: `
+        <div class="hero">
+          <h1>${biz.logo_emoji || '🏪'} ${biz.name}</h1>
+          <p>${biz.city ? `📍 ${biz.city}` : ''} ${biz.rating ? `⭐ ${parseFloat(biz.rating).toFixed(1)}` : ''} · ${biz.delivery_time || '30-45'} min</p>
+          <a class="cta" href="${APP_URL}/?store=${biz.id}">Pedir ahora →</a>
+        </div>
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+          <h2 style="text-align:left;padding:20px 0 16px;">Menú</h2>
+          ${prodHTML}
+        </div>`,
+    }));
+  } catch(e) { res.redirect('/'); }
+});
+
+// Sitemap.xml
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const [businesses, cities] = await Promise.all([
+      qa('SELECT id, updated_at FROM businesses WHERE plan IS NOT NULL LIMIT 500', []),
+      qa("SELECT DISTINCT LOWER(city) as city FROM businesses WHERE city != '' AND plan IS NOT NULL", []),
+    ]);
+    const cats = ['restaurantes','mercados','farmacias','bebidas','postres'];
+    const urls = [
+      `<url><loc>${APP_URL}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
+      ...cats.map(c => `<url><loc>${APP_URL}/categoria/${c}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`),
+      ...cities.map(r => `<url><loc>${APP_URL}/delivery/${encodeURIComponent(r.city)}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`),
+      ...businesses.map(b => `<url><loc>${APP_URL}/negocio/${b.id}</loc><lastmod>${(b.updated_at||new Date()).toISOString().split('T')[0]}</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>`),
+    ];
+    res.set('Content-Type', 'application/xml');
+    res.send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`);
+  } catch(e) { res.status(500).send('Error generating sitemap'); }
+});
+
+// robots.txt
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send(`User-agent: *\nAllow: /\nAllow: /delivery/\nAllow: /categoria/\nAllow: /negocio/\nDisallow: /api/\nDisallow: /blow-admin-panel\nSitemap: ${APP_URL}/sitemap.xml\n`);
 });
 
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
