@@ -98,6 +98,21 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .search-bar input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
 .search-bar input::placeholder{color:#bbb;}
 .sbtn{background:var(--primary);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+/* Global search overlay */
+.search-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:900;display:none;}
+.search-overlay.open{display:block;}
+.search-results-panel{position:fixed;top:0;left:0;right:0;max-width:600px;margin:0 auto;background:#fff;z-index:901;border-radius:0 0 20px 20px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);transform:translateY(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+.search-results-panel.open{transform:translateY(0);}
+.srp-header{display:flex;align-items:center;gap:12px;padding:max(14px,env(safe-area-inset-top,14px)) 16px 12px;border-bottom:1px solid #f0f0f0;position:sticky;top:0;background:#fff;z-index:2;}
+.srp-input{flex:1;padding:10px 16px;border:1.5px solid #e8e8e8;border-radius:12px;font-size:15px;font-family:'Inter',sans-serif;outline:none;background:#f8f8f8;}
+.srp-input:focus{border-color:var(--primary);background:#fff;}
+.srp-section-title{font-size:11px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:.6px;padding:14px 16px 6px;}
+.srp-product{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid #f8f8f8;}
+.srp-product:active{background:#f5f5f5;}
+.srp-product-img{width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;}
+.srp-product-img img{width:100%;height:100%;object-fit:cover;}
+.srp-biz{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid #f8f8f8;}
+.srp-biz:active{background:#f5f5f5;}
 .sbtn svg{width:16px;height:16px;color:#fff;}
 
 /* ── SCROLL ── */
@@ -331,6 +346,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 /* ── OWNER ── */
 .owner-login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 32px));background:var(--bg);}
+#ob-emoji-picker span{font-size:24px;cursor:pointer;padding:6px;border-radius:8px;transition:background .15s;}
+#ob-emoji-picker span:hover,#ob-emoji-picker span.selected{background:#fff0f3;}
+.eta-quick-btn{background:#fff;border:1.5px solid #d1fae5;color:#166534;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
+.eta-quick-btn:hover{background:#dcfce7;}
+.eta-quick-btn.eta-default{background:#dcfce7;border-color:#86efac;}
+.eta-bar-wrap{background:#f8f8f8;border-radius:12px;padding:10px 14px;margin-top:10px;}
 .plans-grid{display:flex;flex-direction:column;gap:12px;width:100%;margin-bottom:20px;}
 .plan-card{background:#fff;border:2px solid var(--border);border-radius:var(--r);padding:18px;cursor:pointer;transition:border-color .2s;position:relative;}
 .plan-card.selected{border-color:var(--primary);}
@@ -589,6 +610,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 
 /* Sticky tabs */
 .sd-menu-tabs-wrap{position:sticky;top:0;z-index:99;background:#fff;border-bottom:2px solid #f0f0f0;}
+.sd-search-bar{padding:10px 16px;background:#fff;display:none;}
+.sd-search-bar.open{display:block;}
+.sd-search-input{width:100%;padding:11px 16px 11px 40px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;box-sizing:border-box;background:#f8f8f8;}
+.sd-search-input:focus{border-color:var(--primary);background:#fff;}
+.sd-search-input-wrap{position:relative;}
+.sd-search-input-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#aaa;pointer-events:none;}
 .sd-menu-tabs{display:flex;gap:0;padding:0 8px;overflow-x:auto;scrollbar-width:none;}
 .sd-menu-tabs::-webkit-scrollbar{display:none;}
 .sd-mtab{padding:12px 14px;border:none;background:transparent;font-size:13px;font-weight:700;color:#999;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:5px;}
@@ -729,8 +756,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)">
-      <button class="sbtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <input type="text" placeholder="Locales, platos y productos" id="search-input" onfocus="openGlobalSearch()" readonly>
+      <button class="sbtn" onclick="openGlobalSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
   </div>
   <div class="sc">
@@ -875,7 +902,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <button class="back-btn sd-back" onclick="nav('page-home')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
       </button>
-      <button class="sd-search-btn" onclick="showToast('🔍 Búsqueda próximamente')">
+      <button class="sd-search-btn" onclick="toggleStoreSearch()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
       <button id="sd-fav-btn" onclick="toggleFavStore()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:58px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:10;">🤍</button>
@@ -885,7 +912,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <div class="sd-sticky" id="sd-sticky">
       <button onclick="nav('page-home')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#333;padding:0;line-height:1;">‹</button>
       <div class="sd-sticky-name" id="sd-sticky-name">—</div>
-      <button onclick="showToast('🔍 Búsqueda próximamente')" style="background:none;border:none;cursor:pointer;color:#333;padding:0;">
+      <button onclick="toggleStoreSearch()" style="background:none;border:none;cursor:pointer;color:#333;padding:0;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
     </div>
@@ -919,6 +946,15 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
         </button>
         <button class="sd-mtab" onclick="filterStoreTab('discounted',this)">Descuentos</button>
         <button class="sd-mtab" onclick="filterStoreTab('featured',this)">Más vendidos</button>
+      </div>
+      <!-- Search bar (hidden until lupa is tapped) -->
+      <div class="sd-search-bar" id="sd-search-bar">
+        <div class="sd-search-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="sd-search-input" id="sd-search-input" type="text" placeholder="Buscar en el menú..."
+            oninput="searchStoreProducts(this.value)"
+            onkeydown="if(event.key==='Escape')toggleStoreSearch()">
+        </div>
       </div>
     </div>
 
@@ -979,7 +1015,20 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 <!-- ══ PAGE: TRACKING ══ -->
 <div class="page page-wrap" id="page-tracking">
   <div class="page-hdr"><h1>Mis Pedidos 📦</h1></div>
-  <div class="sc" style="padding-bottom:16px;"><div id="tracking-body"><div class="loading-state"><div class="spinner"></div></div></div></div>
+  <!-- Summary strip -->
+  <div id="tracking-summary" style="display:none;margin:0 16px 4px;background:linear-gradient(135deg,#FA0050,#c0003c);border-radius:16px;padding:16px;color:#fff;display:flex;justify-content:space-around;"></div>
+  <!-- Tabs: active vs history -->
+  <div style="display:flex;margin:12px 16px 0;background:#f0f0f0;border-radius:12px;padding:4px;gap:4px;">
+    <button id="trk-tab-active" onclick="switchTrkTab('active')" style="flex:1;padding:9px;border:none;border-radius:9px;background:#1a1a1a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">En curso</button>
+    <button id="trk-tab-history" onclick="switchTrkTab('history')" style="flex:1;padding:9px;border:none;border-radius:9px;background:transparent;color:#666;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Historial</button>
+  </div>
+  <!-- Filter bar (shown in history tab) -->
+  <div id="trk-filter-bar" style="display:none;padding:10px 16px 0;">
+    <select id="trk-biz-filter" onchange="renderTrackingOrders()" style="width:100%;padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;outline:none;color:#333;">
+      <option value="">Todos los negocios</option>
+    </select>
+  </div>
+  <div class="sc" style="padding-bottom:16px;padding-top:8px;"><div id="tracking-body"><div class="loading-state"><div class="spinner"></div></div></div></div>
 </div>
 
 <!-- ══ PAGE: PROFILE ══ -->
@@ -1288,6 +1337,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       <button class="otab" onclick="switchOTab('otab-promos',this)">🏷️ Promos</button>
       <button class="otab" onclick="switchOTab('otab-payments',this)">💰 Cobros</button>
       <button class="otab" onclick="switchOTab('otab-stats',this)">📊 Stats</button>
+      <button class="otab" onclick="switchOTab('otab-export',this)">📥 Exportar</button>
       <button class="otab" onclick="switchOTab('otab-blowplus',this)" style="position:relative;">⚡ Blow+</button>
       <button class="otab" onclick="switchOTab('otab-coupons',this)">🎟️ Cupones</button>
       <button class="otab" onclick="switchOTab('otab-settings',this)">⚙️ Config</button>
@@ -1364,11 +1414,70 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
     <!-- Stats -->
     <div class="otab-content" id="otab-stats">
-      <div style="font-size:16px;font-weight:800;margin-bottom:14px;">Resumen semanal</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;" id="owner-stats-grid"><div class="loading-state" style="grid-column:span 2"><div class="spinner"></div></div></div>
-      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">Más vendidos</div>
-      <div id="owner-top-products"></div>
+      <!-- Period selector -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button onclick="loadOwnerStatsHistory(7)"  class="stats-period-btn" id="spbtn-7"  style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#1a1a1a;color:#fff;font-family:'Inter',sans-serif;">7 días</button>
+        <button onclick="loadOwnerStatsHistory(30)" class="stats-period-btn" id="spbtn-30" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">30 días</button>
+        <button onclick="loadOwnerStatsHistory(90)" class="stats-period-btn" id="spbtn-90" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">3 meses</button>
+        <button onclick="loadOwnerStatsHistory(365)" class="stats-period-btn" id="spbtn-365" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">Todo</button>
+      </div>
+      <div id="owner-stats-body"><div class="loading-state"><div class="spinner"></div></div></div>
     </div>
+    <!-- Export -->
+    <div class="otab-content" id="otab-export" style="padding:16px;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px;">📥 Exportar datos</div>
+      <div style="font-size:13px;color:#888;margin-bottom:20px;">Descargá tus datos en formato CSV para abrirlos en Excel o Google Sheets.</div>
+
+      <!-- Period selector -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Período</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="setExportPeriod(7,this)"  class="exp-period-btn" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#1a1a1a;color:#fff;font-family:'Inter',sans-serif;">7 días</button>
+          <button onclick="setExportPeriod(30,this)" class="exp-period-btn" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">30 días</button>
+          <button onclick="setExportPeriod(90,this)" class="exp-period-btn" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">3 meses</button>
+          <button onclick="setExportPeriod(0,this)"  class="exp-period-btn" style="padding:8px 16px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:#f0f0f0;color:#666;font-family:'Inter',sans-serif;">Todo</button>
+        </div>
+      </div>
+
+      <!-- Export cards -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div style="background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="font-size:28px;">📋</div>
+            <div>
+              <div style="font-size:15px;font-weight:800;">Pedidos</div>
+              <div style="font-size:12px;color:#888;">Fecha, cliente, productos, total, estado</div>
+            </div>
+          </div>
+          <button onclick="exportData('orders')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬇ Descargar CSV</button>
+        </div>
+
+        <div style="background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="font-size:28px;">🍔</div>
+            <div>
+              <div style="font-size:15px;font-weight:800;">Productos vendidos</div>
+              <div style="font-size:12px;color:#888;">Nombre, unidades vendidas, ingresos</div>
+            </div>
+          </div>
+          <button onclick="exportData('products')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬇ Descargar CSV</button>
+        </div>
+
+        <div style="background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:18px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="font-size:28px;">👥</div>
+            <div>
+              <div style="font-size:15px;font-weight:800;">Clientes</div>
+              <div style="font-size:12px;color:#888;">Nombre, pedidos, total gastado, última compra</div>
+            </div>
+          </div>
+          <button onclick="exportData('customers')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬇ Descargar CSV</button>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Settings -->
     <div class="otab-content" id="otab-settings" style="padding:16px;">
       <!-- Horarios automáticos -->
@@ -1441,6 +1550,16 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
               <input class="form-input" id="inp-delivery-cost" type="number" min="0" placeholder="0 = gratis" style="flex:1;">
               <button onclick="saveDeliveryCost()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px;">Guardar</button>
             </div>
+          </div>
+          <!-- Delivery radius -->
+          <div id="delivery-radius-row" style="padding:0 4px;margin-top:12px;">
+            <label class="form-label">Radio de delivery (km)</label>
+            <div style="font-size:12px;color:#888;margin-bottom:8px;">Zona máxima donde hacés delivery. Dejá vacío para sin límite.</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input class="form-input" id="inp-delivery-radius" type="number" min="0.5" max="50" step="0.5" placeholder="ej: 5 km" style="flex:1;">
+              <button onclick="saveDeliveryRadius()" style="background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:13px;">Guardar</button>
+            </div>
+            <div id="delivery-radius-status" style="font-size:12px;color:#888;margin-top:6px;"></div>
           </div>
           <label style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:#f8f8f8;border-radius:12px;cursor:pointer;">
             <div>
@@ -2089,90 +2208,137 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
-    <h1 style="flex:1;margin:0;font-size:20px;">Ayuda</h1>
+    <h1 style="flex:1;margin:0;font-size:20px;">Ayuda y soporte</h1>
+    <div id="help-status-dot" style="width:8px;height:8px;border-radius:50%;background:#ccc;" title="Estado del servicio"></div>
   </div>
-  <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:40px;">
+  <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:60px;">
+
+    <!-- Status banner -->
+    <div id="help-status-banner" style="display:none;border-radius:14px;padding:10px 16px;margin-bottom:14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;"></div>
+
+    <!-- Role tabs -->
+    <div style="display:flex;background:#ebebeb;border-radius:12px;padding:3px;margin-bottom:16px;">
+      <button id="help-tab-customer" onclick="switchHelpTab('customer')" style="flex:1;padding:8px;border:none;border-radius:9px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;">🧑 Cliente</button>
+      <button id="help-tab-owner" onclick="switchHelpTab('owner')" style="flex:1;padding:8px;border:none;border-radius:9px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#888;">🏪 Negocio</button>
+    </div>
 
     <!-- WhatsApp CTA -->
-    <a href="https://wa.me/59899000000" target="_blank" style="text-decoration:none;display:block;margin-bottom:20px;">
+    <a href="https://wa.me/59899000000?text=Hola%2C%20necesito%20ayuda%20con%20Blow" target="_blank" style="text-decoration:none;display:block;margin-bottom:16px;">
       <div style="background:linear-gradient(135deg,#25D366,#1da851);border-radius:20px;padding:18px 20px;display:flex;align-items:center;gap:16px;">
         <div style="width:48px;height:48px;background:rgba(255,255,255,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">💬</div>
         <div style="flex:1;">
           <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:2px;">Escribinos por WhatsApp</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.8);">Respuesta rápida · Lun a Vie 9-18hs</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.8);">Respuesta rápida · Lun a Vie 9–18hs</div>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2.5" width="18" height="18"><polyline points="9,18 15,12 9,6"/></svg>
       </div>
     </a>
 
-    <!-- FAQ -->
-    <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Preguntas frecuentes</div>
-    <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cómo hago un pedido?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+    <!-- Customer FAQs -->
+    <div id="help-faqs-customer">
+      <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Preguntas frecuentes</div>
+      <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo hago un pedido?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Buscá el negocio que quieras, agregá productos al carrito y tocá "Confirmar pedido". Serás redirigido a MercadoPago para pagar de forma segura.</div>
         </div>
-        <div class="faq2-a">Buscá el negocio que quieras, agregá productos al carrito y tocá "Confirmar pedido". Serás redirigido a MercadoPago para pagar de forma segura.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cuánto tarda la entrega?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cuánto tarda la entrega?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Varía por negocio. Cuando el dueño acepta tu pedido te informa el tiempo exacto, y podés seguirlo en tiempo real desde "Mis Pedidos".</div>
         </div>
-        <div class="faq2-a">Depende del negocio, generalmente entre 30 y 60 minutos. Podés seguir el estado en "Mis Pedidos".</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cómo uso un cupón?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Puedo cancelar un pedido?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Podés cancelarlo mientras está en estado "Pendiente" o "Confirmado" desde "Mis Pedidos". Si ya pagaste, el reembolso se procesa automáticamente en 1–5 días hábiles.</div>
         </div>
-        <div class="faq2-a">Tus cupones aparecen en "Cupones" dentro de tu perfil. Se aplican automáticamente al confirmar tu próximo pedido.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Qué es Blow+?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Qué pasa si mi pago falla?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">El pedido queda en estado "Pendiente" y no se confirma. Podés intentar de nuevo ingresando al pedido desde "Mis Pedidos". Si el dinero fue debitado contactanos.</div>
         </div>
-        <div class="faq2-a">Blow+ es la membresía premium de Blow. Por $200 UYU/mes tenés envíos gratis en todos tus pedidos y acceso a promociones exclusivas.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Puedo cancelar un pedido?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo activo las notificaciones?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Al iniciar sesión la app te pide permiso. Si rechazaste, podés activarlas en Ajustes del navegador → Notificaciones → blow.uy → Permitir.</div>
         </div>
-        <div class="faq2-a">Una vez confirmado, un pedido no se puede modificar. Si necesitás cancelarlo escribinos por WhatsApp lo antes posible.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)">
-        <div class="faq2-q">
-          <span>¿Cómo registro mi negocio?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Qué es Blow+?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Blow+ es la membresía premium por $200 UYU/mes. Incluye envíos gratis en todos tus pedidos y acceso a descuentos exclusivos.</div>
         </div>
-        <div class="faq2-a">Tocá "Portal Negocios" en tu perfil, completá los datos de tu negocio y realizá el pago de suscripción. Tu cuenta se activa automáticamente.</div>
-      </div>
-
-      <div class="faq2-item" onclick="toggleFaq2(this)" style="border-bottom:none;">
-        <div class="faq2-q">
-          <span>¿Qué métodos de pago aceptan?</span>
-          <svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg>
+        <div class="faq2-item" onclick="toggleFaq2(this)" style="border-bottom:none;">
+          <div class="faq2-q"><span>¿Qué métodos de pago aceptan?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Procesamos pagos con MercadoPago: débito, crédito, transferencia y efectivo en Abitab o RedPagos.</div>
         </div>
-        <div class="faq2-a">Procesamos pagos con MercadoPago: tarjeta de débito, crédito, transferencia bancaria y efectivo en Abitab o RedPagos.</div>
       </div>
-
     </div>
 
-    <!-- Mensaje directo -->
-    <div style="margin-top:20px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+    <!-- Owner FAQs -->
+    <div id="help-faqs-owner" style="display:none;">
+      <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Preguntas frecuentes para negocios</div>
+      <div style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cuándo recibo el dinero de mis ventas?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">El dinero se acredita en tu billetera Blow al marcar cada pedido como entregado. Podés solicitar el retiro a tu cuenta bancaria cuando quieras desde el panel.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cuánto cobra Blow de comisión?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">La comisión es del 8% sobre el subtotal de cada pedido (sin contar el costo de delivery). El resto va directo a tu billetera.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo agrego o edito productos?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Desde tu panel → tab Productos. Podés agregar, editar, activar/desactivar y subir fotos. Los cambios son inmediatos para los clientes.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Qué pasa si un cliente cancela un pedido pagado?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">El reembolso al cliente se procesa automáticamente. A vos no te descontamos nada — la comisión no se cobra en pedidos cancelados antes de la entrega.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Cómo configuro los horarios automáticos?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">En tu panel → Configuración → Horarios. Activá "Horario automático" y definí la apertura y cierre para cada día. La app abre y cierra sola.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)">
+          <div class="faq2-q"><span>¿Puedo pausar mi negocio temporalmente?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Sí. Desde el panel podés cerrar tu negocio con un toggle. Seguís apareciendo en el feed pero marcado como "Cerrado" y los clientes no pueden pedir.</div>
+        </div>
+        <div class="faq2-item" onclick="toggleFaq2(this)" style="border-bottom:none;">
+          <div class="faq2-q"><span>¿Cómo cancelo mi suscripción?</span><svg class="faq2-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6,9 12,15 18,9"/></svg></div>
+          <div class="faq2-a">Desde tu panel → Mi suscripción → Cancelar. El débito automático se detiene y tu cuenta queda activa hasta el fin del período pagado.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Previous support tickets -->
+    <div id="help-my-tickets" style="display:none;margin-top:16px;">
+      <div style="font-size:11px;font-weight:800;color:#aaa;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;padding:0 4px;">Mis consultas anteriores</div>
+      <div id="help-tickets-list" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);"></div>
+    </div>
+
+    <!-- Contact form -->
+    <div style="margin-top:16px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px;">¿No encontraste lo que buscás?</div>
-      <div style="font-size:13px;color:#888;margin-bottom:14px;">Dejanos tu consulta y te respondemos a la brevedad.</div>
-      <textarea id="help-msg" rows="3" placeholder="Escribí tu consulta..." style="width:100%;border:1.5px solid #eee;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;resize:none;box-sizing:border-box;outline:none;"></textarea>
-      <button onclick="sendHelpMessage()" style="width:100%;margin-top:10px;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Enviar mensaje →</button>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">Dejanos tu consulta y te respondemos en menos de 24hs.</div>
+
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input class="form-input" id="help-name" type="text" placeholder="Tu nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="help-email" type="email" placeholder="tu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de consulta</label>
+        <select class="form-input" id="help-type" style="appearance:none;cursor:pointer;">
+          <option value="pedido">📦 Problema con un pedido</option>
+          <option value="pago">💳 Problema con un pago o reembolso</option>
+          <option value="cuenta">👤 Problema con mi cuenta</option>
+          <option value="negocio">🏪 Consulta sobre mi negocio</option>
+          <option value="sugerencia">💡 Sugerencia o feedback</option>
+          <option value="otro">❓ Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mensaje <span style="color:var(--primary)">*</span></label>
+        <textarea id="help-msg" rows="4" placeholder="Describí tu consulta con el mayor detalle posible..." style="width:100%;border:1.5px solid #eee;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;resize:none;box-sizing:border-box;outline:none;transition:border .2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#eee'"></textarea>
+      </div>
+      <button onclick="sendHelpMessage()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Enviar consulta →</button>
       <div id="help-result" style="font-size:13px;margin-top:10px;display:none;text-align:center;"></div>
     </div>
 
@@ -2294,6 +2460,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 const API = ''; // mismo servidor — vacío = relativo
 let token    = localStorage.getItem('da_token') || null;
 let user     = JSON.parse(localStorage.getItem('da_user') || 'null');
+// Re-subscribe to push if already logged in (e.g. returning visitor)
+if (token && user && Notification.permission === 'granted') {
+  window.addEventListener('load', () => setTimeout(subscribeToPush, 2000));
+}
 let cart     = JSON.parse(localStorage.getItem('da_cart') || '[]');
 let currentBizId  = null;
 let modalProduct  = null;
@@ -2363,6 +2533,19 @@ function connectWS() {
       if (msg.type === 'order_cancelled') {
         showToast(msg.message || '❌ Pedido cancelado');
         if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
+      }
+      if (msg.type === 'owner_message') {
+        // Show toast + update card if tracking is open
+        showToast(`💬 ${msg.business_name}: ${msg.message}`);
+        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+      }
+      if (msg.type === 'refund_issued') {
+        showToast(msg.message || '💸 Reembolso procesado');
+        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+      }
+      if (msg.type === 'eta_update') {
+        showToast(msg.message || '🕐 El tiempo de entrega fue actualizado');
+        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
       }
     } catch {}
   };
@@ -2525,6 +2708,8 @@ setInterval(() => goBanner((bIdx+1)%3), 4000);
 //  SISTEMA DE UBICACIÓN
 // ═══════════════════════════════════════════════
 let activeCity   = localStorage.getItem('da_city') || '';
+let clientGpsLat = parseFloat(localStorage.getItem('da_lat')) || null;
+let clientGpsLng = parseFloat(localStorage.getItem('da_lng')) || null;
 let activeDept   = localStorage.getItem('da_dept') || '';
 let activeAddr   = localStorage.getItem('da_addr') || '';
 let savedAddrs   = [];
@@ -2782,74 +2967,153 @@ async function loadAppSettings() {
   } catch(e) { console.log('loadAppSettings error:', e.message); }
 }
 
-async function loadStores() {
+let _storeOffset = 0;
+const _storeLimit = 12;
+let _storeHasMore = false;
+let _storeLoading = false;
+let _storeCategory = null;
+
+async function loadStores(reset = true) {
   const g = document.getElementById('stores-grid');
-  g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
+  if (reset) {
+    _storeOffset = 0;
+    _storeHasMore = false;
+    g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
+  }
+  _storeLoading = true;
   try {
-    let url = '/api/businesses';
-    if (activeCity) url += `?city=${encodeURIComponent(activeCity)}`;
+    let url = `/api/businesses?limit=${_storeLimit}&offset=${_storeOffset}`;
+    if (activeCity) url += `&city=${encodeURIComponent(activeCity)}`;
+    if (_storeCategory) url += `&category=${encodeURIComponent(_storeCategory)}`;
+    if (clientGpsLat && clientGpsLng) url += `&lat=${clientGpsLat}&lng=${clientGpsLng}`;
     const data = await api(url);
-    if (activeCity && data.length === 0) {
-      // No hay negocios en esta ciudad — mostrar mensaje amigable
+    const stores = data.businesses || data; // backwards compat
+    _storeHasMore = data.hasMore || false;
+
+    if (reset && stores.length === 0 && activeCity) {
       g.innerHTML = `<div class="loading-state" style="grid-column:1/-1;padding:40px 20px;text-align:center;">
         <div style="font-size:48px;margin-bottom:12px;">🔍</div>
         <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Todavía no hay negocios en ${activeCity}</div>
         <div style="color:var(--muted);font-size:14px;margin-bottom:16px;">¿Sos dueño de un negocio? ¡Registrate y empezá a recibir pedidos!</div>
         <button onclick="openLocModal()" style="background:none;border:2px solid var(--primary);color:var(--primary);border-radius:12px;padding:10px 20px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cambiar ciudad</button>
       </div>`;
-      allStores = [];
-      isDemoMode = false;
-      return;
+      allStores = []; isDemoMode = false; _storeLoading = false; return;
     }
-    if (data.length > 0) {
-      allStores = data;
-      isDemoMode = false;
+
+    if (reset && stores.length === 0) {
+      allStores = DEMO_STORES; isDemoMode = true;
+      renderStores(allStores); _storeLoading = false; return;
+    }
+
+    isDemoMode = false;
+    if (reset) {
+      allStores = stores;
+      renderStores(stores);
     } else {
-      allStores = DEMO_STORES;
-      isDemoMode = true;
+      allStores = [...allStores, ...stores];
+      appendStores(stores);
     }
+    _storeOffset += stores.length;
+    renderLoadMoreBtn();
   } catch(e) {
-    allStores = DEMO_STORES;
-    isDemoMode = true;
+    if (reset) { allStores = DEMO_STORES; isDemoMode = true; renderStores(allStores); }
   }
-  renderStores(allStores);
+  _storeLoading = false;
+}
+
+function renderLoadMoreBtn() {
+  const g = document.getElementById('stores-grid');
+  // Remove old sentinel
+  const old = document.getElementById('load-more-sentinel');
+  if (old) old.remove();
+  if (!_storeHasMore) return;
+  const sentinel = document.createElement('div');
+  sentinel.id = 'load-more-sentinel';
+  sentinel.style.cssText = 'grid-column:1/-1;text-align:center;padding:20px;';
+  sentinel.innerHTML = `<button onclick="loadStores(false)" style="background:var(--primary);border:none;border-radius:12px;padding:12px 32px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Ver más negocios</button>`;
+  g.appendChild(sentinel);
+  // Also set up IntersectionObserver for auto-load
+  const obs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !_storeLoading && _storeHasMore) loadStores(false);
+  }, { rootMargin: '200px' });
+  obs.observe(sentinel);
+}
+
+function appendStores(list) {
+  const g = document.getElementById('stores-grid');
+  const sentinel = document.getElementById('load-more-sentinel');
+  list.forEach(s => {
+    const div = document.createElement('div');
+    div.innerHTML = renderStoreCard(s);
+    const card = div.firstElementChild;
+    if (sentinel) g.insertBefore(card, sentinel);
+    else g.appendChild(card);
+  });
+}
+
+function renderStoreCard(s) {
+  const isFree = s.delivery_cost === 0;
+  const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>' : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
+  const pickupTag = s.offers_pickup && !s.offers_delivery ? '<span class="tag" style="background:#edf4ff;color:#3b5bdb;">Retiro en tienda</span>' : '';
+  const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
+  const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
+  // Delivery zone badge
+  const distLabel = s.distance_km != null
+    ? `<span style="font-size:11px;color:#888;">📍 ${s.distance_km} km</span>`
+    : '';
+  const zoneTag = s.delivers_to_me === false
+    ? `<span style="font-size:11px;color:#e74c3c;font-weight:700;">⚠️ Fuera de zona</span>`
+    : s.delivers_to_me === true && s.delivery_radius_km
+      ? `<span style="font-size:11px;color:#27ae60;font-weight:700;">✅ Llega a tu zona</span>`
+      : '';
+  return `
+  <div class="store-card" onclick="openStore('${s.id}')">
+    <div class="store-img-wrap" style="background:${bg};">
+      <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
+      <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${s.id}')" id="fav-btn-${s.id}" title="Guardar favorito">${isFav(s.id)?'❤️':'🤍'}</button>
+    </div>
+    <div class="store-info">
+      <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
+      <div class="store-meta">
+        <div class="store-rating">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="${s.rating ? '#FFB800' : '#ccc'}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          ${s.rating ? s.rating : '<span style="color:#bbb;font-size:11px;">Sin reseñas</span>'}
+        </div>
+        <div class="store-meta-dot"></div>
+        <span>🕐 ${s.delivery_time||'20-35'} min</span>
+        <div class="store-meta-dot"></div>
+        ${s.offers_delivery !== false ? deliveryTag : pickupTag}
+        ${zoneTag ? `<div class="store-meta-dot"></div>${zoneTag}` : ''}
+        ${distLabel && !zoneTag ? `<div class="store-meta-dot"></div>${distLabel}` : ''}
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderStores(list) {
   const g = document.getElementById('stores-grid');
   if (!list.length) { g.innerHTML = '<div class="loading-state" style="padding:40px 20px;text-align:center;color:#999;grid-column:1/-1;">No hay tiendas disponibles en esta zona</div>'; return; }
-  g.innerHTML = list.map(s => {
-    const isFree = s.delivery_cost === 0;
-    const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>' : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
-    const pickupTag = s.offers_pickup && !s.offers_delivery ? '<span class="tag" style="background:#edf4ff;color:#3b5bdb;">Retiro en tienda</span>' : '';
-    const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
-    const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
-    return `
-    <div class="store-card" onclick="openStore('${s.id}')">
-      <div class="store-img-wrap" style="background:${bg};">
-        <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
-        <button class="fav-btn" onclick="event.stopPropagation();toggleFav('${s.id}')" id="fav-btn-${s.id}" title="Guardar favorito">${isFav(s.id)?'❤️':'🤍'}</button>
-      </div>
-      <div class="store-info">
-        <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
-        <div class="store-meta">
-          <div class="store-rating">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="${s.rating ? '#FFB800' : '#ccc'}"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            ${s.rating ? s.rating : '<span style="color:#bbb;font-size:11px;">Sin reseñas</span>'}
-          </div>
-          <div class="store-meta-dot"></div>
-          <span>🕐 ${s.delivery_time||'20-35'} min</span>
-          <div class="store-meta-dot"></div>
-          ${s.offers_delivery !== false ? deliveryTag : pickupTag}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  g.innerHTML = list.map(s => renderStoreCard(s)).join('');
+  renderLoadMoreBtn();
 }
+
 
 // Load dynamic categories from API
 // Called once on page init
-window.addEventListener('load', () => { loadAppSettings(); });
+window.addEventListener('load', () => {
+  loadAppSettings();
+  // Silently request GPS to enable delivery zone filtering
+  if (navigator.geolocation && !clientGpsLat) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      clientGpsLat = pos.coords.latitude;
+      clientGpsLng = pos.coords.longitude;
+      localStorage.setItem('da_lat', clientGpsLat);
+      localStorage.setItem('da_lng', clientGpsLng);
+      // Reload feed with location data if home is active
+      if (document.getElementById('page-home')?.classList.contains('active')) loadStores(true);
+    }, () => { /* silently ignore GPS denial */ }, { timeout: 5000, maximumAge: 300000 });
+  }
+});
 
 async function loadBankPromoStrip() {
   try {
@@ -2901,13 +3165,8 @@ function getCatBg(id) {
 }
 
 function filterCat(cat) {
-  const filtered = cat==='all' ? allStores : allStores.filter(s => s.category===cat);
-  if (!filtered.length && activeCity) {
-    document.getElementById('stores-grid').innerHTML = `<div class="loading-state" style="grid-column:1/-1">No hay negocios de esta categoría en ${activeCity}</div>`;
-    document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
-    return;
-  }
-  renderStores(filtered);
+  _storeCategory = cat === 'all' ? null : cat;
+  loadStores(true);
   document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
 }
 
@@ -2919,8 +3178,152 @@ function chipFilter(el, cat) {
 
 function searchStores(q) {
   if (!q.trim()) { renderStores(allStores); return; }
-  const filtered = allStores.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.category.toLowerCase().includes(q.toLowerCase()));
+  const filtered = allStores.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || (s.category||'').toLowerCase().includes(q.toLowerCase()));
   renderStores(filtered);
+}
+
+// ═══════════════════════════════════════════════
+//  GLOBAL SEARCH
+// ═══════════════════════════════════════════════
+let _searchTimer = null;
+
+function openGlobalSearch(prefill) {
+  const overlay = document.getElementById('search-overlay');
+  const panel   = document.getElementById('search-results-panel');
+  const input   = document.getElementById('srp-input');
+  if (!overlay || !panel) return;
+  overlay.classList.add('open');
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    input.focus();
+    if (prefill) { input.value = prefill; globalSearch(prefill); }
+  }, 120);
+}
+
+function closeGlobalSearch() {
+  const overlay = document.getElementById('search-overlay');
+  const panel   = document.getElementById('search-results-panel');
+  if (!overlay || !panel) return;
+  overlay.classList.remove('open');
+  panel.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function globalSearch(q) {
+  const body = document.getElementById('srp-body');
+  clearTimeout(_searchTimer);
+  if (!q.trim()) {
+    body.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#bbb;"><div style="font-size:40px;margin-bottom:10px;">🔍</div><div style="font-size:14px;">Buscá platos, ingredientes o locales</div></div>`;
+    return;
+  }
+  if (q.trim().length < 2) return;
+  body.innerHTML = `<div style="text-align:center;padding:40px 20px;"><div class="spinner"></div></div>`;
+
+  _searchTimer = setTimeout(async () => {
+    try {
+      const cityParam = activeCity ? `&city=${encodeURIComponent(activeCity)}` : '';
+      const data = await api(`/api/search?q=${encodeURIComponent(q.trim())}${cityParam}`);
+      renderSearchResults(data, q.trim());
+    } catch(e) {
+      body.innerHTML = `<div style="text-align:center;padding:40px;color:#e74c3c;">${e.message}</div>`;
+    }
+  }, 280);
+}
+
+function renderSearchResults(data, q) {
+  const body = document.getElementById('srp-body');
+  const { products = [], businesses = [] } = data;
+
+  if (!products.length && !businesses.length) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:56px 20px;">
+        <div style="font-size:44px;margin-bottom:12px;">😕</div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">Sin resultados para "${q}"</div>
+        <div style="font-size:13px;color:#999;">Probá con otro término o revisá tu zona.</div>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+
+  // Products section
+  if (products.length) {
+    html += `<div class="srp-section-title">🍔 Productos (${products.length})</div>`;
+    html += products.map(p => {
+      const disc = parseInt(p.discount_percent)||0;
+      const price = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
+      const imgHtml = p.photo_url
+        ? `<img src="${p.photo_url}" alt="${p.name}">`
+        : p.emoji || '🍽️';
+      const outOfStock = p.stock === 0;
+      const openBadge = p.is_open
+        ? `<span style="color:#27ae60;font-size:10px;font-weight:700;">● Abierto</span>`
+        : `<span style="color:#aaa;font-size:10px;font-weight:700;">● Cerrado</span>`;
+      return `<div class="srp-product" onclick="searchOpenProduct('${p.business_id}','${p.id}')" style="${outOfStock?'opacity:.55;':''}">
+        <div class="srp-product-img">${typeof imgHtml === 'string' && imgHtml.startsWith('<img') ? imgHtml : `<span>${imgHtml}</span>`}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+          <div style="font-size:12px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.business_name}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+            ${openBadge}
+            ${outOfStock ? `<span style="font-size:10px;color:#e74c3c;font-weight:700;">Sin stock</span>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:15px;font-weight:900;color:#1a1a1a;">$${price}</div>
+          ${disc > 0 ? `<div style="font-size:11px;color:#aaa;text-decoration:line-through;">$${p.price}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Businesses section
+  if (businesses.length) {
+    html += `<div class="srp-section-title">🏪 Negocios (${businesses.length})</div>`;
+    html += businesses.map(b => {
+      const imgHtml = b.logo_url
+        ? `<img src="${b.logo_url}" alt="${b.name}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;">`
+        : `<div style="width:44px;height:44px;border-radius:10px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;">${b.logo_emoji||'🏪'}</div>`;
+      const openBadge = b.is_open
+        ? `<span style="color:#27ae60;font-size:11px;font-weight:700;">● Abierto</span>`
+        : `<span style="color:#aaa;font-size:11px;font-weight:700;">● Cerrado</span>`;
+      return `<div class="srp-biz" onclick="searchOpenBusiness('${b.id}')">
+        ${imgHtml}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;">${b.name}</div>
+          <div style="font-size:12px;color:#888;">${b.category}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+            ${openBadge}
+            ${b.rating ? `<span style="font-size:11px;color:#888;">⭐ ${b.rating}</span>` : ''}
+            <span style="font-size:11px;color:#888;">🕐 ${b.delivery_time||'20-35'} min</span>
+          </div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" width="16" height="16"><polyline points="9,18 15,12 9,6"/></svg>
+      </div>`;
+    }).join('');
+  }
+
+  html += `<div style="height:24px;"></div>`;
+  body.innerHTML = html;
+}
+
+async function searchOpenProduct(bizId, productId) {
+  closeGlobalSearch();
+  try {
+    const b = await api(`/api/businesses/${bizId}`);
+    renderStoreDetail(b, b.products || []);
+    // Highlight the product after render
+    setTimeout(() => {
+      const el = document.querySelector(`[data-pid="${productId}"]`);
+      if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); el.style.background='#fff8e1'; setTimeout(()=>el.style.background='',1500); }
+    }, 400);
+  } catch(e) { showToast('❌ Error abriendo tienda'); }
+}
+
+async function searchOpenBusiness(bizId) {
+  closeGlobalSearch();
+  openStore(bizId);
 }
 
 async function openStore(id) {
@@ -3032,6 +3435,12 @@ function renderStoreDetail(s, products) {
     };
   }
 
+  // Reset search bar when opening a new store
+  const searchBar = document.getElementById('sd-search-bar');
+  const searchInput = document.getElementById('sd-search-input');
+  if (searchBar) searchBar.classList.remove('open');
+  if (searchInput) searchInput.value = '';
+
   if (document.getElementById('store-scroll')) document.getElementById('store-scroll').scrollTop = 0;
 }
 
@@ -3132,6 +3541,51 @@ async function renderSdReviews(s) {
   } catch(e) { /* silently fail */ }
 }
 
+// ── Store search ──
+function toggleStoreSearch() {
+  const bar = document.getElementById('sd-search-bar');
+  const input = document.getElementById('sd-search-input');
+  if (!bar) return;
+  const isOpen = bar.classList.toggle('open');
+  if (isOpen) {
+    setTimeout(() => input?.focus(), 80);
+  } else {
+    if (input) input.value = '';
+    // Restore full menu
+    renderStoreProducts(currentSdProducts, currentStoreTab);
+  }
+}
+
+function searchStoreProducts(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    renderStoreProducts(currentSdProducts, 'all');
+    return;
+  }
+  const filtered = currentSdProducts.filter(p =>
+    p.name?.toLowerCase().includes(q) ||
+    p.description?.toLowerCase().includes(q) ||
+    p.emoji?.toLowerCase().includes(q)
+  );
+  const container = document.getElementById('store-prods');
+  if (!container) return;
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:48px 20px;">
+        <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">Sin resultados</div>
+        <div style="font-size:13px;color:#999;">No encontramos productos para "<strong>${query}</strong>"</div>
+      </div>`;
+    return;
+  }
+  // Show results as flat list with match count
+  let html = `<div style="padding:14px 16px 8px;font-size:13px;color:#999;font-weight:600;">${filtered.length} resultado${filtered.length>1?'s':''} para "${query}"</div>`;
+  html += `<div class="prod-list">`;
+  filtered.forEach(p => { html += renderProductRow(p, currentStoreForCart); });
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
 function filterStoreTab(tab, el) {
   currentStoreTab = tab;
   document.querySelectorAll('.sd-mtab').forEach(b => b.classList.remove('active'));
@@ -3205,16 +3659,24 @@ function renderProductRow(p, s) {
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
   const discBadge = disc > 0 ? `<div class="prod-discount-badge">${disc}% OFF</div>` : '';
+  const outOfStock = p.stock !== null && p.stock !== undefined && p.stock === 0;
+  const lowStock = p.stock !== null && p.stock !== undefined && p.stock > 0 && p.stock <= 5;
+  const stockBadge = outOfStock
+    ? `<div style="font-size:11px;color:#e74c3c;font-weight:700;margin-top:3px;">❌ Sin stock</div>`
+    : lowStock ? `<div style="font-size:11px;color:#e67e22;font-weight:700;margin-top:3px;">⚡ Últimas ${p.stock}</div>` : '';
   const pStr = JSON.stringify({...p, biz_id:s?.id});
-  return `<div class="prod-row" onclick='quickAdd(${pStr})'>
+  return `<div class="prod-row" data-pid="${p.id}" onclick='${outOfStock ? "" : `quickAdd(${pStr})`}' style="${outOfStock ? 'opacity:.55;cursor:not-allowed;' : ''}">
     <div class="prod-row-info">
       <div class="prod-row-name">${p.name}</div>
       ${p.description ? `<div class="prod-row-desc">${p.description}</div>` : ''}
       <div class="prod-row-price">${priceHtml}</div>
+      ${stockBadge}
     </div>
     <div class="prod-row-img">
       ${imgHtml}${discBadge}
-      <button class="prod-row-add" onclick="event.stopPropagation();quickAdd(${pStr.replace(/"/g,'&quot;')})">+</button>
+      ${outOfStock
+        ? `<div style="position:absolute;bottom:6px;right:6px;background:#e74c3c;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;">✕</div>`
+        : `<button class="prod-row-add" onclick="event.stopPropagation();quickAdd(${pStr.replace(/"/g,'&quot;')})">+</button>`}
     </div>
   </div>`;
 }
@@ -3526,6 +3988,9 @@ const STATUS_LABELS = { pending:'Esperando pago', confirmed:'Confirmado', prepar
 const STEPS_MAP = ['pending','confirmed','preparing','ready','on_way','delivered'];
 const STEP_LABELS = ['Pago confirmado','Pedido aceptado','Preparando','Listo','En camino','Entregado'];
 
+let _allOrders = [];
+let _trkTab = 'active';
+
 async function loadTracking() {
   const body = document.getElementById('tracking-body');
   if (!user) {
@@ -3534,40 +3999,209 @@ async function loadTracking() {
   }
   body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
   try {
-    const orders = await api('/api/orders');
-    if (!orders.length) { body.innerHTML='<div class="loading-state">No tenés pedidos aún 😊</div>'; return; }
-    body.innerHTML = orders.map(o => {
-      const stepIdx = STEPS_MAP.indexOf(o.status);
-      const steps = STEPS_MAP.map((s,i)=>({label:STEP_LABELS[i],done:i<stepIdx,cur:i===stepIdx}));
-      return `<div class="order-card">
-        <div class="oc-top">
-          <div><div class="oc-store">${o.business_name||o.business_id}</div><div class="oc-time">Pedido · ${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>
-          <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
-        </div>
-        ${o.status==='on_way'?`<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>`:''}
-        <div class="track-steps">${steps.map((s,i)=>`
-          <div class="track-step ${s.done?'done':''}">
-            <div class="step-dot ${s.done?'done':''} ${s.cur?'cur':''}">${s.done?'✓':s.cur?'●':'○'}</div>
-            <div class="step-info"><div class="step-label ${s.done||s.cur?'done':''}">${s.label}</div></div>
-          </div>`).join('')}
-        </div>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:13px;color:var(--muted);">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</span>
-          <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
-        </div>
-        ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
-        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\\'")}')" style="width:100%;margin-top:10px;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}  
-        ${o.status==='delivered' && o.has_review?`<div style="text-align:center;margin-top:10px;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
-        ${o.status==='delivered'?`<button onclick='reorderFromOrder(${JSON.stringify(o).replace(/'/g,"&apos;")})' style="width:100%;margin-top:8px;background:#f5f5f5;border:none;border-radius:10px;padding:11px;color:#1a1a1a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔁 Repetir pedido</button>`:''}
-      </div>`;
-    }).join('');
+    _allOrders = await api('/api/orders');
+    renderTrackingSummary();
+    populateBizFilter();
+    renderTrackingOrders();
+    startEtaTicker();
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
 }
 
+function switchTrkTab(tab) {
+  _trkTab = tab;
+  const btnActive  = document.getElementById('trk-tab-active');
+  const btnHistory = document.getElementById('trk-tab-history');
+  const filterBar  = document.getElementById('trk-filter-bar');
+  const on  = "flex:1;padding:9px;border:none;border-radius:9px;background:#1a1a1a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;";
+  const off = "flex:1;padding:9px;border:none;border-radius:9px;background:transparent;color:#666;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;";
+  if (btnActive)  btnActive.style.cssText  = tab === 'active'  ? on : off;
+  if (btnHistory) btnHistory.style.cssText = tab === 'history' ? on : off;
+  if (filterBar)  filterBar.style.display  = tab === 'history' ? 'block' : 'none';
+  renderTrackingOrders();
+}
+
+function renderTrackingSummary() {
+  const el = document.getElementById('tracking-summary');
+  if (!el || !_allOrders.length) { if(el) el.style.display='none'; return; }
+  const delivered = _allOrders.filter(o => o.status === 'delivered');
+  if (!delivered.length) { el.style.display='none'; return; }
+  const total = delivered.reduce((s, o) => s + parseFloat(o.total||0), 0);
+  const uniqueBiz = new Set(delivered.map(o => o.business_id)).size;
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">${delivered.length}</div>
+      <div style="font-size:11px;opacity:.85;">pedidos</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,.3);"></div>
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">$${Math.round(total).toLocaleString('es-UY')}</div>
+      <div style="font-size:11px;opacity:.85;">gastado en total</div>
+    </div>
+    <div style="width:1px;background:rgba(255,255,255,.3);"></div>
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">${uniqueBiz}</div>
+      <div style="font-size:11px;opacity:.85;">tienda${uniqueBiz!==1?'s':''}</div>
+    </div>`;
+}
+
+function populateBizFilter() {
+  const sel = document.getElementById('trk-biz-filter');
+  if (!sel) return;
+  const businesses = [...new Map(_allOrders.map(o => [o.business_id, o.business_name||o.business_id])).entries()];
+  sel.innerHTML = '<option value="">Todos los negocios</option>' +
+    businesses.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+}
+
+// ── ETA countdown ─────────────────────────────
+function renderEtaBar(o) {
+  const elapsedMin = (Date.now() - new Date(o.confirmed_at).getTime()) / 60000;
+  const remaining = Math.max(0, Math.round(o.eta_minutes - elapsedMin));
+  const percent = Math.min(100, Math.round((elapsedMin / o.eta_minutes) * 100));
+  const isLate = remaining === 0;
+  const color = isLate ? '#e74c3c' : percent > 75 ? '#f39c12' : '#27ae60';
+  return `<div class="eta-bar-wrap" id="eta-wrap-${o.id}" data-confirmed="${o.confirmed_at}" data-eta="${o.eta_minutes}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:12px;font-weight:700;color:#555;">🕐 Tiempo estimado</span>
+      <span id="eta-remaining-${o.id}" style="font-size:14px;font-weight:900;color:${color};">${isLate ? '¡En camino pronto!' : `~${remaining} min`}</span>
+    </div>
+    <div style="background:#f0f0f0;border-radius:99px;height:6px;overflow:hidden;">
+      <div id="eta-progress-${o.id}" style="background:${color};height:100%;border-radius:99px;transition:width .5s ease;width:${percent}%;"></div>
+    </div>
+  </div>`;
+}
+
+let _etaTicker = null;
+function startEtaTicker() {
+  if (_etaTicker) return;
+  _etaTicker = setInterval(() => {
+    document.querySelectorAll('.eta-bar-wrap').forEach(wrap => {
+      const orderId = wrap.id.replace('eta-wrap-','');
+      const confirmed = new Date(wrap.dataset.confirmed);
+      const etaMin = parseInt(wrap.dataset.eta);
+      if (!confirmed || !etaMin) return;
+      const elapsedMin = (Date.now() - confirmed.getTime()) / 60000;
+      const remaining = Math.max(0, Math.round(etaMin - elapsedMin));
+      const percent = Math.min(100, Math.round((elapsedMin / etaMin) * 100));
+      const isLate = remaining === 0;
+      const color = isLate ? '#e74c3c' : percent > 75 ? '#f39c12' : '#27ae60';
+      const remEl = document.getElementById(`eta-remaining-${orderId}`);
+      const progEl = document.getElementById(`eta-progress-${orderId}`);
+      if (remEl) { remEl.textContent = isLate ? '¡En camino pronto!' : `~${remaining} min`; remEl.style.color = color; }
+      if (progEl) { progEl.style.width = `${percent}%`; progEl.style.background = color; }
+    });
+  }, 30000); // update every 30s
+}
+
+function renderTrackingOrders() {
+  const body = document.getElementById('tracking-body');
+  const bizFilter = document.getElementById('trk-biz-filter')?.value || '';
+  const activeStatuses  = ['pending','confirmed','preparing','ready','on_way'];
+  const historyStatuses = ['delivered','cancelled'];
+
+  let orders = _trkTab === 'active'
+    ? _allOrders.filter(o => activeStatuses.includes(o.status))
+    : _allOrders.filter(o => historyStatuses.includes(o.status));
+
+  if (bizFilter) orders = orders.filter(o => o.business_id === bizFilter);
+
+  if (!orders.length) {
+    const msg = _trkTab === 'active'
+      ? '¡Todo al día! No tenés pedidos en curso 😊'
+      : (bizFilter ? 'No hay pedidos de ese negocio' : 'Todavía no completaste ningún pedido');
+    body.innerHTML = `<div class="loading-state" style="padding:48px 20px;">${msg}</div>`;
+    return;
+  }
+
+  body.innerHTML = orders.map(o => {
+    const stepIdx = STEPS_MAP.indexOf(o.status);
+    const steps = STEPS_MAP.map((s,i) => ({label:STEP_LABELS[i], done:i<stepIdx, cur:i===stepIdx}));
+    const isHistory = historyStatuses.includes(o.status);
+    const date = new Date(o.created_at);
+    const dateStr = date.toLocaleDateString('es-UY', {day:'2-digit', month:'short', year:'numeric'});
+    const timeStr = date.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'});
+    const itemsDetail = (o.items||[]).map(i => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="background:#f5f5f5;border-radius:8px;padding:4px 8px;font-size:13px;font-weight:700;color:#555;">${i.quantity}×</span>
+          <span style="font-size:13px;color:#1a1a1a;">${i.name}</span>
+        </div>
+        <span style="font-size:13px;font-weight:700;color:#1a1a1a;">$${Math.round(i.price * i.quantity)}</span>
+      </div>`).join('');
+    return `<div class="order-card" id="ocard-${o.id}">
+      <div class="oc-top">
+        <div style="flex:1;min-width:0;">
+          <div class="oc-store" style="cursor:pointer;" onclick="openStore('${o.business_id}')">${o.business_name||o.business_id}</div>
+          <div class="oc-time">${dateStr} · ${timeStr}</div>
+        </div>
+        <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
+      </div>
+      ${o.status==='on_way'?`<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>`:''}
+      ${!isHistory ? `<div class="track-steps">${steps.map((s,i)=>`
+        <div class="track-step ${s.done?'done':''}">
+          <div class="step-dot ${s.done?'done':''} ${s.cur?'cur':''}">${s.done?'✓':s.cur?'●':'○'}</div>
+          <div class="step-info"><div class="step-label ${s.done||s.cur?'done':''}">${s.label}</div></div>
+        </div>`).join('')}
+      </div>` : ''}
+      ${['confirmed','preparing'].includes(o.status) && o.eta_minutes && o.confirmed_at ? renderEtaBar(o) : ''}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div onclick="toggleOrderDetail('${o.id}')" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+          <span style="font-size:13px;color:#666;">${(o.items||[]).length} producto${(o.items||[]).length!==1?'s':''} · <strong style="color:#1a1a1a;">$${o.total}</strong></span>
+          <span id="ocard-arrow-${o.id}" style="font-size:16px;color:#aaa;transition:transform .2s;">›</span>
+        </div>
+        <div id="ocard-detail-${o.id}" style="display:none;margin-top:10px;">
+          ${itemsDetail}
+          <div style="display:flex;justify-content:space-between;padding-top:8px;font-size:14px;font-weight:900;"><span>Total</span><span>$${o.total}</span></div>
+        </div>
+      </div>
+      ${o.owner_message ? `<div style="margin-top:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:18px;flex-shrink:0;">💬</span>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#b8860b;margin-bottom:3px;">${o.business_name||'El negocio'} dice:</div>
+          <div style="font-size:13px;color:#5d4037;line-height:1.4;">${o.owner_message}</div>
+        </div>
+      </div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+        ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
+        ${o.status==='cancelled' && o.refund_status==='approved'?`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">💸</span><div><div style="font-size:13px;font-weight:700;color:#166534;">Reembolso procesado</div><div style="font-size:12px;color:#15803d;">$${o.total} devueltos a tu método de pago</div></div></div>`:''}
+        ${o.status==='cancelled' && o.refund_status==='failed'?`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:12px;color:#dc2626;">⚠️ El reembolso no pudo procesarse. Contactá soporte.</div>`:''}
+        ${o.status==='cancelled' && !o.refund_status && o.mp_payment_id?`<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;font-size:12px;color:#854d0e;">⏳ Procesando reembolso...</div>`:''}
+        ${o.status==='delivered' && !o.has_review?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\'")}\')" style="width:100%;background:var(--primary);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
+        ${o.status==='delivered' && o.has_review?`<div style="text-align:center;font-size:13px;color:#27ae60;font-weight:700;">✅ Ya dejaste tu reseña</div>`:''}
+        ${o.status==='delivered'?`<button onclick='reorderFromOrder(${JSON.stringify(o).replace(/'/g,"&apos;")})' style="width:100%;background:#f5f5f5;border:none;border-radius:10px;padding:11px;color:#1a1a1a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔁 Repetir pedido</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleOrderDetail(orderId) {
+  const detail = document.getElementById(`ocard-detail-${orderId}`);
+  const arrow  = document.getElementById(`ocard-arrow-${orderId}`);
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
+}
+
+
 async function cancelOrder(id) {
   if (!confirm('¿Cancelar este pedido?')) return;
-  try { await api(`/api/orders/${id}/cancel`,{method:'POST'}); showToast('✅ Pedido cancelado'); loadTracking(); }
-  catch(e) { showToast(`❌ ${e.message}`); }
+  try {
+    const res = await api(`/api/orders/${id}/cancel`,{method:'POST'});
+    if (res.refund?.ok) showToast('✅ Pedido cancelado · 💸 Reembolso procesado');
+    else showToast('✅ Pedido cancelado');
+    loadTracking();
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function ownerRefund(orderId) {
+  if (!confirm('¿Procesar reembolso al cliente?')) return;
+  try {
+    const res = await api(`/api/orders/${orderId}/refund`, { method:'POST' });
+    if (res.ok) showToast('💸 Reembolso procesado');
+    else showToast(`⚠️ ${res.refund?.reason || 'Error al reembolsar'}`);
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
 async function reorderFromOrder(order) {
@@ -3709,10 +4343,10 @@ async function loadFavorites() {
   body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
   try {
     // Load all stores and filter by fav ids
-    const all = await api(`/api/businesses${activeCity ? '?city='+encodeURIComponent(activeCity) : ''}`);
+    const allRaw = await api(`/api/businesses?limit=100${activeCity ? '&city='+encodeURIComponent(activeCity) : ''}`); const all = allRaw.businesses || allRaw;
     // Include favs even from other cities
     const allCities = all.length < favIds.length
-      ? await api('/api/businesses').catch(() => all)
+      ? await api('/api/businesses?limit=100').then(r=>(r.businesses||r)).catch(() => all)
       : all;
     const favStores = favIds
       .map(id => allCities.find(s => s.id === id))
@@ -3905,6 +4539,12 @@ function saveSession(t, u) {
   localStorage.setItem('da_token',t);
   localStorage.setItem('da_user',JSON.stringify(u));
   connectWS();
+  // Subscribe to push after login (request permission if needed)
+  if (Notification.permission === 'granted') {
+    subscribeToPush();
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => { if (p === 'granted') subscribeToPush(); });
+  }
 }
 
 function doLogout() {
@@ -4103,6 +4743,175 @@ async function completeRegistration() {
 }
 
 // Handle return from MercadoPago payment
+// ═══════════════════════════════════════════════
+//  OWNER ONBOARDING WIZARD
+// ═══════════════════════════════════════════════
+const OB_DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+let obBizId = null;
+
+function showOnboarding(biz) {
+  obBizId = biz.id;
+  const ov = document.getElementById('onboarding-overlay');
+  ov.style.display = 'block';
+  // Pre-fill step 1
+  const nameInp = document.getElementById('ob-bizname');
+  if (nameInp && biz.name) nameInp.value = biz.name;
+  const phoneInp = document.getElementById('ob-phone');
+  if (phoneInp && biz.phone) phoneInp.value = biz.phone;
+  const emojiInp = document.getElementById('ob-emoji');
+  if (emojiInp) emojiInp.value = biz.logo_emoji || '🏪';
+  // Pre-fill step 2
+  const addrInp = document.getElementById('ob-addr');
+  if (addrInp && biz.address) addrInp.value = biz.address;
+  // Init emoji picker
+  document.querySelectorAll('#ob-emoji-picker span').forEach(sp => {
+    sp.onclick = () => {
+      document.querySelectorAll('#ob-emoji-picker span').forEach(x => x.classList.remove('selected'));
+      sp.classList.add('selected');
+      document.getElementById('ob-emoji').value = sp.textContent;
+    };
+    if (sp.textContent === (biz.logo_emoji || '🏪')) sp.classList.add('selected');
+  });
+  // Fill dept/city selectors
+  obFillDepts('ob-dept');
+  if (biz.department) {
+    setTimeout(() => {
+      const sel = document.getElementById('ob-dept');
+      if (sel) sel.value = biz.department;
+      obFillCities(biz.department, 'ob-city');
+      setTimeout(() => {
+        const citySel = document.getElementById('ob-city');
+        if (citySel && biz.city) citySel.value = biz.city;
+      }, 50);
+    }, 50);
+  }
+  // Build schedule rows
+  buildObScheduleRows();
+  obSetStep(1);
+}
+
+function obFillDepts(selId) {
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  const depts = Object.keys(UY_DEPARTMENTS).sort();
+  sel.innerHTML = '<option value="">— Departamento —</option>' +
+    depts.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+function obFillCities(dept, citySelId) {
+  const cities = UY_DEPARTMENTS[dept] || [];
+  const sel = document.getElementById(citySelId);
+  if (!sel) return;
+  sel.innerHTML = cities.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function buildObScheduleRows() {
+  const container = document.getElementById('ob-schedule-rows');
+  if (!container) return;
+  container.innerHTML = OB_DAYS.map((day, i) => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:80px;font-size:13px;font-weight:600;color:#1a1a1a;">${day}</div>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="checkbox" id="ob-day-${i}" ${i < 5 ? 'checked' : ''} onchange="obToggleDay(${i})" style="width:16px;height:16px;accent-color:var(--primary);">
+        <span style="font-size:12px;color:#888;">Abierto</span>
+      </label>
+      <div id="ob-hours-${i}" style="display:flex;align-items:center;gap:4px;${i < 5 ? '' : 'display:none!important'}">
+        <input type="time" id="ob-open-${i}" value="09:00" style="border:1px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:13px;font-family:'Inter',sans-serif;width:90px;">
+        <span style="font-size:12px;color:#888;">—</span>
+        <input type="time" id="ob-close-${i}" value="22:00" style="border:1px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:13px;font-family:'Inter',sans-serif;width:90px;">
+      </div>
+    </div>
+  `).join('');
+}
+
+function obToggleDay(i) {
+  const checked = document.getElementById(`ob-day-${i}`)?.checked;
+  const hoursDiv = document.getElementById(`ob-hours-${i}`);
+  if (hoursDiv) hoursDiv.style.display = checked ? 'flex' : 'none';
+}
+
+function obSetStep(n) {
+  document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
+  const step = document.getElementById(`ob-step-${n}`);
+  if (step) step.style.display = 'block';
+  const progress = document.getElementById('ob-progress');
+  if (progress) progress.style.width = `${(n - 1) / 4 * 100}%`;
+  document.getElementById('onboarding-overlay').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function obNext(step) {
+  if (step === 1) {
+    const name  = document.getElementById('ob-bizname')?.value.trim();
+    const emoji = document.getElementById('ob-emoji')?.value.trim() || '🏪';
+    const phone = document.getElementById('ob-phone')?.value.trim();
+    if (!name) { showToast('⚠️ Ingresá el nombre de tu negocio'); return; }
+    try {
+      await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ name, logo_emoji: emoji, phone: phone || undefined }) });
+      obSetStep(2);
+    } catch(e) { showToast('❌ ' + e.message); }
+  } else if (step === 2) {
+    const addr   = document.getElementById('ob-addr')?.value.trim();
+    const dept   = document.getElementById('ob-dept')?.value;
+    const city   = document.getElementById('ob-city')?.value;
+    const radius = document.getElementById('ob-radius')?.value;
+    if (!dept || !city) { showToast('⚠️ Seleccioná departamento y ciudad'); return; }
+    try {
+      await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({
+        address: addr || undefined, department: dept, city,
+        delivery_radius_km: radius ? parseFloat(radius) : null
+      }) });
+      obSetStep(3);
+    } catch(e) { showToast('❌ ' + e.message); }
+  } else if (step === 3) {
+    const name  = document.getElementById('ob-prod-name')?.value.trim();
+    const price = parseFloat(document.getElementById('ob-prod-price')?.value);
+    const desc  = document.getElementById('ob-prod-desc')?.value.trim();
+    const emoji = document.getElementById('ob-prod-emoji')?.value.trim() || '🍽️';
+    if (!name) { showToast('⚠️ Ingresá el nombre del producto'); return; }
+    if (!price || price < 1) { showToast('⚠️ Ingresá un precio válido'); return; }
+    try {
+      const uid = () => Math.random().toString(36).slice(2,10);
+      await api('/api/businesses/mine/products', { method:'POST', body: JSON.stringify({
+        name, price, description: desc || '', emoji, is_available: true
+      }) });
+      const st = document.getElementById('ob-prod-status');
+      if (st) { st.textContent = `✅ "${name}" agregado`; st.style.display = 'block'; }
+      setTimeout(() => obSetStep(4), 600);
+    } catch(e) { showToast('❌ ' + e.message); }
+  }
+}
+
+function obSkip(step) {
+  if (step === 4) { obFinish(); return; }
+  obSetStep(step + 1);
+}
+
+async function obFinish() {
+  // Save schedule
+  try {
+    const schedule = {};
+    const dayKeys = ['mon','tue','wed','thu','fri','sat','sun'];
+    OB_DAYS.forEach((_, i) => {
+      const open = document.getElementById(`ob-day-${i}`)?.checked;
+      schedule[dayKeys[i]] = open ? {
+        open: document.getElementById(`ob-open-${i}`)?.value || '09:00',
+        close: document.getElementById(`ob-close-${i}`)?.value || '22:00'
+      } : null;
+    });
+    await api('/api/businesses/mine/schedule', { method:'PATCH', body: JSON.stringify({ schedule, enabled: true }) });
+  } catch(e) { /* schedule save failure is non-critical */ }
+
+  // Mark onboarding done
+  try { await api('/api/businesses/mine/onboarding-done', { method:'POST' }); } catch(e) {}
+
+  document.getElementById('ob-progress').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('onboarding-overlay').style.display = 'none';
+    showToast('🎉 ¡Todo listo! Ya podés recibir pedidos.');
+    loadOwnerDash();
+  }, 400);
+}
+
 (function checkPaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const regId  = params.get('reg');
@@ -4208,6 +5017,11 @@ async function loadOwnerDash() {
   try {
     const d = await api('/api/businesses/mine/dashboard');
     ownerData = d;
+    // Show onboarding wizard for new owners
+    if (!d.business.onboarding_done && document.getElementById('onboarding-overlay').style.display === 'none') {
+      showOnboarding(d.business);
+      return;
+    }
     // Header
     document.getElementById('owner-store-name').textContent = `${d.business.logo_emoji} ${d.business.name}`;
     const schedNote = d.business.schedule_enabled ? ' · ⏰ Horario automático' : '';
@@ -4239,6 +5053,12 @@ async function loadOwnerDash() {
     if (dcRow) dcRow.style.display = hasDelivery ? 'block' : 'none';
     const inp = document.getElementById('inp-delivery-cost');
     if (inp) inp.value = d.business.custom_delivery_cost ?? d.business.delivery_cost ?? 0;
+    const radInp = document.getElementById('inp-delivery-radius');
+    if (radInp) radInp.value = d.business.delivery_radius_km || '';
+    const radStatus = document.getElementById('delivery-radius-status');
+    if (radStatus) radStatus.textContent = d.business.delivery_radius_km
+      ? `Zona activa: ${d.business.delivery_radius_km} km desde tu dirección`
+      : 'Sin límite de zona — llegás a toda la ciudad';
     document.getElementById('s-plan').textContent = d.business.plan;
     document.getElementById('s-email').textContent = user.email;
     // Render tabs
@@ -4260,17 +5080,122 @@ function renderOwnerOrders(orders) {
       <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px;">👤 ${o.customer_name||''}</div>
       <div class="ooc-items">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
       <div class="ooc-total">$${o.total}</div>
+      ${o.owner_message?`<div style="margin:8px 0 0;background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:8px 12px;font-size:12px;color:#7d6000;">💬 Mensaje enviado: <em>${o.owner_message}</em></div>`:''}
       <div class="ooc-actions">
-        ${o.status==='pending'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','confirmed')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
-        ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
-        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">✅ Listo</button>`:''}
+        ${o.status==='pending'?`<button class="btn-sm green" onclick="ownerAcceptOrder('${o.id}')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
+        ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button><button class="btn-sm" onclick="toggleEtaAdjust('${o.id}')" style="background:#fff8e1;border:1px solid #fde68a;color:#854d0e;font-size:11px;">🕐 Ajustar tiempo</button>`:''}
+        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">✅ Listo</button><button class="btn-sm" onclick="toggleEtaAdjust('${o.id}')" style="background:#fff8e1;border:1px solid #fde68a;color:#854d0e;font-size:11px;">🕐 Ajustar tiempo</button>`:''}
         ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')">🛵 Salió para entrega</button>`:''}
         ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">🏁 Entregado</button>`:''}
         ${o.status==='delivered'?`<span style="font-size:13px;color:var(--success);font-weight:700;">✅ Entregado</span>`:''}
-        ${o.status==='cancelled'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span>`:''}
+        ${o.status==='cancelled' && o.refund_status==='approved'?`<span style="font-size:13px;color:#166534;font-weight:700;">❌ Cancelado · 💸 Reembolsado</span>`:o.status==='cancelled' && o.mp_payment_id && o.refund_status!=='approved'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span><button class="btn-sm" onclick="ownerRefund('${o.id}')" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;margin-left:4px;font-size:11px;">💸 Reembolsar</button>`:o.status==='cancelled'?`<span style="font-size:13px;color:var(--primary);font-weight:700;">❌ Cancelado</span>`:''}
+        <button class="btn-sm" onclick="toggleOwnerMsgInput('${o.id}')" style="background:#f5f5f5;color:#333;border:1px solid #ddd;margin-left:auto;">💬</button>
+      </div>
+      <div id="msg-input-${o.id}" style="display:none;margin-top:8px;">
+        <div style="display:flex;gap:8px;">
+          <input id="msg-text-${o.id}" type="text" placeholder="Ej: Cambiamos un ingrediente..." maxlength="200"
+            style="flex:1;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;"
+            onkeydown="if(event.key==='Enter')sendOwnerMessage('${o.id}')">
+          <button onclick="sendOwnerMessage('${o.id}')" style="background:var(--primary);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑</button>
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:4px;padding-left:2px;">El cliente verá este mensaje en su seguimiento</div>
+      </div>
+      <!-- ETA accept panel (shown when accepting pending order) -->
+      <div id="eta-accept-${o.id}" style="display:none;margin-top:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;">
+        <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:10px;">🕐 ¿Cuánto tarda el pedido?</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          <button onclick="quickAccept('${o.id}',15)" class="eta-quick-btn">15 min</button>
+          <button onclick="quickAccept('${o.id}',20)" class="eta-quick-btn">20 min</button>
+          <button onclick="quickAccept('${o.id}',30)" class="eta-quick-btn eta-default">30 min</button>
+          <button onclick="quickAccept('${o.id}',45)" class="eta-quick-btn">45 min</button>
+          <button onclick="quickAccept('${o.id}',60)" class="eta-quick-btn">1 hora</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="eta-custom-${o.id}" type="number" min="5" max="180" placeholder="Otro..." style="width:90px;padding:8px 10px;border:1.5px solid #86efac;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;">
+          <span style="font-size:13px;color:#888;">min</span>
+          <button onclick="quickAccept('${o.id}', parseInt(document.getElementById('eta-custom-${o.id}').value)||30)" style="background:#16a34a;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Aceptar →</button>
+        </div>
+      </div>
+      <!-- ETA adjust panel -->
+      <div id="eta-adjust-${o.id}" style="display:none;margin-top:10px;background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;">
+        <div style="font-size:13px;font-weight:700;color:#854d0e;margin-bottom:10px;">🕐 Ajustar tiempo de entrega</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+          <button onclick="adjustEta('${o.id}',10)" class="eta-quick-btn">+10 min</button>
+          <button onclick="adjustEta('${o.id}',20)" class="eta-quick-btn">+20 min</button>
+          <button onclick="adjustEta('${o.id}',30)" class="eta-quick-btn">+30 min</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="eta-adj-${o.id}" type="number" min="5" max="180" placeholder="Total min" style="width:90px;padding:8px 10px;border:1.5px solid #fde68a;border-radius:10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;">
+          <button onclick="saveEtaAdjust('${o.id}')" style="background:#d97706;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Guardar</button>
+        </div>
       </div>
     </div>`).join('');
 }
+
+// ── ETA owner functions ───────────────────────
+function ownerAcceptOrder(orderId) {
+  // Show the ETA accept panel instead of immediately confirming
+  const panel = document.getElementById(`eta-accept-${orderId}`);
+  if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; }
+  else changeOrderStatus(orderId, 'confirmed'); // fallback
+}
+
+async function quickAccept(orderId, etaMinutes) {
+  try {
+    await api(`/api/orders/${orderId}/status`, { method:'PATCH', body: JSON.stringify({ status:'confirmed', eta_minutes: etaMinutes }) });
+    showToast(`✅ Pedido aceptado · ~${etaMinutes} min`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+function toggleEtaAdjust(orderId) {
+  const panel = document.getElementById(`eta-adjust-${orderId}`);
+  if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+async function adjustEta(orderId, addMinutes) {
+  // Get current ETA remaining and add to it
+  try {
+    const eta = await api(`/api/orders/${orderId}/eta`);
+    const newEta = (eta.remaining || 0) + addMinutes;
+    await api(`/api/orders/${orderId}/eta`, { method:'PATCH', body: JSON.stringify({ eta_minutes: newEta }) });
+    showToast(`🕐 Tiempo ajustado: ~${newEta} min`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function saveEtaAdjust(orderId) {
+  const inp = document.getElementById(`eta-adj-${orderId}`);
+  const val = parseInt(inp?.value);
+  if (!val || val < 1) { showToast('⚠️ Ingresá un tiempo válido'); return; }
+  try {
+    await api(`/api/orders/${orderId}/eta`, { method:'PATCH', body: JSON.stringify({ eta_minutes: val }) });
+    showToast(`🕐 Tiempo actualizado: ~${val} min`);
+    loadOwnerDash();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+function toggleOwnerMsgInput(orderId) {
+  const el = document.getElementById(`msg-input-${orderId}`);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) setTimeout(() => document.getElementById(`msg-text-${orderId}`)?.focus(), 80);
+}
+
+async function sendOwnerMessage(orderId) {
+  const input = document.getElementById(`msg-text-${orderId}`);
+  const message = input?.value?.trim();
+  if (!message) { showToast('⚠️ Escribí un mensaje'); return; }
+  try {
+    await api(`/api/orders/${orderId}/message`, { method:'POST', body: JSON.stringify({ message }) });
+    showToast('✅ Mensaje enviado al cliente');
+    input.value = '';
+    document.getElementById(`msg-input-${orderId}`).style.display = 'none';
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
 
 async function changeOrderStatus(id, status) {
   try {
@@ -4313,7 +5238,14 @@ function renderOwnerMenu(products, categories) {
     const featBadge = p.is_featured ? `<span style="font-size:10px;background:#fff8e1;color:#9a6500;padding:2px 6px;border-radius:6px;font-weight:700;">⭐ Destacado</span>` : '';
     const discBadge = disc > 0 ? `<span style="font-size:10px;background:#fee;color:var(--primary);padding:2px 6px;border-radius:6px;font-weight:700;">${disc}% OFF</span>` : '';
     const varBadge = hasVariants ? `<span style="font-size:10px;background:rgba(255,184,0,.15);color:#9a6500;padding:2px 6px;border-radius:6px;font-weight:700;">🔀 variantes</span>` : '';
-    const badges = [featBadge, discBadge, varBadge].filter(Boolean).join(' ');
+    const stockNull = p.stock === null || p.stock === undefined;
+    const stockBadge = stockNull ? '' : p.stock === 0
+      ? `<span style="font-size:10px;background:#fee;color:#e74c3c;padding:2px 6px;border-radius:6px;font-weight:700;">❌ Sin stock</span>`
+      : p.stock <= 5
+        ? `<span style="font-size:10px;background:#fff8e1;color:#e67e22;padding:2px 6px;border-radius:6px;font-weight:700;">⚡ Stock: ${p.stock}</span>`
+        : `<span style="font-size:10px;background:#f0fff5;color:#27ae60;padding:2px 6px;border-radius:6px;font-weight:700;">📦 ${p.stock}</span>`;
+    const badges = [featBadge, discBadge, varBadge, stockBadge].filter(Boolean).join(' ');
+    const stockLabel = stockNull ? '∞' : p.stock;
     return `<div class="mpc">
       <label style="cursor:pointer;flex-shrink:0;position:relative;" title="Cambiar foto">
         ${thumb}
@@ -4324,6 +5256,14 @@ function renderOwnerMenu(products, categories) {
         <div class="mpc-name">${p.name}</div>
         <div class="mpc-price" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span style="font-weight:900;">$${p.price}</span>${badges}
+        </div>
+        <!-- Stock controls -->
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+          <span style="font-size:11px;color:#888;font-weight:600;">Stock:</span>
+          <button onclick="adjustStock('${p.id}',-1,${p.stock??'null'})" style="width:22px;height:22px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">−</button>
+          <span id="stock-label-${p.id}" style="font-size:12px;font-weight:700;min-width:22px;text-align:center;">${stockLabel}</span>
+          <button onclick="adjustStock('${p.id}',1,${p.stock??'null'})" style="width:22px;height:22px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;">+</button>
+          ${!stockNull ? `<button onclick="setStockUnlimited('${p.id}')" style="font-size:10px;color:#aaa;border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">sin límite</button>` : `<button onclick="initStock('${p.id}')" style="font-size:10px;color:var(--primary);border:none;background:none;cursor:pointer;padding:0 2px;text-decoration:underline;">activar</button>`}
         </div>
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;">
@@ -4360,6 +5300,38 @@ function renderOwnerMenu(products, categories) {
 async function toggleProduct(id, current) {
   try { await api(`/api/businesses/mine/products/${id}`,{method:'PATCH',body:JSON.stringify({is_available:current?0:1})}); loadOwnerDash(); }
   catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function adjustStock(id, delta, currentStock) {
+  const newStock = currentStock === null || currentStock === undefined
+    ? Math.max(0, delta > 0 ? delta : 0)
+    : Math.max(0, currentStock + delta);
+  try {
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ stock: newStock }) });
+    const label = document.getElementById(`stock-label-${id}`);
+    if (label) label.textContent = newStock;
+    if (newStock === 0) showToast(`⚠️ Producto sin stock — no se podrá pedir`);
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function initStock(id) {
+  const val = prompt('¿Cuántas unidades tenés disponibles?', '10');
+  if (val === null) return;
+  const n = Math.max(0, parseInt(val)||0);
+  try {
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ stock: n }) });
+    showToast(`✅ Stock seteado: ${n}`);
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+async function setStockUnlimited(id) {
+  if (!confirm('¿Quitar el límite de stock para este producto?')) return;
+  try {
+    await api(`/api/businesses/mine/products/${id}`, { method:'PATCH', body: JSON.stringify({ stock: null }) });
+    showToast('✅ Sin límite de stock');
+    loadOwnerDash();
+  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 async function deleteProduct(id) {
   if (!confirm('¿Eliminar este producto?')) return;
@@ -4614,16 +5586,238 @@ function renderOwnerTx(txs) {
 }
 
 function renderOwnerStats(today, week) {
-  document.getElementById('owner-stats-grid').innerHTML = `
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--primary)"><div style="font-size:22px;font-weight:900;color:var(--primary)">$${week.revenue.toFixed(0)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Ingresos semana</div></div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--success)"><div style="font-size:22px;font-weight:900;color:var(--success)">${week.orders}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Pedidos semana</div></div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--accent)"><div style="font-size:22px;font-weight:900;color:#b37a00">$${today.orders?Math.round(today.revenue/today.orders):0}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Ticket promedio</div></div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;border-top:3px solid var(--info)"><div style="font-size:22px;font-weight:900;color:var(--info)">${today.orders}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:600">Pedidos hoy</div></div>`;
+  // Legacy — keep for dashboard header KPIs loaded with ownerData
+  const grid = document.getElementById('owner-stats-grid');
+  if (grid) grid.innerHTML = '';
+}
+
+async function loadOwnerStatsHistory(days) {
+  // Update period buttons
+  [7,30,90,365].forEach(d => {
+    const btn = document.getElementById(`spbtn-${d}`);
+    if (btn) { btn.style.background = d===days ? '#1a1a1a' : '#f0f0f0'; btn.style.color = d===days ? '#fff' : '#666'; }
+  });
+  const body = document.getElementById('owner-stats-body');
+  if (!body) return;
+  body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  try {
+    const d = await api(`/api/owner/stats/history?days=${days}`);
+    const s = d.summary || {};
+    const revenue   = parseFloat(s.revenue||0);
+    const orders    = parseInt(s.orders||0);
+    const customers = parseInt(s.unique_customers||0);
+    const avgTicket = parseFloat(s.avg_ticket||0);
+
+    // KPI grid
+    let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid var(--primary);">
+        <div style="font-size:22px;font-weight:900;color:var(--primary);">$${Math.round(revenue).toLocaleString('es-UY')}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Ingresos</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #27ae60;">
+        <div style="font-size:22px;font-weight:900;color:#27ae60;">${orders}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Pedidos</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #f39c12;">
+        <div style="font-size:22px;font-weight:900;color:#f39c12;">$${Math.round(avgTicket)}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Ticket promedio</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;border-top:3px solid #3b5bdb;">
+        <div style="font-size:22px;font-weight:900;color:#3b5bdb;">${customers}</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;font-weight:600;">Clientes únicos</div>
+      </div>
+    </div>`;
+
+    // Daily bar chart (SVG)
+    if (d.daily && d.daily.length > 0) {
+      const maxRev = Math.max(...d.daily.map(r => parseFloat(r.revenue||0)), 1);
+      const barW = Math.max(8, Math.min(28, Math.floor(320 / d.daily.length) - 3));
+      const chartW = d.daily.length * (barW + 3);
+      const bars = d.daily.map((r, i) => {
+        const h = Math.max(3, Math.round((parseFloat(r.revenue||0) / maxRev) * 72));
+        const x = i * (barW + 3);
+        const label = new Date(r.day).toLocaleDateString('es-UY', {day:'2-digit', month:'2-digit'});
+        return `<g>
+          <rect x="${x}" y="${76 - h}" width="${barW}" height="${h}" rx="3" fill="var(--primary)" opacity=".85"/>
+          <title>${label}: $${Math.round(r.revenue)} (${r.orders} ped.)</title>
+        </g>`;
+      }).join('');
+      html += `<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;overflow:hidden;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px;">Ingresos por día</div>
+        <div style="overflow-x:auto;">
+          <svg width="${Math.max(chartW, 300)}" height="80" style="display:block;">
+            ${bars}
+          </svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:#aaa;">
+          <span>${new Date(d.daily[0].day).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</span>
+          <span>${new Date(d.daily[d.daily.length-1].day).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})}</span>
+        </div>
+      </div>`;
+    }
+
+    // Top products
+    if (d.topProducts && d.topProducts.length) {
+      const maxQty = Math.max(...d.topProducts.map(p => parseInt(p.qty||0)), 1);
+      html += `<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:14px;">🏆 Más vendidos</div>
+        ${d.topProducts.map((p, i) => {
+          const pct = Math.round((parseInt(p.qty||0) / maxQty) * 100);
+          const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+          return `<div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:13px;font-weight:700;">${medals[i]} ${p.name}</span>
+              <span style="font-size:12px;color:#888;">${p.qty} uds · $${Math.round(p.revenue)}</span>
+            </div>
+            <div style="background:#f5f5f5;border-radius:6px;height:7px;">
+              <div style="background:var(--primary);border-radius:6px;height:7px;width:${pct}%;transition:width .4s;"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // Top customers
+    if (d.topCustomers && d.topCustomers.length) {
+      html += `<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:8px;">
+        <div style="font-size:14px;font-weight:800;margin-bottom:12px;">❤️ Mejores clientes</div>
+        ${d.topCustomers.map((c, i) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;${i<d.topCustomers.length-1?'border-bottom:1px solid #f5f5f5;':''}">
+            <div>
+              <div style="font-size:13px;font-weight:700;">${c.name||'Cliente'}</div>
+              <div style="font-size:11px;color:#888;">${c.orders} pedido${c.orders!=1?'s':''}</div>
+            </div>
+            <div style="font-size:14px;font-weight:800;color:var(--primary);">$${Math.round(c.spent).toLocaleString('es-UY')}</div>
+          </div>`).join('')}
+      </div>`;
+    }
+
+    if (!orders) {
+      html += `<div style="text-align:center;padding:20px;color:#999;font-size:13px;">Sin pedidos en este período</div>`;
+    }
+
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = `<div class="loading-state" style="color:#e74c3c;">Error: ${e.message}</div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════
 //  EDITAR INFO DEL NEGOCIO
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  EXPORT DATA
+// ═══════════════════════════════════════════════
+let _exportDays = 7;
+
+function initExportTab() {
+  // Reset period buttons
+  document.querySelectorAll('.exp-period-btn').forEach((btn, i) => {
+    const days = [7, 30, 90, 0][i];
+    btn.style.background = days === _exportDays ? '#1a1a1a' : '#f0f0f0';
+    btn.style.color = days === _exportDays ? '#fff' : '#666';
+  });
+}
+
+function setExportPeriod(days, el) {
+  _exportDays = days;
+  document.querySelectorAll('.exp-period-btn').forEach(btn => {
+    btn.style.background = '#f0f0f0'; btn.style.color = '#666';
+  });
+  el.style.background = '#1a1a1a'; el.style.color = '#fff';
+}
+
+function csvEscape(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g,'""')}"`;
+  return s;
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+  const bom = '\uFEFF'; // UTF-8 BOM for Excel
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Archivo descargado');
+}
+
+async function exportData(type) {
+  showToast('⏳ Preparando exportación...');
+  try {
+    const days = _exportDays || 3650;
+    const d = await api(`/api/owner/stats/history?days=${days}`);
+    const allOrders = ownerData?.orders || [];
+
+    // Filter orders by period
+    const cutoff = _exportDays ? new Date(Date.now() - _exportDays * 86400000) : new Date(0);
+    const periodOrders = allOrders.filter(o =>
+      new Date(o.created_at) >= cutoff && !['cancelled','pending'].includes(o.status)
+    );
+    const bizName = ownerData?.business?.name || 'negocio';
+    const dateStr = new Date().toISOString().slice(0,10);
+
+    if (type === 'orders') {
+      const rows = [['Pedido','Fecha','Hora','Cliente','Teléfono','Productos','Total','Estado','Dirección']];
+      periodOrders.forEach(o => {
+        const date = new Date(o.created_at);
+        rows.push([
+          '#' + o.id.slice(-6).toUpperCase(),
+          date.toLocaleDateString('es-UY'),
+          date.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'}),
+          o.customer_name || '',
+          o.customer_phone || '',
+          (o.items||[]).map(i => `${i.quantity}x ${i.name}`).join(' | '),
+          o.total,
+          o.status,
+          o.delivery_address || '',
+        ]);
+      });
+      downloadCSV(`${bizName}_pedidos_${dateStr}.csv`, rows);
+
+    } else if (type === 'products') {
+      const rows = [['Producto','Unidades vendidas','Ingresos ($)']];
+      // Aggregate from period orders
+      const prodMap = {};
+      periodOrders.forEach(o => {
+        (o.items||[]).forEach(i => {
+          if (!prodMap[i.name]) prodMap[i.name] = { qty: 0, revenue: 0 };
+          prodMap[i.name].qty += parseInt(i.quantity)||1;
+          prodMap[i.name].revenue += parseFloat(i.price||0) * (parseInt(i.quantity)||1);
+        });
+      });
+      Object.entries(prodMap)
+        .sort((a,b) => b[1].qty - a[1].qty)
+        .forEach(([name, s]) => rows.push([name, s.qty, Math.round(s.revenue)]));
+      downloadCSV(`${bizName}_productos_${dateStr}.csv`, rows);
+
+    } else if (type === 'customers') {
+      const rows = [['Cliente','Teléfono','Pedidos','Total gastado ($)','Último pedido']];
+      const custMap = {};
+      periodOrders.forEach(o => {
+        const key = o.customer_name || o.customer_id;
+        if (!custMap[key]) custMap[key] = { name: o.customer_name||'', phone: o.customer_phone||'', orders: 0, spent: 0, last: o.created_at };
+        custMap[key].orders++;
+        custMap[key].spent += parseFloat(o.total)||0;
+        if (new Date(o.created_at) > new Date(custMap[key].last)) custMap[key].last = o.created_at;
+      });
+      Object.values(custMap)
+        .sort((a,b) => b.spent - a.spent)
+        .forEach(c => rows.push([
+          c.name, c.phone, c.orders,
+          Math.round(c.spent),
+          new Date(c.last).toLocaleDateString('es-UY'),
+        ]));
+      downloadCSV(`${bizName}_clientes_${dateStr}.csv`, rows);
+    }
+  } catch(e) {
+    showToast(`❌ ${e.message}`);
+  }
+}
+
 function toggleBizEdit() {
   const viewEl = document.getElementById('biz-info-view');
   const editEl = document.getElementById('biz-info-edit');
@@ -4908,6 +6102,24 @@ async function saveDeliveryCost() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
+async function saveDeliveryRadius() {
+  const inp = document.getElementById('inp-delivery-radius');
+  if (!inp) return;
+  const val = inp.value.trim() === '' ? null : parseFloat(inp.value);
+  if (val !== null && (isNaN(val) || val < 0.5)) {
+    showToast('⚠️ Ingresá un radio válido (mínimo 0.5 km)');
+    return;
+  }
+  try {
+    await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ delivery_radius_km: val }) });
+    showToast(val ? `✅ Zona de delivery: ${val} km` : '✅ Sin límite de zona');
+    const radStatus = document.getElementById('delivery-radius-status');
+    if (radStatus) radStatus.textContent = val
+      ? `Zona activa: ${val} km desde tu dirección`
+      : 'Sin límite de zona — llegás a toda la ciudad';
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
 function switchOTab(id, el) {
   document.querySelectorAll('.otab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.otab').forEach(t=>t.classList.remove('active'));
@@ -4917,6 +6129,8 @@ function switchOTab(id, el) {
   if (id === 'otab-blowplus') loadBlowPlus();
   if (id === 'otab-settings') { populatePhotoSettings(); loadSchedule(); }
   if (id === 'otab-coupons') loadOwnerCoupons();
+  if (id === 'otab-stats') loadOwnerStatsHistory(7);
+  if (id === 'otab-export') initExportTab();
 }
 
 // ═══════════════════════════════════════════════
@@ -5993,30 +7207,101 @@ function toggleFaq(el) {
 }
 
 async function sendHelpMessage() {
-  const name = document.getElementById('help-name').value.trim();
-  const email = document.getElementById('help-email').value.trim();
-  const msg = document.getElementById('help-msg').value.trim();
+  const name  = document.getElementById('help-name')?.value.trim();
+  const email = document.getElementById('help-email')?.value.trim();
+  const type  = document.getElementById('help-type')?.value || 'otro';
+  const msg   = document.getElementById('help-msg')?.value.trim();
   const res_el = document.getElementById('help-result');
   if (!email || !msg) return showToast('Email y mensaje son requeridos');
   res_el.style.display = 'block';
-  res_el.innerHTML = '<span style="color:var(--muted);">Enviando...</span>';
+  res_el.innerHTML = '<span style="color:var(--muted);">⏳ Enviando...</span>';
   try {
-    await api('/api/help', 'POST', { name: name || (user?.name || 'Anónimo'), email: email || user?.email, message: msg });
-    res_el.innerHTML = '<span style="color:var(--success);font-weight:700;">✅ Mensaje enviado — te responderemos a la brevedad</span>';
-    document.getElementById('help-name').value = '';
-    document.getElementById('help-email').value = '';
+    await api('/api/help', { method:'POST', body: JSON.stringify({
+      name: name || user?.name || 'Anónimo',
+      email: email || user?.email,
+      message: `[${type}] ${msg}`,
+    }) });
+    res_el.innerHTML = '<span style="color:#27ae60;font-weight:700;">✅ Consulta enviada — te respondemos en menos de 24hs</span>';
     document.getElementById('help-msg').value = '';
+    // Reload tickets
+    setTimeout(() => loadHelpTickets(), 800);
   } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);">❌ ${e.message}</span>`; }
 }
 
-// Pre-fill help form if user is logged in
+function switchHelpTab(tab) {
+  const isCust = tab === 'customer';
+  document.getElementById('help-tab-customer').style.cssText = isCust
+    ? 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;'
+    : 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#888;';
+  document.getElementById('help-tab-owner').style.cssText = !isCust
+    ? 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;'
+    : 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#888;';
+  document.getElementById('help-faqs-customer').style.display = isCust ? 'block' : 'none';
+  document.getElementById('help-faqs-owner').style.display = !isCust ? 'block' : 'none';
+  // Update help-type options
+  const sel = document.getElementById('help-type');
+  if (!isCust && sel) sel.value = 'negocio';
+}
+
+async function loadHelpTickets() {
+  if (!user) return;
+  try {
+    const tickets = await api('/api/help/mine');
+    const wrap = document.getElementById('help-my-tickets');
+    const list = document.getElementById('help-tickets-list');
+    if (!tickets?.length) { if (wrap) wrap.style.display = 'none'; return; }
+    if (wrap) wrap.style.display = 'block';
+    list.innerHTML = tickets.map(t => {
+      const date = new Date(t.created_at).toLocaleDateString('es-UY', {day:'2-digit',month:'short'});
+      const statusBadge = t.status === 'resolved'
+        ? '<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">✅ Respondida</span>'
+        : '<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">⏳ Pendiente</span>';
+      return `<div style="padding:14px;border-bottom:1px solid #f5f5f5;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div style="font-size:13px;color:#555;flex:1;">${t.message?.substring(0,80)}${t.message?.length > 80 ? '…' : ''}</div>
+          ${statusBadge}
+        </div>
+        <div style="font-size:11px;color:#aaa;">${date}</div>
+        ${t.admin_reply ? `<div style="margin-top:8px;background:#f0fdf4;border-radius:10px;padding:10px 12px;font-size:13px;color:#166534;"><strong>Respuesta:</strong> ${t.admin_reply}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { /* tickets failed silently */ }
+}
+
+async function checkServiceStatus() {
+  const dot = document.getElementById('help-status-dot');
+  const banner = document.getElementById('help-status-banner');
+  try {
+    const r = await fetch('/health');
+    const ok = r.ok;
+    if (dot) dot.style.background = ok ? '#27ae60' : '#e74c3c';
+    if (banner) {
+      banner.style.display = 'flex';
+      if (ok) {
+        banner.style.background = '#f0fdf4'; banner.style.color = '#166534';
+        banner.innerHTML = '✅ Todos los servicios funcionan con normalidad';
+      } else {
+        banner.style.background = '#fef2f2'; banner.style.color = '#dc2626';
+        banner.innerHTML = '⚠️ Estamos experimentando inconvenientes. El equipo ya está al tanto.';
+      }
+    }
+  } catch(e) {
+    if (dot) dot.style.background = '#e74c3c';
+  }
+}
+
 function initHelpPage() {
+  // Pre-fill form if logged in
   if (user) {
     const nameEl = document.getElementById('help-name');
     const emailEl = document.getElementById('help-email');
     if (nameEl && !nameEl.value) nameEl.value = user.name || '';
     if (emailEl && !emailEl.value) emailEl.value = user.email || '';
+    // Auto-switch to owner tab if user is owner
+    if (user.role === 'owner') switchHelpTab('owner');
+    loadHelpTickets();
   }
+  checkServiceStatus();
 }
 
 // ═══════════════════════════════════════════════
@@ -6236,10 +7521,11 @@ async function loadAdminFeatured() {
   try {
     const [featRes, bizRes] = await Promise.all([
       fetch('/api/admin/featured',{headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}}),
-      fetch('/api/businesses')
+      fetch('/api/businesses?limit=100')
     ]);
     const feats = await featRes.json();
-    const bizAll = await bizRes.json();
+    const bizAllRaw = await bizRes.json();
+    const bizAll = bizAllRaw.businesses || bizAllRaw;
     // Populate business select
     const sel = document.getElementById('feat-biz-select');
     if(sel) sel.innerHTML = '<option value="">-- Elegir negocio --</option>' + bizAll.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
@@ -6518,9 +7804,43 @@ if (token) connectWS();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registrado:', reg.scope))
+      .then(reg => {
+        console.log('SW registrado:', reg.scope);
+        window._swReg = reg;
+      })
       .catch(err => console.log('SW error:', err));
   });
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const keyRes = await fetch('/api/push/vapid-key');
+    if (!keyRes.ok) return;
+    const { publicKey } = await keyRes.json();
+    if (!publicKey) return;
+    const reg = window._swReg || await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    const subJson = sub.toJSON();
+    await api('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+    });
+    console.log('✅ Push subscribed');
+  } catch(e) { console.log('Push subscribe skipped:', e.message); }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
 // Banner de instalación Android (Chrome muestra el evento beforeinstallprompt)
@@ -6591,6 +7911,14 @@ const payStatus = urlP.get('payment');
 const blowplusStatus = urlP.get('blowplus');
 const mpCollectionStatus = urlP.get('collection_status');
 const mpOrderId = urlP.get('external_reference'); // MP sends back external_reference
+
+// Handle push notification deep link (?order=orderId)
+const pushOrderId = urlP.get('order');
+if (pushOrderId && user) {
+  window.history.replaceState({}, '', '/');
+  // Wait for app to init then open tracking
+  setTimeout(() => { nav('page-tracking'); loadTracking(); }, 600);
+}
 
 // MP redirects back with collection_status=approved/rejected/pending + external_reference=orderId
 if (mpCollectionStatus || mpOrderId) {
@@ -6697,6 +8025,133 @@ if (blowplususerStatus === 'success') {
     <div style="margin-bottom:6px;">2. Bajá y tocá <strong>"Agregar a pantalla de inicio"</strong></div>
   </div>
   <div style="font-size:11px;opacity:.5;margin-top:8px;text-align:center;width:100%;">Solo funciona desde Safari</div>
+</div>
+
+<!-- ══ GLOBAL SEARCH OVERLAY ══ -->
+<div class="search-overlay" id="search-overlay" onclick="closeGlobalSearch()"></div>
+<div class="search-results-panel" id="search-results-panel">
+  <div class="srp-header">
+    <button onclick="closeGlobalSearch()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#333;padding:0;line-height:1;">‹</button>
+    <input class="srp-input" id="srp-input" type="text" placeholder="Buscar productos, negocios..."
+      oninput="globalSearch(this.value)"
+      onkeydown="if(event.key==='Escape')closeGlobalSearch()">
+    <button onclick="document.getElementById('srp-input').value='';globalSearch('')" style="background:none;border:none;cursor:pointer;color:#aaa;font-size:20px;padding:0;line-height:1;">✕</button>
+  </div>
+  <div id="srp-body">
+    <div style="text-align:center;padding:48px 20px;color:#bbb;">
+      <div style="font-size:40px;margin-bottom:10px;">🔍</div>
+      <div style="font-size:14px;">Buscá platos, ingredientes o locales</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OWNER ONBOARDING WIZARD ══ -->
+<div id="onboarding-overlay" style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;overflow-y:auto;">
+  <div style="max-width:480px;margin:0 auto;padding:24px 20px 40px;">
+    <!-- Header -->
+    <div style="text-align:center;padding-top:max(24px,env(safe-area-inset-top,24px));margin-bottom:32px;">
+      <div style="font-size:36px;margin-bottom:8px;">🚀</div>
+      <div style="font-size:22px;font-weight:900;color:#1a1a1a;">¡Configurá tu negocio!</div>
+      <div style="font-size:14px;color:#888;margin-top:6px;">Completá estos pasos para empezar a recibir pedidos</div>
+    </div>
+    <!-- Progress bar -->
+    <div style="background:#f0f0f0;border-radius:99px;height:6px;margin-bottom:32px;overflow:hidden;">
+      <div id="ob-progress" style="background:linear-gradient(90deg,#FA0050,#ff6b6b);height:100%;border-radius:99px;transition:width .4s ease;width:0%"></div>
+    </div>
+
+    <!-- STEP 1: Logo & nombre -->
+    <div class="ob-step" id="ob-step-1">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">🏪</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 1 de 4 — Tu negocio</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">El nombre y emoji que ven tus clientes</div>
+      <div class="form-group">
+        <label class="form-label">Nombre del negocio</label>
+        <input class="form-input" id="ob-bizname" type="text" placeholder="Ej: Burger Palace">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji del logo</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="ob-emoji-picker">
+          <span>🍔</span><span>🍕</span><span>🌮</span><span>🍜</span><span>🥗</span>
+          <span>🛒</span><span>💊</span><span>🥤</span><span>🍰</span><span>☕</span>
+          <span>🍣</span><span>🌯</span><span>🍗</span><span>🥩</span><span>🏪</span>
+        </div>
+        <input class="form-input" id="ob-emoji" type="text" maxlength="2" placeholder="🏪" style="font-size:24px;text-align:center;width:80px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Teléfono de contacto</label>
+        <input class="form-input" id="ob-phone" type="tel" placeholder="09X XXX XXX">
+      </div>
+      <button class="primary-btn" onclick="obNext(1)">Siguiente →</button>
+    </div>
+
+    <!-- STEP 2: Ubicación -->
+    <div class="ob-step" id="ob-step-2" style="display:none;">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">📍</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 2 de 4 — Ubicación</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">¿Dónde está tu negocio? Esto define quiénes te ven.</div>
+      <div class="form-group">
+        <label class="form-label">Dirección <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="ob-addr" type="text" placeholder="Av. 18 de Julio 1500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Departamento <span style="color:var(--primary)">*</span></label>
+        <select class="form-input" id="ob-dept" style="appearance:none;" onchange="obFillCities(this.value,'ob-city')"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ciudad / Localidad <span style="color:var(--primary)">*</span></label>
+        <select class="form-input" id="ob-city" style="appearance:none;"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Radio de delivery (km)</label>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">¿Hasta dónde llegás? Podés ajustarlo después. Dejá vacío = sin límite.</div>
+        <input class="form-input" id="ob-radius" type="number" min="0.5" max="50" step="0.5" placeholder="ej: 5">
+      </div>
+      <button class="primary-btn" onclick="obNext(2)">Siguiente →</button>
+      <button class="secondary-btn" onclick="obSkip(2)">Omitir por ahora</button>
+    </div>
+
+    <!-- STEP 3: Primer producto -->
+    <div class="ob-step" id="ob-step-3" style="display:none;">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">🍽️</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 3 de 4 — Tu primer producto</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">Agregá algo para que los clientes puedan pedir.</div>
+      <div class="form-group">
+        <label class="form-label">Nombre del producto <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="ob-prod-name" type="text" placeholder="Ej: Hamburguesa doble">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Precio ($) <span style="color:var(--primary)">*</span></label>
+        <input class="form-input" id="ob-prod-price" type="number" min="1" placeholder="490">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción (opcional)</label>
+        <input class="form-input" id="ob-prod-desc" type="text" placeholder="Carne, queso, lechuga, tomate...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji del producto</label>
+        <input class="form-input" id="ob-prod-emoji" type="text" maxlength="2" placeholder="🍔" style="font-size:24px;text-align:center;width:80px;">
+      </div>
+      <div id="ob-prod-status" style="font-size:13px;color:#27ae60;margin-bottom:8px;display:none;"></div>
+      <button class="primary-btn" onclick="obNext(3)">Siguiente →</button>
+      <button class="secondary-btn" onclick="obSkip(3)">Omitir por ahora</button>
+    </div>
+
+    <!-- STEP 4: Horarios -->
+    <div class="ob-step" id="ob-step-4" style="display:none;">
+      <div style="font-size:28px;text-align:center;margin-bottom:6px;">🕐</div>
+      <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:4px;">Paso 4 de 4 — Horario</div>
+      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:24px;">¿Cuándo atendés? La app abre y cierra automáticamente.</div>
+
+      <div style="background:#f8f8f8;border-radius:14px;padding:16px;margin-bottom:16px;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px;">Días y horarios</div>
+        <div id="ob-schedule-rows"></div>
+      </div>
+      <div style="font-size:12px;color:#888;margin-bottom:20px;text-align:center;">Podés ajustar esto en detalle desde Configuración → Horarios</div>
+      <button class="primary-btn" onclick="obFinish()">🎉 ¡Listo! Ir al panel</button>
+      <button class="secondary-btn" onclick="obSkip(4)">Omitir por ahora</button>
+    </div>
+
+  </div>
 </div>
 
 </body>
