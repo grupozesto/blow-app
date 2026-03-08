@@ -2688,7 +2688,7 @@ function renderStores(list) {
     return `
     <div class="store-card" onclick="openStore('${s.id}')">
       <div class="store-img-wrap" style="background:${bg};">
-        <div class="store-img">${s.logo_emoji||'🏪'}</div>
+        <div class="store-img">${s.logo_url ? `<img src="${s.logo_url}" alt="${s.name}" loading="lazy">` : (s.logo_emoji||'🏪')}</div>
       </div>
       <div class="store-info">
         <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#FA0050,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
