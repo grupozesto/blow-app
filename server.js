@@ -1513,6 +1513,21 @@ app.delete('/api/businesses/mine/categories/:cid', auth, role('owner'), async (r
   res.json({ success:true });
 });
 
+
+// GET products + categories for owner app menu tab
+app.get('/api/businesses/mine/products', auth, role('owner'), async (req, res) => {
+  const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!b) return res.status(404).json({ error: 'Sin negocio' });
+  const rawProds = await qa('SELECT * FROM products WHERE business_id=$1 ORDER BY created_at DESC', [b.id]);
+  const products = await Promise.all(rawProds.map(async p => ({
+    ...p,
+    photos:   await qa('SELECT id,url,sort_order FROM product_photos WHERE product_id=$1 ORDER BY sort_order', [p.id]),
+    variants: await qa('SELECT * FROM product_variants WHERE product_id=$1 ORDER BY group_name,sort_order', [p.id]),
+  })));
+  const categories = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order', [b.id]);
+  res.json({ products, categories });
+});
+
 // ════════════════════════════════════════════════
 //  PRODUCTOS
 // ════════════════════════════════════════════════
