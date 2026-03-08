@@ -436,7 +436,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 :root { --owner-dark:#111827;--owner-blue:#2563eb;--owner-blue-light:#eff6ff;--owner-blue-mid:#1d4ed8; --owner-accent:#FA0050; }
 
 /* Transition overlay */
-#owner-transition{position:fixed;inset:0;z-index:10000;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
+#owner-transition{position:fixed;inset:0;z-index:10000;display:none;pointer-events:none;flex-direction:column;align-items:center;justify-content:center;background:var(--owner-dark);opacity:0;pointer-events:none;transition:opacity .35s ease;}
 #owner-transition.entering{opacity:1;pointer-events:auto;display:flex;}
 #owner-transition.exiting{opacity:1;pointer-events:auto;}
 #owner-transition-icon{font-size:56px;margin-bottom:12px;transform:scale(.7);transition:transform .4s cubic-bezier(.34,1.56,.64,1);}
@@ -445,8 +445,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 #owner-transition-sub{font-size:13px;color:rgba(255,255,255,.5);margin-top:6px;}
 
 /* Owner app wrapper — completely replaces client UI when active */
-#owner-app{position:fixed;inset:0;z-index:500;display:none;flex-direction:column;background:#f4f5f7;}
-body.owner-mode #owner-app{display:flex;}
+#owner-app{position:fixed;inset:0;z-index:500;display:none;flex-direction:column;background:#f4f5f7;pointer-events:none;}
+body.owner-mode #owner-app{display:flex;pointer-events:auto;}
 
 /* Owner top bar */
 #owner-topbar{background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:0 20px;padding-top:calc(env(safe-area-inset-top,0px) + 16px);padding-bottom:14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
@@ -10392,12 +10392,8 @@ async function replyHelp(id) {
 (function() {
   // Prevent zoom on double-tap and pinch for all browsers
   document.addEventListener('touchstart', function(e){ if(e.touches.length > 1) e.preventDefault(); }, {passive:false});
-  let lastTouch = 0;
-  document.addEventListener('touchend', function(e){
-    const now = Date.now();
-    if (now - lastTouch < 300) e.preventDefault();
-    lastTouch = now;
-  }, {passive:false});
+  // Double-tap zoom prevention removed — handled by viewport meta tag
+  // (was incorrectly blocking rapid navigation clicks)
 })();
 
 
