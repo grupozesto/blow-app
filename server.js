@@ -411,6 +411,50 @@ async function initDB() {
       active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    -- Loyalty points
+    CREATE TABLE IF NOT EXISTS loyalty_points (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+      points INTEGER NOT NULL DEFAULT 0,
+      reason TEXT,
+      order_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS loyalty_config (
+      business_id TEXT PRIMARY KEY REFERENCES businesses(id) ON DELETE CASCADE,
+      points_per_100 INTEGER DEFAULT 1,
+      redeem_points INTEGER DEFAULT 100,
+      redeem_discount INTEGER DEFAULT 50,
+      enabled BOOLEAN DEFAULT TRUE
+    );
+    -- Scheduled orders
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_scheduled BOOLEAN DEFAULT FALSE;
+    -- Business news / posts
+    CREATE TABLE IF NOT EXISTS business_news (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      emoji TEXT DEFAULT '📢',
+      image_url TEXT DEFAULT NULL,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    -- Saved addresses (if not exists)
+    CREATE TABLE IF NOT EXISTS user_addresses (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      label TEXT DEFAULT 'Casa',
+      full_address TEXT NOT NULL,
+      city TEXT DEFAULT '',
+      department TEXT DEFAULT '',
+      lat REAL DEFAULT NULL,
+      lng REAL DEFAULT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
   // Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
@@ -878,6 +922,161 @@ app.get('/api/recommendations', auth, async (req, res) => {
     }
 
     res.json({ recommendations: result, reason: topCats[0] || 'mixed' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// ═══════════════════════════════════════════════
+//  BUSINESS NEWS / NOVEDADES
+// ═══════════════════════════════════════════════
+app.get('/api/businesses/:id/news', async (req, res) => {
+  try {
+    const news = await qa('SELECT * FROM business_news WHERE business_id=$1 AND active=TRUE ORDER BY created_at DESC LIMIT 10', [req.params.id]);
+    res.json(news);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/businesses/mine/news', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json(await qa('SELECT * FROM business_news WHERE business_id=$1 ORDER BY created_at DESC', [biz.id]));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/businesses/mine/news', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const { title, body='', emoji='📢' } = req.body;
+    if (!title?.trim()) return res.status(400).json({ error: 'Título requerido' });
+    const id = uuid();
+    await q('INSERT INTO business_news (id,business_id,title,body,emoji) VALUES ($1,$2,$3,$4,$5)',
+      [id, biz.id, title.trim(), body.trim(), emoji]);
+    res.status(201).json(await q1('SELECT * FROM business_news WHERE id=$1', [id]));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/businesses/mine/news/:id', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    const item = await q1('SELECT * FROM business_news WHERE id=$1 AND business_id=$2', [req.params.id, biz?.id]);
+    if (!item) return res.status(404).json({ error: 'No encontrado' });
+    const { title, body, emoji, active } = req.body;
+    await q('UPDATE business_news SET title=COALESCE($1,title),body=COALESCE($2,body),emoji=COALESCE($3,emoji),active=COALESCE($4,active) WHERE id=$5',
+      [title||null, body||null, emoji||null, active!=null?Boolean(active):null, req.params.id]);
+    res.json(await q1('SELECT * FROM business_news WHERE id=$1', [req.params.id]));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/businesses/mine/news/:id', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    await q('DELETE FROM business_news WHERE id=$1 AND business_id=$2', [req.params.id, biz?.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════
+//  LOYALTY POINTS
+// ═══════════════════════════════════════════════
+async function awardLoyaltyPoints(userId, businessId, orderId, total) {
+  try {
+    const cfg = await q1('SELECT * FROM loyalty_config WHERE business_id=$1 AND enabled=TRUE', [businessId]);
+    if (!cfg) return;
+    const pts = Math.floor(parseFloat(total) / 100) * (cfg.points_per_100 || 1);
+    if (pts <= 0) return;
+    await q('INSERT INTO loyalty_points (user_id,business_id,points,reason,order_id) VALUES ($1,$2,$3,$4,$5)',
+      [userId, businessId, pts, 'purchase', orderId]);
+  } catch(e) { /* non-critical */ }
+}
+
+app.get('/api/loyalty/balance', auth, async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    let rows;
+    if (business_id) {
+      rows = await qa('SELECT SUM(points) as total FROM loyalty_points WHERE user_id=$1 AND business_id=$2', [req.user.id, business_id]);
+    } else {
+      rows = await qa('SELECT business_id, SUM(points) as total FROM loyalty_points WHERE user_id=$1 GROUP BY business_id', [req.user.id]);
+    }
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/loyalty/config/:bizId', async (req, res) => {
+  try {
+    const cfg = await q1('SELECT * FROM loyalty_config WHERE business_id=$1', [req.params.bizId]);
+    res.json(cfg || { enabled: false });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/loyalty/config', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const { points_per_100=1, redeem_points=100, redeem_discount=50, enabled=true } = req.body;
+    await q(`INSERT INTO loyalty_config (business_id,points_per_100,redeem_points,redeem_discount,enabled)
+      VALUES ($1,$2,$3,$4,$5)
+      ON CONFLICT (business_id) DO UPDATE SET points_per_100=$2,redeem_points=$3,redeem_discount=$4,enabled=$5`,
+      [biz.id, points_per_100, redeem_points, redeem_discount, Boolean(enabled)]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Redeem points on an order (called during checkout if user chooses to redeem)
+app.post('/api/orders/:id/redeem-points', auth, async (req, res) => {
+  try {
+    const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    const cfg = await q1('SELECT * FROM loyalty_config WHERE business_id=$1 AND enabled=TRUE', [order.business_id]);
+    if (!cfg) return res.status(400).json({ error: 'Este negocio no tiene programa de puntos' });
+    const bal = await q1('SELECT COALESCE(SUM(points),0) as total FROM loyalty_points WHERE user_id=$1 AND business_id=$2',
+      [req.user.id, order.business_id]);
+    const balance = parseInt(bal.total);
+    if (balance < cfg.redeem_points) return res.status(400).json({ error: `Necesitás ${cfg.redeem_points} puntos (tenés ${balance})` });
+    // Deduct points
+    await q('INSERT INTO loyalty_points (user_id,business_id,points,reason,order_id) VALUES ($1,$2,$3,$4,$5)',
+      [req.user.id, order.business_id, -cfg.redeem_points, 'redeem', order.id]);
+    res.json({ ok: true, discount: cfg.redeem_discount, points_used: cfg.redeem_points, remaining: balance - cfg.redeem_points });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════
+//  SAVED ADDRESSES
+// ═══════════════════════════════════════════════
+app.get('/api/addresses', auth, async (req, res) => {
+  try { res.json(await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC, created_at DESC', [req.user.id])); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/addresses', auth, async (req, res) => {
+  try {
+    const cnt = await q1('SELECT COUNT(*) as c FROM user_addresses WHERE user_id=$1', [req.user.id]);
+    if (parseInt(cnt.c) >= 5) return res.status(400).json({ error: 'Máximo 5 direcciones guardadas' });
+    const { label='Casa', full_address, city='', department='', lat, lng } = req.body;
+    if (!full_address?.trim()) return res.status(400).json({ error: 'Dirección requerida' });
+    const id = uuid();
+    // If first address, make it active
+    const makeActive = parseInt(cnt.c) === 0;
+    await q('INSERT INTO user_addresses (id,user_id,label,full_address,city,department,lat,lng,is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, req.user.id, label, full_address.trim(), city, department, lat||null, lng||null, makeActive]);
+    res.status(201).json(await q1('SELECT * FROM user_addresses WHERE id=$1', [id]));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/addresses/:id/activate', auth, async (req, res) => {
+  try {
+    await q('UPDATE user_addresses SET is_active=FALSE WHERE user_id=$1', [req.user.id]);
+    await q('UPDATE user_addresses SET is_active=TRUE WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/addresses/:id', auth, async (req, res) => {
+  try {
+    await q('DELETE FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1442,8 +1641,10 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
     const orderId=uuid();
     const cust=await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10)`,
-      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat]);
+    const scheduledFor = req.body.scheduled_for ? new Date(req.body.scheduled_for) : null;
+    const isScheduled = !!scheduledFor;
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,scheduled_for,is_scheduled) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,scheduledFor,isScheduled]);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -1530,6 +1731,8 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
     const totalOwnerAmount = parseFloat(order.business_amount||0) + parseFloat(order.delivery_amount||0);
     await credit(order.business_id,'business',totalOwnerAmount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
     await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
+    // Award loyalty points to customer
+    await awardLoyaltyPoints(order.customer_id, order.business_id, order.id, order.subtotal || order.total);
   }
   // Calculate remaining ETA for notification
   const updatedOrder = await q1('SELECT * FROM orders WHERE id=$1',[order.id]);
