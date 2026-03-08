@@ -5682,7 +5682,7 @@ async function doVerifyEmail() {
 //  OWNER APP — Motor de experiencia separada
 // ════════════════════════════════════════════════
 let _ownerAppActive = false;
-let _ownerAppTab = 'orders';
+let _ownerAppTab = 'home';
 let _ownerBiz = null;
 
 
@@ -5792,10 +5792,14 @@ async function enterOwnerMode(animate = true) {
     document.body.classList.add('owner-mode');
   }
 
-  // Populate top bar & load content
+  // Populate top bar & load content — wait one frame so CSS applies first
   ownerAppUpdateTopbar();
   _ownerAppTab = 'home';
-  ownerAppTab('home', false);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      ownerAppTab('home', true);
+    });
+  });
   ownerAppStartPolling();
   haptic('medium');
 }
@@ -5890,7 +5894,12 @@ async function ownerAppLoadPanel(tab) {
 // ── Owner App: Home panel ─────────────────────────────────
 async function ownerAppRenderHome() {
   const panel = document.getElementById('oa-panel-home');
-  if (!panel) return;
+  if (!panel) { console.warn('oa-panel-home not found'); return; }
+
+  // Make sure panel is active/visible
+  panel.classList.add('active');
+  document.querySelectorAll('.owner-panel').forEach(p => { if(p !== panel) p.classList.remove('active'); });
+
   panel.innerHTML = `<div style="padding:20px 16px;display:flex;flex-direction:column;gap:12px;">${skelTrackingCards(2)}</div>`;
 
   try {
