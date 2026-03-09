@@ -3927,6 +3927,7 @@ function renderOwnerOrders(orders) {
         ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
         ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">🍳 Listo para retiro</button>`:''}
         ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')" style="background:#8b5cf6;">🛵 Salió para entrega</button>`:''}\n        ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Marcar entregado</button>`:''}\n      </div>
+        ${o.status==='ready'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Entregado</button>`:''}\
     </div>`).join('');
 }
 
@@ -6383,8 +6384,8 @@ async function ooRenderOrders() {
       pending:    { label:'✓ Aceptar pedido',       next:'confirmed', color:'#2558d4' },
       confirmed:  { label:'👨‍🍳 Empezar a preparar',  next:'preparing', color:'#f97316' },
       preparing:  { label:'✓ Marcar como listo',    next:'ready',     color:'#16a34a' },
-      ready:      { label:'🛵 Salió para entrega',   next:'on_way',    color:'#8b5cf6' },
-      on_way:     { label:'✅ Marcar como entregado',next:'delivered', color:'#0ea5e9' },
+      ready:      { label:'🛵 Salió para entrega',    next:'on_way',    color:'#8b5cf6' },
+      on_way:     { label:'✅ Marcar como entregado', next:'delivered', color:'#0ea5e9' },
     };
 
     el.innerHTML = active.map(o => {
@@ -6420,8 +6421,9 @@ async function ooRenderOrders() {
         </div>
 
         <!-- Botones de acción -->
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${btn ? `<button onclick="ooUpdateOrder('${o.id}','${btn.next}')" style="flex:1;background:${btn.color};border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${btn.label}</button>` : `<div style="flex:1;background:#dcfce7;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#16a34a;font-weight:700;">✅ Entregado</div>`}
+          ${['ready','on_way'].includes(o.status) ? `<button onclick="ooUpdateOrder('${o.id}','delivered')" style="background:#0ea5e9;border:none;border-radius:10px;padding:12px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Marcar entregado">✅ Entregado</button>` : ''}
           <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1.5px solid #fee2e2;border-radius:10px;padding:12px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Cancelar">✕</button>
         </div>
       </div>`;
@@ -7299,11 +7301,26 @@ async function ooOpenRetiroModal() {
         <div style="display:flex;flex-direction:column;gap:10px;">
           <input id="rm-label" placeholder="Nombre (ej: Cuenta BROU, MercadoPago personal)" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;">
           <select id="rm-method" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;background:#fff;outline:none;width:100%;box-sizing:border-box;">
-            <option value="transferencia">🏦 Transferencia bancaria</option>
-            <option value="mercadopago">💳 MercadoPago</option>
-            <option value="efectivo">💵 Efectivo</option>
+            <optgroup label="🏦 Bancos">
+              <option value="BROU">BROU – Banco República</option>
+              <option value="Itaú">Itaú</option>
+              <option value="Santander">Santander</option>
+              <option value="BBVA">BBVA</option>
+              <option value="Scotiabank">Scotiabank</option>
+              <option value="HSBC">HSBC</option>
+              <option value="Citibank">Citibank</option>
+              <option value="Banco Hipotecario">Banco Hipotecario</option>
+              <option value="Banco de Seguros">Banco de Seguros del Estado</option>
+              <option value="Banque Heritage">Banque Heritage</option>
+              <option value="Bandes">Bandes Uruguay</option>
+            </optgroup>
+            <optgroup label="💳 Billeteras virtuales">
+              <option value="MercadoPago">MercadoPago</option>
+              <option value="Prex">Prex</option>
+              <option value="OCA Blue">OCA Blue</option>
+            </optgroup>
           </select>
-          <input id="rm-dest" placeholder="N° cuenta / alias / CBU / teléfono" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          <input id="rm-dest" placeholder="Número de cuenta" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#64748b;cursor:pointer;">
             <input type="checkbox" id="rm-default" style="width:16px;height:16px;"> Marcar como cuenta principal
           </label>
