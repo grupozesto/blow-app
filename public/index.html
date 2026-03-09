@@ -3926,8 +3926,7 @@ function renderOwnerOrders(orders) {
         ${o.status==='pending'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','confirmed')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
         ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
         ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">🍳 Listo para retiro</button>`:''}
-        ${o.status==='ready'?`<span style="font-size:13px;color:var(--success);font-weight:700;">⏳ Esperando repartidor...</span>`:''}
-      </div>
+        ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')" style="background:#8b5cf6;">🛵 Salió para entrega</button>`:''}\n        ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Marcar entregado</button>`:''}\n      </div>
     </div>`).join('');
 }
 
@@ -6262,7 +6261,7 @@ function ooRenderHome() {
             <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.5px;margin-bottom:4px;">💳 COBRADO ONLINE</div>
             <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-mp-val">$0</div>
             <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Hoy: <span id="oo-mp-today">$0</span></div>
-            <button onclick="ooTab('more');setTimeout(ooShowWallet,50);" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
+            <button onclick="ooOpenRetiroModal()" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
           </div>
         </div>
         <div class="oo-wallet-slide">
@@ -7226,64 +7225,191 @@ function ooShowWallet() {
   `;
 }
 
-function ooShowRetiro() {
-  const el = document.getElementById('oo-body');
-  if (!el) return;
+// ── Modal inline de retiro con cuentas guardadas ──
+let _bankAccounts = [];
+
+async function ooOpenRetiroModal() {
+  // Cargar cuentas guardadas
+  try {
+    _bankAccounts = await ooFetch('/api/bank-accounts');
+  } catch(e) { _bankAccounts = []; }
+
   const balance = _ooDashData?.balance || 0;
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;">
-      <button onclick="ooShowWallet()" style="background:none;border:none;cursor:pointer;color:#2558d4;font-size:13px;font-weight:600;padding:0;">← Volver</button>
-      <div style="font-size:15px;font-weight:800;color:#0f172a;">Solicitar retiro</div>
-    </div>
 
-    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;">
-      <div style="font-size:12px;color:#64748b;margin-bottom:4px;">Saldo disponible</div>
-      <div style="font-size:24px;font-weight:800;color:#0f172a;">$${Math.round(balance)}</div>
-    </div>
+  // Quitar modal anterior si existe
+  document.getElementById('retiro-modal-overlay')?.remove();
 
-    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;display:flex;flex-direction:column;gap:12px;">
-      <div>
-        <label style="font-size:12px;font-weight:700;color:#64748b;">MONTO A RETIRAR</label>
-        <input id="retiro-amount" type="number" min="1" max="${Math.floor(balance)}" placeholder="Ej: 500" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:15px;margin-top:4px;box-sizing:border-box;font-family:'Inter',sans-serif;outline:none;">
-      </div>
-      <div>
-        <label style="font-size:12px;font-weight:700;color:#64748b;">MÉTODO</label>
-        <select id="retiro-method" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:4px;box-sizing:border-box;font-family:'Inter',sans-serif;background:#fff;outline:none;">
-          <option value="transferencia">Transferencia bancaria</option>
-          <option value="mercadopago">MercadoPago</option>
-          <option value="efectivo">Efectivo</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-size:12px;font-weight:700;color:#64748b;">DESTINO (cuenta / alias / teléfono)</label>
-        <input id="retiro-dest" type="text" placeholder="Ej: 123456789 / alias.mp / 099..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:4px;box-sizing:border-box;font-family:'Inter',sans-serif;outline:none;">
-      </div>
-    </div>
+  const overlay = document.createElement('div');
+  overlay.id = 'retiro-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#f8fafc;border-radius:24px 24px 0 0;width:100%;max-width:520px;padding:20px 16px 32px;max-height:90vh;overflow-y:auto;">
+      <!-- Handle -->
+      <div style="width:36px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 16px;"></div>
 
-    <button onclick="ooConfirmarRetiro()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-      Confirmar retiro
-    </button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-size:17px;font-weight:900;color:#0f172a;">💸 Solicitar retiro</div>
+        <button onclick="document.getElementById('retiro-modal-overlay').remove()" style="background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Saldo -->
+      <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border-radius:14px;padding:14px 16px;margin-bottom:16px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12px;opacity:.6;">SALDO DISPONIBLE</div>
+        <div style="font-size:24px;font-weight:900;">$${Math.round(balance)}</div>
+      </div>
+
+      <!-- Monto -->
+      <div style="background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.5px;">MONTO A RETIRAR</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <span style="font-size:20px;font-weight:900;color:#0f172a;">$</span>
+          <input id="rm-amount" type="number" min="1" max="${Math.floor(balance)}" placeholder="0"
+            style="flex:1;border:none;outline:none;font-size:28px;font-weight:900;color:#0f172a;font-family:'Inter',sans-serif;background:transparent;">
+          <button onclick="document.getElementById('rm-amount').value=${Math.floor(balance)}" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:#2558d4;cursor:pointer;">Todo</button>
+        </div>
+      </div>
+
+      <!-- Cuentas guardadas -->
+      <div id="rm-accounts-section">
+        ${_bankAccounts.length ? `
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.5px;margin-bottom:8px;">MIS CUENTAS</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;" id="rm-accounts-list">
+          ${_bankAccounts.map(a => `
+            <div onclick="ooSelectAccount('${a.id}')" id="rmac-${a.id}" style="background:#fff;border:2px solid ${a.is_default?'#2558d4':'#e2e8f0'};border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;">${a.label}</div>
+                <div style="font-size:12px;color:#64748b;">${a.method} · ${a.destination}</div>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                ${a.is_default?'<span style="font-size:10px;background:#eff6ff;color:#2558d4;border-radius:6px;padding:2px 6px;font-weight:700;">PRINCIPAL</span>':''}
+                <button onclick="event.stopPropagation();ooDeleteAccount('${a.id}')" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;padding:0 4px;">🗑</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>` : ''}
+        ${_bankAccounts.length < 3 ? `
+        <button onclick="ooToggleNewAccount()" style="width:100%;background:#f1f5f9;border:1.5px dashed #cbd5e1;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;margin-bottom:10px;" id="rm-add-btn">
+          + Agregar cuenta nueva
+        </button>` : ''}
+      </div>
+
+      <!-- Formulario cuenta nueva (oculto por default) -->
+      <div id="rm-new-account-form" style="display:none;background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);">
+        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;">NUEVA CUENTA</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <input id="rm-label" placeholder="Nombre (ej: Cuenta BROU, MercadoPago personal)" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          <select id="rm-method" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;background:#fff;outline:none;width:100%;box-sizing:border-box;">
+            <option value="transferencia">🏦 Transferencia bancaria</option>
+            <option value="mercadopago">💳 MercadoPago</option>
+            <option value="efectivo">💵 Efectivo</option>
+          </select>
+          <input id="rm-dest" placeholder="N° cuenta / alias / CBU / teléfono" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#64748b;cursor:pointer;">
+            <input type="checkbox" id="rm-default" style="width:16px;height:16px;"> Marcar como cuenta principal
+          </label>
+          <button onclick="ooSaveNewAccount()" style="background:#0f172a;color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+            Guardar cuenta
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuenta seleccionada para retiro -->
+      <div id="rm-selected-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:12px;color:#2558d4;font-weight:700;">CUENTA SELECCIONADA</div>
+        <div id="rm-selected-text" style="font-size:14px;font-weight:700;color:#0f172a;margin-top:2px;"></div>
+      </div>
+
+      <button onclick="ooConfirmarRetiro()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+        Confirmar retiro
+      </button>
+    </div>
   `;
+  document.body.appendChild(overlay);
+
+  // Seleccionar cuenta default automáticamente
+  const def = _bankAccounts.find(a => a.is_default) || _bankAccounts[0];
+  if (def) ooSelectAccount(def.id);
+}
+
+let _selectedAccountId = null;
+function ooSelectAccount(id) {
+  _selectedAccountId = id;
+  const acc = _bankAccounts.find(a => a.id === id);
+  // Highlight seleccionada
+  _bankAccounts.forEach(a => {
+    const el = document.getElementById(`rmac-${a.id}`);
+    if (el) el.style.borderColor = a.id === id ? '#2558d4' : '#e2e8f0';
+  });
+  // Mostrar info seleccionada
+  const info = document.getElementById('rm-selected-info');
+  const txt  = document.getElementById('rm-selected-text');
+  if (info && txt && acc) {
+    txt.textContent = `${acc.label} · ${acc.method} · ${acc.destination}`;
+    info.style.display = 'block';
+  }
+}
+
+function ooToggleNewAccount() {
+  const form = document.getElementById('rm-new-account-form');
+  const btn  = document.getElementById('rm-add-btn');
+  if (!form) return;
+  const showing = form.style.display !== 'none';
+  form.style.display = showing ? 'none' : 'block';
+  if (btn) btn.textContent = showing ? '+ Agregar cuenta nueva' : '✕ Cancelar';
+}
+
+async function ooSaveNewAccount() {
+  const label  = document.getElementById('rm-label')?.value?.trim();
+  const method = document.getElementById('rm-method')?.value;
+  const dest   = document.getElementById('rm-dest')?.value?.trim();
+  const isDef  = document.getElementById('rm-default')?.checked;
+  if (!label || !dest) { showToast('Completá todos los campos'); return; }
+  try {
+    await ooFetch('/api/bank-accounts', { method:'POST', body: JSON.stringify({ label, method, destination:dest, is_default:isDef }) });
+    showToast('✅ Cuenta guardada');
+    await ooOpenRetiroModal(); // reabrir con cuenta nueva
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function ooDeleteAccount(id) {
+  if (!confirm('¿Eliminar esta cuenta?')) return;
+  try {
+    await ooFetch(`/api/bank-accounts/${id}`, { method:'DELETE' });
+    _bankAccounts = _bankAccounts.filter(a => a.id !== id);
+    document.getElementById(`rmac-${id}`)?.closest('[id^="rmac-"]')?.parentElement?.removeChild(document.getElementById(`rmac-${id}`));
+    await ooOpenRetiroModal();
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function ooConfirmarRetiro() {
-  const amount = parseFloat(document.getElementById('retiro-amount')?.value);
-  const method = document.getElementById('retiro-method')?.value;
-  const dest   = document.getElementById('retiro-dest')?.value?.trim();
+  const amount = parseFloat(document.getElementById('rm-amount')?.value);
   const balance = _ooDashData?.balance || 0;
+  if (!amount || amount <= 0)  { showToast('Ingresá un monto válido'); return; }
+  if (amount > balance)        { showToast('Saldo insuficiente'); return; }
 
-  if (!amount || amount <= 0)          { showToast('Ingresá un monto válido'); return; }
-  if (amount > balance)                { showToast('Saldo insuficiente'); return; }
-  if (!dest)                           { showToast('Ingresá el destino'); return; }
+  let method, destination;
+  if (_selectedAccountId) {
+    const acc = _bankAccounts.find(a => a.id === _selectedAccountId);
+    if (!acc) { showToast('Seleccioná una cuenta destino'); return; }
+    method = acc.method; destination = acc.destination;
+  } else {
+    // Si no hay cuentas guardadas, pedir datos en el mismo modal
+    showToast('Agregá una cuenta destino primero');
+    ooToggleNewAccount();
+    return;
+  }
 
   try {
-    await ooFetch('/api/wallet/withdraw', { method:'POST', body: JSON.stringify({ amount, method, destination: dest }) });
-    showToast('✓ Solicitud enviada. El equipo de Blow la procesará pronto.');
-    // Actualizar balance local
+    await ooFetch('/api/wallet/withdraw', { method:'POST', body: JSON.stringify({ amount, method, destination }) });
+    showToast('✅ Solicitud enviada. El equipo de Blow la procesará pronto.');
+    document.getElementById('retiro-modal-overlay')?.remove();
     if (_ooDashData) _ooDashData.balance = balance - amount;
     ooShowWallet();
-  } catch(e) { showToast('Error: ' + e.message); }
+  } catch(e) { showToast('❌ ' + e.message); }
 }
+
+// Mantener ooShowRetiro como alias para compatibilidad
+function ooShowRetiro() { ooOpenRetiroModal(); }
 </script>
 
 <!-- ══ PWA INSTALL BANNER — Android ══ -->
