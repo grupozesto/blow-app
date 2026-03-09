@@ -1245,12 +1245,12 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
   const allowed={ 
-    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' },
+    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered', 'ready|delivered':'delivered' },
     delivery:{ ready:'on_way', on_way:'delivered' },
     admin:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' }
   };
-  const ra=allowed[req.user.role];
-  if (!ra || ra[order.status]!==status) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
+  const ra = allowed[req.user.role];
+  if (!ra || (ra[order.status] !== status && !(req.user.role === 'owner' && order.status === 'ready' && status === 'delivered'))) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   if (req.user.role==='owner') {
     const b=await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
     if (!b||b.id!==order.business_id) return res.status(403).json({ error:'No es tu pedido' });
