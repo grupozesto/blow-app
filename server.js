@@ -1262,13 +1262,13 @@ app.get('/api/businesses', async (req, res) => {
              ELSE false END AS delivers_to_me`
       : ''} FROM businesses b
       LEFT JOIN subscriptions s ON s.business_id = b.id
-      WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active = TRUE`;
+      WHERE (s.status = 'active' OR s.id IS NULL) AND (b.is_active = TRUE OR b.is_active IS NULL)`;
     const params = [];
     let i = 1;
     if (category)   { sql += ` AND b.category=$${i++}`;                params.push(category); }
     if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;      params.push(city); }
     if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
-    const countSql = `SELECT COUNT(*) as total FROM businesses b LEFT JOIN subscriptions s ON s.business_id = b.id WHERE (s.status = 'active' OR s.id IS NULL) AND b.is_active = TRUE` +
+    const countSql = `SELECT COUNT(*) as total FROM businesses b LEFT JOIN subscriptions s ON s.business_id = b.id WHERE (s.status = 'active' OR s.id IS NULL) AND (b.is_active = TRUE OR b.is_active IS NULL)` +
       (category ? ` AND b.category='${category.replace(/'/g,"''")}' ` : '') +
       (city ? ` AND LOWER(b.city)=LOWER('${city.replace(/'/g,"''")}')` : '') +
       (department ? ` AND LOWER(b.department)=LOWER('${department.replace(/'/g,"''")}')` : '');
