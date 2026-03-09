@@ -190,7 +190,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .chips::-webkit-scrollbar{display:none;}
 .chip{display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:2px solid #e8edf5;border-radius:18px;padding:12px 10px 10px;cursor:pointer;font-size:11px;font-weight:700;color:#64748b;white-space:nowrap;transition:all .2s;min-width:64px;}
 .chip:hover{border-color:#2558d4;color:#2558d4;transform:translateY(-1px);}
-.chip.active{background:#2558d4;border-color:#2558d4;color:#fff;box-shadow:0 4px 12px rgba(37,88,212,.25);}
+.chip.active{background:var(--chip-bg,#2558d4);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);}
 
 /* ── STORE CARDS — PedidosYa style ── */
 .stores-grid{display:grid;grid-template-columns:1fr;gap:12px;padding:0 14px 14px;}
@@ -1045,13 +1045,7 @@ body.owner-mode .page{display:none!important;}
     <!-- TIENDAS -->
     <div style="padding:16px 16px 0;">
       <div style="font-size:20px;font-weight:900;margin-bottom:12px;letter-spacing:-.3px;">Cerca de vos</div>
-      <div class="chips" id="chips" style="margin-bottom:4px;">
-        <div class="chip active" onclick="chipFilter(this,'all')"><div class="chip-icon">✨</div><span>Todo</span></div>
-        <div class="chip" onclick="chipFilter(this,'food')"><div class="chip-icon">🍔</div><span>Comida</span></div>
-        <div class="chip" onclick="chipFilter(this,'market')"><div class="chip-icon">🛒</div><span>Mercado</span></div>
-        <div class="chip" onclick="chipFilter(this,'pharmacy')"><div class="chip-icon">💊</div><span>Farmacia</span></div>
-        <div class="chip" onclick="chipFilter(this,'drinks')"><div class="chip-icon">🥤</div><span>Bebidas</span></div>
-        <div class="chip" onclick="chipFilter(this,'desserts')"><div class="chip-icon">🍰</div><span>Postres</span></div>
+      <div class="chips" id="chips" style="margin-bottom:4px;"></div><span>Postres</span></div>
       </div>
     </div>
     <!-- PARA VOS — personalized recommendations -->
@@ -1908,6 +1902,7 @@ body.owner-mode .page{display:none!important;}
           <button onclick="adminTab('settings')" id="atab-settings" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⚙️ Config</button>
           <button onclick="adminTab('banners')" id="atab-banners" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🖼️ Banners</button>
           <button onclick="adminTab('featured')" id="atab-featured" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⭐ Destacados</button>
+          <button onclick="adminTab('categories')" id="atab-categories" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🏷️ Categorías</button>
         </div>
 
         <!-- STATS -->
@@ -2725,6 +2720,27 @@ body.owner-mode .page{display:none!important;}
 // ═══════════════════════════════════════════════
 const haptic = window.navigator?.vibrate ? (t) => navigator.vibrate(t==='light'?10:t==='medium'?20:30) : null;
 const API = ''; // mismo servidor — vacío = relativo
+// Feed categories (loaded from API)
+let FEED_CATS = [
+  { id:'all',      emoji:'✨', name:'Todo',      color:'#2558d4', bg:'#eff6ff' },
+  { id:'food',     emoji:'🍔', name:'Comida',    color:'#ee0979', bg:'#fff0f5' },
+  { id:'market',   emoji:'🛒', name:'Mercado',   color:'#16a34a', bg:'#f0fdf4' },
+  { id:'pharmacy', emoji:'💊', name:'Farmacia',  color:'#2980b9', bg:'#eff8ff' },
+  { id:'drinks',   emoji:'🥤', name:'Bebidas',   color:'#f7971e', bg:'#fffbeb' },
+  { id:'desserts', emoji:'🍰', name:'Postres',   color:'#9733ee', bg:'#faf5ff' },
+  { id:'cafe',     emoji:'☕', name:'Café',      color:'#c79081', bg:'#fdf5f0' },
+];
+
+async function loadFeedCategories() {
+  try {
+    const cats = await fetch('/api/feed-categories').then(r => r.json());
+    if (Array.isArray(cats) && cats.length) {
+      FEED_CATS = cats;
+      renderChips();
+    }
+  } catch(e) { /* use defaults */ }
+}
+
 let token    = localStorage.getItem('da_token') || null;
 let user     = JSON.parse(localStorage.getItem('da_user') || 'null');
 // Re-subscribe to push if already logged in (e.g. returning visitor)
@@ -3019,7 +3035,7 @@ async function loadMainBanners() {
 }
 
 // Load on page ready
-document.addEventListener('DOMContentLoaded', () => { loadMainBanners(); });
+document.addEventListener('DOMContentLoaded', () => { loadFeedCategories(); loadMainBanners(); renderChips(); });
 
 // ═══════════════════════════════════════════════
 //  STORES
@@ -3429,8 +3445,19 @@ function renderStoreCard(s) {
   const deliveryTag = isFree
     ? '<span style="background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;">Envío gratis</span>'
     : `<span style="font-size:12px;color:#64748b;font-weight:600;">🛵 $${s.delivery_cost}</span>`;
-  const bgColors = { food:'linear-gradient(135deg,#ff6b6b,#ee0979)', market:'linear-gradient(135deg,#56ab2f,#a8e063)', pharmacy:'linear-gradient(135deg,#2980b9,#6dd5fa)', drinks:'linear-gradient(135deg,#f7971e,#ffd200)', desserts:'linear-gradient(135deg,#da22ff,#9733ee)', cafe:'linear-gradient(135deg,#c79081,#dfa579)' };
-  const bg = s.cover_url ? `url(${s.cover_url}) center/cover no-repeat` : (bgColors[s.category] || 'linear-gradient(135deg,#667eea,#764ba2)');
+  // Dynamic category colors from FEED_CATS
+  const catDef = FEED_CATS.find(c => c.id === s.category);
+  let bg;
+  if (s.cover_url) {
+    bg = `url(${s.cover_url}) center/cover no-repeat`;
+  } else if (catDef?.photo_url) {
+    bg = `url(${catDef.photo_url}) center/cover no-repeat`;
+  } else if (catDef?.color) {
+    const c = catDef.color;
+    bg = `linear-gradient(135deg,${c}cc,${c})`;
+  } else {
+    bg = 'linear-gradient(135deg,#667eea,#764ba2)';
+  }
   const logo = s.logo_url
     ? `<img src="${s.logo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" loading="lazy">`
     : `<span style="font-size:36px;line-height:1;">${s.logo_emoji||'🏪'}</span>`;
@@ -3542,6 +3569,20 @@ function filterCat(cat) {
   _storeCategory = cat === 'all' ? null : cat;
   loadStores(true);
   document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
+}
+
+function renderChips() {
+  const el = document.getElementById('chips');
+  if (!el) return;
+  const active = el.querySelector('.chip.active');
+  const activeId = active ? active.getAttribute('data-cat') : 'all';
+  el.innerHTML = FEED_CATS.map(c => {
+    const isActive = c.id === activeId;
+    return `<div class="chip${isActive?' active':''}" data-cat="${c.id}" onclick="chipFilter(this,'${c.id}')" style="${isActive ? `--chip-color:${c.color};--chip-bg:${c.color};` : `--chip-color:${c.color};`}">
+      ${c.photo_url ? `<div class="chip-icon" style="background-image:url(${c.photo_url});background-size:cover;border-radius:50%;"></div>` : `<div class="chip-icon">${c.emoji}</div>`}
+      <span>${c.name}</span>
+    </div>`;
+  }).join('');
 }
 
 function chipFilter(el, cat) {
@@ -7700,8 +7741,122 @@ async function loadAdminPanel() {
   adminTab('stats');
 }
 
-async function adminTab(tab) {
+async 
+async function renderAdminCategories() {
+  const el = document.getElementById('admin-tab-content');
+  if (!el) return;
+  el.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:30px;">Cargando...</div>';
+
+  // Load latest from API
+  try {
+    const cats = await fetch('/api/feed-categories').then(r => r.json());
+    FEED_CATS = cats;
+  } catch(e) {}
+
+  const renderCatRow = (cat, idx) => `
+    <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid #e2e8f0;" id="cat-row-${idx}">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <div style="width:52px;height:52px;border-radius:12px;background:${cat.color || '#eee'};display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden;">
+          ${cat.photo_url ? `<img src="${cat.photo_url}" style="width:100%;height:100%;object-fit:cover;">` : cat.emoji}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:800;color:#0f172a;">${cat.name}</div>
+          <div style="font-size:12px;color:#94a3b8;">ID: ${cat.id}</div>
+        </div>
+        ${cat.id !== 'all' ? `<button onclick="deleteFeedCat(${idx})" style="background:#fef2f2;border:none;border-radius:8px;padding:6px 10px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">✕</button>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">EMOJI</div>
+          <input class="form-input" style="margin:0;font-size:22px;text-align:center;" value="${cat.emoji}" oninput="updateFeedCat(${idx},'emoji',this.value)" placeholder="🍔">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">NOMBRE</div>
+          <input class="form-input" style="margin:0;" value="${cat.name}" oninput="updateFeedCat(${idx},'name',this.value)" placeholder="Comida">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">COLOR</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="color" value="${cat.color || '#2558d4'}" oninput="updateFeedCat(${idx},'color',this.value)" style="width:40px;height:36px;border-radius:8px;border:1.5px solid #e2e8f0;cursor:pointer;padding:2px;">
+            <span style="font-size:12px;color:#64748b;">${cat.color || '#2558d4'}</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">FOTO</div>
+          <label style="display:flex;align-items:center;gap:6px;background:#eff6ff;border-radius:8px;padding:8px 10px;cursor:pointer;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2558d4" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span style="font-size:12px;font-weight:700;color:#2558d4;">Subir</span>
+            <input type="file" accept="image/*" style="display:none;" onchange="uploadFeedCatPhoto(this,${idx})">
+          </label>
+        </div>
+      </div>
+    </div>`;
+
+  el.innerHTML = `
+    <div style="padding:16px;">
+      <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Editá nombre, emoji, color y foto de cada categoría del feed.</div>
+      <div id="cats-list">
+        ${FEED_CATS.map((c, i) => renderCatRow(c, i)).join('')}
+      </div>
+      <button onclick="addFeedCat()" style="width:100%;background:#f8fafc;border:1.5px dashed #94a3b8;border-radius:14px;padding:14px;color:#64748b;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;">+ Agregar categoría</button>
+      <button onclick="saveFeedCategories()" style="width:100%;background:#2558d4;border:none;border-radius:14px;padding:16px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;">💾 Guardar cambios</button>
+    </div>`;
+}
+
+function updateFeedCat(idx, field, val) {
+  if (FEED_CATS[idx]) FEED_CATS[idx][field] = val;
+}
+
+function deleteFeedCat(idx) {
+  if (!confirm('¿Eliminar esta categoría?')) return;
+  FEED_CATS.splice(idx, 1);
+  renderAdminCategories();
+}
+
+function addFeedCat() {
+  FEED_CATS.push({ id: 'cat_' + Date.now(), emoji: '🆕', name: 'Nueva', color: '#2558d4', bg: '#eff6ff' });
+  renderAdminCategories();
+}
+
+async function uploadFeedCatPhoto(input, idx) {
+  const file = input.files[0];
+  if (!file) return;
+  showToast('⏳ Subiendo...');
+  try {
+    const fd = new FormData();
+    fd.append('photo', file);
+    const res = await fetch('/api/admin/upload-category-photo', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (token || localStorage.getItem('da_token') || '') },
+      body: fd
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    FEED_CATS[idx].photo_url = d.url;
+    showToast('✅ Foto subida');
+    renderAdminCategories();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function saveFeedCategories() {
+  try {
+    const res = await fetch('/api/admin/feed-categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || localStorage.getItem('da_token') || '') },
+      body: JSON.stringify(FEED_CATS)
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    showToast('✅ Categorías guardadas');
+    renderChips(); // update feed chips live
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+function adminTab(tab) {
   ['stats','users','businesses','orders','withdrawals','subscriptions','settings','coupons','helpmsg','banners','featured'].forEach(t => {
+  if (tab === 'categories') renderAdminCategories();
     const el = document.getElementById('admin-tab-'+t);
     const btn = document.getElementById('atab-'+t);
     if (el) el.style.display = t===tab ? 'block' : 'none';
