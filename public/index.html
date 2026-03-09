@@ -8847,37 +8847,35 @@ function enterOwnerMode(animate) {
   if (_oaActive) return;
   _oaActive = true;
 
-  if (animate) {
-    // Show transition overlay
-    const tr = document.getElementById('owner-transition');
-    const icon = document.getElementById('owner-transition-icon');
-    const label = document.getElementById('owner-transition-label');
-    const sub = document.getElementById('owner-transition-sub');
-    if (tr) {
-      if (icon)  icon.textContent  = (user && user.biz_emoji) || '🏪';
-      if (label) label.textContent = 'Entrando a tu negocio';
-      if (sub)   sub.textContent   = 'Preparando todo...';
-      tr.style.display = 'flex';
-      tr.style.opacity = '0';
-      tr.style.transition = 'opacity .25s';
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => { tr.style.opacity = '1'; });
-      });
-      setTimeout(() => {
-        document.body.classList.add('owner-mode');
-        oaGoTab('home', false);
-        oaLoadHomeData();
-        // Fade out transition
-        tr.style.opacity = '0';
-        setTimeout(() => { tr.style.display = 'none'; tr.style.transition = ''; }, 300);
-      }, 900);
-      return;
-    }
-  }
-
+  // Always activate the panel immediately — transition is cosmetic only
   document.body.classList.add('owner-mode');
   oaGoTab('home', false);
   oaLoadHomeData();
+
+  if (!animate) return;
+
+  // Show transition overlay briefly (pure visual, doesn't block entry)
+  const tr = document.getElementById('owner-transition');
+  if (!tr) return;
+  try {
+    const icon  = document.getElementById('owner-transition-icon');
+    const label = document.getElementById('owner-transition-label');
+    const sub   = document.getElementById('owner-transition-sub');
+    if (icon)  icon.textContent  = (user && user.biz_emoji) || '🏪';
+    if (label) label.textContent = 'Entrando a tu negocio';
+    if (sub)   sub.textContent   = 'Preparando todo...';
+    tr.style.transition = 'none';
+    tr.style.opacity = '1';
+    tr.style.display = 'flex';
+    // Fade out after 600ms
+    setTimeout(() => {
+      tr.style.transition = 'opacity .35s';
+      tr.style.opacity = '0';
+      setTimeout(() => { tr.style.display = 'none'; tr.style.transition = ''; }, 380);
+    }, 600);
+  } catch(e) {
+    tr.style.display = 'none';
+  }
 }
 
 function exitOwnerMode() {
