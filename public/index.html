@@ -3347,12 +3347,14 @@ let _chkPayMethod = 'mercadopago'; // 'mercadopago' | 'cash'
 let _chkTip = 0;
 let _chkPriority = false;
 let _chkNotes = '';
+let _chkFulfillment = null; // 'delivery' | 'pickup' — null = auto
+let _chkAddress = '';
 
 function openCheckoutPage() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
   if (!cart.length) return;
-  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
+  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkFulfillment = null; _chkAddress = user?.address || '';
   nav('page-checkout');
   renderCheckoutPage();
 }
@@ -3361,129 +3363,148 @@ function renderCheckoutPage() {
   const body = document.getElementById('checkout-body');
   if (!body) return;
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
-  const fulfillmentType = currentSdFulfillment || 'delivery';
+  const hasPickup   = store?.offers_pickup === true;
+  const hasDelivery = store?.offers_delivery !== false;
+  const offersPriority = store?.offers_priority !== false;
+  const priorityPercent = store?.priority_percent || 50;
+
+  if (!hasDelivery && hasPickup) _chkFulfillment = 'pickup';
+  else if (!_chkFulfillment) _chkFulfillment = hasDelivery ? 'delivery' : 'pickup';
+
+  const fulfillmentType = _chkFulfillment;
   const baseFee = fulfillmentType === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0);
   const fee = baseFee;
-  const priorityFee = _chkPriority ? Math.round(fee * 0.5) : 0;
+  const priorityFee = _chkPriority ? Math.round(fee * priorityPercent / 100) : 0;
   const sub = cart.reduce((a, b) => a + b.price * b.qty, 0);
   const promoDisc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
   const total = Math.max(0, sub + fee + priorityFee + _chkTip - promoDisc);
 
-  // Update fixed bottom total
   const td = document.getElementById('checkout-total-display');
   if (td) td.textContent = `$${total}`;
   const pb = document.getElementById('checkout-pay-btn');
-  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar pedido en efectivo' : `💳 Ir a pagar · $${total}`;
+  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '\u{1F4B5} Confirmar pedido en efectivo' : `\u{1F4B3} Ir a pagar · $${total}`;
 
   const tipOptions = [0, 20, 30, 40, 50, 70];
+  const isCustomTip = _chkTip > 0 && !tipOptions.includes(_chkTip);
+  const userAddr = user?.address || '';
 
   body.innerHTML = `
-    <!-- MÉTODO DE PAGO -->
     <div style="margin-top:18px;margin-bottom:18px;">
       <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:14px;">¿Cómo querés pagar?</div>
-      <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;">
-
-        <!-- MercadoPago -->
-        <div onclick="chkSetPay('mercadopago')" id="pm-mp"
-          style="flex-shrink:0;width:200px;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:16px;padding:18px 16px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};transition:all .2s;">
-          <div style="font-size:26px;margin-bottom:8px;">💳</div>
+      <div style="display:flex;gap:10px;">
+        <div onclick="chkSetPay('mercadopago')"
+          style="flex:1;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:16px;padding:16px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
+          <div style="font-size:24px;margin-bottom:8px;">💳</div>
           <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
           <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Tarjeta, saldo, QR</div>
-          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:8px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
-
-        <!-- Efectivo -->
-        <div onclick="chkSetPay('cash')" id="pm-cash"
-          style="flex-shrink:0;width:200px;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:16px;padding:18px 16px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};transition:all .2s;">
-          <div style="font-size:26px;margin-bottom:8px;">💵</div>
-          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo al recibir</div>
-          <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Pagás cuando llegue</div>
-          ${_chkPayMethod==='cash'?'<div style="margin-top:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        <div onclick="chkSetPay('cash')"
+          style="flex:1;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:16px;padding:16px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
+          <div style="font-size:24px;margin-bottom:8px;">💵</div>
+          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Pagás al recibir</div>
+          ${_chkPayMethod==='cash'?'<div style="margin-top:8px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
       </div>
     </div>
 
-    <!-- PROPINA -->
     <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <div style="font-size:15px;font-weight:800;color:#0f172a;">🛵 Propina para el repartidor</div>
-      </div>
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Datos de entrega</div>
+      ${(hasDelivery && hasPickup) ? `
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button onclick="chkSetFulfillment('delivery')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid ${fulfillmentType==='delivery'?'#0f172a':'#e2e8f0'};background:${fulfillmentType==='delivery'?'#0f172a':'#fff'};color:${fulfillmentType==='delivery'?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          🛵 Delivery
+        </button>
+        <button onclick="chkSetFulfillment('pickup')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid ${fulfillmentType==='pickup'?'#0f172a':'#e2e8f0'};background:${fulfillmentType==='pickup'?'#0f172a':'#fff'};color:${fulfillmentType==='pickup'?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          🏪 Retiro yo
+        </button>
+      </div>` : ''}
+      ${fulfillmentType === 'delivery' ? `
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <span style="font-size:20px;margin-top:2px;">📍</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;color:#64748b;margin-bottom:4px;">Dirección de entrega</div>
+          ${userAddr ? `<div style="font-size:14px;font-weight:600;color:#0f172a;margin-bottom:8px;">${userAddr}</div>` : `<div style="font-size:13px;color:#ef4444;margin-bottom:8px;">⚠️ No tenés dirección guardada</div>`}
+          <input id="chk-address" value="${userAddr}" placeholder="Ingresá tu dirección..."
+            style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
+            oninput="_chkAddress=this.value">
+        </div>
+      </div>` : `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:20px;">🏪</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#0f172a;">Retiro en tienda</div>
+          <div style="font-size:12px;color:#64748b;">${store?.address || 'Dirección del negocio'}</div>
+        </div>
+      </div>`}
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:4px;">🛵 Propina para el repartidor</div>
       <div style="font-size:12px;color:#64748b;margin-bottom:12px;">El 100% va directo a su bolsillo.</div>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${tipOptions.map(t => `
           <button onclick="chkSetTip(${t})"
-            style="flex-shrink:0;padding:8px 14px;border-radius:20px;border:2px solid ${_chkTip===t?'#0f172a':'#e2e8f0'};background:${_chkTip===t?'#0f172a':'#fff'};color:${_chkTip===t?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">
-            ${t === 0 ? 'Ahora no' : '$' + t}${t===40?'<br><span style="font-size:9px;color:'+((_chkTip===40)?'#93c5fd':'#94a3b8')+';">Recomendada</span>':''}
+            style="padding:9px 16px;border-radius:20px;border:2px solid ${_chkTip===t&&!isCustomTip?'#0f172a':'#e2e8f0'};background:${_chkTip===t&&!isCustomTip?'#0f172a':'#fff'};color:${_chkTip===t&&!isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+            ${t === 0 ? 'Ahora no' : '$' + t}${t===40?' ⭐':''}
           </button>`).join('')}
+        <button onclick="chkOpenCustomTip()"
+          style="padding:9px 16px;border-radius:20px;border:2px solid ${isCustomTip?'#0f172a':'#e2e8f0'};background:${isCustomTip?'#0f172a':'#fff'};color:${isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          ${isCustomTip ? '$'+_chkTip+' ✓' : 'Otro'}
+        </button>
+      </div>
+      <div id="custom-tip-box" style="display:${isCustomTip?'flex':'none'};gap:8px;margin-top:12px;align-items:center;">
+        <span style="font-size:15px;font-weight:700;">$</span>
+        <input id="custom-tip-input" type="number" min="1" value="${isCustomTip?_chkTip:''}" placeholder="Ej: 80"
+          style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        <button onclick="chkApplyCustomTip()"
+          style="background:#0f172a;border:none;border-radius:10px;padding:9px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          Aplicar
+        </button>
       </div>
     </div>
 
-    <!-- ENVÍO PRIORITARIO (solo delivery) -->
-    ${fulfillmentType === 'delivery' ? `
+    ${(fulfillmentType === 'delivery' && offersPriority && fee > 0) ? `
     <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;margin-right:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
             <span style="font-size:18px;">⚡</span>
             <span style="font-size:15px;font-weight:800;color:#0f172a;">Envío prioritario</span>
-            <span style="background:#eff6ff;color:#2558d4;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;">+$${Math.round(fee*0.5)}</span>
+            <span style="background:#eff6ff;color:#2558d4;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;">+$${Math.round(fee*priorityPercent/100)}</span>
           </div>
-          <div style="font-size:12px;color:#64748b;margin-top:4px;margin-left:26px;">Tu pedido se prepara antes que los demás.</div>
+          <div style="font-size:12px;color:#64748b;margin-left:26px;">Tu pedido se prepara antes que los demás.</div>
         </div>
-        <button onclick="chkTogglePriority()" style="background:none;border:none;cursor:pointer;padding:0;">
-          <div style="width:48px;height:28px;border-radius:14px;background:${_chkPriority?'#0f172a':'#e2e8f0'};position:relative;transition:background .2s;">
-            <div style="width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;${_chkPriority?'right:3px':'left:3px'};transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
+        <button onclick="chkTogglePriority()" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;">
+          <div style="width:48px;height:28px;border-radius:14px;background:${_chkPriority?'#0f172a':'#e2e8f0'};position:relative;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;${_chkPriority?'right:3px':'left:3px'};box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
           </div>
         </button>
       </div>
     </div>` : ''}
 
-    <!-- DATOS DE ENTREGA -->
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
-      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Datos de entrega</div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-        <span style="font-size:20px;">${fulfillmentType==='pickup'?'🏪':'🛵'}</span>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#0f172a;">${fulfillmentType==='pickup'?'Retiro en tienda':'Delivery'}</div>
-          ${store?.delivery_time_min?`<div style="font-size:12px;color:#64748b;">${store.delivery_time_min}-${store.delivery_time_max||store.delivery_time_min+15} min</div>`:''}
-        </div>
-      </div>
-      ${fulfillmentType==='delivery' ? `
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:20px;">📍</span>
-        <div style="flex:1;">
-          <div style="font-size:12px;color:#64748b;">Lo recibís en</div>
-          <div style="font-size:14px;font-weight:600;color:#0f172a;">${user?.address || 'No tenés dirección guardada'}</div>
-        </div>
-      </div>` : ''}
-    </div>
-
-    <!-- NOTAS -->
     <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
       <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:8px;">📝 Instrucciones de entrega</div>
-      <textarea id="chk-notes" placeholder="Ej: timbre roto, llamar al llegar, sin cebolla..." 
+      <textarea id="chk-notes" placeholder="Ej: timbre roto, llamar al llegar, sin cebolla..."
         style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;resize:none;height:70px;box-sizing:border-box;color:#0f172a;"
         oninput="_chkNotes=this.value">${_chkNotes}</textarea>
     </div>
 
-    <!-- RESUMEN -->
     <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
       <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Resumen</div>
       <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
         <span style="color:#64748b;">Productos</span><span style="font-weight:600;">$${sub}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-        <span style="color:#64748b;">Envío</span><span style="font-weight:600;">${fee===0?'Gratis':'$'+fee}</span>
+        <span style="color:#64748b;">${fulfillmentType==='pickup'?'Retiro en tienda':'Envío'}</span>
+        <span style="font-weight:600;">${fee===0?'Gratis':'$'+fee}</span>
       </div>
-      ${_chkPriority ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-        <span style="color:#64748b;">⚡ Prioritario</span><span style="font-weight:600;">+$${priorityFee}</span>
-      </div>` : ''}
-      ${_chkTip > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-        <span style="color:#64748b;">🛵 Propina</span><span style="font-weight:600;">+$${_chkTip}</span>
-      </div>` : ''}
-      ${promoDisc > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-        <span style="color:#16a34a;">🏷️ Descuento</span><span style="font-weight:600;color:#16a34a;">-$${promoDisc}</span>
-      </div>` : ''}
+      ${_chkPriority?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#64748b;">⚡ Prioritario</span><span style="font-weight:600;">+$${priorityFee}</span></div>`:''}
+      ${_chkTip>0?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#64748b;">🛵 Propina</span><span style="font-weight:600;">+$${_chkTip}</span></div>`:''}
+      ${promoDisc>0?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#16a34a;">🏷️ Descuento</span><span style="font-weight:600;color:#16a34a;">-$${promoDisc}</span></div>`:''}
       <div style="border-top:1px solid #f1f5f9;padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;">
         <span style="font-size:16px;font-weight:900;color:#0f172a;">Total</span>
         <span style="font-size:16px;font-weight:900;color:#0f172a;">$${total}</span>
@@ -3508,6 +3529,24 @@ function chkTogglePriority() {
   renderCheckoutPage();
 }
 
+function chkSetFulfillment(type) {
+  _chkFulfillment = type;
+  _chkPriority = false; // reset priority on fulfillment change
+  renderCheckoutPage();
+}
+
+function chkOpenCustomTip() {
+  const box = document.getElementById('custom-tip-box');
+  if (box) { box.style.display = 'flex'; document.getElementById('custom-tip-input')?.focus(); }
+}
+
+function chkApplyCustomTip() {
+  const val = parseInt(document.getElementById('custom-tip-input')?.value) || 0;
+  if (val < 1) { showToast('Ingresá un monto válido'); return; }
+  _chkTip = val;
+  renderCheckoutPage();
+}
+
 async function doCheckout() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (!cart.length) return;
@@ -3526,14 +3565,14 @@ async function doCheckout() {
   }
 
   try {
-    const fulfillmentType = currentSdFulfillment || 'delivery';
+    const fulfillmentType = _chkFulfillment || currentSdFulfillment || 'delivery';
     const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null }));
     const res = await api('/api/orders', {
       method: 'POST',
       body: JSON.stringify({
         business_id: bizId,
         items,
-        address: user.address || '',
+        address: _chkAddress || user.address || '',
         fulfillment_type: fulfillmentType,
         payment_method: _chkPayMethod,
         tip: _chkTip,
@@ -3543,7 +3582,7 @@ async function doCheckout() {
     });
 
     cart = []; saveCart(); updateCartBadge();
-    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkNotes = '';
+    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
 
     if (_chkPayMethod === 'cash' || res.cash) {
       // Efectivo → va directo a tracking
@@ -7010,14 +7049,60 @@ function ooRenderSettings() {
         <span style="font-size:14px;color:#64748b;">Costo de envío</span>
         <span style="font-size:14px;font-weight:700;color:#0f172a;">$${b.delivery_cost||0}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
         <span style="font-size:14px;color:#64748b;">Tiempo estimado</span>
         <span style="font-size:14px;font-weight:700;color:#0f172a;">${b.delivery_time||30} min</span>
+      </div>
+      <div style="border-top:1px solid #f1f5f9;padding-top:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#0f172a;">⚡ Envío prioritario</div>
+            <div style="font-size:12px;color:#64748b;">Ofrecer a clientes por un costo extra</div>
+          </div>
+          <button onclick="ooToggleOffersPriority()" style="background:none;border:none;cursor:pointer;padding:0;">
+            <div style="width:44px;height:26px;border-radius:13px;background:${b.offers_priority!==false?'#0f172a':'#e2e8f0'};position:relative;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;${b.offers_priority!==false?'right:3px':'left:3px'};box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
+            </div>
+          </button>
+        </div>
+        ${b.offers_priority!==false ? `
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+          <span style="font-size:13px;color:#64748b;white-space:nowrap;">Costo extra (%)</span>
+          <input type="number" id="priority-pct-input" value="${b.priority_percent||50}" min="10" max="200"
+            style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+          <button onclick="ooSavePriorityPercent()" style="background:#2558d4;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+            Guardar
+          </button>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">Con ${b.priority_percent||50}% extra, un envío de $100 cobra $${100 + (b.priority_percent||50)} prioritario.</div>
+        ` : ''}
       </div>
     </div>
   `;
 }
 
+
+async function ooToggleOffersPriority() {
+  const current = _ooBiz?.offers_priority !== false;
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ offers_priority: !current }) });
+    if (_ooBiz) _ooBiz.offers_priority = !current;
+    const d = await ooFetch('/api/businesses/mine/dashboard');
+    _ooDashData = d; _ooBiz = d.business;
+    ooRenderSettings();
+  } catch(e) { showToast('Error: '+e.message); }
+}
+
+async function ooSavePriorityPercent() {
+  const val = parseInt(document.getElementById('priority-pct-input')?.value);
+  if (!val || val < 10 || val > 200) { showToast('Ingresá un valor entre 10 y 200'); return; }
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ priority_percent: val }) });
+    if (_ooBiz) _ooBiz.priority_percent = val;
+    showToast('✅ Guardado');
+    ooRenderSettings();
+  } catch(e) { showToast('Error: '+e.message); }
+}
 
 // ── HORARIOS ────────────────────────────────────────────────────
 function ooEditHours() {
