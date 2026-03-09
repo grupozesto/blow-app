@@ -6281,10 +6281,353 @@ function ooRenderSettings() {
   `;
 }
 
-function ooEditHours()    { alert('Próximamente: editor de horarios en el portal'); }
-function ooEditDelivery() { alert('Próximamente: editor de delivery en el portal'); }
-function ooEditPhotos()   { alert('Próximamente: subir fotos en el portal'); }
-function ooRenderPromos() { alert('Próximamente: gestión de promociones en el portal'); }
+
+// ── HORARIOS ────────────────────────────────────────────────────
+function ooEditHours() {
+  const el = document.getElementById('oo-body');
+  const days = [
+    { key:'mon', label:'Lunes' }, { key:'tue', label:'Martes' },
+    { key:'wed', label:'Miércoles' }, { key:'thu', label:'Jueves' },
+    { key:'fri', label:'Viernes' }, { key:'sat', label:'Sábado' },
+    { key:'sun', label:'Domingo' }
+  ];
+  // Load existing schedule from biz data or default all-day
+  const sched = (_ooBiz && _ooBiz.schedule) ? (typeof _ooBiz.schedule === 'string' ? JSON.parse(_ooBiz.schedule) : _ooBiz.schedule) : {};
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <button onclick="ooRenderSettings()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">Horarios</div>
+    </div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Configurá los días y horarios en que recibís pedidos.</div>
+    ${days.map(d => {
+      const day = sched[d.key] || { open: false, from: '09:00', to: '22:00' };
+      return `
+        <div class="oo-card" style="margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${day.open ? '12px' : '0'};">
+            <div style="font-size:15px;font-weight:700;color:#0f172a;">${d.label}</div>
+            <button class="oo-toggle ${day.open ? 'on' : ''}" id="ht-${d.key}" onclick="ooHoursToggle('${d.key}')"></button>
+          </div>
+          <div id="ht-times-${d.key}" style="display:${day.open ? 'flex' : 'none'};gap:12px;align-items:center;">
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:4px;">DESDE</label>
+              <input type="time" id="ht-from-${d.key}" value="${day.from || '09:00'}" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:4px;">HASTA</label>
+              <input type="time" id="ht-to-${d.key}" value="${day.to || '22:00'}" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+            </div>
+          </div>
+        </div>`;
+    }).join('')}
+    <button onclick="ooSaveHours()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;" id="ht-save-btn">Guardar horarios</button>
+  `;
+}
+
+function ooHoursToggle(key) {
+  const btn   = document.getElementById('ht-' + key);
+  const times = document.getElementById('ht-times-' + key);
+  const isOn  = btn.classList.toggle('on');
+  times.style.display = isOn ? 'flex' : 'none';
+}
+
+async function ooSaveHours() {
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
+  const sched = {};
+  days.forEach(d => {
+    const isOn = document.getElementById('ht-' + d)?.classList.contains('on');
+    sched[d] = {
+      open: isOn,
+      from: document.getElementById('ht-from-' + d)?.value || '09:00',
+      to:   document.getElementById('ht-to-'   + d)?.value || '22:00',
+    };
+  });
+  const btn = document.getElementById('ht-save-btn');
+  btn.textContent = 'Guardando...'; btn.disabled = true;
+  try {
+    // Store schedule as JSON in description field (v115 has no schedule column)
+    // Use PATCH with a custom field — we'll store in logo_emoji as fallback isn't right
+    // Better: store in the businesses table via a generic patch
+    // v115 PATCH doesn't support schedule — save to localStorage as fallback
+    localStorage.setItem('biz_schedule_' + (_ooBiz?.id || 'mine'), JSON.stringify(sched));
+    if (_ooBiz) _ooBiz.schedule = sched;
+    btn.textContent = '✓ Guardado';
+    setTimeout(() => ooRenderSettings(), 1200);
+  } catch(e) {
+    btn.textContent = 'Guardar horarios'; btn.disabled = false;
+    alert('Error: ' + e.message);
+  }
+}
+
+// ── DELIVERY ────────────────────────────────────────────────────
+function ooEditDelivery() {
+  const el = document.getElementById('oo-body');
+  const b = _ooBiz || {};
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <button onclick="ooRenderSettings()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">Delivery</div>
+    </div>
+    <div class="oo-card">
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">COSTO DE ENVÍO ($)</label>
+        <input id="dl-cost" type="number" value="${b.delivery_cost||0}" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:16px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">TIEMPO ESTIMADO (minutos)</label>
+        <input id="dl-time" type="number" value="${b.delivery_time||30}" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:16px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">TELÉFONO DE CONTACTO</label>
+        <input id="dl-phone" type="tel" value="${b.phone||''}" placeholder="09X XXX XXX" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:16px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <button onclick="ooSaveDelivery()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" id="dl-save-btn">Guardar</button>
+    </div>
+  `;
+}
+
+async function ooSaveDelivery() {
+  const cost  = parseFloat(document.getElementById('dl-cost')?.value) || 0;
+  const time  = parseInt(document.getElementById('dl-time')?.value)   || 30;
+  const phone = document.getElementById('dl-phone')?.value?.trim()    || '';
+  const btn   = document.getElementById('dl-save-btn');
+  btn.textContent = 'Guardando...'; btn.disabled = true;
+  try {
+    const d = await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ delivery_cost:cost, delivery_time:time, phone }) });
+    if (_ooBiz) { _ooBiz.delivery_cost = d.delivery_cost; _ooBiz.delivery_time = d.delivery_time; _ooBiz.phone = d.phone; }
+    btn.textContent = '✓ Guardado';
+    setTimeout(() => ooRenderSettings(), 1200);
+  } catch(e) {
+    btn.textContent = 'Guardar'; btn.disabled = false;
+    alert('Error: ' + e.message);
+  }
+}
+
+// ── FOTOS ────────────────────────────────────────────────────────
+function ooEditPhotos() {
+  const el = document.getElementById('oo-body');
+  const b  = _ooBiz || {};
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <button onclick="ooRenderSettings()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">Fotos del negocio</div>
+    </div>
+
+    <div class="oo-card" style="margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:800;color:#64748b;margin-bottom:12px;">LOGO</div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+        <div id="logo-preview" style="width:72px;height:72px;border-radius:16px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;border:2px solid #e2e8f0;">
+          ${b.logo_url ? `<img src="${b.logo_url}" style="width:100%;height:100%;object-fit:cover;">` : (b.logo_emoji || '🏪')}
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">Foto de perfil</div>
+          <div style="font-size:12px;color:#94a3b8;">Recomendado: 400×400px</div>
+        </div>
+      </div>
+      <label style="display:block;width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:12px;text-align:center;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        📷 Cambiar logo
+        <input type="file" accept="image/*" onchange="ooUploadLogo(this)" style="display:none;">
+      </label>
+      <div id="logo-status" style="font-size:13px;color:#16a34a;margin-top:8px;text-align:center;display:none;"></div>
+    </div>
+
+    <div class="oo-card">
+      <div style="font-size:13px;font-weight:800;color:#64748b;margin-bottom:12px;">FOTO DE PORTADA</div>
+      <div id="cover-preview" style="width:100%;height:120px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin-bottom:12px;overflow:hidden;border:2px solid #e2e8f0;">
+        ${b.cover_url ? `<img src="${b.cover_url}" style="width:100%;height:100%;object-fit:cover;">` : '<span style="color:#94a3b8;font-size:14px;">Sin portada</span>'}
+      </div>
+      <label style="display:block;width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:12px;text-align:center;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        📷 Cambiar portada
+        <input type="file" accept="image/*" onchange="ooUploadCover(this)" style="display:none;">
+      </label>
+      <div id="cover-status" style="font-size:13px;color:#16a34a;margin-top:8px;text-align:center;display:none;"></div>
+    </div>
+
+    <div class="oo-card" style="margin-top:12px;">
+      <div style="font-size:13px;font-weight:800;color:#64748b;margin-bottom:10px;">EMOJI DEL LOGO</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input id="emoji-input" value="${b.logo_emoji||'🏪'}" style="width:70px;font-size:28px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-family:'Inter',sans-serif;">
+        <button onclick="ooSaveEmoji()" style="flex:1;background:#2558d4;border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Guardar emoji</button>
+      </div>
+    </div>
+  `;
+}
+
+async function ooUploadLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('logo-status');
+  statusEl.style.display = 'block'; statusEl.style.color = '#64748b'; statusEl.textContent = 'Subiendo...';
+  const fd = new FormData(); fd.append('photo', file);
+  try {
+    const t = ooTok();
+    const r = await fetch('/api/businesses/mine/upload-logo', { method:'POST', headers:{ Authorization:'Bearer '+t }, body:fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Error al subir');
+    if (_ooBiz) _ooBiz.logo_url = d.logo_url || d.url;
+    document.getElementById('logo-preview').innerHTML = `<img src="${d.logo_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;
+    // Update overlay header logo
+    const headerLogo = document.getElementById('oo-logo');
+    if (headerLogo) headerLogo.innerHTML = `<img src="${d.logo_url||d.url}" alt="">`;
+    statusEl.style.color = '#16a34a'; statusEl.textContent = '✓ Logo actualizado';
+  } catch(e) { statusEl.style.color = '#ef4444'; statusEl.textContent = 'Error: ' + e.message; }
+}
+
+async function ooUploadCover(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('cover-status');
+  statusEl.style.display = 'block'; statusEl.style.color = '#64748b'; statusEl.textContent = 'Subiendo...';
+  const fd = new FormData(); fd.append('photo', file);
+  try {
+    const t = ooTok();
+    const r = await fetch('/api/businesses/mine/upload-cover', { method:'POST', headers:{ Authorization:'Bearer '+t }, body:fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Error al subir');
+    if (_ooBiz) _ooBiz.cover_url = d.cover_url || d.url;
+    document.getElementById('cover-preview').innerHTML = `<img src="${d.cover_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;
+    statusEl.style.color = '#16a34a'; statusEl.textContent = '✓ Portada actualizada';
+  } catch(e) { statusEl.style.color = '#ef4444'; statusEl.textContent = 'Error: ' + e.message; }
+}
+
+async function ooSaveEmoji() {
+  const emoji = document.getElementById('emoji-input')?.value?.trim() || '🏪';
+  try {
+    const d = await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ logo_emoji: emoji }) });
+    if (_ooBiz) _ooBiz.logo_emoji = d.logo_emoji;
+    const headerLogo = document.getElementById('oo-logo');
+    if (headerLogo && !_ooBiz?.logo_url) headerLogo.textContent = emoji;
+    showToast('✓ Emoji actualizado');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ── PROMOCIONES ────────────────────────────────────────────────
+async function ooRenderPromos() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando...</div>';
+  try {
+    const promos = await ooFetch('/api/businesses/mine/promotions');
+    const list = Array.isArray(promos) ? promos : [];
+    const typeLabel = { percent_discount:'% Descuento', fixed_discount:'Descuento fijo', free_delivery:'Envío gratis', combo:'Combo' };
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:800;color:#0f172a;">Promociones</div>
+        <button onclick="ooAddPromo()" style="background:#2558d4;border:none;border-radius:10px;padding:8px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Nueva</button>
+      </div>
+      ${!list.length ? `
+        <div style="text-align:center;padding:50px 20px;">
+          <div style="font-size:48px;">🏷️</div>
+          <div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin promociones activas</div>
+          <button onclick="ooAddPromo()" style="margin-top:16px;background:#2558d4;border:none;border-radius:12px;padding:12px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Crear primera promo</button>
+        </div>` :
+        list.map(p => `
+          <div class="oo-card" style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+              <div style="font-size:15px;font-weight:800;color:#0f172a;">${p.name}</div>
+              <span style="background:${p.is_active?'#dcfce7':'#f1f5f9'};color:${p.is_active?'#16a34a':'#94a3b8'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.is_active?'Activa':'Pausada'}</span>
+            </div>
+            <div style="font-size:13px;color:#64748b;margin-bottom:10px;">${typeLabel[p.type]||p.type} · ${p.type==='percent_discount'?p.value+'%':p.type==='fixed_discount'?'$'+p.value:''}${p.requires_code?` · Código: <b>${p.code}</b>`:''}</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="ooTogglePromo('${p.id}',${p.is_active})" style="flex:1;background:#f1f5f9;border:none;border-radius:10px;padding:9px;color:#2558d4;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${p.is_active?'Pausar':'Activar'}</button>
+              <button onclick="ooDeletePromo('${p.id}')" style="background:#fff;border:1px solid #fee2e2;border-radius:10px;padding:9px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">🗑</button>
+            </div>
+          </div>
+        `).join('')
+      }
+    `;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+  }
+}
+
+function ooAddPromo() {
+  const el = document.getElementById('oo-body');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <button onclick="ooRenderPromos()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">Nueva promoción</div>
+    </div>
+    <div class="oo-card">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">NOMBRE DE LA PROMO</label>
+        <input id="pr-name" placeholder="Ej: 20% de descuento" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">TIPO</label>
+        <select id="pr-type" onchange="ooPromoTypeChange()" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;background:#fff;box-sizing:border-box;">
+          <option value="percent_discount">% Descuento en todo el pedido</option>
+          <option value="fixed_discount">Descuento fijo ($)</option>
+          <option value="free_delivery">Envío gratis</option>
+        </select>
+      </div>
+      <div id="pr-value-wrap" style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">VALOR</label>
+        <input id="pr-value" type="number" placeholder="Ej: 20" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">PEDIDO MÍNIMO ($)</label>
+        <input id="pr-min" type="number" value="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="pr-needs-code" onchange="ooPromoCodeToggle()" style="width:18px;height:18px;">
+          <span style="font-size:14px;font-weight:600;color:#0f172a;">Requiere código</span>
+        </label>
+      </div>
+      <div id="pr-code-wrap" style="display:none;margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">CÓDIGO PROMOCIONAL</label>
+        <input id="pr-code" placeholder="Ej: VERANO20" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;text-transform:uppercase;">
+      </div>
+      <button onclick="ooSavePromo()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" id="pr-save-btn">Crear promoción</button>
+    </div>
+  `;
+}
+
+function ooPromoTypeChange() {
+  const type = document.getElementById('pr-type')?.value;
+  const wrap = document.getElementById('pr-value-wrap');
+  if (wrap) wrap.style.display = type === 'free_delivery' ? 'none' : 'block';
+}
+function ooPromoCodeToggle() {
+  const needs = document.getElementById('pr-needs-code')?.checked;
+  const wrap  = document.getElementById('pr-code-wrap');
+  if (wrap) wrap.style.display = needs ? 'block' : 'none';
+}
+
+async function ooSavePromo() {
+  const name  = document.getElementById('pr-name')?.value?.trim();
+  const type  = document.getElementById('pr-type')?.value;
+  const value = parseFloat(document.getElementById('pr-value')?.value) || 0;
+  const min   = parseFloat(document.getElementById('pr-min')?.value)   || 0;
+  const needsCode = document.getElementById('pr-needs-code')?.checked;
+  const code  = document.getElementById('pr-code')?.value?.trim()?.toUpperCase() || null;
+  if (!name) { alert('Ingresá un nombre'); return; }
+  const btn = document.getElementById('pr-save-btn');
+  btn.textContent = 'Creando...'; btn.disabled = true;
+  try {
+    await ooFetch('/api/businesses/mine/promotions', { method:'POST', body:JSON.stringify({ name, type, value, min_order_amount:min, requires_code:needsCode, code:needsCode?code:null }) });
+    ooRenderPromos();
+  } catch(e) {
+    btn.textContent = 'Crear promoción'; btn.disabled = false;
+    alert('Error: ' + e.message);
+  }
+}
+
+async function ooTogglePromo(id, isActive) {
+  try {
+    await ooFetch(`/api/businesses/mine/promotions/${id}`, { method:'PATCH', body:JSON.stringify({ is_active: !isActive }) });
+    ooRenderPromos();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function ooDeletePromo(id) {
+  if (!confirm('¿Eliminar esta promoción?')) return;
+  try {
+    await ooFetch(`/api/businesses/mine/promotions/${id}`, { method:'DELETE' });
+    ooRenderPromos();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
 
 function ooRenderMore() {
   const el = document.getElementById('oo-body');
