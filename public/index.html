@@ -646,186 +646,103 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   .nb{padding:6px 8px;min-width:46px;font-size:9px;}
 }
 
-/* ── OWNER MODE OVERLAY ─────────────────────────── */
+/* ── OWNER OVERLAY ─────────────────────────────────────────── */
 #owner-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 900;
-  display: none;
-  flex-direction: column;
-  background: #0f172a;
+  position: fixed; inset: 0; z-index: 900;
+  display: none; flex-direction: column;
+  background: #f8fafc;
   transform: translateY(100%);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
   overflow: hidden;
 }
-#owner-overlay.visible {
-  display: flex;
-}
-#owner-overlay.open {
-  transform: translateY(0);
-}
-/* Slide-up animation trigger */
-body.owner-mode-active #owner-overlay {
-  display: flex;
-}
-/* Hide buyer UI when owner mode is open */
-body.owner-mode-active .bottom-nav,
-body.owner-mode-active nav,
-body.owner-mode-active .page {
-  pointer-events: none;
-  opacity: 0;
-}
-/* Owner overlay header */
+#owner-overlay.visible { display: flex; }
+#owner-overlay.open    { transform: translateY(0); }
 .oo-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
-  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  background: linear-gradient(135deg,#06112a 0%,#1e4fd4 100%);
+  padding: calc(env(safe-area-inset-top,0px) + 14px) 16px 14px;
+  display: flex; align-items: center; justify-content: space-between;
   flex-shrink: 0;
 }
-.oo-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.oo-brand { display:flex; align-items:center; gap:10px; }
+.oo-logo  {
+  width:42px; height:42px; border-radius:12px;
+  background:#1e40af; display:flex; align-items:center;
+  justify-content:center; font-size:22px; overflow:hidden;
+  border:2px solid rgba(255,255,255,.2);
 }
-.oo-logo {
-  width: 40px; height: 40px;
-  border-radius: 10px;
-  background: #1e40af;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
-  overflow: hidden;
-}
-.oo-logo img { width: 100%; height: 100%; object-fit: cover; }
-.oo-store-name { font-size: 17px; font-weight: 800; color: #fff; }
-.oo-store-sub  { font-size: 12px; color: #94a3b8; margin-top: 1px; }
+.oo-logo img { width:100%; height:100%; object-fit:cover; }
+.oo-store-name { font-size:17px; font-weight:800; color:#fff; }
+.oo-store-sub  { font-size:12px; color:rgba(255,255,255,.6); margin-top:1px; }
 .oo-exit-btn {
-  background: rgba(255,255,255,.1);
-  border: none;
-  border-radius: 20px;
-  padding: 7px 14px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex; align-items: center; gap: 6px;
-  font-family: 'Inter', sans-serif;
+  background:rgba(255,255,255,.15); border:none; border-radius:20px;
+  padding:7px 14px; color:#fff; font-size:13px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; gap:5px;
+  font-family:'Inter',sans-serif;
 }
-.oo-status-open   { background: #16a34a; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 800; }
-.oo-status-closed { background: #dc2626; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 800; }
-/* KPI strip */
-.oo-kpi {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 1px;
-  background: #1e293b;
-  flex-shrink: 0;
-}
-.oo-kpi-item {
-  background: #0f172a;
-  padding: 12px 8px;
-  text-align: center;
-}
-.oo-kpi-val  { font-size: 20px; font-weight: 900; color: #fff; }
-.oo-kpi-label{ font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
-/* Scroll content */
+.oo-status-open   { background:#16a34a; color:#fff; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:800; }
+.oo-status-closed { background:#dc2626; color:#fff; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:800; }
+.oo-kpi { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:#e2e8f0; flex-shrink:0; }
+.oo-kpi-item  { background:#fff; padding:12px 8px; text-align:center; }
+.oo-kpi-val   { font-size:20px; font-weight:900; color:#0f172a; }
+.oo-kpi-label { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
 .oo-body {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  background: #0f172a;
-  padding: 16px 16px 100px;
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  background:#f8fafc; padding:16px 16px 90px;
 }
-/* Bottom nav */
 .oo-bottom-nav {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: #0f172a;
-  border-top: 1px solid #1e293b;
-  display: flex;
-  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-  z-index: 10;
+  position:absolute; bottom:0; left:0; right:0;
+  background:#fff; border-top:1px solid #e2e8f0;
+  display:flex; padding-bottom:max(16px,env(safe-area-inset-bottom,16px));
+  z-index:10;
 }
 .oo-tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 10px 4px 4px;
-  background: none;
-  border: none;
-  color: #475569;
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: color .15s;
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  gap:3px; padding:10px 4px 4px; background:none; border:none;
+  color:#94a3b8; font-size:10px; font-weight:600; cursor:pointer;
+  font-family:'Inter',sans-serif; transition:color .15s;
 }
-.oo-tab.active { color: #3b82f6; }
-.oo-tab svg { width: 22px; height: 22px; }
-/* Owner cards */
-.oo-card {
-  background: #1e293b;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-.oo-section-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-  margin: 20px 0 10px;
-}
-.oo-action-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-}
+.oo-tab.active { color:#2558d4; }
+.oo-tab svg { width:22px; height:22px; }
+/* Cards & UI */
+.oo-card    { background:#fff; border-radius:16px; padding:16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.oo-dark-card { background:linear-gradient(135deg,#1e3a5f,#0f172a); border-radius:16px; padding:18px; margin-bottom:12px; border:1px solid #1e40af; }
+.oo-section-title { font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:.5px; margin:16px 0 10px; }
+.oo-action-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
 .oo-action-btn {
-  background: #1e293b;
-  border: none;
-  border-radius: 14px;
-  padding: 16px 12px;
-  text-align: left;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: background .15s;
+  background:#fff; border:none; border-radius:14px; padding:16px 12px;
+  text-align:left; cursor:pointer; font-family:'Inter',sans-serif;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); transition:background .15s;
 }
-.oo-action-btn:active { background: #273548; }
-.oo-action-icon { font-size: 26px; margin-bottom: 8px; display: block; }
-.oo-action-title { font-size: 14px; font-weight: 700; color: #f1f5f9; display: block; }
-.oo-action-sub   { font-size: 11px; color: #64748b; display: block; margin-top: 2px; }
-/* Toggle switch */
+.oo-action-btn:active { background:#f1f5f9; }
+.oo-action-icon  { font-size:26px; margin-bottom:8px; display:block; }
+.oo-action-title { font-size:14px; font-weight:700; color:#0f172a; display:block; }
+.oo-action-sub   { font-size:11px; color:#64748b; display:block; margin-top:2px; }
 .oo-toggle-wrap {
-  display: flex; align-items: center; justify-content: space-between;
-  background: #1e293b; border-radius: 16px; padding: 16px;
-  margin-bottom: 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  background:#fff; border-radius:16px; padding:16px; margin-bottom:12px;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
 }
-.oo-toggle-label { font-size: 15px; font-weight: 700; color: #f1f5f9; }
-.oo-toggle-sub   { font-size: 12px; color: #64748b; margin-top: 2px; }
+.oo-toggle-label { font-size:15px; font-weight:700; color:#0f172a; }
+.oo-toggle-sub   { font-size:12px; color:#64748b; margin-top:2px; }
 .oo-toggle {
-  width: 52px; height: 28px;
-  background: #374151; border-radius: 20px;
-  position: relative; cursor: pointer;
-  border: none; padding: 0;
-  transition: background .2s;
-  flex-shrink: 0;
+  width:52px; height:28px; background:#e2e8f0; border-radius:20px;
+  position:relative; cursor:pointer; border:none; padding:0;
+  transition:background .2s; flex-shrink:0;
 }
-.oo-toggle.on { background: #16a34a; }
+.oo-toggle.on { background:#16a34a; }
 .oo-toggle::after {
-  content: '';
-  position: absolute;
-  width: 22px; height: 22px;
-  background: #fff; border-radius: 50%;
-  top: 3px; left: 3px;
-  transition: transform .2s;
+  content:''; position:absolute; width:22px; height:22px;
+  background:#fff; border-radius:50%; top:3px; left:3px;
+  transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.2);
 }
-.oo-toggle.on::after { transform: translateX(24px); }
+.oo-toggle.on::after { transform:translateX(24px); }
+/* Wallet carousel */
+.oo-wallet-wrap   { overflow:hidden; margin-bottom:6px; }
+.oo-wallet-track  { display:flex; transition:transform .35s cubic-bezier(.4,0,.2,1); }
+.oo-wallet-slide  { min-width:100%; box-sizing:border-box; }
+.oo-wallet-dots   { display:flex; justify-content:center; gap:6px; margin-bottom:14px; }
+.oo-wallet-dot    { width:6px; height:6px; border-radius:50%; background:#cbd5e1; cursor:pointer; transition:all .2s; }
+.oo-wallet-dot.active { background:#2558d4; width:16px; border-radius:3px; }
 </style>
 </head>
 <body>
@@ -3411,6 +3328,10 @@ function renderProfile() {
 
 
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
+function handleOwnerAccess() {
+  if (user && user.role === 'owner') enterOwnerOverlay();
+  else { nav('page-owner-login'); ownerTab('register'); }
+}
 
 // ═══════════════════════════════════════════════
 //  AUTH
@@ -5273,6 +5194,18 @@ function showAddCouponModal() {
   validateCouponManual(code.trim().toUpperCase());
 }
 
+async function validateCouponManual(code) {
+  if (!code) {
+    const input = document.getElementById('coupon-code-input');
+    code = input ? input.value.trim().toUpperCase() : '';
+  }
+  if (!code) return showToast('Ingresá un código');
+  try {
+    const res = await api('/api/coupons/validate', 'POST', {code, order_total: 0});
+    if (res.valid) { showToast('✅ Cupón válido: ' + (res.coupon?.description || code)); loadCoupons(); }
+    else showToast('❌ ' + (res.error || 'Cupón inválido'));
+  } catch(e) { showToast('❌ Error al validar cupón'); }
+}
 
 
 async function validateCouponManual() {
@@ -5933,72 +5866,57 @@ if (blowplususerStatus === 'success') {
   showToast('❌ El pago fue rechazado. Intentá de nuevo.');
 }
 
-
-// ══ OWNER OVERLAY ════════════════════════════════════════════════
-let _ooActive = false;
-let _ooTab = 'home';
+// ══ OWNER OVERLAY ═══════════════════════════════════════════════
 let _ooBiz = null;
+let _ooWalletIdx = 0;
+let _ooTouchX = 0;
 
 function enterOwnerOverlay() {
-  const overlay = document.getElementById('owner-overlay');
-  if (!overlay) return;
-  _ooActive = true;
-  overlay.classList.add('visible');
-  document.body.classList.add('owner-mode-active');
-  // Trigger slide-up animation on next frame
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => overlay.classList.add('open'));
-  });
-  loadOwnerOverlayData();
+  const el = document.getElementById('owner-overlay');
+  el.classList.add('visible');
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('open')));
+  ooLoadData();
   ooTab('home');
 }
 
 function exitOwnerOverlay() {
-  const overlay = document.getElementById('owner-overlay');
-  if (!overlay) return;
-  overlay.classList.remove('open');
-  document.body.classList.remove('owner-mode-active');
-  setTimeout(() => {
-    overlay.classList.remove('visible');
-    _ooActive = false;
-  }, 400);
+  const el = document.getElementById('owner-overlay');
+  el.classList.remove('open');
+  setTimeout(() => el.classList.remove('visible'), 400);
 }
 
-async function loadOwnerOverlayData() {
+function ooTok() {
+  return localStorage.getItem('da_token') || (typeof token !== 'undefined' ? token : '');
+}
+
+async function ooFetch(path, opts) {
+  const r = await fetch(path, { ...opts, headers: { 'Content-Type':'application/json', Authorization:'Bearer '+ooTok(), ...((opts||{}).headers||{}) } });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+}
+
+async function ooLoadData() {
   try {
-    const data = await apiFetch('/api/businesses/mine/dashboard');
-    _ooBiz = data.business || {};
-    // Update header
-    const nameEl = document.getElementById('oo-store-name');
-    const subEl  = document.getElementById('oo-store-sub');
+    const d = await ooFetch('/api/businesses/mine/dashboard');
+    _ooBiz = d.business || d || {};
+    const kpi = d.kpi || {};
+    document.getElementById('oo-store-name').textContent = _ooBiz.name || 'Mi Negocio';
+    document.getElementById('oo-store-sub').textContent  = _ooBiz.city || 'Portal de gestión';
     const logoEl = document.getElementById('oo-logo');
+    if (_ooBiz.logo_url) logoEl.innerHTML = `<img src="${_ooBiz.logo_url}" alt="">`;
+    else logoEl.textContent = _ooBiz.logo_emoji || '🏪';
     const statusEl = document.getElementById('oo-status');
-    if (nameEl) nameEl.textContent = _ooBiz.name || 'Mi Negocio';
-    if (subEl)  subEl.textContent  = _ooBiz.city  || 'Portal de gestión';
-    if (logoEl) {
-      if (_ooBiz.logo_url) logoEl.innerHTML = `<img src="${_ooBiz.logo_url}" alt="">`;
-      else logoEl.textContent = _ooBiz.logo_emoji || '🏪';
-    }
-    const isOpen = _ooBiz.is_open;
-    if (statusEl) {
-      statusEl.className = isOpen ? 'oo-status-open' : 'oo-status-closed';
-      statusEl.textContent = isOpen ? '● Abierto' : '● Cerrado';
-    }
-    // KPI
-    const kpi = data.kpi || {};
-    const todayOrders  = document.getElementById('oo-orders-today');
-    const todayRevenue = document.getElementById('oo-revenue-today');
-    const pending      = document.getElementById('oo-pending');
-    if (todayOrders)  todayOrders.textContent  = kpi.orders_today  || 0;
-    if (todayRevenue) todayRevenue.textContent = '$' + (kpi.revenue_today || 0);
-    if (pending)      pending.textContent      = kpi.pending_orders || 0;
-    // Render home tab
+    statusEl.className   = _ooBiz.is_open ? 'oo-status-open' : 'oo-status-closed';
+    statusEl.textContent = _ooBiz.is_open ? '● Abierto' : '● Cerrado';
+    document.getElementById('oo-kpi-orders').textContent  = kpi.orders_today  || 0;
+    document.getElementById('oo-kpi-revenue').textContent = '$'+(kpi.revenue_today||0);
+    document.getElementById('oo-kpi-pending').textContent = kpi.pending_orders || 0;
     if (_ooTab === 'home') ooRenderHome();
-  } catch(e) {
-    console.warn('loadOwnerOverlayData error:', e.message);
-  }
+  } catch(e) { console.warn('ooLoadData:', e.message); }
 }
 
+let _ooTab = 'home';
 function ooTab(tab) {
   _ooTab = tab;
   document.querySelectorAll('.oo-tab').forEach(b => b.classList.remove('active'));
@@ -6006,36 +5924,59 @@ function ooTab(tab) {
   if (btn) btn.classList.add('active');
   if (tab === 'home')     ooRenderHome();
   if (tab === 'orders')   ooRenderOrders();
-  if (tab === 'menu')     nav('page-owner-dash'); // fallback to old page
+  if (tab === 'menu')     ooRenderMenu();
   if (tab === 'settings') ooRenderSettings();
   if (tab === 'more')     ooRenderMore();
 }
 
 function ooRenderHome() {
   const el = document.getElementById('oo-body');
-  if (!el || !_ooBiz) return;
-  const isOpen = _ooBiz.is_open;
+  if (!el) return;
+  const isOpen = _ooBiz ? _ooBiz.is_open : false;
   el.innerHTML = `
-    <!-- Toggle abierto/cerrado -->
     <div class="oo-toggle-wrap">
       <div>
         <div class="oo-toggle-label">Estado del negocio</div>
-        <div class="oo-toggle-sub">${isOpen ? 'Estás recibiendo pedidos' : 'No estás recibiendo pedidos'}</div>
+        <div class="oo-toggle-sub" id="oo-toggle-sub">${isOpen ? 'Estás recibiendo pedidos' : 'No estás recibiendo pedidos'}</div>
       </div>
-      <button class="oo-toggle ${isOpen ? 'on' : ''}" id="oo-open-toggle" onclick="ooToggleOpen()"></button>
+      <button class="oo-toggle ${isOpen ? 'on' : ''}" id="oo-toggle-btn" onclick="ooToggleOpen()"></button>
     </div>
 
-    <!-- Wallet -->
-    <div class="oo-card" style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border:1px solid #1e40af;">
-      <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.5px;margin-bottom:4px;">COBRADO ONLINE</div>
-      <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-wallet-bal">$0</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Hoy: <span id="oo-wallet-today">$0</span></div>
-      <button onclick="nav('page-owner-dash')" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-        ↑ Retirar fondos
-      </button>
+    <div class="oo-wallet-wrap">
+      <div class="oo-wallet-track" id="oo-wallet-track"
+           ontouchstart="ooTouchStart(event)" ontouchend="ooTouchEnd(event)">
+        <div class="oo-wallet-slide">
+          <div class="oo-dark-card">
+            <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.5px;margin-bottom:4px;">💳 COBRADO ONLINE</div>
+            <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-mp-val">$0</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Hoy: <span id="oo-mp-today">$0</span></div>
+            <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
+          </div>
+        </div>
+        <div class="oo-wallet-slide">
+          <div class="oo-dark-card">
+            <div style="font-size:11px;font-weight:800;color:#34d399;letter-spacing:.5px;margin-bottom:4px;">💵 COBRADO EN PERSONA</div>
+            <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-cash-val">$0</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Hoy: <span id="oo-cash-today">$0</span></div>
+            <div style="font-size:13px;color:#94a3b8;">Pagos directos al negocio</div>
+          </div>
+        </div>
+        <div class="oo-wallet-slide">
+          <div class="oo-dark-card">
+            <div style="font-size:11px;font-weight:800;color:#f59e0b;letter-spacing:.5px;margin-bottom:4px;">📊 VENTA TOTAL</div>
+            <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-total-val">$0</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Este mes: <span id="oo-month-val">$0</span></div>
+            <div style="font-size:13px;color:#94a3b8;">Online + efectivo combinado</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="oo-wallet-dots" id="oo-dots">
+      <div class="oo-wallet-dot active" onclick="ooWalletGo(0)"></div>
+      <div class="oo-wallet-dot"        onclick="ooWalletGo(1)"></div>
+      <div class="oo-wallet-dot"        onclick="ooWalletGo(2)"></div>
     </div>
 
-    <!-- Acciones rápidas -->
     <div class="oo-section-title">Acciones rápidas</div>
     <div class="oo-action-grid">
       <button class="oo-action-btn" onclick="ooTab('orders')">
@@ -6043,49 +5984,61 @@ function ooRenderHome() {
         <span class="oo-action-title">Pedidos</span>
         <span class="oo-action-sub">Ver pendientes</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+      <button class="oo-action-btn" onclick="ooTab('menu')">
         <span class="oo-action-icon">🍔</span>
         <span class="oo-action-title">Mi Menú</span>
         <span class="oo-action-sub">Gestionar productos</span>
       </button>
-      <button class="oo-action-btn" onclick="ooRenderSettings(); ooTab('settings')">
+      <button class="oo-action-btn" onclick="ooTab('settings')">
         <span class="oo-action-icon">⚙️</span>
         <span class="oo-action-title">Configuración</span>
         <span class="oo-action-sub">Horarios y datos</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+      <button class="oo-action-btn" onclick="ooTab('more')">
         <span class="oo-action-icon">📣</span>
-        <span class="oo-action-title">Novedades</span>
-        <span class="oo-action-sub">Publicar contenido</span>
+        <span class="oo-action-title">Más</span>
+        <span class="oo-action-sub">Stats, novedades</span>
       </button>
     </div>
   `;
-  // Load wallet
-  loadOoWallet();
+  ooLoadWallet();
 }
 
-async function loadOoWallet() {
+function ooTouchStart(e) { _ooTouchX = e.touches[0].clientX; }
+function ooTouchEnd(e) {
+  const dx = e.changedTouches[0].clientX - _ooTouchX;
+  if (dx < -40) ooWalletGo(_ooWalletIdx + 1);
+  else if (dx > 40) ooWalletGo(_ooWalletIdx - 1);
+}
+function ooWalletGo(n) {
+  _ooWalletIdx = Math.max(0, Math.min(2, n));
+  const track = document.getElementById('oo-wallet-track');
+  if (track) track.style.transform = `translateX(-${_ooWalletIdx * 100}%)`;
+  document.querySelectorAll('#oo-dots .oo-wallet-dot').forEach((d, i) => d.classList.toggle('active', i === _ooWalletIdx));
+}
+
+async function ooLoadWallet() {
   try {
-    const d = await apiFetch('/api/owner/wallet-summary');
-    const bal = document.getElementById('oo-wallet-bal');
-    const tod = document.getElementById('oo-wallet-today');
-    if (bal) bal.textContent = '$' + (d.balance || 0);
-    if (tod) tod.textContent = '$' + (d.today   || 0);
+    const d = await ooFetch('/api/owner/wallet-summary');
+    const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = '$' + (v||0); };
+    s('oo-mp-val',    d.balance       || 0);
+    s('oo-mp-today',  d.today         || 0);
+    s('oo-cash-val',  d.cash_balance  || 0);
+    s('oo-cash-today',d.cash_today    || 0);
+    s('oo-total-val', (d.balance||0) + (d.cash_balance||0));
+    s('oo-month-val', d.month_total   || 0);
   } catch(e) {}
 }
 
 async function ooToggleOpen() {
   try {
-    const d = await apiFetch('/api/businesses/mine/toggle', { method:'POST' });
+    const d = await ooFetch('/api/businesses/mine/toggle', { method:'POST' });
     if (_ooBiz) _ooBiz.is_open = d.is_open;
     const statusEl = document.getElementById('oo-status');
-    if (statusEl) {
-      statusEl.className = d.is_open ? 'oo-status-open' : 'oo-status-closed';
-      statusEl.textContent = d.is_open ? '● Abierto' : '● Cerrado';
-    }
-    const toggle = document.getElementById('oo-open-toggle');
-    if (toggle) toggle.classList.toggle('on', d.is_open);
-    const sub = toggle?.previousElementSibling?.querySelector('.oo-toggle-sub');
+    if (statusEl) { statusEl.className = d.is_open ? 'oo-status-open' : 'oo-status-closed'; statusEl.textContent = d.is_open ? '● Abierto' : '● Cerrado'; }
+    const btn = document.getElementById('oo-toggle-btn');
+    if (btn) btn.classList.toggle('on', d.is_open);
+    const sub = document.getElementById('oo-toggle-sub');
     if (sub) sub.textContent = d.is_open ? 'Estás recibiendo pedidos' : 'No estás recibiendo pedidos';
   } catch(e) { alert('Error: ' + e.message); }
 }
@@ -6093,29 +6046,78 @@ async function ooToggleOpen() {
 async function ooRenderOrders() {
   const el = document.getElementById('oo-body');
   if (!el) return;
-  el.innerHTML = '<div style="color:#475569;text-align:center;padding:40px 0;"><div class=\"spinner\"></div></div>';
+  el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando...</div>';
   try {
-    const data = await apiFetch('/api/owner/orders?status=pending,accepted,ready');
+    const data = await ooFetch('/api/owner/orders');
     const orders = data.orders || data || [];
-    if (!orders.length) {
-      el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;">Sin pedidos pendientes</div></div>';
+    const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
+    if (!active.length) {
+      el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin pedidos activos</div></div>';
       return;
     }
-    el.innerHTML = orders.map(o => `
-      <div class="oo-card" style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div style="font-size:14px;font-weight:800;color:#f1f5f9;">#${o.id?.toString().slice(-4)} · ${o.customer_name||'Cliente'}</div>
-          <span style="background:#1e40af;color:#93c5fd;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${o.status}</span>
+    const sc = { pending:'#f59e0b', accepted:'#3b82f6', ready:'#16a34a' };
+    const sl = { pending:'Nuevo', accepted:'En preparación', ready:'Listo para entregar' };
+    el.innerHTML = active.map(o => `
+      <div class="oo-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:15px;font-weight:800;color:#0f172a;">#${String(o.id).slice(-4)} · ${o.customer_name||'Cliente'}</div>
+          <span style="background:${sc[o.status]||'#64748b'}22;color:${sc[o.status]||'#64748b'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${sl[o.status]||o.status}</span>
         </div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:10px;">${(o.items||[]).map(i=>i.name||i.product_name).join(', ')}</div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:8px;">${(o.items||[]).map(i=>`${i.quantity||1}× ${i.name||i.product_name||''}`).join(' · ')}</div>
+        <div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:10px;">$${o.total||0}</div>
         <div style="display:flex;gap:8px;">
-          <button onclick="updateOrderStatus('${o.id}','accepted')" style="flex:1;background:#1e40af;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Aceptar</button>
-          <button onclick="updateOrderStatus('${o.id}','ready')" style="flex:1;background:#065f46;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Listo</button>
+          ${o.status==='pending'  ? `<button onclick="ooUpdateOrder('${o.id}','accepted')" style="flex:1;background:#2558d4;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Aceptar</button>` : ''}
+          ${o.status==='accepted' ? `<button onclick="ooUpdateOrder('${o.id}','ready')" style="flex:1;background:#16a34a;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Listo</button>` : ''}
+          <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✕</button>
         </div>
       </div>
     `).join('');
   } catch(e) {
-    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">${e.message}</div>`;
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+  }
+}
+
+async function ooUpdateOrder(id, status) {
+  try {
+    await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify({status}) });
+    ooRenderOrders();
+  } catch(e) { alert(e.message); }
+}
+
+async function ooRenderMenu() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando menú...</div>';
+  try {
+    const data = await ooFetch('/api/businesses/mine/products');
+    const products = data.products || data || [];
+    if (!products.length) {
+      el.innerHTML = `<div style="text-align:center;padding:60px 20px;">
+        <div style="font-size:48px;">🍽️</div>
+        <div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin productos aún</div>
+        <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="margin-top:16px;background:#2558d4;border:none;border-radius:10px;padding:12px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar producto</button>
+      </div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:800;color:#0f172a;">${products.length} productos</div>
+        <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="background:#2558d4;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar</button>
+      </div>
+      ${products.map(p => `
+        <div class="oo-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
+          <div style="font-size:28px;">${p.emoji||'🍽️'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:#0f172a;">${p.name}</div>
+            <div style="font-size:13px;color:#64748b;">$${p.price}</div>
+          </div>
+          <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.available!==false?'Activo':'Pausado'}</span>
+        </div>
+      `).join('')}
+      <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:#f1f5f9;border:none;border-radius:12px;padding:14px;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">Editar menú completo →</button>
+    `;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
   }
 }
 
@@ -6123,31 +6125,31 @@ function ooRenderSettings() {
   const el = document.getElementById('oo-body');
   if (!el) return;
   el.innerHTML = `
-    <div class="oo-section-title">Configuración</div>
+    <div class="oo-section-title">Configuración del negocio</div>
     <div class="oo-action-grid">
-      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
         <span class="oo-action-icon">🖼️</span>
         <span class="oo-action-title">Fotos</span>
         <span class="oo-action-sub">Logo y portada</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
         <span class="oo-action-icon">🕐</span>
         <span class="oo-action-title">Horarios</span>
         <span class="oo-action-sub">Días y horas</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
         <span class="oo-action-icon">🛵</span>
         <span class="oo-action-title">Delivery</span>
         <span class="oo-action-sub">Zona y costo</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
         <span class="oo-action-icon">🏷️</span>
         <span class="oo-action-title">Promociones</span>
-        <span class="oo-action-sub">Cupones y descuentos</span>
+        <span class="oo-action-sub">Cupones</span>
       </button>
     </div>
-    <button onclick="nav('page-owner-dash')" style="width:100%;background:#1e293b;border:none;border-radius:14px;padding:14px;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">
-      Ver todas las configuraciones →
+    <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:#f1f5f9;border:none;border-radius:14px;padding:14px;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+      Ir al panel completo →
     </button>
   `;
 }
@@ -6157,45 +6159,23 @@ function ooRenderMore() {
   if (!el) return;
   el.innerHTML = `
     <div class="oo-section-title">Más opciones</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="oo-action-btn" style="width:100%;text-align:left;" onclick="nav('page-owner-dash')">
-        <span style="font-size:16px;">📊</span>
-        <span style="font-size:14px;font-weight:700;color:#f1f5f9;margin-left:12px;">Estadísticas</span>
-      </button>
-      <button class="oo-action-btn" style="width:100%;text-align:left;" onclick="nav('page-owner-dash')">
-        <span style="font-size:16px;">💳</span>
-        <span style="font-size:14px;font-weight:700;color:#f1f5f9;margin-left:12px;">Pagos y wallet</span>
-      </button>
-      <button class="oo-action-btn" style="width:100%;text-align:left;" onclick="nav('page-owner-dash')">
-        <span style="font-size:16px;">📣</span>
-        <span style="font-size:14px;font-weight:700;color:#f1f5f9;margin-left:12px;">Novedades</span>
-      </button>
-      <button onclick="exitOwnerOverlay()" style="width:100%;background:#1e293b;border:1px solid #374151;border-radius:14px;padding:14px;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:16px;">
-        Salir del portal
-      </button>
-    </div>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="nav('page-owner-dash');exitOwnerOverlay();">
+      <span style="font-size:24px;">📊</span>
+      <div><div style="font-size:14px;font-weight:700;color:#0f172a;">Estadísticas</div><div style="font-size:12px;color:#64748b;">Ventas históricas</div></div>
+    </button>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="nav('page-owner-dash');exitOwnerOverlay();">
+      <span style="font-size:24px;">📣</span>
+      <div><div style="font-size:14px;font-weight:700;color:#0f172a;">Novedades</div><div style="font-size:12px;color:#64748b;">Publicar contenido</div></div>
+    </button>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="nav('page-owner-dash');exitOwnerOverlay();">
+      <span style="font-size:24px;">💳</span>
+      <div><div style="font-size:14px;font-weight:700;color:#0f172a;">Pagos y wallet</div><div style="font-size:12px;color:#64748b;">Retiro de fondos</div></div>
+    </button>
+    <button onclick="exitOwnerOverlay()" style="width:100%;background:#fff;border:1px solid #fee2e2;border-radius:14px;padding:14px;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:16px;">
+      Salir del portal
+    </button>
   `;
 }
-
-// Helper: apiFetch using token from localStorage
-function apiFetch(path, opts = {}) {
-  const t = localStorage.getItem('da_token') || (typeof token !== 'undefined' ? token : '');
-  const headers = { 'Content-Type': 'application/json' };
-  if (t) headers['Authorization'] = 'Bearer ' + t;
-  return fetch(path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } })
-    .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || r.statusText); return d; }));
-}
-
-// Override handleOwnerAccess to use new overlay
-function handleOwnerAccess() {
-  if (user?.role === 'owner') {
-    enterOwnerOverlay();
-  } else {
-    nav('page-owner-login');
-    ownerTab('register');
-  }
-}
-// ═════════════════════════════════════════════════════════════════
 </script>
 
 <!-- ══ PWA INSTALL BANNER — Android ══ -->
@@ -6231,60 +6211,36 @@ function handleOwnerAccess() {
 </div>
 
 
-<!-- ══ OWNER OVERLAY ══════════════════════════════ -->
+<!-- ══ OWNER OVERLAY ══ -->
 <div id="owner-overlay">
-  <!-- Header -->
   <div class="oo-header">
     <div class="oo-brand">
       <div class="oo-logo" id="oo-logo">🏪</div>
       <div>
         <div class="oo-store-name" id="oo-store-name">Mi Negocio</div>
-        <div class="oo-store-sub" id="oo-store-sub">Portal de gestión</div>
+        <div class="oo-store-sub"  id="oo-store-sub">Portal de gestión</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="oo-status" class="oo-status-closed">● Cerrado</span>
       <button class="oo-exit-btn" onclick="exitOwnerOverlay()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Salir
       </button>
     </div>
   </div>
-  <!-- KPI Strip -->
   <div class="oo-kpi">
-    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-orders-today">0</div><div class="oo-kpi-label">Pedidos hoy</div></div>
-    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-revenue-today">$0</div><div class="oo-kpi-label">Ingresos hoy</div></div>
-    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-pending">0</div><div class="oo-kpi-label">Pendientes</div></div>
+    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-kpi-orders">0</div><div class="oo-kpi-label">Pedidos hoy</div></div>
+    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-kpi-revenue">$0</div><div class="oo-kpi-label">Ingresos hoy</div></div>
+    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-kpi-pending">0</div><div class="oo-kpi-label">Pendientes</div></div>
   </div>
-  <!-- Body -->
-  <div class="oo-body" id="oo-body">
-    <div style="color:#475569;text-align:center;padding:40px 0;">
-      <div class="spinner"></div>
-      <div style="margin-top:12px;font-size:14px;">Cargando...</div>
-    </div>
-  </div>
-  <!-- Bottom Nav -->
+  <div class="oo-body" id="oo-body"></div>
   <div class="oo-bottom-nav">
-    <button class="oo-tab active" id="oo-tab-home" onclick="ooTab('home')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Inicio
-    </button>
-    <button class="oo-tab" id="oo-tab-orders" onclick="ooTab('orders')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/></svg>
-      Pedidos
-    </button>
-    <button class="oo-tab" id="oo-tab-menu" onclick="ooTab('menu')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      Menú
-    </button>
-    <button class="oo-tab" id="oo-tab-settings" onclick="ooTab('settings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      Config
-    </button>
-    <button class="oo-tab" id="oo-tab-more" onclick="ooTab('more')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-      Más
-    </button>
+    <button class="oo-tab active" id="oo-tab-home"     onclick="ooTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</button>
+    <button class="oo-tab"        id="oo-tab-orders"   onclick="ooTab('orders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Pedidos</button>
+    <button class="oo-tab"        id="oo-tab-menu"     onclick="ooTab('menu')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>Menú</button>
+    <button class="oo-tab"        id="oo-tab-settings" onclick="ooTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Config</button>
+    <button class="oo-tab"        id="oo-tab-more"     onclick="ooTab('more')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>Más</button>
   </div>
 </div>
 
