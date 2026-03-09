@@ -594,6 +594,20 @@ app.post('/api/auth/login', async (req, res) => {
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
+// Debug: check cloudinary config (remove after fixing)
+app.get('/api/debug/cloudinary', auth, (req, res) => {
+  if (!cloudinary) return res.json({ ok: false, error: 'cloudinary null' });
+  const cfg = cloudinary.config();
+  res.json({
+    ok: true,
+    cloud_name: cfg.cloud_name,
+    api_key: cfg.api_key ? cfg.api_key.slice(0,6) + '...' : null,
+    api_secret: cfg.api_secret ? cfg.api_secret.slice(0,4) + '...' : null,
+    has_url: !!process.env.CLOUDINARY_URL,
+    has_separate: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET),
+  });
+});
+
 app.get('/api/auth/me', auth, async (req, res) => {
   const u = await q1('SELECT id,name,email,phone,role,address,city,department FROM users WHERE id=$1', [req.user.id]);
   if (!u) return res.json({ error:'No encontrado' });
@@ -2188,13 +2202,11 @@ function uploadMiddleware(field) {
       if (req.file && req.file.buffer && cloudinary) {
         try {
           const b64 = req.file.buffer.toString('base64');
-          const dataUri = 'data:' + req.file.mimetype + ';base64,' + b64;
-          const result = await cloudinary.uploader.upload(dataUri, {
-            folder: 'blow',
-          });
-          req.file.path = result.secure_url;
-          req.file.secure_url = result.secure_url;
-          req.file.cloudinary_id = result.public_id;
+          // Use the same uploadPhoto() function that works for products
+          const up = await uploadPhoto(b64, req.file.mimetype || 'image/jpeg');
+          req.file.path = up.url;
+          req.file.secure_url = up.url;
+          req.file.cloudinary_id = up.cloudinary_id;
         } catch(upErr) {
           return res.status(500).json({ error: 'Error subiendo imagen: ' + upErr.message });
         }
