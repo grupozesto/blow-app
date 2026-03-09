@@ -1477,6 +1477,38 @@ app.post('/api/businesses/mine/upload-logo', auth, role('owner'), uploadMiddlewa
   res.json({ url });
 });
 
+// ── Broadcast novedad a todos los clientes del negocio ──
+app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res) => {
+  const { message } = req.body;
+  if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
+  const biz = await q1('SELECT id, name, logo_emoji FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+
+  // Obtener clientes únicos que hayan pedido en este negocio
+  const customers = await qa(
+    `SELECT DISTINCT o.customer_id FROM orders o
+     WHERE o.business_id=$1 AND o.status NOT IN ('cancelled')
+     AND o.customer_id IS NOT NULL`,
+    [biz.id]
+  );
+
+  let sent = 0;
+  for (const c of customers) {
+    try {
+      await sendPushToUser(c.customer_id, {
+        title: `${biz.logo_emoji || '🏪'} ${biz.name}`,
+        body: message.trim(),
+        tag: `novedad-${biz.id}`,
+        url: `/?biz=${biz.id}`
+      });
+      sent++;
+    } catch(e) { /* continuar aunque falle uno */ }
+  }
+
+  console.log(`📣 Broadcast "${biz.name}": ${sent}/${customers.length} enviados`);
+  res.json({ success: true, sent, total: customers.length });
+});
+
 app.post('/api/businesses/mine/products/:id/upload-photo', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
   const url = req.file.path || req.file.secure_url;
