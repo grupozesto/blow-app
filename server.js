@@ -411,6 +411,21 @@ async function initDB() {
       active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS main_banners (
+      id TEXT PRIMARY KEY,
+      slot INTEGER NOT NULL DEFAULT 0,
+      tag TEXT DEFAULT '🔥 Oferta especial',
+      title TEXT NOT NULL DEFAULT 'Banner',
+      subtitle TEXT DEFAULT '',
+      subtitle_highlight TEXT DEFAULT '',
+      emoji TEXT DEFAULT '🍔',
+      bg_color TEXT DEFAULT '#2558d4',
+      cta_text TEXT DEFAULT '¡Ver ofertas!',
+      link TEXT DEFAULT '',
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     -- Loyalty points
     CREATE TABLE IF NOT EXISTS loyalty_points (
       id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -493,7 +508,24 @@ async function initDB() {
     );
     CREATE INDEX IF NOT EXISTS idx_rider_locations_rider ON rider_locations(rider_id);
   `);
-  // Seed default categories if none exist
+  
+  // Seed default main banners if none exist
+  const bannerCount = await q1('SELECT COUNT(*) as c FROM main_banners',[]);
+  if (parseInt(bannerCount.c) === 0) {
+    const defaultBanners = [
+      { id:'mb_0', slot:0, tag:'🔥 Oferta especial', title:'Hasta 40% OFF\n+ Envíos gratis', subtitle:'Con débito Santander', subtitle_highlight:'+10% OFF adicional', emoji:'🍕', bg_color:'#2558d4', cta_text:'¡Ver ofertas!' },
+      { id:'mb_1', slot:1, tag:'⚡ Rápido', title:'Pedí en\nminutos', subtitle:'Locales abiertos ahora', subtitle_highlight:'cerca de vos', emoji:'🍔', bg_color:'#1a3a6e', cta_text:'Ver locales' },
+      { id:'mb_2', slot:2, tag:'💊 Salud', title:'Farmacias\n24 horas', subtitle:'Envío express', subtitle_highlight:'en 20 minutos', emoji:'💊', bg_color:'#0f2249', cta_text:'Ver farmacias' },
+    ];
+    for (const b of defaultBanners) {
+      await db.query(
+        "INSERT INTO main_banners(id,slot,tag,title,subtitle,subtitle_highlight,emoji,bg_color,cta_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(id) DO NOTHING",
+        [b.id, b.slot, b.tag, b.title, b.subtitle, b.subtitle_highlight, b.emoji, b.bg_color, b.cta_text]
+      );
+    }
+  }
+
+// Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
   if (parseInt(catCount.c) === 0) {
     const defaultCats = [
@@ -3330,6 +3362,45 @@ app.get('/api/banners', async (req,res)=>{
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
+
+// ── Main Banner Endpoints ──────────────────────────────────────
+app.get('/api/main-banners', async (req,res)=>{
+  try {
+    const rows = await db.query("SELECT * FROM main_banners WHERE active=TRUE ORDER BY slot ASC");
+    res.json(rows.rows);
+  } catch(e){ res.json([]); }
+});
+
+// GET all (admin)
+app.get('/api/admin/main-banners', auth, async (req,res)=>{
+  try {
+    if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+    const rows = await db.query("SELECT * FROM main_banners ORDER BY slot ASC");
+    res.json(rows.rows);
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+// PATCH (admin) - update a banner
+app.patch('/api/admin/main-banners/:id', auth, async (req,res)=>{
+  try {
+    if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+    const {tag, title, subtitle, subtitle_highlight, emoji, bg_color, cta_text, active} = req.body;
+    await db.query(
+      "UPDATE main_banners SET tag=COALESCE($1,tag), title=COALESCE($2,title), subtitle=COALESCE($3,subtitle), subtitle_highlight=COALESCE($4,subtitle_highlight), emoji=COALESCE($5,emoji), bg_color=COALESCE($6,bg_color), cta_text=COALESCE($7,cta_text), active=COALESCE($8,active) WHERE id=$9",
+      [tag||null, title||null, subtitle||null, subtitle_highlight||null, emoji||null, bg_color||null, cta_text||null, active!=null?active:null, req.params.id]
+    );
+    res.json({ok:true});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/admin/banners', auth, async (req,res)=>{
+  try {
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  const rows = await db.query("SELECT * FROM promo_banners ORDER BY sort_order ASC, created_at DESC");
+  res.json(rows.rows);
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
 app.post('/api/admin/banners', auth, async (req,res)=>{
   try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
