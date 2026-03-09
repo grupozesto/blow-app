@@ -9172,7 +9172,12 @@ async function oaLoadHomeData() {
       badge.style.display = n > 0 ? 'block' : 'none';
     }
     // Wallet carousel
-    oaRenderWalletCarousel(d.wallet || { balance: 0 }, d);
+    // Load wallet summary separately for accurate payment breakdown
+    api('/api/owner/wallet-summary').then(ws => {
+      oaRenderWalletCarousel(ws);
+    }).catch(() => {
+      oaRenderWalletCarousel({ online_balance:0, online_today:0, in_person_today:0, cash_total:0, card_pos_total:0 });
+    });
     // New orders
     const pending = (d.orders||[]).filter(o => ['pending','confirmed'].includes(o.status));
     oaRenderNewOrders(pending);
@@ -9182,52 +9187,56 @@ async function oaLoadHomeData() {
 }
 
 // ── Wallet Carousel ───────────────────────────────────────────
-function oaRenderWalletCarousel(wallet, d) {
+function oaRenderWalletCarousel(ws) {
   const carousel = document.getElementById('wallet-carousel');
   const dots     = document.getElementById('wallet-dots');
   if (!carousel) return;
 
-  const bal   = wallet.balance || 0;
-  const today = d.today_revenue || 0;
-  const cash  = d.cash_revenue  || 0;
-  const total = bal + cash;
+  ws = ws || {};
+  const onlineToday    = parseFloat(ws.online_today)    || 0;
+  const inPersonToday  = parseFloat(ws.in_person_today) || 0;
+  const onlineBalance  = parseFloat(ws.online_balance)  || 0;
+  const total          = onlineToday + inPersonToday;
+
+  const fmt = n => n % 1 === 0 ? `$${n}` : `$${n.toFixed(0)}`;
 
   carousel.innerHTML = `
     <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💳 PAGOS ONLINE</div>
-      <div style="font-size:13px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">$${today}</span></div>
-      <div style="font-size:48px;font-weight:900;margin:16px 0 4px;line-height:1;">$${bal}</div>
-      <div style="font-size:13px;opacity:.7;">Disponible para retirar</div>
-      <button onclick="openWithdrawModal('owner')" style="margin-top:20px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:12px;width:100%;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
+      <div style="font-size:11px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💳 COBRADO ONLINE</div>
+      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">${fmt(onlineToday)}</span></div>
+      <div style="font-size:44px;font-weight:900;margin:16px 0 4px;line-height:1;">${fmt(onlineBalance)}</div>
+      <div style="font-size:12px;opacity:.7;">Saldo acumulado · MercadoPago</div>
+      <button onclick="oaGoOldSettings('otab-payments')" style="margin-top:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px;width:100%;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
     </div>
-    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#0a2e1a 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#052e16 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:16px;">💵 PAGOS EN PERSONA</div>
-      <div style="font-size:48px;font-weight:900;margin-bottom:4px;line-height:1;">$${cash}</div>
-      <div style="font-size:13px;opacity:.7;">Ya en tu bolsillo</div>
-      <div style="margin-top:20px;background:rgba(255,255,255,.1);border-radius:12px;padding:12px;font-size:13px;opacity:.8;text-align:center;">Sin cobros extra · 0% comisión</div>
+      <div style="font-size:11px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💵 COBRADO EN PERSONA</div>
+      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">${fmt(inPersonToday)}</span></div>
+      <div style="font-size:44px;font-weight:900;margin:16px 0 4px;line-height:1;">${fmt(inPersonToday)}</div>
+      <div style="font-size:12px;opacity:.7;">Efectivo · Ya en tu bolsillo</div>
+      <div style="margin-top:16px;background:rgba(255,255,255,.1);border-radius:12px;padding:11px;font-size:12px;opacity:.8;text-align:center;">0% comisión · Sin intermediarios</div>
     </div>
     <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#2e1065 0%,#4c1d95 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:16px;">📊 VENTA TOTAL</div>
-      <div style="font-size:48px;font-weight:900;margin-bottom:4px;line-height:1;">$${total}</div>
-      <div style="font-size:13px;opacity:.7;">Online + Presencial</div>
-      <button onclick="oaGoTab('stats')" style="margin-top:20px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:12px;width:100%;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Ver estadísticas →</button>
+      <div style="font-size:11px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">📊 VENTA TOTAL HOY</div>
+      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Online<br><span style="font-size:14px;font-weight:800;opacity:1;color:#fff;">${fmt(onlineToday)}</span></div>
+      <div style="font-size:44px;font-weight:900;margin:16px 0 4px;line-height:1;">${fmt(total)}</div>
+      <div style="font-size:12px;opacity:.7;">Online + Presencial</div>
+      <button onclick="oaGoTab('stats')" style="margin-top:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px;width:100%;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Ver estadísticas →</button>
     </div>`;
 
   // Dots
   const renderDots = () => {
-    const slideW = carousel.parentElement ? carousel.parentElement.offsetWidth : (carousel.offsetWidth || 300);
-    const idx    = Math.round(carousel.scrollLeft / Math.max(slideW, 1));
-    dots.innerHTML = [0,1,2].map(i =>
-      `<div style="width:${i===idx?18:6}px;height:6px;border-radius:3px;background:${i===idx?'#2558d4':'rgba(37,88,212,.25)'};transition:all .2s;cursor:pointer;" onclick="oaCarouselGoTo(${i})"></div>`
+    const slideW = (carousel.parentElement ? carousel.parentElement.offsetWidth : carousel.offsetWidth) || 300;
+    const cur    = Math.round(carousel.scrollLeft / Math.max(slideW, 1));
+    if (dots) dots.innerHTML = [0,1,2].map(i =>
+      `<div style="width:${i===cur?18:6}px;height:6px;border-radius:3px;background:${i===cur?'#2558d4':'rgba(37,88,212,.25)'};transition:all .2s;cursor:pointer;" onclick="oaCarouselGoTo(${i})"></div>`
     ).join('');
   };
   carousel.addEventListener('scroll', renderDots, { passive: true });
-  setTimeout(renderDots, 50);
+  setTimeout(renderDots, 60);
 }
-
 function oaCarouselGoTo(idx) {
   const carousel = document.getElementById('wallet-carousel');
   if (!carousel) return;
