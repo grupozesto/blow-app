@@ -36,7 +36,7 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ffffff;color:var(--text);min-height:100vh;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
-.app-header{background:linear-gradient(to bottom,#06112a 0%,#0f2660 40%,#1a3a8a 70%,#1e4fd4 100%);padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
+.app-header{background:linear-gradient(to bottom,#06112a 0%,#0f2660 40%,#1a3a8a 70%,#1e4fd4 100%);padding-top:calc(env(safe-area-inset-top,0px) + 14px);margin-bottom:0;}
 
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
@@ -85,7 +85,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .page.active{display:flex;}
 
 /* ── HEADER — Red PedidosYa style ── */
-.app-header{padding:14px 16px 14px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
+.app-header{padding:14px 16px 10px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
 .hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .hloc{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;}
 .hloc svg{width:14px;height:14px;fill:#fff;flex-shrink:0;}
@@ -93,7 +93,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .hicons{display:flex;align-items:center;gap:6px;}
 .hbtn{width:36px;height:36px;border-radius:50%;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;}
 .hbtn svg{width:22px;height:22px;color:#fff;stroke-width:1.8;}
-.search-bar{display:flex;align-items:center;gap:10px;background:#fff;border-radius:28px;padding:10px 6px 10px 18px;border:none;}
+.search-bar{display:flex;align-items:center;gap:10px;background:#fff;border-radius:28px;padding:10px 6px 10px 18px;border:none;margin-bottom:0;}
 .search-bar svg{width:16px;height:16px;color:#bbb;flex-shrink:0;}
 .search-bar input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
 .search-bar input::placeholder{color:#bbb;}
@@ -119,10 +119,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .sc{flex:1;overflow-y:auto;background:#fff;}
 
 /* ── BANNER — full width PedidosYa style ── */
-.banner-wrap{padding:0;margin-bottom:0;position:relative;overflow:hidden;width:100%;}
+.banner-wrap{padding:0;margin:0;position:relative;overflow:hidden;width:100%;}
 .banner-viewport{position:relative;width:100%;overflow:hidden;}
 .banner-track{display:flex;width:300%;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform;}
-.banner-slide{background:linear-gradient(to bottom,#1e4fd4 0%,#2558d4 50%,#2d63d8 100%);position:relative;width:33.3333%;flex-shrink:0;height:195px;overflow:hidden;padding:24px 20px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer;box-sizing:border-box;}
+.banner-slide{background:linear-gradient(170deg,#0f2660 0%,#1a3a8a 30%,#1e4fd4 70%,#2558d4 100%);position:relative;width:33.3333%;flex-shrink:0;height:195px;overflow:hidden;padding:24px 20px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer;box-sizing:border-box;}
 
 
 .btag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px;}
@@ -860,6 +860,9 @@ body.owner-mode .page{display:none!important;}
 
 .chip-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(37,88,212,.07);transition:background .2s;}
 .chip.active .chip-icon{background:rgba(255,255,255,.2);}
+
+#page-home > .sc{background:#fff;}
+.banner-wrap{background:linear-gradient(170deg,#0f2660 0%,#1a3a8a 30%,#1e4fd4 70%,#2558d4 100%);margin-top:-1px;}
 </style>
 </head>
 <body>
