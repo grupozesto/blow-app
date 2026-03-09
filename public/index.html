@@ -9012,12 +9012,104 @@ function oaRenderPromosSub() {
   const el = document.getElementById('oa-sub-promos-body');
   if (!el) return;
   el.innerHTML = `
-    <div style="text-align:center;padding:32px 20px 20px;">
-      <div style="font-size:48px;margin-bottom:12px;">🏷️</div>
-      <div style="font-size:16px;font-weight:800;margin-bottom:6px;">Promociones y cupones</div>
-      <div style="font-size:13px;color:#94a3b8;margin-bottom:20px;">Creá descuentos automáticos, cupones y promos por tiempo limitado</div>
-      <button onclick="exitOwnerMode();setTimeout(()=>{nav('page-owner-dash');const t=document.querySelector('[onclick*=otab-stats]');if(t)t.click();},150)" style="width:100%;background:#2558d4;border:none;border-radius:14px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Ver promociones →</button>
+    <div style="padding-bottom:24px;">
+      <!-- Crear cupón -->
+      <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 2px 12px rgba(37,88,212,.07);">
+        <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:16px;">🏷️ Crear cupón de descuento</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">CÓDIGO</div>
+            <input id="ocp-code" type="text" placeholder="VERANO20" maxlength="20"
+              oninput="this.value=this.value.toUpperCase()"
+              style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:15px;font-weight:800;font-family:monospace;outline:none;letter-spacing:1px;">
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">TIPO</div>
+            <select id="ocp-type" style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600;outline:none;appearance:none;">
+              <option value="percent">% Porcentaje</option>
+              <option value="fixed">$ Fijo</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">VALOR</div>
+            <input id="ocp-value" type="number" min="1" placeholder="20"
+              style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:15px;font-weight:700;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">MÍNIMO ($)</div>
+            <input id="ocp-min" type="number" min="0" placeholder="0 = sin mínimo"
+              style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">DESCRIPCIÓN (opcional)</div>
+          <input id="ocp-desc" type="text" placeholder="Ej: Descuento de verano"
+            style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
+        </div>
+        <div id="ocp-error" style="display:none;color:#ef4444;font-size:13px;margin-bottom:10px;"></div>
+        <button onclick="ocpCreate()" style="width:100%;background:#2558d4;border:none;border-radius:14px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">
+          ✅ Crear cupón
+        </button>
+      </div>
+
+      <!-- Lista de cupones -->
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Cupones activos</div>
+      <div id="ocp-list"><div style="text-align:center;padding:32px;color:#94a3b8;"><div class="spinner"></div></div></div>
     </div>`;
+  ocpLoadList();
+}
+
+async function ocpLoadList() {
+  const el = document.getElementById('ocp-list');
+  if (!el) return;
+  try {
+    const coupons = await api('/api/owner/coupons');
+    if (!coupons.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px 20px;color:#94a3b8;"><div style="font-size:36px;margin-bottom:10px;">🏷️</div><div style="font-size:14px;">Aún no tenés cupones</div></div>';
+      return;
+    }
+    el.innerHTML = coupons.map(c => `
+      <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(37,88,212,.06);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-family:monospace;font-size:16px;font-weight:900;letter-spacing:.8px;color:#2558d4;">${c.code}</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;background:${c.is_active?'#dcfce7':'#f1f5f9'};color:${c.is_active?'#16a34a':'#64748b'};padding:3px 10px;border-radius:20px;font-weight:700;">${c.is_active?'Activo':'Inactivo'}</span>
+            <button onclick="ocpDelete('${c.id}')" style="background:rgba(239,68,68,.1);border:none;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:14px;">🗑️</button>
+          </div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#0f172a;">${c.discount_type==='percent'?`${c.discount_value}% de descuento`:`$${c.discount_value} de descuento`}${c.min_order>0?` · mínimo $${c.min_order}`:''}</div>
+        ${c.description?`<div style="font-size:12px;color:#64748b;margin-top:3px;">${c.description}</div>`:''}
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">Usos: ${c.usage_count||0}${c.max_uses?` / ${c.max_uses}`:' · sin límite'}</div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:16px;">${e.message}</div>`;
+  }
+}
+
+async function ocpCreate() {
+  const code  = (document.getElementById('ocp-code')?.value||'').trim().toUpperCase();
+  const type  = document.getElementById('ocp-type')?.value || 'percent';
+  const value = parseFloat(document.getElementById('ocp-value')?.value||0);
+  const min   = parseFloat(document.getElementById('ocp-min')?.value||0);
+  const desc  = (document.getElementById('ocp-desc')?.value||'').trim();
+  const errEl = document.getElementById('ocp-error');
+  if (errEl) errEl.style.display = 'none';
+  if (!code)  { if(errEl){errEl.textContent='Ingresá un código';errEl.style.display='block';} return; }
+  if (!value) { if(errEl){errEl.textContent='El valor debe ser mayor a 0';errEl.style.display='block';} return; }
+  try {
+    await api('/api/owner/coupons', { method:'POST', body:JSON.stringify({ code, description:desc, discount_type:type, discount_value:value, min_order:min }) });
+    ['ocp-code','ocp-value','ocp-min','ocp-desc'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    showToast('✅ Cupón creado');
+    ocpLoadList();
+  } catch(e) { if(errEl){errEl.textContent=e.message;errEl.style.display='block';} }
+}
+
+async function ocpDelete(id) {
+  if (!confirm('¿Eliminar este cupón?')) return;
+  try { await api('/api/owner/coupons/'+id, { method:'DELETE' }); showToast('🗑️ Eliminado'); ocpLoadList(); }
+  catch(e) { showToast('❌ '+e.message); }
 }
 function oaCloseSub(id) {
   document.getElementById(`oa-sub-${id}`)?.classList.remove('active');
@@ -9097,7 +9189,7 @@ function oaRenderWalletCarousel(wallet, d) {
   const total = bal + cash;
 
   carousel.innerHTML = `
-    <div style="flex:0 0 calc(100% - 8px);scroll-snap-align:start;background:linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 100%;scroll-snap-align:start;background:linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
       <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💳 PAGOS ONLINE</div>
       <div style="font-size:13px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">$${today}</span></div>
@@ -9105,14 +9197,14 @@ function oaRenderWalletCarousel(wallet, d) {
       <div style="font-size:13px;opacity:.7;">Disponible para retirar</div>
       <button onclick="openWithdrawModal('owner')" style="margin-top:20px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:12px;width:100%;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
     </div>
-    <div style="flex:0 0 calc(100% - 8px);scroll-snap-align:start;background:linear-gradient(135deg,#0a2e1a 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 100%;scroll-snap-align:start;background:linear-gradient(135deg,#0a2e1a 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
       <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:16px;">💵 PAGOS EN PERSONA</div>
       <div style="font-size:48px;font-weight:900;margin-bottom:4px;line-height:1;">$${cash}</div>
       <div style="font-size:13px;opacity:.7;">Ya en tu bolsillo</div>
       <div style="margin-top:20px;background:rgba(255,255,255,.1);border-radius:12px;padding:12px;font-size:13px;opacity:.8;text-align:center;">Sin cobros extra · 0% comisión</div>
     </div>
-    <div style="flex:0 0 calc(100% - 8px);scroll-snap-align:start;background:linear-gradient(135deg,#2e1065 0%,#4c1d95 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 100%;scroll-snap-align:start;background:linear-gradient(135deg,#2e1065 0%,#4c1d95 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
       <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:16px;">📊 VENTA TOTAL</div>
       <div style="font-size:48px;font-weight:900;margin-bottom:4px;line-height:1;">$${total}</div>
@@ -9122,7 +9214,7 @@ function oaRenderWalletCarousel(wallet, d) {
 
   // Dots
   const renderDots = () => {
-    const slideW = carousel.querySelector('div') ? carousel.querySelector('div').offsetWidth + 12 : carousel.offsetWidth;
+    const slideW = carousel.offsetWidth || 300;
     const idx    = Math.round(carousel.scrollLeft / slideW);
     dots.innerHTML = [0,1,2].map(i =>
       `<div style="width:${i===idx?18:6}px;height:6px;border-radius:3px;background:${i===idx?'#2558d4':'rgba(37,88,212,.25)'};transition:all .2s;cursor:pointer;" onclick="oaCarouselGoTo(${i})"></div>`
@@ -9135,7 +9227,7 @@ function oaRenderWalletCarousel(wallet, d) {
 function oaCarouselGoTo(idx) {
   const carousel = document.getElementById('wallet-carousel');
   if (!carousel) return;
-  const slideW = carousel.querySelector('div') ? carousel.querySelector('div').offsetWidth + 12 : carousel.offsetWidth;
+  const slideW = carousel.offsetWidth || 300;
   carousel.scrollTo({ left: idx * slideW, behavior: 'smooth' });
 }
 
@@ -9726,69 +9818,247 @@ async function oaRenderPaymentsSub() {
 }
 
 // ── Settings sub-panel ────────────────────────────────────────
-function oaRenderSettingsSub() {
+async function oaRenderSettingsSub() {
   const el = document.getElementById('oa-sub-settings-body');
-  if (!el || !_oaBiz) return;
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>';
+
+  let biz = _oaBiz || {};
+  // Try fresh load
+  try {
+    const d = await api('/api/businesses/mine/dashboard');
+    biz = d.business || biz;
+    _oaBiz = biz;
+  } catch(e) {}
+
   const vol = localStorage.getItem('blow_alarm_vol') || 'normal';
-  const opts = [
-    { id:'off',    icon:'🔇', label:'Silencio', sub:'Sin sonido ni vibración' },
-    { id:'normal', icon:'🔔', label:'Normal',   sub:'Beeps + vibración' },
-    { id:'loud',   icon:'📢', label:'Fuerte',   sub:'Más intenso y repetido' },
-  ];
-  const optsHTML = opts.map(o => `
-    <button onclick="oaSetAlarmVol('${o.id}')" style="
-      width:100%;border:2px solid ${vol===o.id?'#2558d4':'#e2e8f0'};
-      background:${vol===o.id?'#eff4ff':'#fff'};
-      border-radius:14px;padding:14px 16px;cursor:pointer;
-      display:flex;align-items:center;gap:14px;margin-bottom:10px;
-      font-family:'Inter',sans-serif;text-align:left;">
-      <span style="font-size:26px;">${o.icon}</span>
-      <div>
-        <div style="font-size:14px;font-weight:700;color:#0f172a;">${o.label}</div>
-        <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${o.sub}</div>
+  const methods = biz.payment_methods || {};
+
+  el.innerHTML = `<div style="padding-bottom:32px;">
+
+    <!-- Info del negocio -->
+    <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 8px rgba(37,88,212,.07);">
+      <div style="font-size:13px;font-weight:800;color:#2558d4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;">🏪 Info del negocio</div>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">NOMBRE</div>
+        <input id="oset-name" type="text" value="${escHtml(biz.name||'')}"
+          style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600;outline:none;">
       </div>
-      ${vol===o.id?'<svg style="margin-left:auto;flex-shrink:0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2558d4" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>':''}
-    </button>`).join('');
-
-  const sections = [
-    { icon:'🕐', label:'Horarios de atención',  sub:'Abrí y cerrá automático',  tab:'otab-settings', scroll:'schedule-editor' },
-    { icon:'📸', label:'Fotos del negocio',      sub:'Logo, portada y galería',   tab:'otab-settings', scroll:'settings-photo-nudge' },
-    { icon:'🛵', label:'Delivery y retiro',       sub:'Zonas, costo, tiempo',      tab:'otab-settings', scroll:null },
-    { icon:'🏪', label:'Info del negocio',         sub:'Nombre, dirección, horario',tab:'otab-settings', scroll:null },
-    { icon:'💳', label:'Suscripción',              sub:'Plan actual y renovación',  tab:'otab-settings', scroll:null },
-  ];
-
-  const sectHTML = sections.map(s => `
-    <button onclick="oaGoOldSettings('${s.tab}')" style="width:100%;background:#fff;border:none;border-radius:14px;padding:14px 16px;margin-bottom:8px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(37,88,212,.06);font-family:'Inter',sans-serif;">
-      <div style="width:40px;height:40px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${s.icon}</div>
-      <div style="flex:1;">
-        <div style="font-size:14px;font-weight:700;color:#0f172a;">${s.label}</div>
-        <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${s.sub}</div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">DESCRIPCIÓN / SLOGAN</div>
+        <input id="oset-desc" type="text" value="${escHtml(biz.description||biz.slogan||'')}" placeholder="Ej: Las mejores hamburguesas de Montevideo"
+          style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><polyline points="9,18 15,12 9,6"/></svg>
-    </button>`).join('');
-
-  el.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;">
-      <div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">📍 Info del negocio</div>
-      <div style="font-size:15px;color:#0f172a;margin-bottom:2px;font-weight:700;">${_oaBiz.logo_emoji || '🏪'} ${_oaBiz.name}</div>
-      <div style="font-size:13px;color:#94a3b8;">${_oaBiz.city || 'Sin ciudad'} · ${_oaBiz.category || 'Sin categoría'}</div>
-    </div>
-    <div style="font-size:12px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;padding:0 4px;margin-bottom:10px;">Configuración</div>
-    ${sectHTML}
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-top:6px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <span style="font-size:20px;">🔔</span>
-        <div>
-          <div style="font-size:14px;font-weight:800;color:#0f172a;">Alarma de pedidos</div>
-          <div style="font-size:12px;color:#94a3b8;">Sonido al recibir un pedido nuevo</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">EMOJI LOGO</div>
+          <input id="oset-emoji" type="text" value="${biz.logo_emoji||'🏪'}" maxlength="2"
+            style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:22px;text-align:center;outline:none;">
+        </div>
+        <div style="flex:2;">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">TELÉFONO</div>
+          <input id="oset-phone" type="tel" value="${escHtml(biz.phone||'')}" placeholder="09X XXX XXX"
+            style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
         </div>
       </div>
-      ${optsHTML}
-      <button onclick="oaTestAlarm()" style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;color:#2558d4;font-family:'Inter',sans-serif;">▶ Probar sonido</button>
-    </div>`;
+      <button onclick="osetSaveInfo()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Guardar info</button>
+    </div>
+
+    <!-- Dirección y delivery -->
+    <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 8px rgba(37,88,212,.07);">
+      <div style="font-size:13px;font-weight:800;color:#2558d4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;">📍 Ubicación y delivery</div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">DIRECCIÓN</div>
+        <input id="oset-addr" type="text" value="${escHtml(biz.address||'')}" placeholder="Av. 18 de Julio 1500"
+          style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">RADIO DELIVERY (km)</div>
+          <input id="oset-radius" type="number" min="0" step="0.5" value="${biz.delivery_radius||''}" placeholder="sin límite"
+            style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;">COSTO ENVÍO ($)</div>
+          <input id="oset-delivcost" type="number" min="0" value="${biz.delivery_cost||0}"
+            style="width:100%;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;outline:none;">
+        </div>
+      </div>
+      <button onclick="osetSaveDelivery()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Guardar dirección y delivery</button>
+    </div>
+
+    <!-- Métodos de pago -->
+    <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 8px rgba(37,88,212,.07);">
+      <div style="font-size:13px;font-weight:800;color:#2558d4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;">💳 Métodos de cobro</div>
+      ${[
+        { id:'mp', icon:'💳', label:'MercadoPago', sub:'Pago online antes de confirmar' },
+        { id:'cash', icon:'💵', label:'Efectivo', sub:'El cliente paga al recibir' },
+        { id:'transfer', icon:'🏦', label:'Transferencia', sub:'El cliente transfiere por anticipado' }
+      ].map(m => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f0f4fb;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">${m.icon}</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;">${m.label}</div>
+              <div style="font-size:12px;color:#64748b;">${m.sub}</div>
+            </div>
+          </div>
+          <div onclick="osetTogglePayment('${m.id}',this)" data-active="${methods[m.id]?'1':'0'}"
+            style="width:44px;height:26px;border-radius:13px;background:${methods[m.id]?'#2558d4':'#e5e7eb'};position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;">
+            <div style="position:absolute;top:3px;left:${methods[m.id]?'21':'3'}px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;"></div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Horarios -->
+    <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 8px rgba(37,88,212,.07);">
+      <div style="font-size:13px;font-weight:800;color:#2558d4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;">🕐 Horarios de atención</div>
+      <div id="oset-schedule-wrap"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;">Cargando horarios...</div></div>
+      <button onclick="osetSaveSchedule()" style="width:100%;margin-top:14px;background:#2558d4;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Guardar horarios</button>
+    </div>
+
+    <!-- Alarma de pedidos -->
+    <div style="background:#fff;border-radius:20px;padding:20px;margin-bottom:14px;box-shadow:0 1px 8px rgba(37,88,212,.07);">
+      <div style="font-size:13px;font-weight:800;color:#2558d4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;">🔔 Alarma de pedidos</div>
+      ${[
+        { id:'off', icon:'🔇', label:'Silencio', sub:'Sin sonido ni vibración' },
+        { id:'normal', icon:'🔔', label:'Normal', sub:'Beeps + vibración' },
+        { id:'loud', icon:'📢', label:'Fuerte', sub:'Más intenso y repetido' }
+      ].map(o => `
+        <button onclick="oaSetAlarmVol('${o.id}')" id="oalarm-${o.id}"
+          style="display:flex;align-items:center;gap:12px;width:100%;background:${vol===o.id?'#eff6ff':'#f8fafc'};border:2px solid ${vol===o.id?'#2558d4':'#e2e8f0'};border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:'Inter',sans-serif;">
+          <span style="font-size:22px;">${o.icon}</span>
+          <div style="text-align:left;">
+            <div style="font-size:14px;font-weight:700;color:#0f172a;">${o.label}</div>
+            <div style="font-size:12px;color:#64748b;">${o.sub}</div>
+          </div>
+          ${vol===o.id?'<span style="margin-left:auto;color:#2558d4;font-size:18px;">✓</span>':''}
+        </button>`).join('')}
+      <button onclick="oaTestAlarm()" style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px;color:#334155;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px;">🔊 Probar alarma</button>
+    </div>
+
+    <!-- Zona peligrosa -->
+    <div style="background:#fff8f8;border-radius:20px;padding:20px;border:1.5px solid #fecaca;box-shadow:0 1px 8px rgba(239,68,68,.05);">
+      <div style="font-size:13px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;">⚠️ Configuración avanzada</div>
+      <button onclick="oaGoOldSettings('otab-settings')" style="width:100%;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;color:#334155;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:8px;">
+        🖼️ Cambiar fotos / banner / portada
+      </button>
+      <button onclick="oaGoOldSettings('otab-settings')" style="width:100%;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;color:#334155;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+        ⚙️ Más configuraciones
+      </button>
+    </div>
+  </div>`;
+
+  // Load schedule
+  osetLoadSchedule();
 }
 
+async function osetLoadSchedule() {
+  const wrap = document.getElementById('oset-schedule-wrap');
+  if (!wrap) return;
+  try {
+    const data = await api('/api/businesses/mine/schedule');
+    const sched = data.schedule || {};
+    const enabled = !!data.schedule_enabled;
+    const days = [
+      {k:'mon',l:'Lunes'},{k:'tue',l:'Martes'},{k:'wed',l:'Miércoles'},
+      {k:'thu',l:'Jueves'},{k:'fri',l:'Viernes'},{k:'sat',l:'Sábado'},{k:'sun',l:'Domingo'}
+    ];
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:#334155;">Horario automático</div>
+        <div onclick="this.dataset.on=this.dataset.on==='1'?'0':'1';this.style.background=this.dataset.on==='1'?'#2558d4':'#e5e7eb';this.querySelector('div').style.left=this.dataset.on==='1'?'21px':'3px';"
+          data-on="${enabled?'1':'0'}" id="oset-sched-enabled"
+          style="width:44px;height:26px;border-radius:13px;background:${enabled?'#2558d4':'#e5e7eb'};position:relative;cursor:pointer;transition:background .2s;">
+          <div style="position:absolute;top:3px;left:${enabled?'21':'3'}px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;"></div>
+        </div>
+      </div>
+      ${days.map(d => {
+        const s = sched[d.k] || {};
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div style="width:70px;font-size:13px;font-weight:600;color:#334155;flex-shrink:0;">${d.l}</div>
+          <input type="time" class="oset-sched-open" data-day="${d.k}" value="${s.open||'09:00'}"
+            style="flex:1;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:6px 8px;font-size:13px;outline:none;">
+          <span style="color:#94a3b8;font-size:12px;">–</span>
+          <input type="time" class="oset-sched-close" data-day="${d.k}" value="${s.close||'22:00'}"
+            style="flex:1;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:6px 8px;font-size:13px;outline:none;">
+          <div onclick="this.dataset.on=this.dataset.on==='1'?'0':'1';this.style.background=this.dataset.on==='1'?'#22c55e':'#e5e7eb';this.querySelector('div').style.left=this.dataset.on==='1'?'17px':'2px';"
+            data-on="${s.open?'1':'0'}" data-day="${d.k}" class="oset-sched-tog"
+            style="width:36px;height:22px;border-radius:11px;background:${s.open?'#22c55e':'#e5e7eb'};position:relative;cursor:pointer;flex-shrink:0;">
+            <div style="position:absolute;top:2px;left:${s.open?'17':'2'}px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;"></div>
+          </div>
+        </div>`;
+      }).join('')}`;
+  } catch(e) {
+    if(wrap) wrap.innerHTML = '<div style="color:#ef4444;font-size:13px;">No se pudo cargar el horario</div>';
+  }
+}
+
+async function osetSaveSchedule() {
+  const schedule = {};
+  const enabledEl = document.getElementById('oset-sched-enabled');
+  const schedule_enabled = enabledEl ? enabledEl.dataset.on === '1' : true;
+  document.querySelectorAll('.oset-sched-tog').forEach(tog => {
+    const day = tog.dataset.day;
+    const on = tog.dataset.on === '1';
+    if (on) {
+      const openEl  = document.querySelector(`.oset-sched-open[data-day="${day}"]`);
+      const closeEl = document.querySelector(`.oset-sched-close[data-day="${day}"]`);
+      schedule[day] = { open: openEl?.value||'09:00', close: closeEl?.value||'22:00' };
+    }
+  });
+  try {
+    await api('/api/businesses/mine/schedule', { method:'POST', body:JSON.stringify({ schedule, schedule_enabled }) });
+    showToast('✅ Horarios guardados');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function osetSaveInfo() {
+  const name  = document.getElementById('oset-name')?.value.trim();
+  const desc  = document.getElementById('oset-desc')?.value.trim();
+  const emoji = document.getElementById('oset-emoji')?.value.trim();
+  const phone = document.getElementById('oset-phone')?.value.trim();
+  if (!name) { showToast('❌ El nombre es obligatorio'); return; }
+  try {
+    await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ name, description:desc, logo_emoji:emoji, phone }) });
+    if (_oaBiz) { _oaBiz.name=name; _oaBiz.description=desc; _oaBiz.logo_emoji=emoji; _oaBiz.phone=phone; }
+    oaUpdateTopbar();
+    showToast('✅ Info guardada');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function osetSaveDelivery() {
+  const address       = document.getElementById('oset-addr')?.value.trim();
+  const delivery_radius = parseFloat(document.getElementById('oset-radius')?.value)||null;
+  const delivery_cost = parseFloat(document.getElementById('oset-delivcost')?.value)||0;
+  try {
+    await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ address, delivery_radius, delivery_cost }) });
+    if (_oaBiz) { _oaBiz.address=address; _oaBiz.delivery_radius=delivery_radius; _oaBiz.delivery_cost=delivery_cost; }
+    showToast('✅ Delivery guardado');
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
+async function osetTogglePayment(method, toggleEl) {
+  const isOn = toggleEl.dataset.active === '1';
+  const newVal = !isOn;
+  toggleEl.dataset.active = newVal ? '1' : '0';
+  toggleEl.style.background = newVal ? '#2558d4' : '#e5e7eb';
+  toggleEl.querySelector('div').style.left = newVal ? '21px' : '3px';
+  try {
+    const methods = (_oaBiz?.payment_methods) || {};
+    methods[method] = newVal;
+    await api('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ payment_methods: methods }) });
+    if (_oaBiz) _oaBiz.payment_methods = methods;
+    showToast(newVal ? '✅ Método activado' : '🔕 Método desactivado');
+  } catch(e) {
+    // revert
+    toggleEl.dataset.active = isOn ? '1' : '0';
+    toggleEl.style.background = isOn ? '#2558d4' : '#e5e7eb';
+    toggleEl.querySelector('div').style.left = isOn ? '21px' : '3px';
+    showToast('❌ '+e.message);
+  }
+}
 function oaGoOldSettings(tabId) {
   exitOwnerMode();
   setTimeout(() => {
@@ -10048,7 +10318,7 @@ function handleOwnerAccess(data) {
 
       <!-- Wallet carousel (3 slides) -->
       <div id="wallet-carousel-wrap" style="margin-bottom:18px;">
-        <div id="wallet-carousel" style="display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;gap:12px;padding:2px 2px 4px;">
+        <div id="wallet-carousel" style="display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding:2px 0 4px;">
           <!-- Slides injected by JS -->
         </div>
         <div id="wallet-dots" style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;"></div>
