@@ -844,13 +844,20 @@ body.owner-mode .page{display:none!important;}
 /* ── Wallet carousel ── */
 #wallet-carousel-wrap{position:relative;width:100%;height:200px;overflow:hidden;border-radius:20px;margin-bottom:18px;}
 #wallet-carousel::-webkit-scrollbar{display:none;}
-#wallet-track{position:absolute;top:0;left:0;height:100%;display:flex;will-change:transform;transition:transform .35s cubic-bezier(.4,0,.2,1);}
-.wallet-slide{height:100%;flex-shrink:0;border-radius:20px;padding:22px;color:#fff;position:relative;overflow:hidden;box-sizing:border-box;}
+
+
 #wallet-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;}
 .wdot{height:6px;border-radius:3px;background:rgba(37,88,212,.25);transition:all .25s;cursor:pointer;}
 
 .obn-exit{opacity:.7;}
 .obn-exit:hover,.obn-exit:active{opacity:1;}
+
+/* ── Wallet carousel ── */
+#wallet-carousel-wrap{width:100%;border-radius:20px;overflow:hidden;}
+#wallet-track{display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;border-radius:20px;}
+#wallet-track::-webkit-scrollbar{display:none;}
+.wallet-slide{flex:0 0 100%;min-width:100%;scroll-snap-align:start;padding:22px;color:#fff;position:relative;overflow:hidden;min-height:178px;box-sizing:border-box;border-radius:20px;}
+.wdot{height:6px;border-radius:3px;transition:all .25s;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -2712,6 +2719,7 @@ body.owner-mode .page{display:none!important;}
 // ═══════════════════════════════════════════════
 //  CONFIG & STATE
 // ═══════════════════════════════════════════════
+const haptic = window.navigator?.vibrate ? (t) => navigator.vibrate(t==='light'?10:t==='medium'?20:30) : null;
 const API = ''; // mismo servidor — vacío = relativo
 let token    = localStorage.getItem('da_token') || null;
 let user     = JSON.parse(localStorage.getItem('da_user') || 'null');
@@ -8952,7 +8960,13 @@ const _OA_VARIANT_TEMPLATES = [
 function enterOwnerMode(animate) {
   _oaActive = true;
   document.body.classList.add('owner-mode');
-  oaGoTab('home', false);
+  // Activate home panel
+  document.querySelectorAll('.owner-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.obn').forEach(b => b.classList.remove('active'));
+  const hp = document.getElementById('oa-panel-home');
+  const hb = document.getElementById('obn-home');
+  if (hp) hp.classList.add('active');
+  if (hb) hb.classList.add('active');
   oaLoadHomeData();
 
   if (!animate) return;
@@ -9128,9 +9142,13 @@ async function oaCloseSub(id) {
 
 // ── Toggle store open/closed ──────────────────────────────────
 async function oaToggleStore() {
-  if (!_oaBiz) return;
   haptic && haptic('medium');
   try {
+    // If _oaBiz not loaded yet, load it first
+    if (!_oaBiz) {
+      const dash = await api('/api/businesses/mine/dashboard');
+      _oaBiz = dash.business;
+    }
     const d = await api('/api/businesses/mine/toggle', { method:'POST' });
     _oaBiz.is_open = d.is_open;
     oaUpdateTopbar();
@@ -9140,10 +9158,11 @@ async function oaToggleStore() {
 
 async function oaUpdateTopbar() {
   if (!_oaBiz) return;
-  document.getElementById('oa-biz-logo').textContent   = _oaBiz.logo_emoji || '🏪';
-  document.getElementById('oa-biz-name').textContent   = _oaBiz.name || 'Mi negocio';
-  document.getElementById('oa-biz-city').textContent   = _oaBiz.city || '';
+  const logo = document.getElementById('oa-biz-logo'); if(logo) logo.textContent = _oaBiz.logo_emoji || '🏪';
+  const name = document.getElementById('oa-biz-name'); if(name) name.textContent = _oaBiz.name || 'Mi negocio';
+  const city = document.getElementById('oa-biz-city'); if(city) city.textContent = _oaBiz.city || '';
   const btn = document.getElementById('oa-toggle-btn');
+  if (!btn) return;
   if (_oaBiz.is_open) {
     btn.style.background = 'rgba(34,197,94,.2)';
     btn.style.border     = '1px solid rgba(34,197,94,.4)';
@@ -9207,8 +9226,6 @@ function oaRenderWalletCarousel(ws) {
   const total         = onlineToday + inPersonToday;
   const fmt = n => '$' + Math.round(n).toLocaleString('es-UY');
 
-  window._walletSlideIdx = 0;
-
   const slides = [
     {
       bg: 'linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%)',
@@ -9236,16 +9253,9 @@ function oaRenderWalletCarousel(ws) {
     }
   ];
 
-  const setWidths = () => {
-    const w = wrap.offsetWidth || 340;
-    track.style.width = (w * 3) + 'px';
-    track.querySelectorAll('.wallet-slide').forEach(s => s.style.width = w + 'px');
-    track.style.transform = `translateX(-${window._walletSlideIdx * w}px)`;
-  };
-
   track.innerHTML = slides.map((s, i) => `
     <div class="wallet-slide" style="background:${s.bg};">
-      <div style="position:absolute;top:-20px;right:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+      <div style="position:absolute;top:-20px;right:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none;"></div>
       <div style="font-size:11px;font-weight:700;opacity:.65;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">${s.label}</div>
       <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:22px;right:22px;">${s.todayLabel}<br><span style="font-size:17px;font-weight:800;opacity:1;color:#fff;">${s.todayVal}</span></div>
       <div style="font-size:40px;font-weight:900;margin:14px 0 4px;line-height:1;">${s.amount}</div>
@@ -9253,37 +9263,26 @@ function oaRenderWalletCarousel(ws) {
       ${s.btn}
     </div>`).join('');
 
-  // Touch swipe support
-  let tx0 = 0;
-  track.addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive: true });
-  track.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - tx0;
-    if (Math.abs(dx) > 40) oaCarouselGoTo(window._walletSlideIdx + (dx < 0 ? 1 : -1));
-  }, { passive: true });
-
   const renderDots = () => {
     if (!dots) return;
+    const w = track.offsetWidth || wrap.offsetWidth || 300;
+    const cur = Math.round(track.scrollLeft / Math.max(w, 1));
     dots.innerHTML = [0,1,2].map(i =>
-      `<div class="wdot" style="width:${i===window._walletSlideIdx?18:6}px;background:${i===window._walletSlideIdx?'#2558d4':'rgba(37,88,212,.25)'};" onclick="oaCarouselGoTo(${i})"></div>`
+      `<div class="wdot" style="width:${i===cur?18:6}px;background:${i===cur?'#2558d4':'rgba(37,88,212,.3)'};" onclick="oaCarouselGoTo(${i})"></div>`
     ).join('');
   };
 
-  window._walletRenderDots = renderDots;
-  window._walletSetWidths  = setWidths;
-
-  // Set widths after DOM is painted
-  requestAnimationFrame(() => { setWidths(); renderDots(); });
-  setTimeout(() => { setWidths(); renderDots(); }, 120);
+  track.addEventListener('scroll', renderDots, { passive: true });
+  setTimeout(renderDots, 80);
 }
 
+
 function oaCarouselGoTo(i) {
-  const wrap = document.getElementById('wallet-carousel-wrap');
   const track = document.getElementById('wallet-track');
-  if (!wrap || !track) return;
-  window._walletSlideIdx = Math.max(0, Math.min(2, i));
-  const w = wrap.offsetWidth || 340;
-  track.style.transform = `translateX(-${window._walletSlideIdx * w}px)`;
-  if (window._walletRenderDots) window._walletRenderDots();
+  if (!track) return;
+  i = Math.max(0, Math.min(2, i));
+  const w = track.offsetWidth || 300;
+  track.scrollTo({ left: i * w, behavior: 'smooth' });
 }
 
 // ── New orders on home tab ────────────────────────────────────
@@ -10440,12 +10439,12 @@ function handleOwnerAccess(data) {
 
       <!-- Wallet carousel -->
       <div style="margin-bottom:18px;">
-        <div id="wallet-carousel-wrap" style="overflow:hidden;border-radius:20px;width:100%;">
-          <div id="wallet-carousel" style="display:flex;flex-wrap:nowrap;overflow-x:scroll;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;width:100%;padding:0;">
+        <div id="wallet-carousel-wrap">
+          <div id="wallet-track">
             <!-- slides injected by oaRenderWalletCarousel -->
           </div>
         </div>
-        <div id="wallet-dots" style="display:flex;gap:5px;justify-content:center;margin-top:8px;"></div>
+        <div id="wallet-dots"></div>
       </div>
 
       <!-- Pedidos nuevos -->
