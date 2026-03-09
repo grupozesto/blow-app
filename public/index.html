@@ -717,10 +717,10 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .owner-kpi-val{font-size:26px;font-weight:900;color:#fff;line-height:1;letter-spacing:-.5px;}
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.55);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.6px;}
 
-#owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;}
+#owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;overflow:hidden;}
 body.owner-mode #owner-app{display:flex;pointer-events:auto;}
 body.owner-mode .page{display:none!important;}
-#owner-content{flex:1;overflow:hidden;position:relative;}
+#owner-content{flex:1;overflow:hidden;position:static;}
 .owner-panel{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;box-sizing:border-box;}
 .owner-panel.active{display:block;}
 .oa-sub-panel{transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);position:absolute;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;background:#f0f4fb;}
@@ -9033,11 +9033,12 @@ function oaGoTab(tabId, withAnim) {
 // ── Sub-panel open/close ──────────────────────────────────────
 function oaOpenSub(id) {
   const panel = document.getElementById(`oa-sub-${id}`);
-  if (!panel) return;
+  if (!panel) { console.warn('oaOpenSub: panel not found for', id); return; }
   panel.classList.add('active');
   if (id === 'payments') oaRenderPaymentsSub();
   if (id === 'settings') oaRenderSettingsSub();
   if (id === 'promos')   oaRenderPromosSub();
+  if (id === 'photos')   oaOpenPhotosSub();
   haptic && haptic('light');
 }
 
@@ -10218,7 +10219,9 @@ async function osetTogglePayment(method, toggleEl) {
 }
 
 async function oaOpenPhotosSub() {
-  oaOpenSub('photos');
+  // Open panel if not already open
+  const panel = document.getElementById('oa-sub-photos');
+  if (panel && !panel.classList.contains('active')) panel.classList.add('active');
   const el = document.getElementById('oa-photos-content');
   if (!el) return;
   el.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">Cargando...</div>';
