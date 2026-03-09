@@ -5994,7 +5994,8 @@ function ownerUpdateCarouselDots(carouselId, dotsId) {
   const carousel = document.getElementById(carouselId);
   const dotsEl   = document.getElementById(dotsId);
   if (!carousel || !dotsEl) return;
-  const idx = Math.round(carousel.scrollLeft / carousel.offsetWidth);
+  const slideW = carousel.querySelector('div') ? carousel.querySelector('div').offsetWidth + 12 : carousel.offsetWidth;
+  const idx = Math.round(carousel.scrollLeft / slideW);
   const dots = dotsEl.querySelectorAll('div');
   dots.forEach((d, i) => {
     const active = i === idx;
@@ -6005,7 +6006,8 @@ function ownerUpdateCarouselDots(carouselId, dotsId) {
 function ownerCarouselGoTo(carouselId, dotsId, idx) {
   const carousel = document.getElementById(carouselId);
   if (!carousel) return;
-  carousel.scrollTo({ left: idx * carousel.offsetWidth, behavior: 'smooth' });
+  const slideW2 = carousel.querySelector('div') ? carousel.querySelector('div').offsetWidth + 12 : carousel.offsetWidth;
+  carousel.scrollTo({ left: idx * slideW2, behavior: 'smooth' });
 }
 
 function ownerAppUpdateTopbar() {
@@ -6149,9 +6151,9 @@ async function ownerAppRenderHome() {
 
     html += `
       <div style="position:relative;">
-        <div id="wallet-carousel" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;border-radius:20px;" onscroll="ownerUpdateCarouselDots('wallet-carousel','wallet-dots')">
+        <div id="wallet-carousel" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:12px;border-radius:20px;padding:0 4px;" onscroll="ownerUpdateCarouselDots('wallet-carousel','wallet-dots')">
           ${walletSlides.map((s,i) => `
-          <div style="flex:0 0 100%;scroll-snap-align:start;background:${s.gradient};border-radius:20px;padding:20px;position:relative;overflow:hidden;box-sizing:border-box;">
+          <div style="flex:0 0 calc(100% - 8px);scroll-snap-align:start;background:${s.gradient};border-radius:20px;padding:20px;position:relative;overflow:hidden;box-sizing:border-box;">
             <div style="position:absolute;top:-24px;right:-24px;width:96px;height:96px;background:rgba(255,255,255,.04);border-radius:50%;"></div>
             <div style="position:absolute;bottom:-16px;left:-16px;width:64px;height:64px;background:rgba(255,255,255,.03);border-radius:50%;"></div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
