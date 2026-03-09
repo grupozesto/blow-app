@@ -2175,33 +2175,31 @@ initDB().then(()=>{
 let multerUpload = null;
 try {
   const multer = require('multer');
-  if (cloudinary) {
-    let storage;
-    try {
-      const { CloudinaryStorage } = require('multer-storage-cloudinary');
-      storage = new CloudinaryStorage({
-        cloudinary,
-        params: (req, file) => ({
-          folder: 'blow',
-          allowed_formats: ['jpg','jpeg','png','webp'],
-          transformation: [{ width: 1200, height: 800, crop: 'limit', quality: 'auto' }],
-        }),
-      });
-    } catch(e2) {
-      console.log('multer-storage-cloudinary not available, using memory storage:', e2.message);
-      storage = multer.memoryStorage();
-    }
-    multerUpload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
-  } else {
-    multerUpload = require('multer')({ dest: '/tmp/uploads/', limits: { fileSize: 5 * 1024 * 1024 } });
-  }
+  // Always use memory storage — upload manually to Cloudinary to avoid signature issues
+  multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 } catch(e) { console.log('Multer not available:', e.message); }
 
 function uploadMiddleware(field) {
   return (req, res, next) => {
-    if (!multerUpload) return res.status(503).json({ error: 'Cloudinary no configurado' });
-    multerUpload.single(field)(req, res, (err) => {
+    if (!multerUpload) return res.status(503).json({ error: 'Upload no disponible' });
+    multerUpload.single(field)(req, res, async (err) => {
       if (err) return res.status(400).json({ error: err.message });
+      // If we have a file buffer and cloudinary, upload now
+      if (req.file && req.file.buffer && cloudinary) {
+        try {
+          const b64 = req.file.buffer.toString('base64');
+          const dataUri = 'data:' + req.file.mimetype + ';base64,' + b64;
+          const result = await cloudinary.uploader.upload(dataUri, {
+            folder: 'blow',
+            transformation: [{ width: 1200, height: 800, crop: 'limit', quality: 'auto' }],
+          });
+          req.file.path = result.secure_url;
+          req.file.secure_url = result.secure_url;
+          req.file.cloudinary_id = result.public_id;
+        } catch(upErr) {
+          return res.status(500).json({ error: 'Error subiendo imagen: ' + upErr.message });
+        }
+      }
       next();
     });
   };
