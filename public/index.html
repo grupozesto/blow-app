@@ -2666,50 +2666,51 @@ async function api(path, opts = {}) {
 //  WEBSOCKET (notificaciones en tiempo real)
 // ═══════════════════════════════════════════════
 let ws = null;
+let wsRetryDelay = 1000;
 function connectWS() {
-  if (!token || ws?.readyState === WebSocket.OPEN) return;
+  if (!token) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${proto}//${location.host}`);
-  ws.onopen = () => ws.send(JSON.stringify({ token }));
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ token }));
+    wsRetryDelay = 1000; // reset backoff on success
+  };
   ws.onmessage = e => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'new_order') {
         playOrderAlarm();
         showOrderBanner(msg);
-        if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
-        if (document.getElementById('page-delivery').classList.contains('active')) loadDeliveryOrders();
+        if (document.getElementById('page-owner-dash')?.classList.contains('active')) loadOwnerDash();
+        if (document.getElementById('page-delivery')?.classList.contains('active')) loadDeliveryOrders();
+        if (_oaActive) oaLoadHomeData();
       }
       if (msg.type === 'status_change') {
         showToast(msg.message);
-        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+        if (document.getElementById('page-tracking')?.classList.contains('active')) loadTracking();
       }
       if (msg.type === 'order_delivered') showToast(msg.message);
       if (msg.type === 'order_cancelled') {
         showToast(msg.message || '❌ Pedido cancelado');
-        if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
+        if (document.getElementById('page-owner-dash')?.classList.contains('active')) loadOwnerDash();
+        if (_oaActive) oaLoadHomeData();
       }
       if (msg.type === 'owner_message') {
-        // Show toast + update card if tracking is open
         showToast(`💬 ${msg.business_name}: ${msg.message}`);
-        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
+        if (document.getElementById('page-tracking')?.classList.contains('active')) loadTracking();
       }
       if (msg.type === 'refund_issued') {
         showToast(msg.message || '💸 Reembolso procesado');
-        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
       }
-      if (msg.type === 'eta_update') {
-        showToast(msg.message || '🕐 El tiempo de entrega fue actualizado');
-        if (document.getElementById('page-tracking').classList.contains('active')) loadTracking();
-      }
-    } catch {}
+    } catch(e) { /* ignore malformed WS message */ }
   };
+  ws.onerror = () => { /* onclose will handle reconnect */ };
   ws.onclose = () => {
     ws = null;
-    // Exponential backoff: 3s, 6s, 12s, max 30s
-    const delay = Math.min(30000, (connectWS._delay || 3000));
-    connectWS._delay = delay * 2;
-    setTimeout(() => { connectWS._delay = 3000; connectWS(); }, delay);
+    if (!token) return; // logged out, don't reconnect
+    wsRetryDelay = Math.min((wsRetryDelay || 1000) * 2, 30000); // exponential backoff, max 30s
+    setTimeout(connectWS, wsRetryDelay);
   };
 }
 
@@ -5479,6 +5480,8 @@ async function cancelSubscription() {
 //  OWNER DASHBOARD
 // ═══════════════════════════════════════════════
 async function loadOwnerDash() {
+  try {
+  
   if (!user || user.role!=='owner') { nav('page-owner-login'); return; }
 
   // Request notification permission for new order alerts
@@ -5544,6 +5547,7 @@ async function loadOwnerDash() {
     renderOwnerStats(d.today, d.week);
     populatePhotoSettings();
   } catch(e) { showToast(`❌ ${e.message}`); if (e.message.includes('negocio')) nav('page-owner-login'); }
+  } catch(e) { showToast('❌ Error al cargar panel: ' + e.message); }
 }
 
 function renderOwnerOrders(orders) {
@@ -6794,6 +6798,8 @@ const PROMO_TYPE_LABELS = {
 };
 
 async function loadPromos() {
+  try {
+  
   const el = document.getElementById('promos-list');
   if (!el) return;
   try {
@@ -6837,6 +6843,7 @@ async function loadPromos() {
       </div>`;
     }).join('');
   } catch(e) { el.innerHTML = `<div style="color:red;padding:20px;">Error: ${e.message}</div>`; }
+  } catch(e) { showToast('❌ Error al cargar promociones: ' + e.message); }
 }
 
 function openPromoModal(promo=null) {
@@ -8036,7 +8043,7 @@ function goToBlowPlus() {
         nav('page-user-blowplus');
       }
     })
-    .catch(()=>nav('page-subscription'));
+    .catch(()=>nav('page-user-blowplus'));
 }
 
 async function loadBlowPlusBanner() {
