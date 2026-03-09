@@ -1038,6 +1038,25 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   </div>
 </div>
 
+<!-- ══ PAGE: CHECKOUT ══ -->
+<div class="page page-wrap" id="page-checkout">
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <button onclick="nav('page-cart')" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <h1 style="margin:0;font-size:18px;">Último paso</h1>
+  </div>
+  <div class="sc" id="checkout-body" style="padding:0 16px 100px;"></div>
+  <!-- Total fijo al fondo -->
+  <div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #f0f0f0;padding:14px 16px 24px;z-index:50;max-width:540px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span style="font-size:16px;font-weight:900;color:#0f172a;">Total</span>
+      <span style="font-size:22px;font-weight:900;color:#0f172a;" id="checkout-total-display">$0</span>
+    </div>
+    <button id="checkout-pay-btn" onclick="doCheckout()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);border:none;border-radius:16px;padding:17px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">
+      Pedir ahora
+    </button>
+  </div>
+</div>
+
 <!-- ══ PAGE: TRACKING ══ -->
 <div class="page page-wrap" id="page-tracking">
   <div class="page-hdr"><h1>Mis Pedidos 📦</h1></div>
@@ -2313,7 +2332,7 @@ function nav(pageId) {
 
   // Mobile nav
   ['nb-home','nb-cart','nb-tracking','nb-profile'].forEach(id => document.getElementById(id)?.classList.remove('active'));
-  const mMap = {'page-home':'nb-home','page-cart':'nb-cart','page-tracking':'nb-tracking','page-profile':'nb-profile'};
+  const mMap = {'page-home':'nb-home','page-cart':'nb-cart','page-checkout':'nb-cart','page-tracking':'nb-tracking','page-profile':'nb-profile'};
   if (mMap[pageId]) document.getElementById(mMap[pageId])?.classList.add('active');
 
   // Sidebar
@@ -3320,40 +3339,233 @@ function renderCart() {
       ${activePromo?.type==='free_delivery' ? `<div class="sum-row" style="color:#27ae60;font-size:12px;"><span>Envío gratis aplicado</span><span>✓</span></div>` : ''}
       <div class="sum-row total"><span>Total</span><span>$${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</span></div>
     </div>
-    <button class="checkout-btn" onclick="checkout()">Confirmar pedido · $${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</button>`;
+    <button class="checkout-btn" onclick="openCheckoutPage()">Ver resumen y pagar · $${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</button>`;
 }
 
-async function checkout() {
-  if (!user) { openAuth('Iniciá sesión en Blow'); return; }
+// ── Estado del checkout ──────────────────────────
+let _chkPayMethod = 'mercadopago'; // 'mercadopago' | 'cash'
+let _chkTip = 0;
+let _chkPriority = false;
+let _chkNotes = '';
+
+function openCheckoutPage() {
+  if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
   if (!cart.length) return;
+  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
+  nav('page-checkout');
+  renderCheckoutPage();
+}
+
+function renderCheckoutPage() {
+  const body = document.getElementById('checkout-body');
+  if (!body) return;
+  const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
+  const fulfillmentType = currentSdFulfillment || 'delivery';
+  const baseFee = fulfillmentType === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0);
+  const fee = baseFee;
+  const priorityFee = _chkPriority ? Math.round(fee * 0.5) : 0;
+  const sub = cart.reduce((a, b) => a + b.price * b.qty, 0);
+  const promoDisc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
+  const total = Math.max(0, sub + fee + priorityFee + _chkTip - promoDisc);
+
+  // Update fixed bottom total
+  const td = document.getElementById('checkout-total-display');
+  if (td) td.textContent = `$${total}`;
+  const pb = document.getElementById('checkout-pay-btn');
+  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar pedido en efectivo' : `💳 Ir a pagar · $${total}`;
+
+  const tipOptions = [0, 20, 30, 40, 50, 70];
+
+  body.innerHTML = `
+    <!-- MÉTODO DE PAGO -->
+    <div style="margin-top:18px;margin-bottom:18px;">
+      <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:14px;">¿Cómo querés pagar?</div>
+      <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;">
+
+        <!-- MercadoPago -->
+        <div onclick="chkSetPay('mercadopago')" id="pm-mp"
+          style="flex-shrink:0;width:200px;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:16px;padding:18px 16px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};transition:all .2s;">
+          <div style="font-size:26px;margin-bottom:8px;">💳</div>
+          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Tarjeta, saldo, QR</div>
+          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        </div>
+
+        <!-- Efectivo -->
+        <div onclick="chkSetPay('cash')" id="pm-cash"
+          style="flex-shrink:0;width:200px;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:16px;padding:18px 16px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};transition:all .2s;">
+          <div style="font-size:26px;margin-bottom:8px;">💵</div>
+          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo al recibir</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Pagás cuando llegue</div>
+          ${_chkPayMethod==='cash'?'<div style="margin-top:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        </div>
+      </div>
+    </div>
+
+    <!-- PROPINA -->
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:15px;font-weight:800;color:#0f172a;">🛵 Propina para el repartidor</div>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px;">El 100% va directo a su bolsillo.</div>
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;">
+        ${tipOptions.map(t => `
+          <button onclick="chkSetTip(${t})"
+            style="flex-shrink:0;padding:8px 14px;border-radius:20px;border:2px solid ${_chkTip===t?'#0f172a':'#e2e8f0'};background:${_chkTip===t?'#0f172a':'#fff'};color:${_chkTip===t?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">
+            ${t === 0 ? 'Ahora no' : '$' + t}${t===40?'<br><span style="font-size:9px;color:'+((_chkTip===40)?'#93c5fd':'#94a3b8')+';">Recomendada</span>':''}
+          </button>`).join('')}
+      </div>
+    </div>
+
+    <!-- ENVÍO PRIORITARIO (solo delivery) -->
+    ${fulfillmentType === 'delivery' ? `
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">⚡</span>
+            <span style="font-size:15px;font-weight:800;color:#0f172a;">Envío prioritario</span>
+            <span style="background:#eff6ff;color:#2558d4;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;">+$${Math.round(fee*0.5)}</span>
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;margin-left:26px;">Tu pedido se prepara antes que los demás.</div>
+        </div>
+        <button onclick="chkTogglePriority()" style="background:none;border:none;cursor:pointer;padding:0;">
+          <div style="width:48px;height:28px;border-radius:14px;background:${_chkPriority?'#0f172a':'#e2e8f0'};position:relative;transition:background .2s;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;${_chkPriority?'right:3px':'left:3px'};transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
+          </div>
+        </button>
+      </div>
+    </div>` : ''}
+
+    <!-- DATOS DE ENTREGA -->
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Datos de entrega</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <span style="font-size:20px;">${fulfillmentType==='pickup'?'🏪':'🛵'}</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#0f172a;">${fulfillmentType==='pickup'?'Retiro en tienda':'Delivery'}</div>
+          ${store?.delivery_time_min?`<div style="font-size:12px;color:#64748b;">${store.delivery_time_min}-${store.delivery_time_max||store.delivery_time_min+15} min</div>`:''}
+        </div>
+      </div>
+      ${fulfillmentType==='delivery' ? `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:20px;">📍</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;color:#64748b;">Lo recibís en</div>
+          <div style="font-size:14px;font-weight:600;color:#0f172a;">${user?.address || 'No tenés dirección guardada'}</div>
+        </div>
+      </div>` : ''}
+    </div>
+
+    <!-- NOTAS -->
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:8px;">📝 Instrucciones de entrega</div>
+      <textarea id="chk-notes" placeholder="Ej: timbre roto, llamar al llegar, sin cebolla..." 
+        style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Inter',sans-serif;resize:none;height:70px;box-sizing:border-box;color:#0f172a;"
+        oninput="_chkNotes=this.value">${_chkNotes}</textarea>
+    </div>
+
+    <!-- RESUMEN -->
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Resumen</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#64748b;">Productos</span><span style="font-weight:600;">$${sub}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#64748b;">Envío</span><span style="font-weight:600;">${fee===0?'Gratis':'$'+fee}</span>
+      </div>
+      ${_chkPriority ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#64748b;">⚡ Prioritario</span><span style="font-weight:600;">+$${priorityFee}</span>
+      </div>` : ''}
+      ${_chkTip > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#64748b;">🛵 Propina</span><span style="font-weight:600;">+$${_chkTip}</span>
+      </div>` : ''}
+      ${promoDisc > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#16a34a;">🏷️ Descuento</span><span style="font-weight:600;color:#16a34a;">-$${promoDisc}</span>
+      </div>` : ''}
+      <div style="border-top:1px solid #f1f5f9;padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;">
+        <span style="font-size:16px;font-weight:900;color:#0f172a;">Total</span>
+        <span style="font-size:16px;font-weight:900;color:#0f172a;">$${total}</span>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#94a3b8;">Pago online aplica 9% devolución de IVA en productos y 2% en envío (Leyes N° 17.934 y 19.210).</div>
+    </div>
+  `;
+}
+
+function chkSetPay(method) {
+  _chkPayMethod = method;
+  renderCheckoutPage();
+}
+
+function chkSetTip(amount) {
+  _chkTip = amount;
+  renderCheckoutPage();
+}
+
+function chkTogglePriority() {
+  _chkPriority = !_chkPriority;
+  renderCheckoutPage();
+}
+
+async function doCheckout() {
+  if (!user) { openAuth('Iniciá sesión para continuar'); return; }
+  if (!cart.length) return;
+
+  const btn = document.getElementById('checkout-pay-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Procesando...';
 
   const bizId = cart[0].biz_id;
+
   if (isDemoMode || !bizId || bizId.startsWith('demo-')) {
-    cart=[]; saveCart(); updateCartBadge();
+    cart = []; saveCart(); updateCartBadge();
     showToast('🎉 ¡Pedido confirmado! (modo demo)');
-    setTimeout(()=>nav('page-tracking'),800);
+    setTimeout(() => nav('page-tracking'), 800);
     return;
   }
 
-  const btn = document.querySelector('.checkout-btn');
-  btn.disabled = true; btn.textContent = 'Procesando...';
   try {
     const fulfillmentType = currentSdFulfillment || 'delivery';
-    const items = cart.map(i=>({ product_id:i.id, quantity:i.qty, variant_id: i.variant_id||null }));
-    const res = await api('/api/orders', { method:'POST', body:JSON.stringify({ business_id:bizId, items, address:user.address||'', fulfillment_type: fulfillmentType }) });
-    cart=[]; saveCart(); updateCartBadge();
-    if (res.payment?.init_point && !res.payment.demo) {
+    const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null }));
+    const res = await api('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        business_id: bizId,
+        items,
+        address: user.address || '',
+        fulfillment_type: fulfillmentType,
+        payment_method: _chkPayMethod,
+        tip: _chkTip,
+        priority: _chkPriority,
+        notes: _chkNotes || ''
+      })
+    });
+
+    cart = []; saveCart(); updateCartBadge();
+    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkNotes = '';
+
+    if (_chkPayMethod === 'cash' || res.cash) {
+      // Efectivo → va directo a tracking
+      showToast('✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
+      setTimeout(() => nav('page-tracking'), 800);
+    } else if (res.payment?.init_point && !res.payment.demo) {
       showToast('💳 Redirigiendo a MercadoPago...');
-      setTimeout(()=>{ window.location.href = res.payment.init_point; }, 1000);
+      setTimeout(() => { window.location.href = res.payment.init_point; }, 900);
     } else {
-      showToast('🎉 ¡Pedido creado! Esperando confirmación de pago.');
-      setTimeout(()=>nav('page-tracking'),800);
+      showToast('🎉 ¡Pedido creado! Esperando confirmación.');
+      setTimeout(() => nav('page-tracking'), 800);
     }
-  } catch(e) {
+  } catch (e) {
     showToast(`❌ ${e.message}`);
-    btn.disabled=false; btn.textContent='Confirmar pedido';
+    btn.disabled = false;
+    btn.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar pedido en efectivo' : '💳 Ir a pagar';
   }
+}
+
+async function checkout() {
+  // Legacy redirect — usar openCheckoutPage()
+  openCheckoutPage();
 }
 
 // ═══════════════════════════════════════════════
