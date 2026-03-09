@@ -173,6 +173,15 @@ async function initDB() {
       status TEXT DEFAULT 'pending',
       created_at TIMESTAMPTZ DEFAULT NOW(), processed_at TIMESTAMPTZ
     );
+    CREATE TABLE IF NOT EXISTS bank_accounts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      method TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      is_default BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS user_addresses (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
       label TEXT NOT NULL, full_address TEXT NOT NULL,
@@ -1645,6 +1654,27 @@ app.post('/api/wallet/withdraw', auth, async (req, res) => {
   const owner=await q1('SELECT name,email FROM users WHERE id=$1',[req.user.id]);
   await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
     [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,method,destination]);
+  res.json({ success:true });
+});
+
+// ── Cuentas bancarias guardadas ──────────────────
+app.get('/api/bank-accounts', auth, async (req, res) => {
+  const accounts = await qa('SELECT * FROM bank_accounts WHERE user_id=$1 ORDER BY is_default DESC, created_at ASC', [req.user.id]);
+  res.json(accounts);
+});
+app.post('/api/bank-accounts', auth, async (req, res) => {
+  const { label, method, destination, is_default } = req.body;
+  if (!label||!method||!destination) return res.status(400).json({ error:'Faltan datos' });
+  const count = (await q1('SELECT COUNT(*) as c FROM bank_accounts WHERE user_id=$1', [req.user.id])).c;
+  if (parseInt(count) >= 3) return res.status(400).json({ error:'Máximo 3 cuentas permitidas' });
+  if (is_default) await q('UPDATE bank_accounts SET is_default=FALSE WHERE user_id=$1', [req.user.id]);
+  const id = uuid();
+  await q('INSERT INTO bank_accounts (id,user_id,label,method,destination,is_default) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, req.user.id, label, method, destination, is_default||false]);
+  res.json({ success:true, id });
+});
+app.delete('/api/bank-accounts/:id', auth, async (req, res) => {
+  await q('DELETE FROM bank_accounts WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   res.json({ success:true });
 });
 
