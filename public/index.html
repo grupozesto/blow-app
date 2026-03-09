@@ -892,7 +892,7 @@ body.owner-mode .page{display:none!important;}
       Modo Delivery
     </button>
     -->
-    <button class="si" onclick="handleOwnerAccess()">
+    <button class="si" onclick="handleOwnerAccess()" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
       Portal Negocios
     </button>
@@ -921,7 +921,7 @@ body.owner-mode .page{display:none!important;}
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="headerSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';headerSearch('')}" autocomplete="off">
+      <input type="search" placeholder="Locales, platos y productos" id="search-input" name="store-search" oninput="headerSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';headerSearch('')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <button class="sbtn" onclick="document.getElementById('search-input').focus()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
   </div>
@@ -2942,6 +2942,8 @@ function showOrderBanner(msg) {
 //  NAVIGATION
 // ═══════════════════════════════════════════════
 function nav(pageId) {
+  // Clear search when navigating
+  const si = document.getElementById('search-input'); if (si) { si.value = ''; headerSearch(''); }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(pageId)?.classList.add('active');
 
@@ -10485,6 +10487,8 @@ function oaTestAlarm() {
 
 // ── Owner access entry point ──────────────────────────────────
 function handleOwnerAccess(data) {
+  // Blur search to avoid triggering headerSearch
+  const si = document.getElementById('search-input'); if (si) { si.blur(); si.value = ''; headerSearch(''); }
   // Called from header button, sidebar, profile menu, or after login
   const role = data?.role || user?.role;
   if (role === 'owner') {
