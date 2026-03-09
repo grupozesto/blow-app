@@ -1984,6 +1984,11 @@ async function checkFraud(userId, ip) {
 
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
+  // Check business is open
+  const bizCheck = await q1('SELECT is_open FROM businesses WHERE id=$1', [req.body.business_id]);
+  if (bizCheck && !bizCheck.is_open) {
+    return res.status(400).json({ error: 'Este negocio está cerrado en este momento. Intentá más tarde.' });
+  }
   // Fraud check
   const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
   const fraud = await checkFraud(req.user.id, clientIp).catch(() => ({ blocked: false, issues: [] }));
