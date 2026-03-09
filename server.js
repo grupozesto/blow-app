@@ -1198,7 +1198,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
         payer: { name:cust.name,email:cust.email },
         external_reference: orderId,
-        back_urls:{ success:`${APP_URL}/?payment=success`,failure:`${APP_URL}/?payment=failure`,pending:`${APP_URL}/?payment=pending` },
+        back_urls:{ success:`${APP_URL}/?payment=success&order_id=${orderId}`,failure:`${APP_URL}/?payment=failure&order_id=${orderId}`,pending:`${APP_URL}/?payment=pending&order_id=${orderId}` },
         auto_return:'approved',
         notification_url:`${APP_URL}/api/webhooks/mp`,
       });
