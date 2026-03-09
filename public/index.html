@@ -28,15 +28,15 @@
 <style>
 :root{
   --primary:#2558d4;--primary-dark:#1a3a6e;--accent:#f59e0b;
-  --bg:#f0f4fb;--surface:#fff;--text:#0f172a;--text2:#334155;--muted:#94a3b8;
+  --bg:#ffffff;--surface:#fff;--text:#0f172a;--text2:#334155;--muted:#94a3b8;
   --success:#22c55e;--info:#2558d4;--border:#e2e8f0;
   --shadow:0 1px 6px rgba(37,88,212,.07);--shadow-md:0 4px 16px rgba(37,88,212,.12);--shadow-lg:0 8px 32px rgba(37,88,212,.18);
   --r:16px;--r-sm:12px;--nav:62px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0f4fb;color:var(--text);min-height:100vh;overflow-x:hidden;}
+html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ffffff;color:var(--text);min-height:100vh;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
-.app-header{padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
+.app-header{background:linear-gradient(to bottom,#06112a 0%,#0f2660 40%,#1a3a8a 70%,#1e4fd4 100%);padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
 
 .bottom-nav{padding-bottom:max(12px,env(safe-area-inset-bottom,0px));height:calc(var(--nav) + env(safe-area-inset-bottom,0px))!important;}
 
@@ -85,7 +85,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .page.active{display:flex;}
 
 /* ── HEADER — Red PedidosYa style ── */
-.app-header{background:linear-gradient(180deg,#0f2a5c 0%,#1a3a6e 30%,#2558d4 100%);padding:14px 16px 14px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);position:sticky;top:0;z-index:100;}
+.app-header{padding:14px 16px 14px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
 .hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .hloc{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;}
 .hloc svg{width:14px;height:14px;fill:#fff;flex-shrink:0;}
@@ -122,9 +122,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .banner-wrap{padding:0;margin-bottom:0;position:relative;overflow:hidden;width:100%;}
 .banner-viewport{position:relative;width:100%;overflow:hidden;}
 .banner-track{display:flex;width:300%;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform;}
-.banner-slide{position:relative;width:33.3333%;flex-shrink:0;height:195px;overflow:hidden;padding:24px 20px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer;background:linear-gradient(160deg,#0f2a5c 0%,#1a3a6e 35%,#2558d4 100%);box-sizing:border-box;}
-.banner-slide.s2{background:linear-gradient(135deg,#1a3a6e,#2558d4 50%,var(--primary));}
-.banner-slide.s3{background:linear-gradient(135deg,#00704a,#00b67a);}
+.banner-slide{background:linear-gradient(to bottom,#1e4fd4 0%,#2558d4 50%,#2d63d8 100%);position:relative;width:33.3333%;flex-shrink:0;height:195px;overflow:hidden;padding:24px 20px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer;box-sizing:border-box;}
+
+
 .btag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px;}
 .btitle{font-size:22px;font-weight:900;color:#fff;line-height:1.15;margin-bottom:6px;letter-spacing:-.3px;}
 .bsub{font-size:12px;color:rgba(255,255,255,.85);line-height:1.4;}
@@ -132,7 +132,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .bcta{display:inline-block;background:#fff;color:#2558d4;border-radius:20px;padding:7px 16px;font-size:12px;font-weight:800;border:none;cursor:pointer;margin-top:10px;}
 .btext{position:relative;z-index:1;max-width:60%;min-width:0;}
 .bemoji-wrap{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:85px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,.18));z-index:0;pointer-events:none;user-select:none;overflow:hidden;}
-.bdots{display:flex;justify-content:center;gap:6px;padding:10px 0 8px;background:linear-gradient(180deg,#2558d4 0%,#1e4fc5 60%,#d8e2f5 100%);}
+.bdots{background:#2d63d8;display:flex;justify-content:center;gap:6px;padding:8px 0 12px;}
 .bdot{width:7px;height:7px;border-radius:50%;background:#ddd;cursor:pointer;transition:all .2s;}
 .bdot.active{background:#2558d4;width:18px;border-radius:4px;}
 
@@ -719,6 +719,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.55);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.6px;}
 
 #owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;}
+body.owner-mode #owner-app{display:flex;pointer-events:auto;}
 body.owner-mode 
 #owner-content{flex:1;overflow:hidden;position:relative;}
 .owner-panel{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:24px;}
@@ -774,22 +775,15 @@ body.owner-mode
 
 
 /* Banners individuales: fondo semi-transparente oscuro para que el texto se lea */
-.banner-slide {
-  background: rgba(10, 25, 70, 0.35) !important;
-  backdrop-filter: blur(2px);
-}
+
 
 /* Chips de filtro sobre la zona azul */
 
 
 
 /* Categorías grandes — tarjetas blancas sobre el degradado */
-.bigcat {
-  background: #fff;
-  border: 1px solid rgba(255,255,255,.4);
-  box-shadow: 0 4px 20px rgba(0,0,0,.12);
-  border-radius: 18px;
-}
+.bigcat{background:#fff;border-radius:18px;overflow:hidden;cursor:pointer;transition:transform .18s,box-shadow .18s;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;position:relative;box-shadow:0 4px 20px rgba(0,0,0,.12);}
+
 
 /* Label de categorías en negro sobre fondo blanco */
 .bigcat-label {
@@ -798,20 +792,31 @@ body.owner-mode
   font-weight: 800;
 }
 
-/* ── Zona de contenido: continúa el azul del header/banners y desvanece ── */
-#page-home {
-  background: linear-gradient(180deg,
-    #1e4fc5 0px,
-    #2255cc 60px,
-    #2a5fd6 120px,
-    #c8d6f0 300px,
-    #f0f4fb 420px
-  );
-}
+/* ── Zona de contenido: continúa el azul y desvanece ── */
+
 
 /* Chips sobre la zona azul */
 .chip { background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.28); color:#fff; }
 .chip.active { background:rgba(255,255,255,.92); border-color:transparent; color:#1a3a6e; font-weight:700; }
+
+/* ── Zona de contenido: continua desde el azul del header/banners ── */
+
+
+/* ── page-home: continúa el azul y desvanece suave ── */
+
+
+/* ══ DEGRADÉ ÚNICO: navy profundo arriba → azul vibrante → blanco ══
+   El header y banners son transparentes — todo es UNA superficie */
+
+
+
+
+
+/* Después del hero, el contenido arranca blanco con fade */
+
+
+/* Fade después del hero (header+banner+dots) */
+#page-home { background: linear-gradient(to bottom, #2d63d8 0px, #b8cef0 120px, #ffffff 260px); }
 </style>
 </head>
 <body>
@@ -915,11 +920,11 @@ body.owner-mode
     <!-- CATEGORÍAS -->
     <div class="section" style="padding:16px 16px 0;">
       <div class="bigcat-grid" style="margin-bottom:10px;">
-        <div class="bigcat" onclick="filterCat('food')" style="background:rgba(255,255,255,.15);backdrop-filter:blur(4px);">
+        <div class="bigcat" onclick="filterCat('food')">
           <div class="bigcat-em">🍔</div>
           <div class="bigcat-label">Restaurantes</div>
         </div>
-        <div class="bigcat" onclick="filterCat('market')" style="background:#edf9f2;">
+        <div class="bigcat" onclick="filterCat('market')">
           <div class="bigcat-em">🛒</div>
           <div class="bigcat-label">Mercados</div>
         </div>
