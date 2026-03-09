@@ -3266,15 +3266,15 @@ app.get('/api/owner/stats/history', auth, async (req,res)=>{
     `,[biz.id]);
 
     const topProducts = await db.query(`
-      SELECT item->>'name' as name,
-             SUM((item->>'quantity')::int) as qty,
-             SUM((item->>'price')::numeric * (item->>'quantity')::int) as revenue
-      FROM orders,
-           jsonb_array_elements(items) as item
-      WHERE business_id=$1
-        AND created_at >= NOW() - INTERVAL '` + interval + `'
-        AND status NOT IN ('cancelled','pending')
-      GROUP BY name ORDER BY qty DESC LIMIT 5
+      SELECT oi.name as name,
+             SUM(oi.quantity) as qty,
+             SUM(oi.price * oi.quantity) as revenue
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.id
+      WHERE o.business_id=$1
+        AND o.created_at >= NOW() - INTERVAL '` + interval + `'
+        AND o.status NOT IN ('cancelled','pending')
+      GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5
     `,[biz.id]);
 
     const topCustomers = await db.query(`
