@@ -711,7 +711,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 #owner-app { --primary: #2558d4; }
 
 /* Owner header unified */
-#owner-header-wrap{background:linear-gradient(180deg,#0a1628 0%,#0f2249 35%,#1a3a6e 65%,#2558d4 100%);flex-shrink:0;position:relative;overflow:hidden;border-bottom-left-radius:28px;border-bottom-right-radius:28px;box-shadow:0 8px 24px rgba(29,78,216,.35);}
+#owner-header-wrap{background:linear-gradient(170deg,#1a3a6e 0%,#2558d4 55%,#1e4ec7 100%);flex-shrink:0;position:relative;overflow:hidden;border-bottom-left-radius:28px;border-bottom-right-radius:28px;box-shadow:0 8px 24px rgba(29,78,216,.35);}
 #owner-topbar{background:transparent;padding:0 20px;padding-top:calc(env(safe-area-inset-top,0px) + 20px);padding-bottom:20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden;}
 #owner-kpi-strip{background:transparent;padding:0 16px 28px;display:flex;gap:10px;flex-shrink:0;}
 .owner-kpi-card{flex:1;background:rgba(0,0,0,.25);border-radius:16px;padding:14px 8px;text-align:center;border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(4px);}
@@ -8844,7 +8844,7 @@ const _OA_VARIANT_TEMPLATES = [
 
 // ── Enter / Exit owner mode ──────────────────────────────────
 function enterOwnerMode(animate) {
-  if (_oaActive) return;
+  // Reset any stale state before entering
   _oaActive = true;
 
   // Always activate the panel immediately — transition is cosmetic only
@@ -9718,6 +9718,11 @@ function handleOwnerAccess(data) {
   // Called from header button, sidebar, profile menu, or after login
   const role = data?.role || user?.role;
   if (role === 'owner') {
+    // If already in owner mode, just make sure it's visible
+    if (_oaActive) {
+      document.body.classList.add('owner-mode');
+      return;
+    }
     enterOwnerMode(true);
   } else {
     nav('page-owner-login');
