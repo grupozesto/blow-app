@@ -163,7 +163,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .bigcat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(min-width:600px){.bigcat-grid{grid-template-columns:repeat(3,1fr);}}
 @media(min-width:900px){.bigcat-grid{grid-template-columns:repeat(4,1fr);}}
-.bigcat{background:#f5f5f5;border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .18s,box-shadow .18s;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;position:relative;box-shadow:none;}
+.bigcat{background:rgba(255,255,255,.18);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .18s,box-shadow .18s;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;position:relative;box-shadow:0 4px 16px rgba(0,0,0,.1);}
 .bigcat:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
 .biz-card{background:#fff;border-radius:20px;overflow:hidden;cursor:pointer;flex-shrink:0;width:260px;box-shadow:0 2px 16px rgba(0,0,0,.10);transition:transform .18s;}
 .biz-card:hover{transform:translateY(-2px);}
@@ -183,7 +183,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .biz-badge{font-size:9px;font-weight:700;background:#2558d4;color:#fff;padding:3px 8px;border-radius:20px;}
 .bigcat-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;justify-content:center;font-size:110px;pointer-events:none;bottom:-10px;right:-10px;opacity:.85;}
 .bigcat-em{font-size:72px;position:relative;filter:drop-shadow(0 4px 12px rgba(0,0,0,.15));line-height:1;}
-.bigcat-label{font-size:16px;font-weight:800;color:#1a1a1a;position:relative;z-index:1;text-align:center;}
+.bigcat-label{font-size:16px;font-weight:800;color:#fff;position:relative;z-index:1;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.2);}
 
 /* ── CHIPS ── */
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
@@ -719,7 +719,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#f0
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.55);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.6px;}
 
 #owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;}
-body.owner-mode #owner-app{display:flex;pointer-events:auto;}
+body.owner-mode 
 #owner-content{flex:1;overflow:hidden;position:relative;}
 .owner-panel{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:24px;}
 .owner-panel.active{display:block;}
@@ -741,6 +741,36 @@ body.owner-mode #owner-app{display:flex;pointer-events:auto;}
 .store-card:hover{box-shadow:0 6px 20px rgba(37,88,212,.18);}
 .nb.active svg{stroke:#2558d4;}
 .nb-badge{background:#2558d4;}
+
+/* Header gradient seamless transition */
+.app-header::after{
+  content:'';
+  display:block;
+  position:absolute;
+  bottom:-28px;
+  left:0;right:0;
+  height:28px;
+  background:linear-gradient(180deg,#2558d4 0%,transparent 100%);
+  pointer-events:none;
+  z-index:99;
+}
+#page-home{background:linear-gradient(180deg,#2558d4 0%,#1d4fc8 120px,#f0f4fb 280px);}
+
+/* Seamless gradient on home content */
+.banner-wrap{background:transparent;}
+.banner-viewport{background:transparent;}
+.banner-slide{background:linear-gradient(135deg,#1a3a6e 40%,#2558d4) !important;}
+#page-home .section:first-of-type{background:transparent;}
+#page-home .promo-strip{background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border-radius:12px;margin:0 16px 8px;border:1px solid rgba(255,255,255,.2);}
+#page-home .promo-strip-label,.promo-strip-sub{color:rgba(255,255,255,.9) !important;}
+#page-home .promo-badge{background:rgba(255,255,255,.2);color:#fff !important;}
+
+/* Chips on blue gradient hero area */
+.chips-wrap{padding:0 16px;}
+.chip{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.3);color:#fff;}
+.chip.active{background:rgba(255,255,255,.95);border-color:transparent;color:#1a3a6e;}
+/* Section title after gradient area - these sit in the white zone */
+.section-title{color:#0f172a;font-size:17px;font-weight:900;margin-bottom:12px;}
 </style>
 </head>
 <body>
@@ -844,7 +874,7 @@ body.owner-mode #owner-app{display:flex;pointer-events:auto;}
     <!-- CATEGORÍAS -->
     <div class="section" style="padding:16px 16px 0;">
       <div class="bigcat-grid" style="margin-bottom:10px;">
-        <div class="bigcat" onclick="filterCat('food')" style="background:#ffeef0;">
+        <div class="bigcat" onclick="filterCat('food')" style="background:rgba(255,255,255,.15);backdrop-filter:blur(4px);">
           <div class="bigcat-em">🍔</div>
           <div class="bigcat-label">Restaurantes</div>
         </div>
