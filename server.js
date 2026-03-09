@@ -3026,6 +3026,44 @@ app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
   res.json({ success:true });
   } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
+// ── Feed Categories ─────────────────────────────────────────────
+const DEFAULT_FEED_CATS = [
+  { id:'all',      emoji:'✨', name:'Todo',      color:'#2558d4', bg:'#eff6ff' },
+  { id:'food',     emoji:'🍔', name:'Comida',    color:'#ee0979', bg:'#fff0f5' },
+  { id:'market',   emoji:'🛒', name:'Mercado',   color:'#16a34a', bg:'#f0fdf4' },
+  { id:'pharmacy', emoji:'💊', name:'Farmacia',  color:'#2980b9', bg:'#eff8ff' },
+  { id:'drinks',   emoji:'🥤', name:'Bebidas',   color:'#f7971e', bg:'#fffbeb' },
+  { id:'desserts', emoji:'🍰', name:'Postres',   color:'#9733ee', bg:'#faf5ff' },
+  { id:'cafe',     emoji:'☕', name:'Café',      color:'#c79081', bg:'#fdf5f0' },
+];
+
+app.get('/api/feed-categories', async (req, res) => {
+  try {
+    const row = await q1("SELECT value FROM app_settings WHERE key='feed_categories'");
+    const cats = row ? JSON.parse(row.value) : DEFAULT_FEED_CATS;
+    res.json(cats);
+  } catch(e) { res.json(DEFAULT_FEED_CATS); }
+});
+
+app.post('/api/admin/feed-categories', auth, role('admin'), async (req, res) => {
+  try {
+    const cats = req.body; // array of category objects
+    if (!Array.isArray(cats)) return res.status(400).json({ error: 'Se espera un array' });
+    await q("INSERT INTO app_settings(key,value) VALUES('feed_categories',$1) ON CONFLICT(key) DO UPDATE SET value=$1", [JSON.stringify(cats)]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/upload-category-photo', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+    const url = req.file.path || req.file.secure_url;
+    res.json({ url });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+// ─────────────────────────────────────────────────────────────────
+
+
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
   try {
   const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);
