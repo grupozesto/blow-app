@@ -2191,7 +2191,6 @@ function uploadMiddleware(field) {
           const dataUri = 'data:' + req.file.mimetype + ';base64,' + b64;
           const result = await cloudinary.uploader.upload(dataUri, {
             folder: 'blow',
-            transformation: [{ width: 1200, height: 800, crop: 'limit', quality: 'auto' }],
           });
           req.file.path = result.secure_url;
           req.file.secure_url = result.secure_url;
