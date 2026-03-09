@@ -1065,6 +1065,11 @@ body.owner-mode .page{display:none!important;}
 <div class="page page-wrap" id="page-store">
   <div class="sc" id="store-scroll">
 
+    <!-- Closed banner — shown when store is closed -->
+    <div id="sd-closed-banner" style="display:none;background:#fef2f2;border-bottom:2px solid #fecaca;padding:12px 16px;text-align:center;">
+      <span style="font-size:14px;font-weight:800;color:#dc2626;">🔴 Negocio cerrado — podés ver el menú pero no hacer pedidos</span>
+    </div>
+
     <!-- Cover photo -->
     <div class="sd-cover" id="sd-cover">
       <div class="sd-cover-overlay"></div>
@@ -3816,6 +3821,7 @@ async function openStore(id) {
 function renderStoreDetail(s, products) {
   currentBizId = s.id;
   currentStoreForCart = s;
+  currentStoreIsOpen = s.is_open !== false && s.is_open !== 0 && s.is_open !== '0';
   nav('page-store');
   // Update fav button state
   const sdFavBtn = document.getElementById('sd-fav-btn');
@@ -3852,7 +3858,9 @@ function renderStoreDetail(s, products) {
 
   const ratingEl = document.getElementById('sd-rating');
   if (ratingEl) {
-    const isOpen = s.is_open !== false && s.is_open !== 0;
+    const isOpen = s.is_open !== false && s.is_open !== 0 && s.is_open !== '0';
+    const closedBanner = document.getElementById('sd-closed-banner');
+    if (closedBanner) closedBanner.style.display = isOpen ? 'none' : 'block';
     const reviewCount = s.review_count || 0;
     const hasRating = s.rating != null && reviewCount >= 3;
     const starColor = hasRating ? '#FFB800' : '#ccc';
@@ -4333,6 +4341,7 @@ function addFromModal() {
   const variantLabel = groups.length > 0
     ? groups.map(g => `${g}: ${(modalProduct.variants||[]).find(v=>v.id===selectedVariants[g]?.id)?.option_name||''}`).join(', ')
     : '';
+  if (currentStoreIsOpen === false) { showToast('🔴 Este negocio está cerrado ahora'); return; }
   for (let i=0;i<modalQty;i++) addToCart({
     ...modalProduct,
     price: finalPrice,
@@ -4349,6 +4358,7 @@ function quickAdd(p) {
   if (typeof p === 'string') p = JSON.parse(p);
   // Si tiene variantes, abrir el modal
   if (p.variants && p.variants.length > 0) { openProduct(p); return; }
+  if (currentStoreIsOpen === false) { showToast('🔴 Este negocio está cerrado ahora'); return; }
   addToCart({...p, biz_id:currentBizId, cart_key:`${p.id}_base`});
   showToast(`✅ ${p.name} agregado`);
 }
