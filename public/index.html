@@ -5868,6 +5868,7 @@ if (blowplususerStatus === 'success') {
 
 // ══ OWNER OVERLAY ═══════════════════════════════════════════════
 let _ooBiz = null;
+let _ooDashData = null;
 let _ooWalletIdx = 0;
 let _ooTouchX = 0;
 
@@ -5897,23 +5898,34 @@ async function ooFetch(path, opts) {
 }
 
 async function ooLoadData() {
+  const el = document.getElementById('oo-body');
+  if (el) el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;font-size:14px;">Cargando...</div>';
   try {
     const d = await ooFetch('/api/businesses/mine/dashboard');
-    _ooBiz = d.business || d || {};
-    const kpi = d.kpi || {};
+    _ooBiz = d.business || {};
+    // Update header
     document.getElementById('oo-store-name').textContent = _ooBiz.name || 'Mi Negocio';
     document.getElementById('oo-store-sub').textContent  = _ooBiz.city || 'Portal de gestión';
     const logoEl = document.getElementById('oo-logo');
     if (_ooBiz.logo_url) logoEl.innerHTML = `<img src="${_ooBiz.logo_url}" alt="">`;
     else logoEl.textContent = _ooBiz.logo_emoji || '🏪';
+    const isOpen = _ooBiz.is_open;
     const statusEl = document.getElementById('oo-status');
-    statusEl.className   = _ooBiz.is_open ? 'oo-status-open' : 'oo-status-closed';
-    statusEl.textContent = _ooBiz.is_open ? '● Abierto' : '● Cerrado';
-    document.getElementById('oo-kpi-orders').textContent  = kpi.orders_today  || 0;
-    document.getElementById('oo-kpi-revenue').textContent = '$'+(kpi.revenue_today||0);
-    document.getElementById('oo-kpi-pending').textContent = kpi.pending_orders || 0;
-    if (_ooTab === 'home') ooRenderHome();
-  } catch(e) { console.warn('ooLoadData:', e.message); }
+    statusEl.className   = isOpen ? 'oo-status-open' : 'oo-status-closed';
+    statusEl.textContent = isOpen ? '● Abierto' : '● Cerrado';
+    // KPIs from dashboard data
+    const orders = d.orders || [];
+    const today  = d.today  || {};
+    const pending = orders.filter(o => o.status === 'pending').length;
+    document.getElementById('oo-kpi-orders').textContent  = today.orders  || 0;
+    document.getElementById('oo-kpi-revenue').textContent = '$' + Math.round(today.revenue || 0);
+    document.getElementById('oo-kpi-pending').textContent = pending;
+    // Wallet from dashboard
+    _ooDashData = d;
+    ooRenderHome();
+  } catch(e) {
+    if (el) el.innerHTML = `<div style="color:#ef4444;padding:30px;text-align:center;font-size:14px;">Error al cargar: ${e.message}</div>`;
+  }
 }
 
 let _ooTab = 'home';
@@ -6018,22 +6030,31 @@ function ooWalletGo(n) {
 }
 
 async function ooLoadWallet() {
-  try {
-    const d = await ooFetch('/api/owner/wallet-summary');
-    const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = '$' + (v||0); };
-    s('oo-mp-val',    d.balance       || 0);
-    s('oo-mp-today',  d.today         || 0);
-    s('oo-cash-val',  d.cash_balance  || 0);
-    s('oo-cash-today',d.cash_today    || 0);
-    s('oo-total-val', (d.balance||0) + (d.cash_balance||0));
-    s('oo-month-val', d.month_total   || 0);
-  } catch(e) {}
+  // Use already-loaded dashboard data
+  const d = _ooDashData || {};
+  const balance = parseFloat(d.balance) || 0;
+  const orders  = d.orders || [];
+  const todayOrders = orders.filter(o => {
+    const date = new Date(o.created_at);
+    const today = new Date();
+    return date.toDateString() === today.toDateString() && o.status !== 'cancelled';
+  });
+  const todayRevenue = todayOrders.reduce((s,o) => s + (parseFloat(o.total)||0), 0);
+  const s = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = '$' + Math.round(v); };
+  s('oo-mp-val',    balance);
+  s('oo-mp-today',  todayRevenue);
+  s('oo-cash-val',  0);   // v115 no tiene cash tracking separado
+  s('oo-cash-today',0);
+  s('oo-total-val', balance);
+  s('oo-month-val', Math.round(parseFloat((d.week||{}).revenue)||0));
 }
 
 async function ooToggleOpen() {
+  if (!_ooBiz) return;
+  const newState = !_ooBiz.is_open;
   try {
-    const d = await ooFetch('/api/businesses/mine/toggle', { method:'POST' });
-    if (_ooBiz) _ooBiz.is_open = d.is_open;
+    const d = await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ is_open: newState }) });
+    _ooBiz.is_open = d.is_open;
     const statusEl = document.getElementById('oo-status');
     if (statusEl) { statusEl.className = d.is_open ? 'oo-status-open' : 'oo-status-closed'; statusEl.textContent = d.is_open ? '● Abierto' : '● Cerrado'; }
     const btn = document.getElementById('oo-toggle-btn');
@@ -6046,17 +6067,18 @@ async function ooToggleOpen() {
 async function ooRenderOrders() {
   const el = document.getElementById('oo-body');
   if (!el) return;
-  el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando...</div>';
+  el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando pedidos...</div>';
   try {
-    const data = await ooFetch('/api/owner/orders');
-    const orders = data.orders || data || [];
+    // /api/orders returns orders for the owner's business in v115
+    const data = await ooFetch('/api/orders');
+    const orders = Array.isArray(data) ? data : (data.orders || []);
     const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
     if (!active.length) {
       el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin pedidos activos</div></div>';
       return;
     }
-    const sc = { pending:'#f59e0b', accepted:'#3b82f6', ready:'#16a34a' };
-    const sl = { pending:'Nuevo', accepted:'En preparación', ready:'Listo para entregar' };
+    const sc = { pending:'#f59e0b', accepted:'#3b82f6', confirmed:'#3b82f6', ready:'#16a34a' };
+    const sl = { pending:'Nuevo', accepted:'Preparando', confirmed:'Confirmado', ready:'Listo' };
     el.innerHTML = active.map(o => `
       <div class="oo-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -6067,7 +6089,7 @@ async function ooRenderOrders() {
         <div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:10px;">$${o.total||0}</div>
         <div style="display:flex;gap:8px;">
           ${o.status==='pending'  ? `<button onclick="ooUpdateOrder('${o.id}','accepted')" style="flex:1;background:#2558d4;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Aceptar</button>` : ''}
-          ${o.status==='accepted' ? `<button onclick="ooUpdateOrder('${o.id}','ready')" style="flex:1;background:#16a34a;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Listo</button>` : ''}
+          ${o.status==='accepted'||o.status==='confirmed' ? `<button onclick="ooUpdateOrder('${o.id}','ready')" style="flex:1;background:#16a34a;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Listo</button>` : ''}
           <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✕</button>
         </div>
       </div>
@@ -6089,8 +6111,7 @@ async function ooRenderMenu() {
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando menú...</div>';
   try {
-    const data = await ooFetch('/api/businesses/mine/products');
-    const products = data.products || data || [];
+    const products = (_ooDashData && _ooDashData.products) ? _ooDashData.products : [];
     if (!products.length) {
       el.innerHTML = `<div style="text-align:center;padding:60px 20px;">
         <div style="font-size:48px;">🍽️</div>
@@ -6108,10 +6129,10 @@ async function ooRenderMenu() {
         <div class="oo-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
           <div style="font-size:28px;">${p.emoji||'🍽️'}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:700;color:#0f172a;">${p.name}</div>
+            <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
             <div style="font-size:13px;color:#64748b;">$${p.price}</div>
           </div>
-          <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.available!==false?'Activo':'Pausado'}</span>
+          <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;">${p.available!==false?'Activo':'Pausado'}</span>
         </div>
       `).join('')}
       <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:#f1f5f9;border:none;border-radius:12px;padding:14px;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">Editar menú completo →</button>
