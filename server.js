@@ -3580,7 +3580,7 @@ app.get('/api/owner/stats/history', auth, async (req,res)=>{
       WHERE o.business_id=$1
         AND o.created_at >= NOW() - INTERVAL '` + interval + `'
         AND o.status NOT IN ('cancelled','pending')
-      GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5
+      GROUP BY oi.name ORDER BY qty DESC LIMIT 5
     `,[biz.id]);
 
     const topCustomers = await db.query(`
