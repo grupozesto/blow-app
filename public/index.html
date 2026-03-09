@@ -738,11 +738,38 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .oo-toggle.on::after { transform:translateX(24px); }
 /* Wallet carousel */
 .oo-wallet-wrap   { overflow:hidden; margin-bottom:6px; }
-.oo-wallet-track  { display:flex; transition:transform .35s cubic-bezier(.4,0,.2,1); }
-.oo-wallet-slide  { min-width:100%; box-sizing:border-box; }
+.oo-wallet-track  { display:flex; width:100%; transition:transform .35s cubic-bezier(.4,0,.2,1); will-change:transform; }
+.oo-wallet-slide  { min-width:100%; width:100%; box-sizing:border-box; flex-shrink:0; }
 .oo-wallet-dots   { display:flex; justify-content:center; gap:6px; margin-bottom:14px; }
 .oo-wallet-dot    { width:6px; height:6px; border-radius:50%; background:#cbd5e1; cursor:pointer; transition:all .2s; }
 .oo-wallet-dot.active { background:#2558d4; width:16px; border-radius:3px; }
+
+/* Owner app-switch transition */
+#owner-app-transition {
+  position:fixed; inset:0; z-index:99999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,#06112a,#1e4fd4);
+  opacity:0; pointer-events:none;
+  transition:opacity .3s;
+}
+#owner-app-transition.show { opacity:1; pointer-events:all; }
+#owner-app-transition .oat-logo {
+  width:80px; height:80px; border-radius:22px;
+  background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center;
+  font-size:40px; margin-bottom:20px;
+  animation: oat-pop .4s cubic-bezier(.34,1.56,.64,1) forwards;
+  transform:scale(0);
+}
+#owner-app-transition .oat-title {
+  font-size:22px; font-weight:900; color:#fff; margin-bottom:6px;
+  animation: oat-fade .4s .15s both;
+}
+#owner-app-transition .oat-sub {
+  font-size:14px; color:rgba(255,255,255,.6);
+  animation: oat-fade .4s .25s both;
+}
+@keyframes oat-pop  { to { transform:scale(1); } }
+@keyframes oat-fade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 </style>
 </head>
 <body>
@@ -3361,7 +3388,7 @@ async function doLogin() {
     saveSession(data.token, data.user);
     closeAuth(); showToast(`👋 ¡Bienvenido, ${data.user.name}!`);
     renderProfile(); updateCartBadge();
-    if (data.user.role==='owner') { nav('page-owner-dash'); }
+    if (data.user.role==='owner') { ownerAppSwitch(data.user); }
     // delivery role hidden for now
     else if (data.user.role==='admin') {
       const redirect = localStorage.getItem('post_login_redirect');
@@ -5690,6 +5717,12 @@ renderProfile();
 updateHeaderCity();
 loadHomeDynamic();
 
+// Si es owner con sesión activa, abrir portal directamente
+if (user && user.role === 'owner') {
+  // Pequeño delay para dejar que el DOM esté listo
+  setTimeout(() => enterOwnerOverlay(), 100);
+}
+
 // Si tiene ciudad guardada, cargar directamente
 // Si no, detectar GPS automáticamente
 if (activeCity) {
@@ -5926,8 +5959,37 @@ function ooUpdatePushBadge(active) {
   badge.textContent = active ? '🔔' : '🔕';
 }
 
+// ── Owner app-switch transition ───────────────
+function ownerAppSwitch(userData) {
+  const tr   = document.getElementById('owner-app-transition');
+  const logo = document.getElementById('oat-logo');
+  const sub  = document.getElementById('oat-sub');
+
+  // Personalizar con datos del negocio si los tenemos
+  if (userData?.name) document.getElementById('oat-title').textContent = 'Portal de Negocios';
+  sub.textContent = `Bienvenido, ${userData?.name || 'dueño'}`;
+
+  // Mostrar transición
+  tr.classList.add('show');
+
+  // Después de 1.4s, abrir overlay y ocultar transición
+  setTimeout(() => {
+    tr.classList.remove('show');
+    setTimeout(() => enterOwnerOverlay(), 300);
+  }, 1400);
+}
+
+// También al cargar la página si ya es owner y tiene token
+function checkOwnerAutoOpen() {
+  if (user && user.role === 'owner') {
+    enterOwnerOverlay();
+  }
+}
+
 function enterOwnerOverlay() {
   const el = document.getElementById('owner-overlay');
+  // Ocultar la app de cliente mientras el overlay está abierto
+  document.querySelector('.bottom-nav')?.style.setProperty('display','none','important');
   el.classList.add('visible');
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('open')));
   ooLoadData();
@@ -5936,8 +5998,16 @@ function enterOwnerOverlay() {
 }
 
 function exitOwnerOverlay() {
+  // Solo cerrar si el usuario es customer (no owner)
+  // Si es owner, "salir" = cerrar sesión
+  if (user && user.role === 'owner') {
+    if (!confirm('¿Querés cerrar sesión del portal?')) return;
+    doLogout();
+    return;
+  }
   const el = document.getElementById('owner-overlay');
   el.classList.remove('open');
+  document.querySelector('.bottom-nav')?.style.removeProperty('display');
   setTimeout(() => el.classList.remove('visible'), 400);
 }
 
@@ -6017,7 +6087,7 @@ function ooRenderHome() {
             <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.5px;margin-bottom:4px;">💳 COBRADO ONLINE</div>
             <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-mp-val">$0</div>
             <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Hoy: <span id="oo-mp-today">$0</span></div>
-            <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
+            <button onclick="ooTab('more');setTimeout(ooShowWallet,50);" style="width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
           </div>
         </div>
         <div class="oo-wallet-slide">
@@ -6705,7 +6775,7 @@ function ooRenderMore() {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
     <button onclick="exitOwnerOverlay()" style="width:100%;background:#fff;border:1px solid #fee2e2;border-radius:14px;padding:14px;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">
-      Salir del portal
+      🚪 Cerrar sesión
     </button>
   `;
 }
@@ -7032,6 +7102,13 @@ async function ooConfirmarRetiro() {
   <div style="font-size:11px;opacity:.5;margin-top:8px;text-align:center;width:100%;">Solo funciona desde Safari</div>
 </div>
 
+
+<!-- ══ OWNER APP TRANSITION ══ -->
+<div id="owner-app-transition">
+  <div class="oat-logo" id="oat-logo">🏪</div>
+  <div class="oat-title" id="oat-title">Portal de Negocios</div>
+  <div class="oat-sub" id="oat-sub">Cargando tu negocio...</div>
+</div>
 
 <!-- ══ OWNER OVERLAY ══ -->
 <div id="owner-overlay">
