@@ -239,6 +239,11 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS custom_delivery_cost INTEGER DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percent INTEGER DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_type TEXT DEFAULT 'delivery';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS tip REAL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS priority BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS priority_fee REAL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'mercadopago';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
@@ -1171,7 +1176,7 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
-    const { business_id, items, address } = req.body;
+    const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='' } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
@@ -1194,23 +1199,36 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const fulfillment_type = req.body.fulfillment_type || 'delivery';
     const baseFee = fulfillment_type === 'pickup' ? 0 : (biz.custom_delivery_cost ?? biz.delivery_cost ?? 0);
     const fee = (userBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
-    const total=subtotal+fee;
-    const _fee=await getPlatformFee();
-      const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
-    const orderId=uuid();
-    const cust=await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10)`,
-      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat]);
+    const priorityFee = priority ? Math.round(fee * 0.5) : 0; // 50% extra por prioritario
+    const tipAmt = parseFloat(tip) || 0;
+    const total = subtotal + fee + priorityFee + tipAmt;
+    const _fee = await getPlatformFee();
+    const plat = parseFloat((subtotal*_fee).toFixed(2)), bizAmt = parseFloat((subtotal-plat).toFixed(2));
+    const orderId = uuid();
+    const cust = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
+    const initialStatus = payment_method === 'cash' ? 'confirmed' : 'pending';
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,fulfillment_type,tip,priority,priority_fee,payment_method,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [orderId,req.user.id,business_id,initialStatus,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,fulfillment_type,tipAmt,Boolean(priority),priorityFee,payment_method,notes||'']);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
-    sendPushToOwner(biz.owner_id,{ title:'🛍️ Nuevo pedido', body:`#${orderId.slice(-6).toUpperCase()} — $${total}`, tag:'new_order', url:'/' });
+    sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'🛍️'} Nuevo pedido`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
+
+    // Pedido en efectivo → ya está confirmado, no necesita MP
+    if (payment_method === 'cash') {
+      notify(req.user.id,{ type:'status_change',message:'✅ Pedido recibido — pagás en efectivo al recibir',status:'confirmed',order_id:orderId });
+      return res.json({ order_id:orderId, cash:true });
+    }
+
     if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
+      const mpItems = lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' }));
+      if (tipAmt > 0) mpItems.push({ title:'Propina para el repartidor',quantity:1,unit_price:tipAmt,currency_id:'UYU' });
+      if (priorityFee > 0) mpItems.push({ title:'Envío prioritario',quantity:1,unit_price:priorityFee,currency_id:'UYU' });
       const pref = await mp.preferences.create({
-        items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
+        items: mpItems,
         payer: { name:cust.name,email:cust.email },
         external_reference: orderId,
         back_urls:{ success:`${APP_URL}/?payment=success&order_id=${orderId}`,failure:`${APP_URL}/?payment=failure&order_id=${orderId}`,pending:`${APP_URL}/?payment=pending&order_id=${orderId}` },
