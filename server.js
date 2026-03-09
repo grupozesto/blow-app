@@ -1236,7 +1236,7 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
   const allowed={ 
-    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready' },
+    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' },
     delivery:{ ready:'on_way', on_way:'delivered' },
     admin:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' }
   };
