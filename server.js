@@ -865,17 +865,21 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/auth/me', auth, async (req, res) => {
+  try {
   const u = await q1('SELECT id,name,email,phone,role,address,city,department FROM users WHERE id=$1', [req.user.id]);
   if (!u) return res.json({ error:'No encontrado' });
   u.addresses = await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC', [req.user.id]);
   res.json(u);
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/auth/me', auth, async (req, res) => {
+  try {
   const { name, phone, address, city, department } = req.body;
   await q('UPDATE users SET name=COALESCE($1,name),phone=COALESCE($2,phone),address=COALESCE($3,address),city=COALESCE($4,city),department=COALESCE($5,department) WHERE id=$6',
     [name, phone, address, city, department, req.user.id]);
   res.json(await q1('SELECT id,name,email,phone,role,address,city,department FROM users WHERE id=$1', [req.user.id]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -885,6 +889,7 @@ app.get('/api/addresses', auth, async (req, res) =>
   res.json(await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC', [req.user.id])));
 
 app.post('/api/addresses', auth, async (req, res) => {
+  try {
   const { label, full_address, city, department='', lat=null, lng=null } = req.body;
   if (!full_address || !city) return res.status(400).json({ error:'full_address y city son obligatorios' });
   const cnt = await q1('SELECT COUNT(*) as c FROM user_addresses WHERE user_id=$1', [req.user.id]);
@@ -894,18 +899,22 @@ app.post('/api/addresses', auth, async (req, res) => {
     [id, req.user.id, label||'Mi dirección', full_address.trim(), city.trim(), department, lat, lng, isFirst]);
   if (isFirst) await q('UPDATE users SET city=$1,department=$2 WHERE id=$3', [city.trim(), department, req.user.id]);
   res.status(201).json(await q1('SELECT * FROM user_addresses WHERE id=$1', [id]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/addresses/:id/activate', auth, async (req, res) => {
+  try {
   const addr = await q1('SELECT * FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   if (!addr) return res.status(404).json({ error:'Dirección no encontrada' });
   await q('UPDATE user_addresses SET is_active=FALSE WHERE user_id=$1', [req.user.id]);
   await q('UPDATE user_addresses SET is_active=TRUE WHERE id=$1', [req.params.id]);
   await q('UPDATE users SET city=$1,department=$2,address=$3 WHERE id=$4', [addr.city, addr.department, addr.full_address, req.user.id]);
   res.json({ success:true, active: await q1('SELECT * FROM user_addresses WHERE id=$1', [req.params.id]) });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/addresses/:id', auth, async (req, res) => {
+  try {
   const addr = await q1('SELECT * FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   if (!addr) return res.status(404).json({ error:'No encontrada' });
   await q('DELETE FROM user_addresses WHERE id=$1', [req.params.id]);
@@ -917,6 +926,7 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
     }
   }
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -929,6 +939,7 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 
 // Repartidor actualiza su posición (llamado cada 10s desde la app)
 app.post('/api/rider/location', auth, async (req, res) => {
+  try {
   if (!['delivery','owner'].includes(req.user.role)) return res.status(403).json({ error: 'Sin permisos' });
   const { order_id, lat, lng, heading = 0, speed = 0 } = req.body;
   if (!order_id || !lat || !lng) return res.status(400).json({ error: 'order_id, lat y lng requeridos' });
@@ -952,6 +963,7 @@ app.post('/api/rider/location', auth, async (req, res) => {
     });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Customer polls rider location (fallback if WS disconnected)
@@ -1254,6 +1266,7 @@ app.get('/api/push/vapid-key', (req, res) => {
 });
 
 app.post('/api/push/subscribe', auth, async (req, res) => {
+  try {
   const { endpoint, keys } = req.body;
   if (!endpoint || !keys?.p256dh || !keys?.auth)
     return res.status(400).json({ error: 'Suscripción inválida' });
@@ -1264,13 +1277,16 @@ app.post('/api/push/subscribe', auth, async (req, res) => {
       [uuid(), req.user.id, endpoint, keys.p256dh, keys.auth]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/push/subscribe', auth, async (req, res) => {
+  try {
   const { endpoint } = req.body;
   if (endpoint) await q('DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id=$2', [endpoint, req.user.id]);
   else await q('DELETE FROM push_subscriptions WHERE user_id=$1', [req.user.id]);
   res.json({ ok: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── Marketing push from owner panel ──────────
@@ -1333,16 +1349,21 @@ app.get('/api/business-categories', async (_, res) => {
 
 // ── Admin: business categories CRUD ──
 app.get('/api/admin/business-categories', auth, role('admin'), async (req, res) => {
+  try {
   res.json(await qa('SELECT * FROM business_categories ORDER BY sort_order',[]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/business-categories', auth, role('admin'), async (req, res) => {
+  try {
   const { name, emoji='🏪', sort_order=99 } = req.body;
   if (!name) return res.status(400).json({ error:'name requerido' });
   const id = 'cat-' + uuid().slice(0,8);
   await q('INSERT INTO business_categories (id,name,emoji,sort_order) VALUES ($1,$2,$3,$4)',[id,name,emoji,sort_order]);
   res.json({ success:true, id });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.patch('/api/admin/business-categories/:id', auth, role('admin'), async (req, res) => {
+  try {
   const { name, emoji, sort_order, is_active } = req.body;
   const updates=[]; const params=[]; let i=1;
   if (name!==undefined)       { updates.push(`name=$${i++}`);       params.push(name); }
@@ -1353,25 +1374,33 @@ app.patch('/api/admin/business-categories/:id', auth, role('admin'), async (req,
   params.push(req.params.id);
   await q(`UPDATE business_categories SET ${updates.join(',')} WHERE id=$${i}`, params);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/admin/business-categories/:id', auth, role('admin'), async (req, res) => {
+  try {
   await q('DELETE FROM business_categories WHERE id=$1',[req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── Admin: subscription plans CRUD ──
 app.get('/api/admin/subscription-plans', auth, role('admin'), async (req, res) => {
+  try {
   res.json(await qa('SELECT * FROM subscription_plans ORDER BY sort_order',[]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/subscription-plans', auth, role('admin'), async (req, res) => {
+  try {
   const { name, price, description='', sort_order=99, features='[]' } = req.body;
   if (!name || price===undefined) return res.status(400).json({ error:'name y price requeridos' });
   const id = 'plan-' + uuid().slice(0,8);
   const featStr = typeof features==='string' ? features : JSON.stringify(features);
   await q('INSERT INTO subscription_plans (id,name,price,description,features,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',[id,name,price,description,featStr,sort_order]);
   res.json({ success:true, id });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.patch('/api/admin/subscription-plans/:id', auth, role('admin'), async (req, res) => {
+  try {
   const { name, price, description, features, is_active, sort_order } = req.body;
   const updates=[]; const params=[]; let i=1;
   if (name!==undefined)        { updates.push(`name=$${i++}`);        params.push(name); }
@@ -1384,13 +1413,18 @@ app.patch('/api/admin/subscription-plans/:id', auth, role('admin'), async (req, 
   params.push(req.params.id);
   await q(`UPDATE subscription_plans SET ${updates.join(',')},updated_at=NOW() WHERE id=$${i}`, params);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/admin/subscription-plans/:id', auth, role('admin'), async (req, res) => {
+  try {
   await q('DELETE FROM subscription_plans WHERE id=$1',[req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio registrado aún' });
   const rawP     = await qa('SELECT * FROM products WHERE business_id=$1 ORDER BY created_at DESC', [b.id]);
@@ -1413,6 +1447,7 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
   const today       = await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE business_id=$1 AND DATE(created_at)=CURRENT_DATE AND status NOT IN ('cancelled','pending')`,[b.id]);
   const week        = await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE business_id=$1 AND created_at>=NOW()-INTERVAL '7 days' AND status NOT IN ('cancelled','pending')`,[b.id]);
   res.json({ business:b, products, categories, orders, balance:parseFloat(wallet.balance)||0, transactions, withdrawals, today, week });
+  } catch(e) { console.error(`❌ dashboard:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 
@@ -1422,12 +1457,17 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
 
 // GET own business info
 app.get('/api/businesses/mine', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error: 'Negocio no encontrado' });
   res.json(b);
+  } catch(e) { console.error(`❌ businesses mine GET:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
   const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, lat, lng, delivery_radius_km, accepts_cash, accepts_card_pos } = req.body;
@@ -1448,22 +1488,28 @@ app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
     } catch(e) { /* geocode failed silently */ }
   }
   res.json(await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]));
+  } catch(e) { console.error(`❌ businesses mine PATCH:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ── Schedule ──────────────────────────────────────────
 // ── Onboarding complete ────────────────────────────────────
 app.post('/api/businesses/mine/onboarding-done', auth, role('owner'), async (req, res) => {
+  try {
   await q('UPDATE businesses SET onboarding_done=TRUE WHERE owner_id=$1', [req.user.id]);
   res.json({ ok: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/businesses/mine/schedule', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT schedule, schedule_enabled FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   res.json({ schedule: b.schedule, schedule_enabled: b.schedule_enabled });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/businesses/mine/schedule', auth, role('owner'), async (req, res) => {
+  try {
   const { schedule, schedule_enabled } = req.body;
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
@@ -1475,26 +1521,33 @@ app.patch('/api/businesses/mine/schedule', auth, role('owner'), async (req, res)
     await q('UPDATE businesses SET is_open=$1 WHERE id=$2', [isOpen, b.id]);
   }
   res.json({ success: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── Toggle open/closed ──────────────────────────────────
 app.post('/api/businesses/mine/toggle', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT id, is_open FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error: 'Sin negocio' });
   const newState = req.body.is_open !== undefined ? Boolean(req.body.is_open) : !b.is_open;
   await q('UPDATE businesses SET is_open=$1 WHERE id=$2', [newState, b.id]);
   res.json({ is_open: newState });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
 //  CATEGORÍAS
 // ════════════════════════════════════════════════
 app.get('/api/businesses/mine/categories', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   res.json(await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/businesses/mine/categories', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   const { name, parent_id=null, sort_order=0 } = req.body;
@@ -1502,16 +1555,21 @@ app.post('/api/businesses/mine/categories', auth, role('owner'), async (req, res
   const id = uuid();
   await q('INSERT INTO product_categories (id,business_id,parent_id,name,sort_order) VALUES ($1,$2,$3,$4,$5)',[id,b.id,parent_id||null,name.trim(),sort_order]);
   res.status(201).json(await q1('SELECT * FROM product_categories WHERE id=$1',[id]));
+  } catch(e) { console.error(`❌ categories POST:`, e.message); res.status(500).json({ error: e.message }); }
 });
 app.patch('/api/businesses/mine/categories/:cid', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   const { name, parent_id, sort_order } = req.body;
   await q('UPDATE product_categories SET name=COALESCE($1,name),parent_id=COALESCE($2,parent_id),sort_order=COALESCE($3,sort_order) WHERE id=$4 AND business_id=$5',
     [name,parent_id,sort_order,req.params.cid,b.id]);
   res.json(await q1('SELECT * FROM product_categories WHERE id=$1',[req.params.cid]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/businesses/mine/categories/:cid', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   const cat = await q1('SELECT * FROM product_categories WHERE id=$1',[req.params.cid]);
@@ -1519,11 +1577,14 @@ app.delete('/api/businesses/mine/categories/:cid', auth, role('owner'), async (r
   await q('UPDATE products SET category_id=NULL WHERE category_id=$1 AND business_id=$2',[req.params.cid,b.id]);
   await q('DELETE FROM product_categories WHERE id=$1 AND business_id=$2',[req.params.cid,b.id]);
   res.json({ success:true });
+  } catch(e) { console.error(`❌ categories DELETE:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 
 // GET products + categories for owner app menu tab
 app.get('/api/businesses/mine/products', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error: 'Sin negocio' });
   const rawProds = await qa('SELECT * FROM products WHERE business_id=$1 ORDER BY created_at DESC', [b.id]);
@@ -1534,12 +1595,14 @@ app.get('/api/businesses/mine/products', auth, role('owner'), async (req, res) =
   })));
   const categories = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order', [b.id]);
   res.json({ products, categories });
+  } catch(e) { console.error(`❌ products GET:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
 //  PRODUCTOS
 // ════════════════════════════════════════════════
 app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Registrá tu negocio primero' });
   // Check subscription is active before adding products
@@ -1559,9 +1622,11 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
     const v=variants[i]; await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',[uuid(),id,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i]);
   }
   res.status(201).json(await getProductFull(id));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
   const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, stock } = req.body;
@@ -1583,13 +1648,17 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
     }
   }
   res.json(await getProductFull(req.params.pid));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
   await q('UPDATE products SET is_available=FALSE WHERE id=$1 AND business_id=$2',[req.params.pid,b.id]);
   res.json({ success:true });
+  } catch(e) { console.error(`❌ product DELETE:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -1707,14 +1776,18 @@ app.post('/api/register/complete', async (req, res) => {
 
 // Get subscription status (for existing owners)
 app.get('/api/subscription', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
   res.json({ subscription: sub, plan_price: PLAN_PRICE });
+  } catch(e) { console.error(`❌ subscription GET:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // Renew/reactivate subscription (for suspended accounts)
 app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   const owner = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
@@ -1758,10 +1831,12 @@ app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
     notification_url: `${APP_URL}/api/webhooks/mp`,
   });
   res.json({ init_point: preapproval.body.init_point });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Cancel subscription
 app.post('/api/subscription/cancel', auth, role('owner'), async (req, res) => {
+  try {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
   const sub = await q1('SELECT mp_preapproval_id FROM subscriptions WHERE business_id=$1',[b.id]);
@@ -1772,22 +1847,27 @@ app.post('/api/subscription/cancel', auth, role('owner'), async (req, res) => {
   await q("UPDATE subscriptions SET status='cancelled',cancelled_at=NOW(),updated_at=NOW() WHERE business_id=$1",[b.id]);
   notify(req.user.id, { type:'subscription_cancelled', message:'❌ Suscripción cancelada. Tu negocio quedará invisible al final del período.' });
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Admin — view all subscriptions
 app.get('/api/admin/subscriptions', auth, role('admin'), async (req, res) => {
+  try {
   res.json(await qa(`SELECT s.*,b.name as business_name,u.email as owner_email,u.name as owner_name
     FROM subscriptions s
     JOIN businesses b ON s.business_id=b.id
     JOIN users u ON s.owner_id=u.id
     ORDER BY s.created_at DESC`,[]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 // Admin — manually activate a subscription
 app.post('/api/admin/subscriptions/:id/activate', auth, role('admin'), async (req, res) => {
+  try {
   const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
   await q("UPDATE subscriptions SET status='active',current_period_start=NOW(),current_period_end=$1,updated_at=NOW() WHERE id=$2",
     [periodEnd.toISOString(), req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 // Admin — create subscription for a business that has none
 app.post('/api/admin/businesses/:id/activate', auth, role('admin'), async (req, res) => {
@@ -1804,8 +1884,10 @@ app.post('/api/admin/businesses/:id/activate', auth, role('admin'), async (req, 
 });
 // Admin — suspend a subscription
 app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req, res) => {
+  try {
   await q("UPDATE subscriptions SET status='suspended',updated_at=NOW() WHERE id=$1",[req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -1869,6 +1951,7 @@ async function checkFraud(userId, ip) {
 }
 
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
+  try {
   // Fraud check
   const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
   const fraud = await checkFraud(req.user.id, clientIp).catch(() => ({ blocked: false, issues: [] }));
@@ -1968,9 +2051,12 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       res.json({ order_id:orderId,demo:true });
     }
   } catch(e) { console.error(e); res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/orders', auth, async (req, res) => {
+  try {
+  
   let orders;
   if (req.user.role==='customer') orders=await qa(`SELECT o.*,b.name as business_name,b.logo_emoji,
     EXISTS(SELECT 1 FROM reviews r WHERE r.order_id=o.id) as has_review
@@ -1979,16 +2065,22 @@ app.get('/api/orders', auth, async (req, res) => {
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
   const result=await Promise.all(orders.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])})));
   res.json(result);
+  } catch(e) { console.error(`❌ orders GET:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/orders/:id', auth, async (req, res) => {
+  try {
+  
   const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,u.name as customer_name FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
   if (!o) return res.status(404).json({ error:'Pedido no encontrado' });
   o.items=await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id]);
   res.json(o);
+  } catch(e) { console.error(`❌ order get by id:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/orders/:id/status', auth, async (req, res) => {
+  try {
+  
   const { status } = req.body;
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
@@ -2059,11 +2151,14 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_update',status,order_id:order.id });
   res.json(updatedOrder);
+  } catch(e) { console.error(`❌ order status PATCH:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // Owner sends a message to the customer about their order
 // ── ETA ───────────────────────────────────────
 app.get('/api/orders/:id/eta', auth, async (req, res) => {
+  try {
+  
   const order = await q1('SELECT id,status,confirmed_at,eta_minutes,business_id FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
   if (!order.confirmed_at || !order.eta_minutes) return res.json({ eta_minutes: null, remaining: null, status: order.status });
@@ -2071,9 +2166,11 @@ app.get('/api/orders/:id/eta', auth, async (req, res) => {
   const remaining = Math.max(0, Math.round(order.eta_minutes - elapsedMin));
   const percent = Math.min(100, Math.round((elapsedMin / order.eta_minutes) * 100));
   res.json({ eta_minutes: order.eta_minutes, remaining, elapsed: Math.round(elapsedMin), percent, status: order.status });
+  } catch(e) { console.error("❌ orders/:id/eta:", e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/orders/:id/eta', auth, role('owner'), async (req, res) => {
+  try {
   const { eta_minutes } = req.body;
   if (!eta_minutes || parseInt(eta_minutes) < 1) return res.status(400).json({ error: 'ETA inválido' });
   const order = await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
@@ -2089,9 +2186,12 @@ app.patch('/api/orders/:id/eta', auth, role('owner'), async (req, res) => {
     eta_minutes: parseInt(eta_minutes),
   });
   res.json({ ok: true, eta_minutes: parseInt(eta_minutes) });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/orders/:id/message', auth, role('owner'), async (req, res) => {
+  try {
+  
   const { message } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
   const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
@@ -2106,6 +2206,7 @@ app.post('/api/orders/:id/message', auth, role('owner'), async (req, res) => {
     order_id: order.id,
   });
   res.json({ ok: true });
+  } catch(e) { console.error("❌ orders/:id/message:", e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ── Refund helper ──────────────────────────────────────────
@@ -2139,6 +2240,8 @@ async function issueRefund(order) {
 }
 
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
+  try {
+  
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
   if (!['pending','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
@@ -2152,12 +2255,15 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
     if (refund.ok) notify(order.customer_id, { type:'refund_issued', message:`💸 Reembolso procesado por $${order.total}`, order_id: order.id });
   }
   res.json({ success:true, refund });
+  } catch(e) { console.error(`❌ order cancel:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 
 // Poll order payment status (frontend polls while waiting for MP webhook)
 // Manual refund endpoint (admin or owner)
 app.post('/api/orders/:id/refund', auth, async (req, res) => {
+  try {
+  
   const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
   if (!order) return res.status(404).json({ error: 'No encontrado' });
   // Only admin or the business owner can trigger manual refund
@@ -2172,12 +2278,15 @@ app.post('/api/orders/:id/refund', auth, async (req, res) => {
     notify(order.customer_id, { type:'refund_issued', message:`💸 Reembolso procesado por $${order.total}`, order_id: order.id });
   }
   res.json({ ok: refund.ok, refund });
+  } catch(e) { console.error(`❌ order refund:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/orders/:id/payment-status', auth, async (req, res) => {
+  try {
   const order = await q1('SELECT id,status,mp_status,total,created_at FROM orders WHERE id=$1 AND customer_id=$2',[req.params.id, req.user.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
   res.json({ status: order.status, mp_status: order.mp_status, total: order.total });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── Reviews ──────────────────────────────────────
@@ -2216,6 +2325,8 @@ app.post('/api/orders/:id/review', auth, role('customer'), async (req, res) => {
 // ── Global search ──────────────────────────────────────────
 // ── Wallet summary — split online vs in-person ──────────
 app.get('/api/owner/wallet-summary', auth, role('owner'), async (req, res) => {
+  try {
+  
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error: 'Sin negocio' });
   const wallet = await q1('SELECT balance FROM wallets WHERE owner_id=$1', [b.id]) || { balance: 0 };
@@ -2242,6 +2353,7 @@ app.get('/api/owner/wallet-summary', auth, role('owner'), async (req, res) => {
     online_today:     parseFloat(today.online_today) || 0,
     in_person_today:  parseFloat(today.in_person_today) || 0,
   });
+  } catch(e) { console.error(`❌ wallet summary:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/search', async (req, res) => {
@@ -2351,11 +2463,14 @@ app.get('/api/businesses/:id/reviews', async (req, res) => {
 //  WALLET
 // ════════════════════════════════════════════════
 app.get('/api/wallet', auth, async (req, res) => {
+  try {
+  
   const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
   if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
   const wallet=await getWallet(ownerId,req.user.role);
   const txs=await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]);
   res.json({ balance:parseFloat(wallet.balance)||0,transactions:txs });
+  } catch(e) { console.error(`❌ wallet GET:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 
@@ -2368,15 +2483,18 @@ app.get('/api/wallet', auth, async (req, res) => {
 
 // Get user Blow+ status
 app.get('/api/user/blow-plus', auth, async (req, res) => {
+  try {
   const u = await q1('SELECT blow_plus, blow_plus_since, blow_plus_expires FROM users WHERE id=$1', [req.user.id]);
   if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
   const now = new Date();
   const active = u.blow_plus && (!u.blow_plus_expires || new Date(u.blow_plus_expires) > now);
   res.json({ active, since: u.blow_plus_since, expires: u.blow_plus_expires });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Create MP preference for user Blow+
 app.post('/api/user/blow-plus/subscribe', auth, async (req, res) => {
+  try {
   const u = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
   if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
 
@@ -2409,16 +2527,20 @@ app.post('/api/user/blow-plus/subscribe', auth, async (req, res) => {
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Cancel user Blow+
 app.post('/api/user/blow-plus/cancel', auth, async (req, res) => {
+  try {
   await q('UPDATE users SET blow_plus=FALSE WHERE id=$1', [req.user.id]);
   res.json({ success: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Admin: toggle user Blow+
 app.patch('/api/admin/users/:id/blow-plus', auth, role('admin'), async (req, res) => {
+  try {
   const { active } = req.body;
   if (active) {
     await q(`UPDATE users SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [req.params.id]);
@@ -2426,6 +2548,7 @@ app.patch('/api/admin/users/:id/blow-plus', auth, role('admin'), async (req, res
     await q('UPDATE users SET blow_plus=FALSE WHERE id=$1', [req.params.id]);
   }
   res.json({ success: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -2434,15 +2557,18 @@ app.patch('/api/admin/users/:id/blow-plus', auth, role('admin'), async (req, res
 
 // Get Blow+ status
 app.get('/api/businesses/mine/blow-plus', auth, role('owner'), async (req, res) => {
+  try {
   const biz = await q1('SELECT blow_plus, blow_plus_since, blow_plus_expires FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
   const now = new Date();
   const active = biz.blow_plus && (!biz.blow_plus_expires || new Date(biz.blow_plus_expires) > now);
   res.json({ active, since: biz.blow_plus_since, expires: biz.blow_plus_expires });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Create MP preference for Blow+ subscription
 app.post('/api/businesses/mine/blow-plus/subscribe', auth, role('owner'), async (req, res) => {
+  try {
   const owner = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
   const biz = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
@@ -2476,18 +2602,22 @@ app.post('/api/businesses/mine/blow-plus/subscribe', auth, role('owner'), async 
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Cancel Blow+
 app.post('/api/businesses/mine/blow-plus/cancel', auth, role('owner'), async (req, res) => {
+  try {
   const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
   await q('UPDATE businesses SET blow_plus=FALSE WHERE id=$1', [biz.id]);
   res.json({ success: true, message: 'Blow+ cancelado. Seguirá activo hasta el vencimiento.' });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Admin: manually toggle Blow+ for a business
 app.patch('/api/admin/businesses/:id/blow-plus', auth, role('admin'), async (req, res) => {
+  try {
   const { active } = req.body;
   if (active) {
     await q(`UPDATE businesses SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [req.params.id]);
@@ -2495,6 +2625,7 @@ app.patch('/api/admin/businesses/:id/blow-plus', auth, role('admin'), async (req
     await q('UPDATE businesses SET blow_plus=FALSE WHERE id=$1', [req.params.id]);
   }
   res.json({ success: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
@@ -2503,40 +2634,50 @@ app.patch('/api/admin/businesses/:id/blow-plus', auth, role('admin'), async (req
 
 // Upload business cover photo
 app.post('/api/businesses/mine/upload-cover', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
+  try {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
   const url = req.file.path || req.file.secure_url;
   await q('UPDATE businesses SET cover_url=$1 WHERE owner_id=$2', [url, req.user.id]);
   res.json({ url });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/businesses/mine/upload-logo', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
+  try {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
   const url = req.file.path || req.file.secure_url;
   await q('UPDATE businesses SET logo_url=$1 WHERE owner_id=$2', [url, req.user.id]);
   res.json({ url });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/businesses/mine/products/:id/upload-photo', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
+  try {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
   const url = req.file.path || req.file.secure_url;
   const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
   await q('UPDATE products SET photo_url=$1 WHERE id=$2 AND business_id=$3', [url, req.params.id, biz.id]);
   res.json({ url });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/businesses/:id/upload-cover', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
+  try {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
   const url = req.file.path || req.file.secure_url;
   await q('UPDATE businesses SET cover_url=$1 WHERE id=$2', [url, req.params.id]);
   res.json({ url });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/businesses/:id/upload-logo', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
+  try {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
   const url = req.file.path || req.file.secure_url;
   await q('UPDATE businesses SET logo_url=$1 WHERE id=$2', [url, req.params.id]);
   res.json({ url });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ═══════════════════════════════════════════════
@@ -2546,21 +2687,28 @@ app.post('/api/admin/businesses/:id/upload-logo', auth, role('admin'), uploadMid
 
 // Owner: toggle Blow+ free delivery
 app.patch('/api/businesses/mine/blow-plus-delivery', auth, role('owner'), async (req, res) => {
+  try {
   const { enabled } = req.body;
   await q('UPDATE businesses SET blow_plus_free_delivery=$1 WHERE owner_id=$2', [!!enabled, req.user.id]);
   res.json({ success: true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Owner: list own promotions
 app.get('/api/businesses/mine/promotions', auth, role('owner'), async (req, res) => {
+  try {
+  
   const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
   const promos = await qa('SELECT * FROM promotions WHERE business_id=$1 ORDER BY created_at DESC',[biz.id]);
   res.json(promos.map(p => ({ ...p, combo_products: safeJson(p.combo_products, []) })));
+  } catch(e) { console.error(`❌ promotions GET:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // Owner: create promotion
 app.post('/api/businesses/mine/promotions', auth, role('owner'), async (req, res) => {
+  try {
+  
   const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
   const { name, type, value=0, min_order_amount=0, category_id=null,
@@ -2576,10 +2724,12 @@ app.post('/api/businesses/mine/promotions', auth, role('owner'), async (req, res
      code||null,requires_code,starts_at||null,ends_at||null,blow_plus_only]
   );
   res.json({ success:true, id });
+  } catch(e) { console.error(`❌ promotions POST:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // Owner: update promotion
 app.patch('/api/businesses/mine/promotions/:id', auth, role('owner'), async (req, res) => {
+  try {
   const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
   const { name, type, value, min_order_amount, category_id, combo_products,
@@ -2602,17 +2752,21 @@ app.patch('/api/businesses/mine/promotions/:id', auth, role('owner'), async (req
   params.push(req.params.id); params.push(biz.id);
   await q(`UPDATE promotions SET ${updates.join(',')} WHERE id=$${i} AND business_id=$${i+1}`, params);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Owner: delete promotion
 app.delete('/api/businesses/mine/promotions/:id', auth, role('owner'), async (req, res) => {
+  try {
   const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
   await q('DELETE FROM promotions WHERE id=$1 AND business_id=$2',[req.params.id,biz.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/businesses', auth, role('owner'), async (req, res) => {
+  try {
   if (await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))
     return res.status(409).json({ error:'Ya tenés un negocio registrado' });
   const { name, category, address='', phone='', logo_emoji='🏪', delivery_cost=50, delivery_time='20-35', city='', department='' } = req.body;
@@ -2622,8 +2776,10 @@ app.post('/api/businesses', auth, role('owner'), async (req, res) => {
   await q('INSERT INTO businesses (id,owner_id,name,category,address,phone,logo_emoji,delivery_cost,delivery_time,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
     [id, req.user.id, name.trim(), category, address, phone, logo_emoji, delivery_cost, delivery_time, city.trim(), department]);
   res.status(201).json(await q1('SELECT * FROM businesses WHERE id=$1',[id]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.get('/api/businesses/:id', async (req, res) => {
+  try {
   const b = await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
   const rawP = await qa('SELECT * FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
@@ -2637,10 +2793,12 @@ app.get('/api/businesses/:id', async (req, res) => {
   const reviewCount = parseInt(reviewStats?.count||0);
   const rating = reviewCount >= 3 ? parseFloat(reviewStats.avg) : null;
   res.json({ ...b, products:prods, categories:cats, review_count: reviewCount, rating });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Public: get active promotions for a business
 app.get('/api/businesses/:id/promotions', async (req, res) => {
+  try {
   const now = new Date().toISOString();
   // Check if requester is a Blow+ user
   let userIsBlowPlus = false;
@@ -2666,10 +2824,12 @@ app.get('/api/businesses/:id/promotions', async (req, res) => {
     code: p.requires_code ? '[required]' : null,
     blow_plus_only: p.blow_plus_only
   })));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Public: validate promo code
 app.post('/api/businesses/:id/promotions/validate-code', async (req, res) => {
+  try {
   const { code, cart_items, cart_total } = req.body;
   if (!code) return res.status(400).json({ error:'Código requerido' });
   const now = new Date().toISOString();
@@ -2686,9 +2846,12 @@ app.post('/api/businesses/:id/promotions/validate-code', async (req, res) => {
   }
   const discount = calcPromoDiscount(promo, cart_items||[], cart_total||0);
   res.json({ success:true, promo: { ...promo, combo_products: safeJson(promo.combo_products,[]) }, discount });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/wallet/withdraw', auth, async (req, res) => {
+  try {
+  
   const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
   if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
   const { amount,method,destination } = req.body;
@@ -2701,12 +2864,14 @@ app.post('/api/wallet/withdraw', auth, async (req, res) => {
   await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
     [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,method,destination]);
   res.json({ success:true });
+  } catch(e) { console.error(`❌ wallet withdraw:`, e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
 //  ADMIN
 // ════════════════════════════════════════════════
 app.post('/api/admin/setup', async (req, res) => {
+  try {
   if (await q1("SELECT id FROM users WHERE role='admin'",[]))
     return res.status(403).json({ error:'Ya existe un administrador' });
   const { name,email,password } = req.body;
@@ -2715,9 +2880,11 @@ app.post('/api/admin/setup', async (req, res) => {
   await q('INSERT INTO users (id,name,email,password,role) VALUES ($1,$2,$3,$4,$5)',[id,name,email.toLowerCase(),await bcrypt.hash(password,10),'admin']);
   const user={id,name,email,role:'admin'};
   res.status(201).json({ token:sign(user),user });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/stats', auth, role('admin'), async (req, res) => {
+  try {
   const userStats  =await qa('SELECT role,COUNT(*) as c FROM users GROUP BY role',[]);
   const orderStats =await qa('SELECT status,COUNT(*) as c FROM orders GROUP BY status',[]);
   const revenue    =await q1("SELECT COALESCE(SUM(total),0) as total FROM orders WHERE status='delivered'",[]);
@@ -2726,45 +2893,59 @@ app.get('/api/admin/stats', auth, role('admin'), async (req, res) => {
   const businesses =await q1('SELECT COUNT(*) as c FROM businesses',[]);
   const pendingW   =await q1("SELECT COUNT(*) as c FROM withdrawals WHERE status='pending'",[]);
   res.json({ userStats,orderStats,revenue:parseFloat(revenue.total),today,week,businesses:parseInt(businesses.c),pendingWithdrawals:parseInt(pendingW.c) });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/users', auth, role('admin'), async (req, res) => {
+  try {
   const { role:r,search } = req.query;
   let sql='SELECT u.*,(SELECT COUNT(*) FROM orders WHERE customer_id=u.id) as order_count FROM users u WHERE TRUE';
   const params=[]; let i=1;
   if (r) { sql+=` AND u.role=$${i++}`;params.push(r); }
   if (search) { sql+=` AND (u.name ILIKE $${i} OR u.email ILIKE $${i++})`;params.push(`%${search}%`); }
   res.json(await qa(sql+' ORDER BY u.created_at DESC',params));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
+  try {
   const { name,email,role:r,phone }=req.body;
   await q('UPDATE users SET name=COALESCE($1,name),email=COALESCE($2,email),role=COALESCE($3,role),phone=COALESCE($4,phone) WHERE id=$5',[name,email,r,phone,req.params.id]);
   res.json(await q1('SELECT id,name,email,role,phone,created_at FROM users WHERE id=$1',[req.params.id]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
+  try {
   await q("DELETE FROM users WHERE id=$1 AND role!='admin'",[req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req, res) => {
+  try {
   const { password }=req.body;
   if (!password||password.length<6) return res.status(400).json({ error:'Mínimo 6 caracteres' });
   await q('UPDATE users SET password=$1 WHERE id=$2',[await bcrypt.hash(password,10),req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.get('/api/admin/businesses', auth, role('admin'), async (req, res) =>
   res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,s.status as sub_status,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id LEFT JOIN subscriptions s ON s.business_id=b.id ORDER BY b.created_at DESC`,[])));
 app.patch('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
+  try {
   const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department }=req.body;
   await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE id=$12`,
     [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.params.id]);
   res.json(await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
+  try {
   await q('DELETE FROM businesses WHERE id=$1',[req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.get('/api/admin/orders', auth, role('admin'), async (req, res) => {
+  try {
   const { status,search }=req.query;
   let sql='SELECT o.*,u.name as customer_name,b.name as business_name FROM orders o JOIN users u ON o.customer_id=u.id JOIN businesses b ON o.business_id=b.id WHERE TRUE';
   const params=[]; let i=1;
@@ -2772,43 +2953,55 @@ app.get('/api/admin/orders', auth, role('admin'), async (req, res) => {
   if (search) { sql+=` AND (u.name ILIKE $${i} OR b.name ILIKE $${i++})`;params.push(`%${search}%`); }
   const rows=await qa(sql+' ORDER BY o.created_at DESC LIMIT 200',params);
   res.json(await Promise.all(rows.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])}))));
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.get('/api/admin/withdrawals', auth, role('admin'), async (req, res) =>
   res.json(await qa('SELECT * FROM withdrawals ORDER BY created_at DESC',[])));
 app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, res) => {
+  try {
   await q("UPDATE withdrawals SET status='completed',processed_at=NOW() WHERE id=$1",[req.params.id]);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/withdrawals/:id/reject', auth, role('admin'), async (req, res) => {
+  try {
   const w=await q1('SELECT * FROM withdrawals WHERE id=$1',[req.params.id]);
   if (!w) return res.status(404).json({ error:'No encontrado' });
   await q("UPDATE withdrawals SET status='rejected',processed_at=NOW() WHERE id=$1",[req.params.id]);
   await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2',[w.amount,w.wallet_id]);
   await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),w.wallet_id,'credit',w.amount,'Retiro rechazado — saldo devuelto']);
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.get('/api/admin/settings', auth, role('admin'), async (req, res) => {
+  try {
   const rows=await qa('SELECT * FROM app_settings',[]);
   const obj={};
   rows.forEach(r=>{ try{obj[r.key]=JSON.parse(r.value);}catch{obj[r.key]=r.value;} });
   res.json(obj);
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
+  try {
   for (const [k,v] of Object.entries(req.body))
     await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()',[k,JSON.stringify(v)]);
   await loadPlanPrice(); // reload in-memory price
   res.json({ success:true });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
+  try {
   const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);
   const txs=wallet?.id?await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]):[];
   res.json({ balance:parseFloat(wallet?.balance)||0,transactions:txs,fee_percent:process.env.PLATFORM_FEE_PERCENT||0 });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
 //  WEBHOOK MERCADOPAGO
 // ════════════════════════════════════════════════
 app.post('/api/webhooks/mp', async (req, res) => {
+  try {
   res.sendStatus(200);
   try {
     const { type, data, topic, id } = req.body;
@@ -2943,6 +3136,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
       await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[orderId]);
 
   } catch(e) { console.error('Webhook error:', e.message); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── Public settings (no auth) ────────────────
@@ -2996,6 +3190,7 @@ app.get('/api/coupons/available', auth, async (req, res) => {
 });
 
 app.post('/api/admin/coupons', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const { code, description, discount_type, discount_value, min_order, max_uses, per_user, business_id, expires_at } = req.body;
@@ -3007,27 +3202,35 @@ app.post('/api/admin/coupons', auth, async (req, res) => {
       [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, max_uses||null, per_user||1, business_id||null, req.user.id, expires_at||null]);
     res.status(201).json({ id });
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/coupons', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { res.json(await q('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/admin/coupons/:id', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { await q('UPDATE coupons SET active=$1 WHERE id=$2', [req.body.active, req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/coupons/:id', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { await q('DELETE FROM coupons WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/owner/coupons', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
@@ -3041,24 +3244,29 @@ app.post('/api/owner/coupons', auth, async (req, res) => {
       [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, 1, biz.id, req.user.id]);
     res.status(201).json({ id });
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/owner/coupons', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     if (!biz) return res.json([]);
     res.json(await q('SELECT * FROM coupons WHERE business_id=$1 ORDER BY created_at DESC', [biz.id]));
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/owner/coupons/:id', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     await q('DELETE FROM coupons WHERE id=$1 AND business_id=$2', [req.params.id, biz?.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ══════════════════════════════════════════════
@@ -3091,12 +3299,15 @@ app.get('/api/help/mine', auth, async (req, res) => {
 });
 
 app.get('/api/admin/help', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try { res.json(await q('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100')); }
   catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/admin/help/:id', auth, async (req, res) => {
+  try {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
   try {
     const { reply } = req.body;
@@ -3106,6 +3317,7 @@ app.patch('/api/admin/help/:id', auth, async (req, res) => {
     await sendEmail(msg.user_email, 'Respuesta de soporte — Blow', '<p>Hola <b>' + msg.user_name + '</b>, respondimos tu consulta:</p><blockquote>' + reply + '</blockquote>');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
@@ -3119,26 +3331,33 @@ app.get('/api/banners', async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 app.post('/api/admin/banners', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {title,subtitle,highlight,emoji,bg_color,link,sort_order} = req.body;
   const id = 'ban_'+Date.now();
   await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,emoji,bg_color,link,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
     [id,title||'',subtitle||'',highlight||'',emoji||'🍔',bg_color||'#FA0050',link||'',sort_order||0]);
   res.json({ok:true,id});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url} = req.body;
   await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),emoji=COALESCE($4,emoji),bg_color=COALESCE($5,bg_color),link=COALESCE($6,link),sort_order=COALESCE($7,sort_order),active=COALESCE($8,active),image_url=COALESCE($9,image_url) WHERE id=$10",
     [title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url,req.params.id]);
   res.json({ok:true});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
   res.json({ok:true});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
@@ -3150,6 +3369,7 @@ app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async 
     await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[imageUrl,req.params.id]);
     res.json({ok:true,url:result.secure_url});
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── FEATURED SLOTS API ──
@@ -3162,18 +3382,23 @@ app.get('/api/featured', async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 app.get('/api/admin/featured', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const rows = await db.query(`SELECT fs.*, b.name as biz_name FROM featured_slots fs LEFT JOIN businesses b ON fs.business_id=b.id ORDER BY fs.sort_order ASC`);
   res.json(rows.rows);
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/featured', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {business_id,custom_title,sort_order} = req.body;
   const id = 'feat_'+Date.now();
   await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]);
   res.json({ok:true,id});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
@@ -3185,17 +3410,22 @@ app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async
     await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[imageUrl,req.params.id]);
     res.json({ok:true,url:result.secure_url});
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.patch('/api/admin/featured/:id', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {active,sort_order,custom_title} = req.body;
   await db.query("UPDATE featured_slots SET active=COALESCE($1,active),sort_order=COALESCE($2,sort_order),custom_title=COALESCE($3,custom_title) WHERE id=$4",[active,sort_order,custom_title,req.params.id]);
   res.json({ok:true});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/admin/featured/:id', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   await db.query("DELETE FROM featured_slots WHERE id=$1",[req.params.id]);
   res.json({ok:true});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 
@@ -3208,16 +3438,19 @@ app.get('/api/config/blowplus-banner', async (req,res)=>{
   } catch(e){ res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'}); }
 });
 app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {title, subtitle} = req.body;
   await db.query("INSERT INTO app_config(key,value) VALUES('blowplus_banner',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
     [JSON.stringify({title, subtitle})]);
   res.json({ok:true});
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 
 // ── TOP CUSTOMERS (admin: all app, owner: their business) ──
 app.get('/api/admin/top-customers', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   try {
     const rows = await db.query(`
@@ -3233,9 +3466,11 @@ app.get('/api/admin/top-customers', auth, async (req,res)=>{
     `);
     res.json(rows.rows);
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/owner/stats/history', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
@@ -3288,6 +3523,7 @@ app.get('/api/owner/stats/history', auth, async (req,res)=>{
 
     res.json({ daily: daily.rows, summary, topProducts: topProducts.rows, topCustomers: topCustomers.rows });
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── Advanced analytics ────────────────────────
@@ -3389,6 +3625,7 @@ app.get('/api/owner/analytics', auth, role('owner'), async (req, res) => {
 });
 
 app.get('/api/owner/top-customers', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
@@ -3406,10 +3643,12 @@ app.get('/api/owner/top-customers', auth, async (req,res)=>{
     `,[biz.id]);
     res.json(rows.rows);
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── ASSIGN COUPON TO USER ──
 app.post('/api/admin/coupons/:id/assign', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {user_ids} = req.body; // array of user ids
   if(!user_ids?.length) return res.status(400).json({error:'user_ids requerido'});
@@ -3421,9 +3660,11 @@ app.post('/api/admin/coupons/:id/assign', auth, async (req,res)=>{
     }
     res.json({ok:true, assigned: user_ids.length});
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/owner/coupons/:id/assign', auth, async (req,res)=>{
+  try {
   if(req.user.role!=='owner') return res.status(403).json({error:'No autorizado'});
   const {user_ids} = req.body;
   if(!user_ids?.length) return res.status(400).json({error:'user_ids requerido'});
@@ -3441,6 +3682,7 @@ app.post('/api/owner/coupons/:id/assign', auth, async (req,res)=>{
     }
     res.json({ok:true, assigned: user_ids.length});
   } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── USER COUPONS (what the customer sees) ──
@@ -3464,6 +3706,7 @@ app.get('/api/my-coupons', auth, async (req,res)=>{
 
 // ── USER PROFILE UPDATE ──
 app.patch('/api/user/profile', auth, async (req,res)=>{
+  try {
   const {name, email, phone} = req.body;
   if (!name || !email) return res.status(400).json({error:'Nombre y email requeridos'});
   try {
@@ -3477,6 +3720,7 @@ app.patch('/api/user/profile', auth, async (req,res)=>{
     if (e.code==='23505') return res.status(400).json({error:'Ese email ya está en uso'});
     res.status(500).json({error:e.message});
   }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ── USER AVATAR UPLOAD ──
@@ -3501,8 +3745,10 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
 
 // ── PUBLIC PLAN PRICE ──
 app.get('/api/public/plan-price', async (req,res)=>{
+  try {
   await loadPlanPrice(); // always fresh from DB
   res.json({ price: PLAN_PRICE });
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // ═══════════════════════════════════════════════
@@ -3570,6 +3816,7 @@ function seoPage({ title, description, url, image, bodyContent }) {
 
 // City landing pages: /delivery/montevideo, /delivery/maldonado, etc.
 app.get('/delivery/:city', async (req, res) => {
+  try {
   const city = decodeURIComponent(req.params.city).replace(/-/g,' ');
   const cityTitle = city.charAt(0).toUpperCase() + city.slice(1);
   try {
@@ -3598,10 +3845,12 @@ app.get('/delivery/:city', async (req, res) => {
         <div class="grid">${cards || '<p style="text-align:center;color:#aaa;padding:20px;">Todavía no hay negocios registrados en esta ciudad.</p>'}</div>`,
     }));
   } catch(e) { res.redirect('/'); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Category landing pages: /categoria/restaurantes, /categoria/farmacias
 app.get('/categoria/:cat', async (req, res) => {
+  try {
   const catMap = { restaurantes:'food', mercados:'market', farmacias:'pharmacy', bebidas:'drinks', postres:'desserts', cafes:'cafe' };
   const cat = catMap[req.params.cat] || req.params.cat;
   const catTitle = req.params.cat.charAt(0).toUpperCase() + req.params.cat.slice(1);
@@ -3631,6 +3880,7 @@ app.get('/categoria/:cat', async (req, res) => {
         <div class="grid">${cards}</div>`,
     }));
   } catch(e) { res.redirect('/'); }
+  } catch(e) { console.error("❌ route error:", req.method, req.path, e.message); if (!res.headersSent) res.status(500).json({ error: e.message }); }
 });
 
 // Business profile page: /negocio/slug-del-nombre
@@ -3696,7 +3946,15 @@ app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 // ── Start ─────────────────────────────────────
 initDB().then(async ()=>{
   await initVapid();
-  server.listen(PORT,()=>{
+  
+// ── Global error handler ─────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('❌ Unhandled error:', err.message, '| route:', req.method, req.path);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || 'Error interno del servidor' });
+});
+
+server.listen(PORT,()=>{
     console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
     console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
     console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
