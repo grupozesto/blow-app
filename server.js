@@ -1249,8 +1249,16 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
   if (status==='delivered') {
-    await credit(order.business_id,'business',order.business_amount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
-    await credit(order.delivery_id||req.user.id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
+    // Si el delivery_id es el owner del negocio (maneja su propio delivery), acreditar también el delivery_amount al negocio
+    const deliveryBiz = await q1('SELECT id, owner_id FROM businesses WHERE id=$1',[order.business_id]);
+    const ownerHandledDelivery = !order.delivery_id || (deliveryBiz && order.delivery_id === deliveryBiz.owner_id);
+    if (ownerHandledDelivery) {
+      // Todo va al negocio: subtotal + delivery - comisión plataforma
+      await credit(order.business_id,'business', parseFloat((order.business_amount + (order.delivery_amount||0)).toFixed(2)), `Pedido #${order.id.slice(-6).toUpperCase()}`, order.id);
+    } else {
+      await credit(order.business_id,'business',order.business_amount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
+      await credit(order.delivery_id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
+    }
     await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
   }
   // Push al cliente con mensaje según estado
