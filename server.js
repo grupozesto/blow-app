@@ -245,6 +245,10 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '[]';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS photo_url TEXT DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS preparation_time INTEGER DEFAULT NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS calories INTEGER DEFAULT NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS allergens TEXT DEFAULT '';
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -917,11 +921,11 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
   if (!sub || sub.status !== 'active')
     return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
-  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0 } = req.body;
+  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', stock=null, is_featured=false } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
   const id = uuid();
-  await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price)]);
+  await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',stock?parseInt(stock):null]);
   for (let i=0;i<Math.min(photos.length,4);i++) {
     try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
     catch(e) { console.error('Photo error:',e.message); }
@@ -935,9 +939,9 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants } = req.body;
-  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent) WHERE id=$9 AND business_id=$10`,
-    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,req.params.pid,b.id]);
+  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock } = req.body;
+  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock) WHERE id=$13 AND business_id=$14`,
+    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?parseInt(stock):null,req.params.pid,b.id]);
   if (Array.isArray(photos) && photos.length > 0) {
     const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
     await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
