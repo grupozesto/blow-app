@@ -434,6 +434,8 @@ async function sendPushToOwner(ownerId, payload) {
     }
   } catch(e) { console.error('sendPushToOwner error:', e.message); }
 }
+// Alias semántico para notificar clientes (misma lógica)
+const sendPushToUser = sendPushToOwner;
 
 async function uploadPhoto(base64Data, mimeType) {
   if (!cloudinary) throw new Error('Cloudinary no configurado. Agregá las variables CLOUDINARY_* en Railway.');
@@ -1233,7 +1235,11 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const { status } = req.body;
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
-  const allowed={ owner:{confirmed:'preparing',preparing:'ready'},delivery:{ready:'on_way',on_way:'delivered'},admin:{pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'} };
+  const allowed={ 
+    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready' },
+    delivery:{ ready:'on_way', on_way:'delivered' },
+    admin:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' }
+  };
   const ra=allowed[req.user.role];
   if (!ra || ra[order.status]!==status) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   if (req.user.role==='owner') {
@@ -1247,6 +1253,16 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
     await credit(order.delivery_id||req.user.id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
     await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
   }
+  // Push al cliente con mensaje según estado
+  const PUSH_MSG = {
+    confirmed:  { title:'✅ Pedido confirmado',       body:`Tu pedido #${order.id.slice(-6).toUpperCase()} fue aceptado por el local.` },
+    preparing:  { title:'👨‍🍳 Estamos preparando tu pedido', body:`#${order.id.slice(-6).toUpperCase()} está en preparación.` },
+    ready:      { title:'🟢 ¡Tu pedido está listo!',  body:`#${order.id.slice(-6).toUpperCase()} listo para ser retirado/entregado.` },
+    on_way:     { title:'🛵 Tu pedido está en camino', body:`#${order.id.slice(-6).toUpperCase()} ya salió hacia tu dirección.` },
+    delivered:  { title:'🎉 ¡Pedido entregado!',      body:`#${order.id.slice(-6).toUpperCase()} fue entregado. ¡Buen provecho!` },
+  };
+  const pushMsg = PUSH_MSG[status];
+  if (pushMsg) sendPushToUser(order.customer_id, { ...pushMsg, tag: `order-${order.id}`, url: '/?tab=tracking' });
   notify(order.customer_id,{ type:'status_change',message:`Tu pedido: ${status}`,status,order_id:order.id });
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_update',status,order_id:order.id });
@@ -1259,8 +1275,15 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   if (!['pending','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
   if (req.user.role==='customer'&&order.customer_id!==req.user.id) return res.status(403).json({ error:'No es tu pedido' });
   await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[order.id]);
-  const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
-  if (biz) notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
+  const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
+  if (biz) {
+    notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
+    sendPushToOwner(biz.owner_id,{ title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado.`, tag:`order-${order.id}`, url:'/' });
+  }
+  // Si cancela el owner, notificar al cliente
+  if (req.user.role==='owner') {
+    sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local. Contactanos si tenés dudas.`, tag:`order-${order.id}`, url:'/?tab=tracking' });
+  }
   res.json({ success:true });
 });
 
