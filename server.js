@@ -1032,11 +1032,11 @@ app.get('/api/recommendations', auth, async (req, res) => {
       // No history → return top-rated open businesses
       const fallback = await qa(`
         SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url, b.cover_url,
-               b.delivery_cost, b.delivery_time, b.rating, b.review_count, b.is_open,
+               b.delivery_cost, b.delivery_time, b.rating, (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) AS review_count, b.is_open,
                'popular' AS rec_reason
         FROM businesses b
         WHERE b.is_open = TRUE AND b.plan IS NOT NULL
-        ORDER BY COALESCE(b.rating, 0) DESC, COALESCE(b.review_count, 0) DESC
+        ORDER BY COALESCE(b.rating, 0) DESC, (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) DESC
         LIMIT $1
       `, [parseInt(limit)]);
       return res.json({ recommendations: fallback, reason: 'popular' });
@@ -1056,7 +1056,7 @@ app.get('/api/recommendations', auth, async (req, res) => {
     const placeholders = recentBizIds.map((_,i) => `$${i+2}`).join(',');
     const recs = await qa(`
       SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url, b.cover_url,
-             b.delivery_cost, b.delivery_time, b.rating, b.review_count, b.is_open,
+             b.delivery_cost, b.delivery_time, b.rating, (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) AS review_count, b.is_open,
              ${distExpr} AS distance_km,
              CASE WHEN b.category = ANY($1::text[]) THEN 'same_category' ELSE 'discover' END AS rec_reason
       FROM businesses b
@@ -1066,7 +1066,7 @@ app.get('/api/recommendations', auth, async (req, res) => {
       ORDER BY
         CASE WHEN b.category = ANY($1::text[]) THEN 0 ELSE 1 END ASC,
         COALESCE(b.rating, 0) DESC,
-        COALESCE(b.review_count, 0) DESC
+        (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) DESC
       LIMIT $${recentBizIds.length + 2}
     `, [topCats, ...recentBizIds, parseInt(limit)]);
 
@@ -1075,7 +1075,7 @@ app.get('/api/recommendations', auth, async (req, res) => {
     if (result.length < 3) {
       const again = await qa(`
         SELECT DISTINCT ON (o.business_id) b.id, b.name, b.category, b.logo_emoji, b.logo_url,
-               b.cover_url, b.delivery_cost, b.delivery_time, b.rating, b.review_count, b.is_open,
+               b.cover_url, b.delivery_cost, b.delivery_time, b.rating, (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) AS review_count, b.is_open,
                'order_again' AS rec_reason
         FROM orders o JOIN businesses b ON b.id = o.business_id
         WHERE o.customer_id = $1 AND o.status = 'delivered' AND b.is_open = TRUE
@@ -2457,7 +2457,7 @@ app.get('/api/search', async (req, res) => {
 
     const businesses = await db.query(`
       SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url,
-             b.is_open, b.delivery_cost, b.delivery_time, b.rating, b.review_count,
+             b.is_open, b.delivery_cost, b.delivery_time, b.rating, (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) AS review_count,
              ts_rank(to_tsvector('spanish', b.name), to_tsquery('spanish', $1)) as rank
       FROM businesses b
       LEFT JOIN subscriptions s ON s.business_id = b.id
@@ -2472,7 +2472,7 @@ app.get('/api/search', async (req, res) => {
     `, bizParams).catch(() =>
       db.query(`
         SELECT b.id, b.name, b.category, b.logo_emoji, b.logo_url,
-               b.is_open, b.delivery_cost, b.delivery_time, b.rating, b.review_count
+               b.is_open, b.delivery_cost, b.delivery_time, b.rating, (SELECT COUNT(*) FROM reviews WHERE business_id=b.id) AS review_count
         FROM businesses b WHERE LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $1
         ORDER BY b.is_open DESC LIMIT 10
       `, [like])
