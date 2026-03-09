@@ -732,7 +732,7 @@ body.owner-mode .page{display:none!important;}
 .obn.active{color:#0f172a;}
 .obn.active svg{stroke:#0f172a;}
 .obn svg{width:24px;height:24px;stroke-width:1.8;}
-#wallet-carousel-wrap{border-radius:20px;}
+#wallet-carousel-wrap{border-radius:20px;width:100%;}
 
 /* ── Blue theme polish ── */
 .app-header .search-bar{background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);}
@@ -842,6 +842,8 @@ body.owner-mode .page{display:none!important;}
 .app-header .search-bar input { color: #fff; }
 .app-header .search-bar input::placeholder { color: rgba(255,255,255,.6); }
 .app-header .search-bar input:focus { outline: none; }
+
+#wallet-carousel{width:100%;}
 </style>
 </head>
 <body>
@@ -2950,7 +2952,7 @@ function nav(pageId) {
 let bIdx = 0;
 let _bannerCount = 3;
 
-function goBanner(i) {
+async function goBanner(i) {
   bIdx = i;
   const t = document.getElementById('banner-track');
   t.style.transform = `translateX(-${i * (100/_bannerCount)}%)`;
@@ -3013,7 +3015,7 @@ let activeDept   = localStorage.getItem('da_dept') || '';
 let activeAddr   = localStorage.getItem('da_addr') || '';
 let savedAddrs   = [];
 
-function updateHeaderCity() {
+async function updateHeaderCity() {
   const el = document.getElementById('header-city');
   if (el) el.textContent = activeCity || 'Elegir ubicación';
 }
@@ -3058,7 +3060,7 @@ function showAddAddress() {
   document.getElementById('loc-city').focus();
 }
 
-function toggleManualAddr() {
+async function toggleManualAddr() {
   const section = document.getElementById('manual-addr-section');
   const btn = document.getElementById('toggle-manual-btn');
   const isVisible = section.style.display !== 'none';
@@ -3316,7 +3318,7 @@ async function loadRecommendations() {
   }
 }
 
-function bizGradient(cat) {
+async function bizGradient(cat) {
   const g = { food:'linear-gradient(135deg,#f7971e,#ffd200)', market:'linear-gradient(135deg,#11998e,#38ef7d)',
     pharmacy:'linear-gradient(135deg,#4facfe,#00f2fe)', drinks:'linear-gradient(135deg,#6a3093,#a044ff)',
     desserts:'linear-gradient(135deg,#f953c6,#b91d73)' };
@@ -3442,7 +3444,7 @@ function renderStoreCard(s) {
   </div>`;
 }
 
-function renderStores(list) {
+async function renderStores(list) {
   const g = document.getElementById('stores-grid');
   if (!list.length) { g.innerHTML = '<div class="loading-state" style="padding:40px 20px;text-align:center;color:#999;grid-column:1/-1;">No hay tiendas disponibles en esta zona</div>'; return; }
   g.innerHTML = list.map(s => renderStoreCard(s)).join('');
@@ -3562,7 +3564,7 @@ function closeGlobalSearch() {
   document.body.style.overflow = '';
 }
 
-function headerSearch(q) {
+async function headerSearch(q) {
   const container = document.getElementById('header-search-results');
   const sc = document.querySelector('#page-home .sc');
   if (!container) return;
@@ -3910,7 +3912,7 @@ function setSdFulfillment(type) {
   if (currentStoreForCart) renderSdDeliveryInfo(currentStoreForCart);
 }
 
-function renderSdDeliveryInfo(s) {
+async function renderSdDeliveryInfo(s) {
   const el = document.getElementById('sd-delivery-info');
   if (!el) return;
   if (currentSdFulfillment === 'delivery') {
@@ -4556,7 +4558,7 @@ function startEtaTicker() {
 }
 
 // ── Store News ────────────────────────────────
-function renderStoreNews() {
+async function renderStoreNews() {
   const container = document.getElementById('store-prods');
   if (!container) return;
   const news = window._currentStoreNews || [];
@@ -4646,7 +4648,7 @@ async function loadLoyaltyForStore(bizId) {
   } catch(e) {}
 }
 
-function renderLoyaltyBadge() {
+async function renderLoyaltyBadge() {
   const el = document.getElementById('store-loyalty-badge');
   if (!el || !_loyaltyConfig?.enabled) return;
   el.style.display = 'block';
@@ -4694,7 +4696,7 @@ async function loadSavedAddresses() {
   catch(e) { _savedAddresses = []; }
 }
 
-function renderAddressSelector() {
+async function renderAddressSelector() {
   const el = document.getElementById('checkout-address-selector');
   if (!el) return;
   if (!_savedAddresses.length) { el.style.display = 'none'; return; }
@@ -4726,7 +4728,7 @@ async function activateAddress(id) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-function showAddAddressForm() {
+async function showAddAddressForm() {
   const el = document.getElementById('checkout-address-selector');
   el.insertAdjacentHTML('beforeend', `
     <div id="add-addr-form" style="background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:14px;margin-top:6px;">
@@ -4874,7 +4876,7 @@ function renderTrackingOrders() {
   }).join('');
 }
 
-function toggleOrderDetail(orderId) {
+async function toggleOrderDetail(orderId) {
   const detail = document.getElementById(`ocard-detail-${orderId}`);
   const arrow  = document.getElementById(`ocard-arrow-${orderId}`);
   if (!detail) return;
@@ -4968,11 +4970,11 @@ function openReviewModal(orderId, bizName) {
   setTimeout(() => modal.querySelector('div').style.transform = 'translateY(0)', 10);
 }
 
-function closeReviewModal() {
+async function closeReviewModal() {
   document.getElementById('review-modal').style.display = 'none';
 }
 
-function setReviewStar(n) {
+async function setReviewStar(n) {
   _reviewRating = n;
   document.querySelectorAll('#review-stars span').forEach(s => {
     const star = parseInt(s.dataset.star);
@@ -5024,7 +5026,7 @@ function toggleFav(bizId) {
   const sdBtn = document.getElementById('sd-fav-btn');
   if (sdBtn && currentBizId === bizId) sdBtn.textContent = wasFav ? '🤍' : '❤️';
 }
-function toggleFavStore() {
+async function toggleFavStore() {
   if (!currentBizId) return;
   toggleFav(currentBizId);
 }
@@ -5166,7 +5168,7 @@ function switchAuthTab(tab) {
   if (tab==='register') populateDeptSelect('r-dept','r-city');
   document.getElementById('auth-error').style.display = 'none';
 }
-function showAuthErr(msg) { const el=document.getElementById('auth-error'); el.textContent=msg; el.style.display='block'; }
+async function showAuthErr(msg) { const el=document.getElementById('auth-error'); el.textContent=msg; el.style.display='block'; }
 
 async function doLogin() {
   const email=document.getElementById('a-email').value.trim();
@@ -5246,7 +5248,7 @@ function saveSession(t, u) {
   setTimeout(() => loadRecommendations(), 500);
 }
 
-function doLogout() {
+async function doLogout() {
   token=null; user=null;
   localStorage.removeItem('da_token');
   localStorage.removeItem('da_user');
@@ -5295,7 +5297,7 @@ async function loadDeliveryOrders() {
   } catch(e) {}
 }
 
-function renderDeliveryEarnings() {
+async function renderDeliveryEarnings() {
   document.getElementById('delivery-earnings-list').innerHTML = deliveryEarnings.map(t=>`
     <div class="earn-row"><div><div class="earn-desc">${t.description}</div><div class="earn-meta">${new Date(t.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div><div class="earn-amt">+$${t.amount}</div></div>`).join('');
 }
@@ -5316,7 +5318,7 @@ async function deliverOrder(id, earn) {
   } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
-function toggleAvail() {
+async function toggleAvail() {
   deliveryAvail = !deliveryAvail;
   document.getElementById('avail-toggle').classList.toggle('on', deliveryAvail);
   document.getElementById('toggle-sub').textContent = deliveryAvail ? 'Estás en línea 🟢' : 'Estás offline';
@@ -5344,7 +5346,7 @@ async function updateOwnerPriceDisplay() {
   } catch(e) {}
 }
 
-function ownerTab(tab) {
+async function ownerTab(tab) {
   document.getElementById('oltab-login').classList.toggle('active',tab==='login');
   document.getElementById('oltab-reg').classList.toggle('active',tab==='register');
   document.getElementById('owner-login-form').style.display=tab==='login'?'block':'none';
@@ -5528,7 +5530,7 @@ function obToggleDay(i) {
   if (hoursDiv) hoursDiv.style.display = checked ? 'flex' : 'none';
 }
 
-function obSetStep(n) {
+async function obSetStep(n) {
   document.querySelectorAll('.ob-step').forEach(s => s.style.display = 'none');
   const step = document.getElementById(`ob-step-${n}`);
   if (step) step.style.display = 'block';
@@ -5579,7 +5581,7 @@ async function obNext(step) {
   }
 }
 
-function obSkip(step) {
+async function obSkip(step) {
   if (step === 4) { obFinish(); return; }
   obSetStep(step + 1);
 }
@@ -5610,7 +5612,7 @@ async function obFinish() {
   }, 400);
 }
 
-(function checkPaymentReturn() {
+(async function checkPaymentReturn() {
   const params = new URLSearchParams(window.location.search);
   const regId  = params.get('reg');
   const payment = params.get('payment');
@@ -5836,7 +5838,7 @@ function renderOwnerOrders(orders) {
 }
 
 // ── ETA owner functions ───────────────────────
-function ownerAcceptOrder(orderId) {
+async function ownerAcceptOrder(orderId) {
   // Show the ETA accept panel instead of immediately confirming
   const panel = document.getElementById(`eta-accept-${orderId}`);
   if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; }
@@ -5851,7 +5853,7 @@ async function quickAccept(orderId, etaMinutes) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-function toggleEtaAdjust(orderId) {
+async function toggleEtaAdjust(orderId) {
   const panel = document.getElementById(`eta-adjust-${orderId}`);
   if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
@@ -5878,7 +5880,7 @@ async function saveEtaAdjust(orderId) {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-function toggleOwnerMsgInput(orderId) {
+async function toggleOwnerMsgInput(orderId) {
   const el = document.getElementById(`msg-input-${orderId}`);
   if (!el) return;
   const isOpen = el.style.display !== 'none';
@@ -6144,7 +6146,7 @@ function startSubcat(parentId, parentName) {
   document.getElementById('new-subcat-section').style.display='block';
   document.getElementById('new-subcat-name').focus();
 }
-function cancelSubcat() {
+async function cancelSubcat() {
   pendingSubcatParentId = null;
   document.getElementById('new-subcat-section').style.display='none';
 }
@@ -6292,7 +6294,7 @@ function renderOwnerTx(txs) {
     : txs.map(t=>`<div class="tx-row"><div><div class="tx-desc">${t.description||t.type}</div><div class="tx-meta">${new Date(t.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div><div class="tx-amt ${t.type==='credit'?'in':'out'}">${t.type==='credit'?'+':'-'}$${t.amount}</div></div>`).join('');
 }
 
-function renderOwnerStats(today, week) {
+async function renderOwnerStats(today, week) {
   // Legacy — keep for dashboard header KPIs loaded with ownerData
   const grid = document.getElementById('owner-stats-grid');
   if (grid) grid.innerHTML = '';
@@ -6441,7 +6443,7 @@ function csvEscape(v) {
   return s;
 }
 
-function downloadCSV(filename, rows) {
+async function downloadCSV(filename, rows) {
   const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
   const bom = '\uFEFF'; // UTF-8 BOM for Excel
   const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
@@ -6525,7 +6527,7 @@ async function exportData(type) {
   }
 }
 
-function toggleBizEdit() {
+async function toggleBizEdit() {
   const viewEl = document.getElementById('biz-info-view');
   const editEl = document.getElementById('biz-info-edit');
   const btn    = document.getElementById('biz-edit-toggle');
@@ -6590,7 +6592,7 @@ async function saveBizInfo() {
 // ═══════════════════════════════════════════════
 //  CUPONES DEL OWNER
 // ═══════════════════════════════════════════════
-function openOwnerCouponForm() {
+async function openOwnerCouponForm() {
   const f = document.getElementById('owner-coupon-form');
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
   if (f.style.display === 'block') {
@@ -6727,7 +6729,7 @@ function renderScheduleEditor() {
   }).join('');
 }
 
-function toggleSchedDay(dayKey) {
+async function toggleSchedDay(dayKey) {
   const isChecked = document.getElementById(`sched-active-${dayKey}`)?.checked;
   document.getElementById(`sched-times-${dayKey}`).style.display = isChecked ? 'flex' : 'none';
   document.getElementById(`sched-closed-${dayKey}`).style.display = isChecked ? 'none' : 'flex';
@@ -7094,7 +7096,7 @@ function openPromoModal(promo=null) {
   document.getElementById('promo-modal').style.display = 'flex';
 }
 
-function closePromoModal() {
+async function closePromoModal() {
   document.getElementById('promo-modal').style.display = 'none';
   editingPromoId = null;
 }
@@ -7154,7 +7156,7 @@ function generatePromoCode() {
   document.getElementById('pm-code').value = code;
 }
 
-function addComboProduct(preselectedId=null) {
+async function addComboProduct(preselectedId=null) {
   const container = document.getElementById('pm-combo-products');
   const div = document.createElement('div');
   div.style.cssText = 'display:flex;gap:8px;';
@@ -7206,7 +7208,7 @@ async function savePromo() {
   } catch(e) { err.textContent = e.message; err.style.display='block'; }
 }
 
-function editPromo(p) { openPromoModal(p); }
+async function editPromo(p) { openPromoModal(p); }
 
 async function togglePromo(id, active) {
   try {
@@ -7263,7 +7265,7 @@ function applyBestAutoPromo(promos) {
   renderCart();
 }
 
-function calcClientPromoDiscount(promo, subtotal) {
+async function calcClientPromoDiscount(promo, subtotal) {
   if (promo.type === 'percent_off') return Math.round(subtotal * promo.value / 100);
   if (promo.type === 'fixed_off') return Math.min(promo.value, subtotal);
   if (promo.type === 'free_delivery') return currentStoreForCart?.custom_delivery_cost || 0;
@@ -7675,7 +7677,7 @@ async function loadAdminPanel() {
   adminTab('stats');
 }
 
-function adminTab(tab) {
+async function adminTab(tab) {
   ['stats','users','businesses','orders','withdrawals','subscriptions','settings','coupons','helpmsg','banners','featured'].forEach(t => {
     const el = document.getElementById('admin-tab-'+t);
     const btn = document.getElementById('atab-'+t);
@@ -7729,7 +7731,7 @@ function filterAdminUsers() {
   const q = document.getElementById('admin-user-search').value.toLowerCase();
   renderAdminUsers(adminUsersCache.filter(u => (u.name+u.email).toLowerCase().includes(q)));
 }
-function renderAdminUsers(users) {
+async function renderAdminUsers(users) {
   const el = document.getElementById('admin-users-list');
   if (!users.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay usuarios</div>'; return; }
   el.innerHTML = users.map(u=>`
@@ -7768,7 +7770,7 @@ function filterAdminBiz() {
   const q = document.getElementById('admin-biz-search').value.toLowerCase();
   renderAdminBiz(adminBizCache.filter(b => b.name.toLowerCase().includes(q)));
 }
-function renderAdminBiz(bizs) {
+async function renderAdminBiz(bizs) {
   const el = document.getElementById('admin-biz-list');
   if (!bizs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay negocios</div>'; return; }
   el.innerHTML = bizs.map(b=>`
@@ -7989,7 +7991,7 @@ async function loadCoupons() {
   } catch(e) { extraEl.innerHTML = ''; }
 }
 
-function showAddCouponModal() {
+async function showAddCouponModal() {
   const code = prompt('Ingresá el código de cupón:');
   if (!code) return;
   validateCouponManual(code.trim().toUpperCase());
@@ -8055,7 +8057,7 @@ async function sendHelpMessage() {
   } catch(e) { res_el.innerHTML = `<span style="color:#2558d4;">❌ ${e.message}</span>`; }
 }
 
-function switchHelpTab(tab) {
+async function switchHelpTab(tab) {
   const isCust = tab === 'customer';
   document.getElementById('help-tab-customer').style.cssText = isCust
     ? 'flex:1;padding:8px;border:none;border-radius:9px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#1a1a1a;'
@@ -8117,7 +8119,7 @@ async function checkServiceStatus() {
   }
 }
 
-function initHelpPage() {
+async function initHelpPage() {
   // Pre-fill form if logged in
   if (user) {
     const nameEl = document.getElementById('help-name');
@@ -8252,7 +8254,7 @@ async function replyHelp(id) {
 
 
 // ── DYNAMIC HOME ──
-function goToBlowPlus() {
+async function goToBlowPlus() {
   if (!user) { openAuth(); return; }
   // Check blow plus status directly from cached user or hit API
   fetch('/api/user/blow-plus', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}})
@@ -8496,7 +8498,7 @@ async function deleteAdminFeatured(id) {
 
 
 // ── PERSONAL INFO PAGE ──
-function loadPersonalInfo() {
+async function loadPersonalInfo() {
   if (!user) return;
   const nameEl = document.getElementById('pi-name');
   const emailEl = document.getElementById('pi-email');
@@ -8643,7 +8645,7 @@ function normalizeUYLocation(rawCity, rawDept) {
   return { city: matchedCity || rawCity, dept: matchedDept || rawDept };
 }
 
-function populateDeptSelect(deptId, cityId) {
+async function populateDeptSelect(deptId, cityId) {
   const deptSel = document.getElementById(deptId);
   const citySel = document.getElementById(cityId);
   if (!deptSel || !citySel) return;
@@ -8790,7 +8792,7 @@ function showInstallBanner() {
   if (banner) banner.style.display = 'flex';
 }
 
-function hideInstallBanner() {
+async function hideInstallBanner() {
   const banner = document.getElementById('pwa-install-banner');
   if (banner) banner.style.display = 'none';
   localStorage.setItem('pwa_banner_dismissed', Date.now());
@@ -8825,7 +8827,7 @@ if (isIOS() && !isInStandaloneMode()) {
   }
 }
 
-function dismissIOSBanner() {
+async function dismissIOSBanner() {
   const banner = document.getElementById('pwa-ios-banner');
   if (banner) banner.style.display = 'none';
   localStorage.setItem('ios_banner_dismissed', Date.now());
@@ -8941,17 +8943,14 @@ const _OA_VARIANT_TEMPLATES = [
 
 // ── Enter / Exit owner mode ──────────────────────────────────
 function enterOwnerMode(animate) {
-  // Reset any stale state before entering
   _oaActive = true;
-
-  // Always activate the panel immediately — transition is cosmetic only
   document.body.classList.add('owner-mode');
   oaGoTab('home', false);
   oaLoadHomeData();
 
   if (!animate) return;
 
-  // Show transition overlay briefly (pure visual, doesn't block entry)
+  // Full-screen animated transition
   const tr = document.getElementById('owner-transition');
   if (!tr) return;
   try {
@@ -8959,29 +8958,34 @@ function enterOwnerMode(animate) {
     const label = document.getElementById('owner-transition-label');
     const sub   = document.getElementById('owner-transition-sub');
     if (icon)  icon.textContent  = (user && user.biz_emoji) || '🏪';
-    if (label) label.textContent = 'Entrando a tu negocio';
-    if (sub)   sub.textContent   = 'Preparando todo...';
+    if (label) label.textContent = (user && user.biz_name) ? `Entrando a ${user.biz_name}` : 'Entrando a tu negocio';
+    if (sub)   sub.textContent   = 'Preparando tu panel...';
     tr.style.transition = 'none';
-    tr.style.opacity = '1';
-    tr.style.display = 'flex';
-    // Fade out after 600ms
+    tr.style.opacity    = '1';
+    tr.style.display    = 'flex';
+    tr.style.pointerEvents = 'all';
     setTimeout(() => {
-      tr.style.transition = 'opacity .35s';
-      tr.style.opacity = '0';
-      setTimeout(() => { tr.style.display = 'none'; tr.style.transition = ''; }, 380);
-    }, 600);
+      tr.style.transition    = 'opacity .4s ease';
+      tr.style.opacity       = '0';
+      setTimeout(() => { tr.style.display = 'none'; tr.style.pointerEvents = 'none'; tr.style.transition = ''; }, 420);
+    }, 900);
   } catch(e) {
-    tr.style.display = 'none';
+    const tr2 = document.getElementById('owner-transition');
+    if (tr2) { tr2.style.display = 'none'; tr2.style.pointerEvents = 'none'; }
   }
 }
-
 function exitOwnerMode() {
   _oaActive = false;
   document.body.classList.remove('owner-mode');
+  // Logout the owner
+  localStorage.removeItem('blow_token');
+  localStorage.removeItem('blow_user');
+  user = null;
+  // Go to home as guest
   nav('page-home');
+  renderProfile();
+  showToast('👋 Hasta pronto');
 }
-
-// ── Tab navigation ────────────────────────────────────────────
 function oaGoTab(tabId, withAnim) {
   document.querySelectorAll('.owner-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.obn').forEach(b => b.classList.remove('active'));
@@ -9111,7 +9115,7 @@ async function ocpDelete(id) {
   try { await api('/api/owner/coupons/'+id, { method:'DELETE' }); showToast('🗑️ Eliminado'); ocpLoadList(); }
   catch(e) { showToast('❌ '+e.message); }
 }
-function oaCloseSub(id) {
+async function oaCloseSub(id) {
   document.getElementById(`oa-sub-${id}`)?.classList.remove('active');
 }
 
@@ -9127,7 +9131,7 @@ async function oaToggleStore() {
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
-function oaUpdateTopbar() {
+async function oaUpdateTopbar() {
   if (!_oaBiz) return;
   document.getElementById('oa-biz-logo').textContent   = _oaBiz.logo_emoji || '🏪';
   document.getElementById('oa-biz-name').textContent   = _oaBiz.name || 'Mi negocio';
@@ -9189,7 +9193,7 @@ function oaRenderWalletCarousel(wallet, d) {
   const total = bal + cash;
 
   carousel.innerHTML = `
-    <div style="flex:0 0 100%;scroll-snap-align:start;background:linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
       <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💳 PAGOS ONLINE</div>
       <div style="font-size:13px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">$${today}</span></div>
@@ -9197,14 +9201,14 @@ function oaRenderWalletCarousel(wallet, d) {
       <div style="font-size:13px;opacity:.7;">Disponible para retirar</div>
       <button onclick="openWithdrawModal('owner')" style="margin-top:20px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:12px;width:100%;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
     </div>
-    <div style="flex:0 0 100%;scroll-snap-align:start;background:linear-gradient(135deg,#0a2e1a 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#0a2e1a 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
       <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:16px;">💵 PAGOS EN PERSONA</div>
       <div style="font-size:48px;font-weight:900;margin-bottom:4px;line-height:1;">$${cash}</div>
       <div style="font-size:13px;opacity:.7;">Ya en tu bolsillo</div>
       <div style="margin-top:20px;background:rgba(255,255,255,.1);border-radius:12px;padding:12px;font-size:13px;opacity:.8;text-align:center;">Sin cobros extra · 0% comisión</div>
     </div>
-    <div style="flex:0 0 100%;scroll-snap-align:start;background:linear-gradient(135deg,#2e1065 0%,#4c1d95 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
+    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#2e1065 0%,#4c1d95 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
       <div style="font-size:12px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:16px;">📊 VENTA TOTAL</div>
       <div style="font-size:48px;font-weight:900;margin-bottom:4px;line-height:1;">$${total}</div>
@@ -9214,8 +9218,8 @@ function oaRenderWalletCarousel(wallet, d) {
 
   // Dots
   const renderDots = () => {
-    const slideW = carousel.offsetWidth || 300;
-    const idx    = Math.round(carousel.scrollLeft / slideW);
+    const slideW = carousel.parentElement ? carousel.parentElement.offsetWidth : (carousel.offsetWidth || 300);
+    const idx    = Math.round(carousel.scrollLeft / Math.max(slideW, 1));
     dots.innerHTML = [0,1,2].map(i =>
       `<div style="width:${i===idx?18:6}px;height:6px;border-radius:3px;background:${i===idx?'#2558d4':'rgba(37,88,212,.25)'};transition:all .2s;cursor:pointer;" onclick="oaCarouselGoTo(${i})"></div>`
     ).join('');
@@ -9227,12 +9231,12 @@ function oaRenderWalletCarousel(wallet, d) {
 function oaCarouselGoTo(idx) {
   const carousel = document.getElementById('wallet-carousel');
   if (!carousel) return;
-  const slideW = carousel.offsetWidth || 300;
+  const slideW = (carousel.parentElement ? carousel.parentElement.offsetWidth : carousel.offsetWidth) || 300;
   carousel.scrollTo({ left: idx * slideW, behavior: 'smooth' });
 }
 
 // ── New orders on home tab ────────────────────────────────────
-function oaRenderNewOrders(orders) {
+async function oaRenderNewOrders(orders) {
   const el = document.getElementById('oa-new-orders');
   if (!el) return;
   if (!orders.length) {
@@ -9346,7 +9350,7 @@ async function _oaToggleAvail(id, available) {
 }
 
 // ── Category modal ────────────────────────────────────────────
-function _oaOpenCatModal() {
+async function _oaOpenCatModal() {
   const cats = (window._oaMenuData && window._oaMenuData.categories) || [];
   let html = `<div class="modal-overlay open" id="oa-cat-modal" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:24px 24px 0 0;padding:24px;width:100%;max-height:85vh;overflow-y:auto;">
@@ -9627,7 +9631,7 @@ function _oaRemoveGroup(gKey) {
   _oaVariants = _oaVariants.filter(v => (v.group_name || '') !== (gKey.startsWith('__g') ? '' : gKey));
   _oaRenderVariantsList();
 }
-function _oaAddOptionToGroup(gKey) {
+async function _oaAddOptionToGroup(gKey) {
   const first = _oaVariants.find(v => v.group_name === gKey);
   _oaVariants.push({ group_name: first ? first.group_name : '', option_name: '', price_delta: 0 });
   _oaRenderVariantsList();
@@ -9735,7 +9739,7 @@ function oaGoOldStats() {
 }
 
 // ── More tab ──────────────────────────────────────────────────
-function oaRenderMore() {
+async function oaRenderMore() {
   const el = document.getElementById('oa-more-list');
   if (!el) return;
   const items = [
@@ -10263,7 +10267,7 @@ function handleOwnerAccess(data) {
 ══════════════════════════════════════════════════ -->
 
 <!-- Transition overlay -->
-<div id="owner-transition" style="position:fixed;inset:0;z-index:10000;display:none;pointer-events:none;background:linear-gradient(160deg,#0a1628 0%,#0f2249 40%,#1a3a6e 70%,#2558d4 100%);flex-direction:column;align-items:center;justify-content:center;color:#fff;opacity:0;">
+<div id="owner-transition" style="position:fixed;inset:0;z-index:10000;display:none;pointer-events:none;background:linear-gradient(160deg,#0a1628 0%,#0f2249 40%,#1a3a6e 70%,#2558d4 100%);flex-direction:column;align-items:center;justify-content:center;color:#fff;opacity:0;transition:opacity .4s ease;">
   <div id="owner-transition-icon" style="font-size:72px;margin-bottom:20px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.3));">🏪</div>
   <div id="owner-transition-label" style="font-size:24px;font-weight:900;letter-spacing:-.3px;">Entrando a tu negocio</div>
   <div id="owner-transition-sub" style="font-size:14px;opacity:.6;margin-top:8px;">Preparando todo...</div>
@@ -10288,10 +10292,15 @@ function handleOwnerAccess(data) {
           <div id="oa-biz-city" style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px;"></div>
         </div>
       </div>
-      <button id="oa-toggle-btn" onclick="oaToggleStore()" style="background:rgba(239,68,68,.2);border:1.5px solid rgba(239,68,68,.4);border-radius:20px;padding:8px 16px;color:#fca5a5;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:7px;white-space:nowrap;">
-        <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 6px rgba(239,68,68,.6);"></span>
-        Cerrado
-      </button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <button onclick="if(confirm('¿Salir del portal y desloguearte?'))exitOwnerMode()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:5px 12px;color:rgba(255,255,255,.7);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;letter-spacing:.3px;">
+          ← Volver a Blow
+        </button>
+        <button id="oa-toggle-btn" onclick="oaToggleStore()" style="background:rgba(239,68,68,.2);border:1.5px solid rgba(239,68,68,.4);border-radius:20px;padding:6px 14px;color:#fca5a5;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:7px;white-space:nowrap;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;box-shadow:0 0 6px rgba(239,68,68,.6);"></span>
+          Cerrado
+        </button>
+      </div>
     </div>
     <!-- KPI Strip -->
     <div id="owner-kpi-strip">
@@ -10317,8 +10326,8 @@ function handleOwnerAccess(data) {
     <div class="owner-panel active" id="oa-panel-home" style="padding:16px;">
 
       <!-- Wallet carousel (3 slides) -->
-      <div id="wallet-carousel-wrap" style="margin-bottom:18px;">
-        <div id="wallet-carousel" style="display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding:2px 0 4px;">
+      <div id="wallet-carousel-wrap" style="margin-bottom:18px;overflow:hidden;border-radius:20px;width:100%;">
+        <div id="wallet-carousel" style="display:flex;flex-wrap:nowrap;overflow-x:scroll;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;width:100%;padding:0;">
           <!-- Slides injected by JS -->
         </div>
         <div id="wallet-dots" style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;"></div>
