@@ -1879,6 +1879,8 @@ body.owner-mode
           <button onclick="adminTab('withdrawals')" id="atab-withdrawals" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">💸 Retiros</button>
           <button onclick="adminTab('subscriptions')" id="atab-subscriptions" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📋 Suscripciones</button>
           <button onclick="adminTab('settings')" id="atab-settings" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⚙️ Config</button>
+          <button onclick="adminTab('banners')" id="atab-banners" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🖼️ Banners</button>
+          <button onclick="adminTab('featured')" id="atab-featured" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⭐ Destacados</button>
         </div>
 
         <!-- STATS -->
@@ -1972,23 +1974,40 @@ body.owner-mode
 
         <!-- BANNERS TAB -->
         <div id="admin-tab-banners" style="display:none;">
-          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners promocionales</div>
-          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Crear nuevo banner</div>
-            <div class="form-group"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Volvé a pedir y disfrutá"></div>
-            <div class="form-group"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-subtitle" placeholder="Línea 2 del título"></div>
-            <div class="form-group"><label class="form-label">Destacado (ej: 50% OFF)</label><input class="form-input" id="bn-highlight" placeholder="50% OFF"></div>
-            <div style="display:flex;gap:12px;">
-              <div class="form-group" style="flex:1;"><label class="form-label">Emoji</label><input class="form-input" id="bn-emoji" placeholder="🍔" value="🍔"></div>
-              <div class="form-group" style="flex:1;"><label class="form-label">Color de fondo</label><input type="color" id="bn-color" value="#2558d4" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--border);cursor:pointer;"></div>
-            </div>
-            <button class="primary-btn" onclick="createAdminBanner()">+ Crear banner</button>
+          <div style="font-size:16px;font-weight:800;margin-bottom:4px;">🖼️ Banners principales</div>
+          <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Los 3 slides del carrusel que ven todos los usuarios en el inicio de la app.</div>
+
+          <!-- Main banners editor -->
+          <div id="admin-main-banners-list">
+            <div class="loading-state"><div class="spinner"></div></div>
           </div>
-          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Banners activos</div>
+
+          <div style="height:24px;border-top:1.5px dashed #e2e8f0;margin:8px 0 16px;"></div>
+
+          <!-- Promo banners (secondary) -->
+          <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px;">📢 Banners promocionales secundarios</div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Aparecen debajo del carrusel principal. Podés agregar, pausar o eliminar.</div>
+          <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;border:1.5px solid #e2e8f0;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;">Crear promo-banner</div>
+            <div class="form-group"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Pedí ahora con descuento"></div>
+            <div class="form-group"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-subtitle" placeholder="Solo por hoy"></div>
+            <div class="form-group"><label class="form-label">Destacado (badge)</label><input class="form-input" id="bn-highlight" placeholder="50% OFF"></div>
+            <div style="display:flex;gap:12px;">
+              <div class="form-group" style="flex:1;"><label class="form-label">Emoji</label>
+                <input class="form-input" id="bn-emoji" placeholder="🍔" value="🍔" maxlength="2" style="font-size:22px;text-align:center;">
+              </div>
+              <div class="form-group" style="flex:1;"><label class="form-label">Color</label>
+                <input type="color" id="bn-color" value="#2558d4" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--border);cursor:pointer;">
+              </div>
+            </div>
+            <button class="primary-btn" onclick="createAdminBanner()" style="background:#2558d4;">+ Agregar promo-banner</button>
+          </div>
           <div id="admin-banners-list"><div class="loading-state"><div class="spinner"></div></div></div>
         </div>
 
         <!-- FEATURED TAB -->
+        
+        
         <div id="admin-tab-featured" style="display:none;">
           <div style="font-size:16px;font-weight:800;margin-bottom:16px;">⭐ Negocios destacados (Blow+)</div>
           <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
@@ -2922,15 +2941,57 @@ function nav(pageId) {
 //  BANNER
 // ═══════════════════════════════════════════════
 let bIdx = 0;
+let _bannerCount = 3;
+
 function goBanner(i) {
   bIdx = i;
   const t = document.getElementById('banner-track');
-  // Track is 300% wide, each slide is 1/3 of track = 33.333%
-  // So slide i starts at i * (100/3)% of track width
-  t.style.transform = `translateX(-${i * 33.3333}%)`;
+  t.style.transform = `translateX(-${i * (100/_bannerCount)}%)`;
   document.querySelectorAll('.bdot').forEach((d,j) => d.classList.toggle('active', j===i));
 }
-setInterval(() => goBanner((bIdx+1)%3), 4000);
+setInterval(() => goBanner((bIdx+1) % _bannerCount), 4000);
+
+async function loadMainBanners() {
+  try {
+    const data = await fetch('/api/main-banners').then(r=>r.json());
+    if (!data || !data.length) return;
+    _bannerCount = data.length;
+    const track = document.getElementById('banner-track');
+    const dots  = document.getElementById('bdots');
+    if (!track || !dots) return;
+
+    // Rebuild track width based on count
+    track.style.width = (_bannerCount * 100) + '%';
+    track.parentElement.style.overflow = 'hidden';
+
+    // Render slides
+    const slideClasses = ['', ' s2', ' s3'];
+    track.innerHTML = data.map((b, i) => {
+      const lines = (b.title||'').split('\n');
+      const titleHtml = lines.map((l,li) => li < lines.length-1 ? l+'<br>' : l).join('');
+      const bgStyle = b.bg_color ? `background:${b.bg_color};` : '';
+      return `<div class="banner-slide${slideClasses[i]||''}" id="banner-${i}" style="${bgStyle}">
+        <div class="btext">
+          <div class="btag" id="btag-${i}">${b.tag||''}</div>
+          <div class="btitle" id="btitle-${i}">${titleHtml}</div>
+          <div class="bsub" id="bsub-${i}">${b.subtitle||''}<br><strong style="color:#f59e0b">${b.subtitle_highlight||''}</strong></div>
+          <button class="bcta">${b.cta_text||'Ver más'}</button>
+        </div>
+        <div class="bemoji-wrap" id="bemoji-${i}">${b.emoji||'🍔'}</div>
+      </div>`;
+    }).join('');
+
+    // Rebuild dots
+    dots.innerHTML = data.map((_,i) =>
+      `<div class="bdot${i===0?' active':''}" onclick="goBanner(${i})"></div>`
+    ).join('');
+
+    goBanner(0);
+  } catch(e) { console.warn('Banner load failed', e); }
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', () => { loadMainBanners(); });
 
 // ═══════════════════════════════════════════════
 //  STORES
@@ -7537,6 +7598,8 @@ function adminTab(tab) {
   else if (tab==='settings') loadAdminSettings();
   else if (tab==='coupons') loadAdminCoupons();
   else if (tab==='helpmsg') loadAdminHelp();
+  else if (tab==='banners') { loadAdminMainBanners(); loadAdminBanners(); }
+  else if (tab==='featured') loadAdminFeatured();
 }
 
 async function loadAdminStats() {
@@ -8130,6 +8193,105 @@ async function loadHomeDynamic() {
 }
 
 // ── ADMIN BANNERS ──
+// ── Admin Main Banners (the 3 hero carousel slides) ──────────────
+async function loadAdminMainBanners() {
+  const el = document.getElementById('admin-main-banners-list');
+  if (!el) return;
+  try {
+    const banners = await fetch('/api/admin/main-banners', {
+      headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}
+    }).then(r=>r.json());
+
+    el.innerHTML = banners.map((b, i) => {
+      const lines = (b.title||'').split('\n');
+      const titlePreview = lines.join(' / ');
+      return `
+      <div style="background:#fff;border-radius:16px;margin-bottom:12px;overflow:hidden;border:1.5px solid #e2e8f0;">
+        <!-- Color strip preview -->
+        <div style="background:${b.bg_color||'#2558d4'};padding:14px 16px;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:36px;line-height:1;">${b.emoji||'🍔'}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;color:rgba(255,255,255,.7);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">${b.tag||''}</div>
+            <div style="font-size:15px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${titlePreview}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px;">${b.subtitle||''} ${b.subtitle_highlight?'• <strong style="color:#fbbf24">'+b.subtitle_highlight+'</strong>':''}</div>
+          </div>
+          <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.7);">Banner ${i+1}</div>
+        </div>
+        <!-- Edit form -->
+        <div style="padding:14px 16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">TAG / BADGE</div>
+              <input class="form-input" value="${escHtml(b.tag||'')}" id="mb-tag-${b.id}" placeholder="🔥 Oferta especial" style="font-size:13px;padding:8px 10px;">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">EMOJI</div>
+              <input class="form-input" value="${b.emoji||'🍔'}" id="mb-emoji-${b.id}" maxlength="2" style="font-size:22px;text-align:center;padding:4px;">
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">TÍTULO (usá \n para salto de línea)</div>
+            <input class="form-input" value="${escHtml(b.title||'')}" id="mb-title-${b.id}" placeholder="Título del banner" style="font-size:13px;padding:8px 10px;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">SUBTÍTULO</div>
+              <input class="form-input" value="${escHtml(b.subtitle||'')}" id="mb-sub-${b.id}" placeholder="Subtítulo" style="font-size:13px;padding:8px 10px;">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">DESTACADO</div>
+              <input class="form-input" value="${escHtml(b.subtitle_highlight||'')}" id="mb-hl-${b.id}" placeholder="+10% OFF" style="font-size:13px;padding:8px 10px;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">COLOR DE FONDO</div>
+              <input type="color" value="${b.bg_color||'#2558d4'}" id="mb-color-${b.id}" style="width:100%;height:38px;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">TEXTO BOTÓN</div>
+              <input class="form-input" value="${escHtml(b.cta_text||'Ver más')}" id="mb-cta-${b.id}" placeholder="¡Ver ofertas!" style="font-size:13px;padding:8px 10px;">
+            </div>
+          </div>
+          <button onclick="saveMainBanner('${b.id}')" style="width:100%;background:#2558d4;color:#fff;border:none;border-radius:12px;padding:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">💾 Guardar Banner ${i+1}</button>
+        </div>
+      </div>`;
+    }).join('') || '<div style="color:#aaa;text-align:center;padding:20px;">Sin banners</div>';
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ef4444;padding:16px;">Error: ${e.message}</div>`;
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function saveMainBanner(id) {
+  const tag   = document.getElementById(`mb-tag-${id}`)?.value?.trim();
+  const title = document.getElementById(`mb-title-${id}`)?.value?.trim();
+  const sub   = document.getElementById(`mb-sub-${id}`)?.value?.trim();
+  const hl    = document.getElementById(`mb-hl-${id}`)?.value?.trim();
+  const emoji = document.getElementById(`mb-emoji-${id}`)?.value?.trim();
+  const color = document.getElementById(`mb-color-${id}`)?.value;
+  const cta   = document.getElementById(`mb-cta-${id}`)?.value?.trim();
+  if (!title) return showToast('El título no puede estar vacío');
+  try {
+    const res = await fetch(`/api/admin/main-banners/${id}`, {
+      method:'PATCH',
+      headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},
+      body: JSON.stringify({tag, title, subtitle:sub, subtitle_highlight:hl, emoji, bg_color:color, cta_text:cta})
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast('✅ Banner guardado');
+      loadAdminMainBanners();
+      loadMainBanners(); // refresh in app
+    } else {
+      showToast('Error: ' + d.error);
+    }
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
 async function loadAdminBanners() {
   try {
     const res = await fetch('/api/admin/banners', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
