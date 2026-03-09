@@ -9742,53 +9742,80 @@ async function _oaDeleteProd(id) {
 async function oaRenderStats() {
   const el = document.getElementById('oa-stats-content');
   if (!el) return;
-  el.innerHTML = '<div style="text-align:center;padding:40px 0;color:#94a3b8;">Cargando estadísticas...</div>';
+  el.innerHTML = '<div style="padding:40px 0;text-align:center;color:#94a3b8;">Cargando estadísticas...</div>';
   try {
-    const d = await api('/api/owner/stats/history?days=30');
-    const s = d.summary || {};
+    const [d7, d30] = await Promise.all([
+      api('/api/owner/stats/history?days=7'),
+      api('/api/owner/stats/history?days=30'),
+    ]);
+    const s = d30.summary || {};
+    const daily = (d7.daily || d7.rows || []);
+
+    // Bar chart of last 7 days
+    const maxRev = Math.max(...daily.map(d => parseFloat(d.revenue)||0), 1);
+    const barChart = daily.length ? `
+      <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(37,88,212,.07);">
+        <div style="font-size:13px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">Últimos 7 días</div>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:80px;">
+          ${daily.map(d => {
+            const h = Math.max(4, Math.round((parseFloat(d.revenue)||0) / maxRev * 72));
+            const date = new Date(d.day);
+            const label = date.toLocaleDateString('es-UY',{weekday:'short'}).slice(0,2);
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div style="width:100%;background:#2558d4;border-radius:4px 4px 0 0;height:${h}px;opacity:.85;"></div>
+              <div style="font-size:10px;color:#94a3b8;font-weight:600;">${label}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
     el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
-        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.08);">
-          <div style="font-size:24px;font-weight:900;color:#2558d4;">${s.orders||0}</div>
-          <div style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:4px;">PEDIDOS</div>
+      <!-- KPI grid 30 días -->
+      <div style="font-size:13px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Últimos 30 días</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.07);">
+          <div style="font-size:26px;font-weight:900;color:#2558d4;">${s.orders||0}</div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Pedidos</div>
         </div>
-        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.08);">
-          <div style="font-size:24px;font-weight:900;color:#22c55e;">$${Math.round(s.revenue||0)}</div>
-          <div style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:4px;">INGRESOS</div>
+        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.07);">
+          <div style="font-size:26px;font-weight:900;color:#22c55e;">$${Math.round(s.revenue||0).toLocaleString('es-UY')}</div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Ingresos</div>
         </div>
-        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.08);">
-          <div style="font-size:24px;font-weight:900;color:#f59e0b;">${s.unique_customers||0}</div>
-          <div style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:4px;">CLIENTES</div>
+        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.07);">
+          <div style="font-size:26px;font-weight:900;color:#f59e0b;">${s.unique_customers||0}</div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Clientes únicos</div>
         </div>
-        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.08);">
-          <div style="font-size:24px;font-weight:900;color:#8b5cf6;">$${Math.round(s.avg_ticket||0)}</div>
-          <div style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:4px;">TICKET PROM.</div>
+        <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.07);">
+          <div style="font-size:26px;font-weight:900;color:#8b5cf6;">$${Math.round(s.avg_ticket||0).toLocaleString('es-UY')}</div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;">Ticket promedio</div>
         </div>
       </div>
-      ${d.topProducts && d.topProducts.length ? `
-      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.08);margin-bottom:20px;">
-        <div style="font-size:15px;font-weight:800;margin-bottom:12px;">🏆 Top productos (30 días)</div>
-        ${d.topProducts.map((p,i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4fb;">
-          <span style="font-size:18px;font-weight:900;color:#2558d4;width:20px;">${i+1}</span>
-          <div style="flex:1;font-size:14px;font-weight:600;">${p.name}</div>
-          <div style="font-size:13px;color:#94a3b8;">${p.qty} uds · $${Math.round(p.revenue)}</div>
-        </div>`).join('')}
+
+      <!-- Bar chart -->
+      ${barChart}
+
+      <!-- Top productos -->
+      ${d30.topProducts && d30.topProducts.length ? `
+      <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(37,88,212,.07);">
+        <div style="font-size:13px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">🏆 Top productos</div>
+        ${d30.topProducts.map((p,i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<d30.topProducts.length-1?'border-bottom:1px solid #f0f4fb;':''}">
+            <span style="font-size:16px;font-weight:900;color:#2558d4;width:18px;">${i+1}</span>
+            <div style="flex:1;font-size:14px;font-weight:600;">${p.name}</div>
+            <div style="text-align:right;">
+              <div style="font-size:13px;font-weight:800;color:#0f172a;">${p.qty} uds</div>
+              <div style="font-size:11px;color:#94a3b8;">$${Math.round(p.revenue||0).toLocaleString('es-UY')}</div>
+            </div>
+          </div>`).join('')}
       </div>` : ''}
-      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(37,88,212,.08);">
-        <button onclick="oaGoOldStats()" style="width:100%;background:#eff6ff;border:none;border-radius:10px;padding:12px;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Ver estadísticas completas →</button>
-      </div>`;
+    `;
   } catch(e) {
     el.innerHTML = `<div style="color:#ef4444;padding:20px;">${e.message}</div>`;
   }
 }
 
-function oaGoOldStats() {
-  // Switch to old stats without logging out
-  _oaActive = false;
-  document.body.classList.remove('owner-mode');
-  nav('page-owner-dash');
-  setTimeout(() => ownerTab('otab-stats'), 200);
-}
+
+function oaGoOldStats() { oaGoTab("stats"); }
 
 // ── More tab ──────────────────────────────────────────────────
 async function oaRenderMore() {
