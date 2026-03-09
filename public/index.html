@@ -645,6 +645,187 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
   .banner-slide{min-height:160px;}
   .nb{padding:6px 8px;min-width:46px;font-size:9px;}
 }
+
+/* ── OWNER MODE OVERLAY ─────────────────────────── */
+#owner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: none;
+  flex-direction: column;
+  background: #0f172a;
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+#owner-overlay.visible {
+  display: flex;
+}
+#owner-overlay.open {
+  transform: translateY(0);
+}
+/* Slide-up animation trigger */
+body.owner-mode-active #owner-overlay {
+  display: flex;
+}
+/* Hide buyer UI when owner mode is open */
+body.owner-mode-active .bottom-nav,
+body.owner-mode-active nav,
+body.owner-mode-active .page {
+  pointer-events: none;
+  opacity: 0;
+}
+/* Owner overlay header */
+.oo-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.oo-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.oo-logo {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: #1e40af;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  overflow: hidden;
+}
+.oo-logo img { width: 100%; height: 100%; object-fit: cover; }
+.oo-store-name { font-size: 17px; font-weight: 800; color: #fff; }
+.oo-store-sub  { font-size: 12px; color: #94a3b8; margin-top: 1px; }
+.oo-exit-btn {
+  background: rgba(255,255,255,.1);
+  border: none;
+  border-radius: 20px;
+  padding: 7px 14px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Inter', sans-serif;
+}
+.oo-status-open   { background: #16a34a; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 800; }
+.oo-status-closed { background: #dc2626; color: #fff; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 800; }
+/* KPI strip */
+.oo-kpi {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: #1e293b;
+  flex-shrink: 0;
+}
+.oo-kpi-item {
+  background: #0f172a;
+  padding: 12px 8px;
+  text-align: center;
+}
+.oo-kpi-val  { font-size: 20px; font-weight: 900; color: #fff; }
+.oo-kpi-label{ font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+/* Scroll content */
+.oo-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #0f172a;
+  padding: 16px 16px 100px;
+}
+/* Bottom nav */
+.oo-bottom-nav {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  z-index: 10;
+}
+.oo-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px 4px;
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: color .15s;
+}
+.oo-tab.active { color: #3b82f6; }
+.oo-tab svg { width: 22px; height: 22px; }
+/* Owner cards */
+.oo-card {
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.oo-section-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin: 20px 0 10px;
+}
+.oo-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.oo-action-btn {
+  background: #1e293b;
+  border: none;
+  border-radius: 14px;
+  padding: 16px 12px;
+  text-align: left;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background .15s;
+}
+.oo-action-btn:active { background: #273548; }
+.oo-action-icon { font-size: 26px; margin-bottom: 8px; display: block; }
+.oo-action-title { font-size: 14px; font-weight: 700; color: #f1f5f9; display: block; }
+.oo-action-sub   { font-size: 11px; color: #64748b; display: block; margin-top: 2px; }
+/* Toggle switch */
+.oo-toggle-wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #1e293b; border-radius: 16px; padding: 16px;
+  margin-bottom: 12px;
+}
+.oo-toggle-label { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+.oo-toggle-sub   { font-size: 12px; color: #64748b; margin-top: 2px; }
+.oo-toggle {
+  width: 52px; height: 28px;
+  background: #374151; border-radius: 20px;
+  position: relative; cursor: pointer;
+  border: none; padding: 0;
+  transition: background .2s;
+  flex-shrink: 0;
+}
+.oo-toggle.on { background: #16a34a; }
+.oo-toggle::after {
+  content: '';
+  position: absolute;
+  width: 22px; height: 22px;
+  background: #fff; border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform .2s;
+}
+.oo-toggle.on::after { transform: translateX(24px); }
 </style>
 </head>
 <body>
@@ -3230,10 +3411,6 @@ function renderProfile() {
 
 
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
-function handleOwnerAccess() {
-  if (user?.role==='owner') nav('page-owner-dash');
-  else { nav('page-owner-login'); ownerTab('register'); }
-}
 
 // ═══════════════════════════════════════════════
 //  AUTH
@@ -5096,18 +5273,6 @@ function showAddCouponModal() {
   validateCouponManual(code.trim().toUpperCase());
 }
 
-async function validateCouponManual(code) {
-  if (!code) {
-    const input = document.getElementById('coupon-code-input');
-    code = input ? input.value.trim().toUpperCase() : '';
-  }
-  if (!code) return showToast('Ingresá un código');
-  try {
-    const res = await api('/api/coupons/validate', 'POST', {code, order_total: 0});
-    if (res.valid) { showToast('✅ Cupón válido: ' + (res.coupon?.description || code)); loadCoupons(); }
-    else showToast('❌ ' + (res.error || 'Cupón inválido'));
-  } catch(e) { showToast('❌ Error al validar cupón'); }
-}
 
 
 async function validateCouponManual() {
@@ -5767,6 +5932,270 @@ if (blowplususerStatus === 'success') {
   window.history.replaceState({}, '', '/');
   showToast('❌ El pago fue rechazado. Intentá de nuevo.');
 }
+
+
+// ══ OWNER OVERLAY ════════════════════════════════════════════════
+let _ooActive = false;
+let _ooTab = 'home';
+let _ooBiz = null;
+
+function enterOwnerOverlay() {
+  const overlay = document.getElementById('owner-overlay');
+  if (!overlay) return;
+  _ooActive = true;
+  overlay.classList.add('visible');
+  document.body.classList.add('owner-mode-active');
+  // Trigger slide-up animation on next frame
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => overlay.classList.add('open'));
+  });
+  loadOwnerOverlayData();
+  ooTab('home');
+}
+
+function exitOwnerOverlay() {
+  const overlay = document.getElementById('owner-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  document.body.classList.remove('owner-mode-active');
+  setTimeout(() => {
+    overlay.classList.remove('visible');
+    _ooActive = false;
+  }, 400);
+}
+
+async function loadOwnerOverlayData() {
+  try {
+    const data = await apiFetch('/api/businesses/mine/dashboard');
+    _ooBiz = data.business || {};
+    // Update header
+    const nameEl = document.getElementById('oo-store-name');
+    const subEl  = document.getElementById('oo-store-sub');
+    const logoEl = document.getElementById('oo-logo');
+    const statusEl = document.getElementById('oo-status');
+    if (nameEl) nameEl.textContent = _ooBiz.name || 'Mi Negocio';
+    if (subEl)  subEl.textContent  = _ooBiz.city  || 'Portal de gestión';
+    if (logoEl) {
+      if (_ooBiz.logo_url) logoEl.innerHTML = `<img src="${_ooBiz.logo_url}" alt="">`;
+      else logoEl.textContent = _ooBiz.logo_emoji || '🏪';
+    }
+    const isOpen = _ooBiz.is_open;
+    if (statusEl) {
+      statusEl.className = isOpen ? 'oo-status-open' : 'oo-status-closed';
+      statusEl.textContent = isOpen ? '● Abierto' : '● Cerrado';
+    }
+    // KPI
+    const kpi = data.kpi || {};
+    const todayOrders  = document.getElementById('oo-orders-today');
+    const todayRevenue = document.getElementById('oo-revenue-today');
+    const pending      = document.getElementById('oo-pending');
+    if (todayOrders)  todayOrders.textContent  = kpi.orders_today  || 0;
+    if (todayRevenue) todayRevenue.textContent = '$' + (kpi.revenue_today || 0);
+    if (pending)      pending.textContent      = kpi.pending_orders || 0;
+    // Render home tab
+    if (_ooTab === 'home') ooRenderHome();
+  } catch(e) {
+    console.warn('loadOwnerOverlayData error:', e.message);
+  }
+}
+
+function ooTab(tab) {
+  _ooTab = tab;
+  document.querySelectorAll('.oo-tab').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('oo-tab-' + tab);
+  if (btn) btn.classList.add('active');
+  if (tab === 'home')     ooRenderHome();
+  if (tab === 'orders')   ooRenderOrders();
+  if (tab === 'menu')     nav('page-owner-dash'); // fallback to old page
+  if (tab === 'settings') ooRenderSettings();
+  if (tab === 'more')     ooRenderMore();
+}
+
+function ooRenderHome() {
+  const el = document.getElementById('oo-body');
+  if (!el || !_ooBiz) return;
+  const isOpen = _ooBiz.is_open;
+  el.innerHTML = `
+    <!-- Toggle abierto/cerrado -->
+    <div class="oo-toggle-wrap">
+      <div>
+        <div class="oo-toggle-label">Estado del negocio</div>
+        <div class="oo-toggle-sub">${isOpen ? 'Estás recibiendo pedidos' : 'No estás recibiendo pedidos'}</div>
+      </div>
+      <button class="oo-toggle ${isOpen ? 'on' : ''}" id="oo-open-toggle" onclick="ooToggleOpen()"></button>
+    </div>
+
+    <!-- Wallet -->
+    <div class="oo-card" style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border:1px solid #1e40af;">
+      <div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.5px;margin-bottom:4px;">COBRADO ONLINE</div>
+      <div style="font-size:32px;font-weight:900;color:#fff;" id="oo-wallet-bal">$0</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Hoy: <span id="oo-wallet-today">$0</span></div>
+      <button onclick="nav('page-owner-dash')" style="width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+        ↑ Retirar fondos
+      </button>
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div class="oo-section-title">Acciones rápidas</div>
+    <div class="oo-action-grid">
+      <button class="oo-action-btn" onclick="ooTab('orders')">
+        <span class="oo-action-icon">📋</span>
+        <span class="oo-action-title">Pedidos</span>
+        <span class="oo-action-sub">Ver pendientes</span>
+      </button>
+      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+        <span class="oo-action-icon">🍔</span>
+        <span class="oo-action-title">Mi Menú</span>
+        <span class="oo-action-sub">Gestionar productos</span>
+      </button>
+      <button class="oo-action-btn" onclick="ooRenderSettings(); ooTab('settings')">
+        <span class="oo-action-icon">⚙️</span>
+        <span class="oo-action-title">Configuración</span>
+        <span class="oo-action-sub">Horarios y datos</span>
+      </button>
+      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+        <span class="oo-action-icon">📣</span>
+        <span class="oo-action-title">Novedades</span>
+        <span class="oo-action-sub">Publicar contenido</span>
+      </button>
+    </div>
+  `;
+  // Load wallet
+  loadOoWallet();
+}
+
+async function loadOoWallet() {
+  try {
+    const d = await apiFetch('/api/owner/wallet-summary');
+    const bal = document.getElementById('oo-wallet-bal');
+    const tod = document.getElementById('oo-wallet-today');
+    if (bal) bal.textContent = '$' + (d.balance || 0);
+    if (tod) tod.textContent = '$' + (d.today   || 0);
+  } catch(e) {}
+}
+
+async function ooToggleOpen() {
+  try {
+    const d = await apiFetch('/api/businesses/mine/toggle', { method:'POST' });
+    if (_ooBiz) _ooBiz.is_open = d.is_open;
+    const statusEl = document.getElementById('oo-status');
+    if (statusEl) {
+      statusEl.className = d.is_open ? 'oo-status-open' : 'oo-status-closed';
+      statusEl.textContent = d.is_open ? '● Abierto' : '● Cerrado';
+    }
+    const toggle = document.getElementById('oo-open-toggle');
+    if (toggle) toggle.classList.toggle('on', d.is_open);
+    const sub = toggle?.previousElementSibling?.querySelector('.oo-toggle-sub');
+    if (sub) sub.textContent = d.is_open ? 'Estás recibiendo pedidos' : 'No estás recibiendo pedidos';
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function ooRenderOrders() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  el.innerHTML = '<div style="color:#475569;text-align:center;padding:40px 0;"><div class=\"spinner\"></div></div>';
+  try {
+    const data = await apiFetch('/api/owner/orders?status=pending,accepted,ready');
+    const orders = data.orders || data || [];
+    if (!orders.length) {
+      el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;margin-bottom:12px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;">Sin pedidos pendientes</div></div>';
+      return;
+    }
+    el.innerHTML = orders.map(o => `
+      <div class="oo-card" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:14px;font-weight:800;color:#f1f5f9;">#${o.id?.toString().slice(-4)} · ${o.customer_name||'Cliente'}</div>
+          <span style="background:#1e40af;color:#93c5fd;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${o.status}</span>
+        </div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:10px;">${(o.items||[]).map(i=>i.name||i.product_name).join(', ')}</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="updateOrderStatus('${o.id}','accepted')" style="flex:1;background:#1e40af;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Aceptar</button>
+          <button onclick="updateOrderStatus('${o.id}','ready')" style="flex:1;background:#065f46;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Listo</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">${e.message}</div>`;
+  }
+}
+
+function ooRenderSettings() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="oo-section-title">Configuración</div>
+    <div class="oo-action-grid">
+      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+        <span class="oo-action-icon">🖼️</span>
+        <span class="oo-action-title">Fotos</span>
+        <span class="oo-action-sub">Logo y portada</span>
+      </button>
+      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+        <span class="oo-action-icon">🕐</span>
+        <span class="oo-action-title">Horarios</span>
+        <span class="oo-action-sub">Días y horas</span>
+      </button>
+      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+        <span class="oo-action-icon">🛵</span>
+        <span class="oo-action-title">Delivery</span>
+        <span class="oo-action-sub">Zona y costo</span>
+      </button>
+      <button class="oo-action-btn" onclick="nav('page-owner-dash')">
+        <span class="oo-action-icon">🏷️</span>
+        <span class="oo-action-title">Promociones</span>
+        <span class="oo-action-sub">Cupones y descuentos</span>
+      </button>
+    </div>
+    <button onclick="nav('page-owner-dash')" style="width:100%;background:#1e293b;border:none;border-radius:14px;padding:14px;color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">
+      Ver todas las configuraciones →
+    </button>
+  `;
+}
+
+function ooRenderMore() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="oo-section-title">Más opciones</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="oo-action-btn" style="width:100%;text-align:left;" onclick="nav('page-owner-dash')">
+        <span style="font-size:16px;">📊</span>
+        <span style="font-size:14px;font-weight:700;color:#f1f5f9;margin-left:12px;">Estadísticas</span>
+      </button>
+      <button class="oo-action-btn" style="width:100%;text-align:left;" onclick="nav('page-owner-dash')">
+        <span style="font-size:16px;">💳</span>
+        <span style="font-size:14px;font-weight:700;color:#f1f5f9;margin-left:12px;">Pagos y wallet</span>
+      </button>
+      <button class="oo-action-btn" style="width:100%;text-align:left;" onclick="nav('page-owner-dash')">
+        <span style="font-size:16px;">📣</span>
+        <span style="font-size:14px;font-weight:700;color:#f1f5f9;margin-left:12px;">Novedades</span>
+      </button>
+      <button onclick="exitOwnerOverlay()" style="width:100%;background:#1e293b;border:1px solid #374151;border-radius:14px;padding:14px;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:16px;">
+        Salir del portal
+      </button>
+    </div>
+  `;
+}
+
+// Helper: apiFetch using token from localStorage
+function apiFetch(path, opts = {}) {
+  const t = localStorage.getItem('da_token') || (typeof token !== 'undefined' ? token : '');
+  const headers = { 'Content-Type': 'application/json' };
+  if (t) headers['Authorization'] = 'Bearer ' + t;
+  return fetch(path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } })
+    .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || r.statusText); return d; }));
+}
+
+// Override handleOwnerAccess to use new overlay
+function handleOwnerAccess() {
+  if (user?.role === 'owner') {
+    enterOwnerOverlay();
+  } else {
+    nav('page-owner-login');
+    ownerTab('register');
+  }
+}
+// ═════════════════════════════════════════════════════════════════
 </script>
 
 <!-- ══ PWA INSTALL BANNER — Android ══ -->
@@ -5799,6 +6228,64 @@ if (blowplususerStatus === 'success') {
     <div style="margin-bottom:6px;">2. Bajá y tocá <strong>"Agregar a pantalla de inicio"</strong></div>
   </div>
   <div style="font-size:11px;opacity:.5;margin-top:8px;text-align:center;width:100%;">Solo funciona desde Safari</div>
+</div>
+
+
+<!-- ══ OWNER OVERLAY ══════════════════════════════ -->
+<div id="owner-overlay">
+  <!-- Header -->
+  <div class="oo-header">
+    <div class="oo-brand">
+      <div class="oo-logo" id="oo-logo">🏪</div>
+      <div>
+        <div class="oo-store-name" id="oo-store-name">Mi Negocio</div>
+        <div class="oo-store-sub" id="oo-store-sub">Portal de gestión</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="oo-status" class="oo-status-closed">● Cerrado</span>
+      <button class="oo-exit-btn" onclick="exitOwnerOverlay()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Salir
+      </button>
+    </div>
+  </div>
+  <!-- KPI Strip -->
+  <div class="oo-kpi">
+    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-orders-today">0</div><div class="oo-kpi-label">Pedidos hoy</div></div>
+    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-revenue-today">$0</div><div class="oo-kpi-label">Ingresos hoy</div></div>
+    <div class="oo-kpi-item"><div class="oo-kpi-val" id="oo-pending">0</div><div class="oo-kpi-label">Pendientes</div></div>
+  </div>
+  <!-- Body -->
+  <div class="oo-body" id="oo-body">
+    <div style="color:#475569;text-align:center;padding:40px 0;">
+      <div class="spinner"></div>
+      <div style="margin-top:12px;font-size:14px;">Cargando...</div>
+    </div>
+  </div>
+  <!-- Bottom Nav -->
+  <div class="oo-bottom-nav">
+    <button class="oo-tab active" id="oo-tab-home" onclick="ooTab('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Inicio
+    </button>
+    <button class="oo-tab" id="oo-tab-orders" onclick="ooTab('orders')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/></svg>
+      Pedidos
+    </button>
+    <button class="oo-tab" id="oo-tab-menu" onclick="ooTab('menu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      Menú
+    </button>
+    <button class="oo-tab" id="oo-tab-settings" onclick="ooTab('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Config
+    </button>
+    <button class="oo-tab" id="oo-tab-more" onclick="ooTab('more')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      Más
+    </button>
+  </div>
 </div>
 
 </body>
