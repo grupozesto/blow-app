@@ -828,8 +828,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)">
-      <button class="sbtn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)" onkeydown="if(event.key==='Enter'){doServerSearch(this.value);this.blur();}">
+      <button class="sbtn" onclick="doServerSearch(document.getElementById('search-input').value)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
   </div>
   <div class="sc">
@@ -2753,10 +2753,84 @@ function chipFilter(el, cat) {
   filterCat(cat);
 }
 
+let _searchTimer = null;
 function searchStores(q) {
-  if (!q.trim()) { renderStores(allStores); return; }
-  const filtered = allStores.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.category.toLowerCase().includes(q.toLowerCase()));
-  renderStores(filtered);
+  clearTimeout(_searchTimer);
+  if (!q.trim()) {
+    document.getElementById('search-results-panel')?.remove();
+    renderStores(allStores);
+    return;
+  }
+  // Búsqueda local instantánea mientras espera el API
+  const localHits = allStores.filter(s =>
+    s.name.toLowerCase().includes(q.toLowerCase()) ||
+    (s.category||'').toLowerCase().includes(q.toLowerCase()) ||
+    (s.description||'').toLowerCase().includes(q.toLowerCase())
+  );
+  renderStores(localHits);
+
+  // Búsqueda en el server con debounce (300ms)
+  _searchTimer = setTimeout(() => doServerSearch(q), 300);
+}
+
+async function doServerSearch(q) {
+  if (q.trim().length < 2) return;
+  try {
+    const params = new URLSearchParams({ q });
+    if (activeCity)  params.set('city', activeCity);
+    if (activeDept)  params.set('department', activeDept);
+    const data = await api(`/api/search?${params}`);
+
+    const { businesses = [], products = [] } = data;
+
+    // Mostrar negocios encontrados
+    if (businesses.length) renderStores(businesses);
+    else if (!allStores.some(s => s.name.toLowerCase().includes(q.toLowerCase()))) {
+      renderStores([]);
+    }
+
+    // Mostrar panel de productos si hay resultados
+    showSearchProductPanel(q, products);
+  } catch(e) {
+    console.warn('Search error:', e.message);
+  }
+}
+
+function showSearchProductPanel(q, products) {
+  // Eliminar panel anterior
+  document.getElementById('search-results-panel')?.remove();
+  if (!products.length) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'search-results-panel';
+  panel.style.cssText = 'padding:0 14px 8px;';
+  panel.innerHTML = `
+    <div style="font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:.5px;margin-bottom:10px;padding-top:4px;">
+      🍽️ PRODUCTOS QUE COINCIDEN
+    </div>
+    ${products.map(p => {
+      const disc = parseInt(p.discount_percent)||0;
+      const price = disc > 0 ? Math.round(p.price*(1-disc/100)) : p.price;
+      const img = p.photo_url
+        ? `<img src="${p.photo_url}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;flex-shrink:0;">`
+        : `<div style="width:48px;height:48px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${p.emoji||'🍽️'}</div>`;
+      return `<div onclick="openStore('${p.biz_id}')" style="display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+        ${img}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.product_name}</div>
+          <div style="font-size:12px;color:#64748b;">${p.biz_name}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          ${disc > 0 ? `<div style="font-size:10px;color:#94a3b8;text-decoration:line-through;">$${p.price}</div>` : ''}
+          <div style="font-size:14px;font-weight:800;color:#0f172a;">$${price}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+
+  // Insertar antes del grid de tiendas
+  const grid = document.getElementById('stores-grid');
+  grid?.parentNode.insertBefore(panel, grid);
 }
 
 async function openStore(id) {
