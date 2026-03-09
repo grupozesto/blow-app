@@ -6384,11 +6384,11 @@ async function ooRenderOrders() {
     const STATUS_LABEL = { pending:'🆕 Nuevo', confirmed:'✅ Confirmado', preparing:'👨‍🍳 Preparando', ready:'🟢 Listo', on_way:'🛵 En camino' };
     // Botón siguiente según estado actual
     const NEXT_BTN = {
-      pending:    { label:'✓ Aceptar pedido',   next:'confirmed', color:'#2558d4' },
-      confirmed:  { label:'👨‍🍳 Empezar a preparar', next:'preparing', color:'#f97316' },
-      preparing:  { label:'✓ Marcar como listo', next:'ready',     color:'#16a34a' },
-      ready:      null, // delivery toma desde acá
-      on_way:     null,
+      pending:    { label:'✓ Aceptar pedido',       next:'confirmed', color:'#2558d4' },
+      confirmed:  { label:'👨‍🍳 Empezar a preparar',  next:'preparing', color:'#f97316' },
+      preparing:  { label:'✓ Marcar como listo',    next:'ready',     color:'#16a34a' },
+      ready:      { label:'🛵 Salió para entrega',   next:'on_way',    color:'#8b5cf6' },
+      on_way:     { label:'✅ Marcar como entregado',next:'delivered', color:'#0ea5e9' },
     };
 
     el.innerHTML = active.map(o => {
@@ -6425,7 +6425,7 @@ async function ooRenderOrders() {
 
         <!-- Botones de acción -->
         <div style="display:flex;gap:8px;">
-          ${btn ? `<button onclick="ooUpdateOrder('${o.id}','${btn.next}')" style="flex:1;background:${btn.color};border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${btn.label}</button>` : `<div style="flex:1;background:#f1f5f9;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#94a3b8;">Esperando delivery</div>`}
+          ${btn ? `<button onclick="ooUpdateOrder('${o.id}','${btn.next}')" style="flex:1;background:${btn.color};border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${btn.label}</button>` : `<div style="flex:1;background:#dcfce7;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#16a34a;font-weight:700;">✅ Entregado</div>`}
           <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1.5px solid #fee2e2;border-radius:10px;padding:12px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Cancelar">✕</button>
         </div>
       </div>`;
