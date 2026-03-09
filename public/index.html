@@ -6688,23 +6688,315 @@ function ooRenderMore() {
   const el = document.getElementById('oo-body');
   if (!el) return;
   el.innerHTML = `
-    <div class="oo-section-title">Más opciones</div>
-    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="nav('page-owner-dash');exitOwnerOverlay();">
-      <span style="font-size:24px;">📊</span>
-      <div><div style="font-size:14px;font-weight:700;color:#0f172a;">Estadísticas</div><div style="font-size:12px;color:#64748b;">Ventas históricas</div></div>
+    <div class="oo-section-title" style="margin-top:8px;">MÁS OPCIONES</div>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowStats()">
+      <span style="font-size:26px;">📊</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Estadísticas</div><div style="font-size:12px;color:#64748b;">Ventas históricas</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
-    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="nav('page-owner-dash');exitOwnerOverlay();">
-      <span style="font-size:24px;">📣</span>
-      <div><div style="font-size:14px;font-weight:700;color:#0f172a;">Novedades</div><div style="font-size:12px;color:#64748b;">Publicar contenido</div></div>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowNovedades()">
+      <span style="font-size:26px;">📣</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Novedades</div><div style="font-size:12px;color:#64748b;">Publicar contenido</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
-    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="nav('page-owner-dash');exitOwnerOverlay();">
-      <span style="font-size:24px;">💳</span>
-      <div><div style="font-size:14px;font-weight:700;color:#0f172a;">Pagos y wallet</div><div style="font-size:12px;color:#64748b;">Retiro de fondos</div></div>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowWallet()">
+      <span style="font-size:26px;">💳</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Pagos y wallet</div><div style="font-size:12px;color:#64748b;">Retiro de fondos</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
-    <button onclick="exitOwnerOverlay()" style="width:100%;background:#fff;border:1px solid #fee2e2;border-radius:14px;padding:14px;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:16px;">
+    <button onclick="exitOwnerOverlay()" style="width:100%;background:#fff;border:1px solid #fee2e2;border-radius:14px;padding:14px;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">
       Salir del portal
     </button>
   `;
+}
+
+// ── Estadísticas ─────────────────────────────
+function ooShowStats() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  const d = _ooDashData || {};
+  const orders = (d.orders || []).filter(o => !['cancelled','pending'].includes(o.status));
+  const today = d.today || {};
+  const week  = d.week  || {};
+
+  // Agrupar por día (últimos 7 días)
+  const dayMap = {};
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const dt = new Date(now); dt.setDate(dt.getDate() - i);
+    const key = dt.toISOString().slice(0,10);
+    dayMap[key] = { orders: 0, revenue: 0 };
+  }
+  orders.forEach(o => {
+    const key = new Date(o.created_at).toISOString().slice(0,10);
+    if (dayMap[key]) { dayMap[key].orders++; dayMap[key].revenue += parseFloat(o.total)||0; }
+  });
+  const days = Object.entries(dayMap);
+  const maxRev = Math.max(...days.map(([,v])=>v.revenue), 1);
+
+  const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const bars = days.map(([date, v]) => {
+    const pct = Math.round((v.revenue / maxRev) * 80) || 2;
+    const dn  = dayNames[new Date(date + 'T12:00:00').getDay()];
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+      <div style="font-size:10px;color:#64748b;">${v.revenue>0?'$'+Math.round(v.revenue):''}</div>
+      <div style="width:100%;background:#e2e8f0;border-radius:6px;height:80px;display:flex;align-items:flex-end;overflow:hidden;">
+        <div style="width:100%;height:${pct}%;background:${pct>2?'linear-gradient(180deg,#2558d4,#1a3a6e)':'#e2e8f0'};border-radius:6px;transition:height .3s;"></div>
+      </div>
+      <div style="font-size:10px;color:#94a3b8;">${dn}</div>
+    </div>`;
+  }).join('');
+
+  // Historial de pedidos completos
+  const allOrders = (d.orders || []).slice(0,30);
+  const orderRows = allOrders.length ? allOrders.map(o => {
+    const dt = new Date(o.created_at);
+    const dateStr = dt.toLocaleDateString('es-UY',{day:'2-digit',month:'short'}) + ' ' + dt.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+    const statusColor = {confirmed:'#22c55e',ready:'#3b82f6',delivered:'#8b5cf6',cancelled:'#ef4444',pending:'#f59e0b'}[o.status]||'#94a3b8';
+    const statusLabel = {confirmed:'Confirmado',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado',pending:'Pendiente'}[o.status]||o.status;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#0f172a;">#${o.id.slice(-6).toUpperCase()} · ${o.customer_name||'Cliente'}</div>
+        <div style="font-size:11px;color:#94a3b8;">${dateStr}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;">$${Math.round(o.total)}</div>
+        <div style="font-size:11px;color:${statusColor};font-weight:600;">${statusLabel}</div>
+      </div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;">Sin pedidos aún</div>';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;">
+      <button onclick="ooRenderMore()" style="background:none;border:none;cursor:pointer;color:#2558d4;font-size:13px;font-weight:600;padding:0;">← Volver</button>
+      <div style="font-size:15px;font-weight:800;color:#0f172a;">Estadísticas</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:#2558d4;">${today.orders||0}</div>
+        <div style="font-size:11px;color:#64748b;">Pedidos hoy</div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:#2558d4;">$${Math.round(today.revenue||0)}</div>
+        <div style="font-size:11px;color:#64748b;">Ingresos hoy</div>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:#2558d4;">$${Math.round(week.revenue||0)}</div>
+        <div style="font-size:11px;color:#64748b;">Esta semana</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;">ÚLTIMOS 7 DÍAS</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;">${bars}</div>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px;">HISTORIAL DE PEDIDOS</div>
+      ${orderRows}
+    </div>
+  `;
+}
+
+// ── Novedades ────────────────────────────────
+function ooShowNovedades() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  const biz = _ooBiz || {};
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;">
+      <button onclick="ooRenderMore()" style="background:none;border:none;cursor:pointer;color:#2558d4;font-size:13px;font-weight:600;padding:0;">← Volver</button>
+      <div style="font-size:15px;font-weight:800;color:#0f172a;">Publicar novedad</div>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;">NUEVA NOVEDAD</div>
+      <textarea id="novedad-text" placeholder="Ej: ¡Hoy 20% off en todas las pizzas! 🍕 Solo hasta las 22hs." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;resize:none;height:100px;box-sizing:border-box;color:#0f172a;outline:none;" maxlength="280"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <span id="novedad-count" style="font-size:11px;color:#94a3b8;">0/280</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="ooNovedadEmoji('🔥')" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer;">🔥</button>
+          <button onclick="ooNovedadEmoji('⚡')" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer;">⚡</button>
+          <button onclick="ooNovedadEmoji('🎉')" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer;">🎉</button>
+          <button onclick="ooNovedadEmoji('🍕')" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer;">🍕</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;">VISTA PREVIA</div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:36px;height:36px;border-radius:10px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${biz.logo_url?`<img src="${biz.logo_url}" style="width:100%;height:100%;border-radius:10px;object-fit:cover;">`:(biz.logo_emoji||'🏪')}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#0f172a;">${biz.name||'Mi Negocio'}</div>
+          <div id="novedad-preview" style="font-size:12px;color:#64748b;margin-top:2px;">Tu novedad aparecerá aquí...</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:12px;color:#92400e;">⚠️ Esta función publicará una notificación a todos tus clientes. Próximamente disponible cuando integres campañas push.</div>
+    </div>
+
+    <button onclick="ooEnviarNovedad()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+      📣 Publicar novedad
+    </button>
+  `;
+
+  // Live counter + preview
+  const ta = document.getElementById('novedad-text');
+  const preview = document.getElementById('novedad-preview');
+  const counter = document.getElementById('novedad-count');
+  ta.addEventListener('input', () => {
+    counter.textContent = ta.value.length + '/280';
+    preview.textContent = ta.value || 'Tu novedad aparecerá aquí...';
+    counter.style.color = ta.value.length > 240 ? '#ef4444' : '#94a3b8';
+  });
+}
+
+function ooNovedadEmoji(e) {
+  const ta = document.getElementById('novedad-text');
+  if (!ta) return;
+  ta.value += e;
+  ta.dispatchEvent(new Event('input'));
+  ta.focus();
+}
+
+async function ooEnviarNovedad() {
+  const ta = document.getElementById('novedad-text');
+  const txt = ta?.value?.trim();
+  if (!txt) { showToast('Escribí algo antes de publicar'); return; }
+  // Por ahora guarda la novedad en el campo description del negocio como prueba
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ description: txt }) });
+    showToast('✓ Novedad guardada en tu descripción');
+    if (_ooBiz) _ooBiz.description = txt;
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// ── Wallet / Pagos ───────────────────────────
+function ooShowWallet() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  const d = _ooDashData || {};
+  const balance = d.balance || 0;
+  const transactions = (d.transactions || []).slice(0, 20);
+  const withdrawals  = (d.withdrawals  || []).slice(0, 10);
+
+  const txRows = transactions.length ? transactions.map(tx => {
+    const isIn = tx.amount > 0;
+    const dt = new Date(tx.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#0f172a;">${tx.description||tx.type}</div>
+        <div style="font-size:11px;color:#94a3b8;">${dt}</div>
+      </div>
+      <div style="font-size:14px;font-weight:700;color:${isIn?'#16a34a':'#ef4444'}">${isIn?'+':'-'}$${Math.abs(Math.round(tx.amount))}</div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px;">Sin movimientos aún</div>';
+
+  const wdRows = withdrawals.length ? withdrawals.map(w => {
+    const statusColor = {pending:'#f59e0b',approved:'#22c55e',rejected:'#ef4444'}[w.status]||'#94a3b8';
+    const statusLabel = {pending:'Pendiente',approved:'Acreditado',rejected:'Rechazado'}[w.status]||w.status;
+    const dt = new Date(w.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short'});
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#0f172a;">Retiro · ${w.method}</div>
+        <div style="font-size:11px;color:#94a3b8;">${dt} · ${w.destination}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;">$${Math.round(w.amount)}</div>
+        <div style="font-size:11px;color:${statusColor};font-weight:600;">${statusLabel}</div>
+      </div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;padding:16px;color:#94a3b8;font-size:13px;">Sin retiros aún</div>';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;">
+      <button onclick="ooRenderMore()" style="background:none;border:none;cursor:pointer;color:#2558d4;font-size:13px;font-weight:600;padding:0;">← Volver</button>
+      <div style="font-size:15px;font-weight:800;color:#0f172a;">Pagos y wallet</div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border-radius:16px;padding:20px;margin-bottom:12px;color:#fff;">
+      <div style="font-size:12px;opacity:.6;margin-bottom:4px;">SALDO DISPONIBLE</div>
+      <div style="font-size:36px;font-weight:900;">$${Math.round(balance)}</div>
+      <div style="font-size:12px;opacity:.5;margin-top:2px;">Pesos uruguayos</div>
+    </div>
+
+    <button onclick="ooShowRetiro()" style="width:100%;background:#2558d4;color:#fff;border:none;border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:12px;">
+      💸 Solicitar retiro
+    </button>
+
+    <div style="background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px;">MOVIMIENTOS</div>
+      ${txRows}
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px;">RETIROS</div>
+      ${wdRows}
+    </div>
+  `;
+}
+
+function ooShowRetiro() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  const balance = _ooDashData?.balance || 0;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;">
+      <button onclick="ooShowWallet()" style="background:none;border:none;cursor:pointer;color:#2558d4;font-size:13px;font-weight:600;padding:0;">← Volver</button>
+      <div style="font-size:15px;font-weight:800;color:#0f172a;">Solicitar retiro</div>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;">
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px;">Saldo disponible</div>
+      <div style="font-size:24px;font-weight:800;color:#0f172a;">$${Math.round(balance)}</div>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#64748b;">MONTO A RETIRAR</label>
+        <input id="retiro-amount" type="number" min="1" max="${Math.floor(balance)}" placeholder="Ej: 500" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:15px;margin-top:4px;box-sizing:border-box;font-family:'Inter',sans-serif;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#64748b;">MÉTODO</label>
+        <select id="retiro-method" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:4px;box-sizing:border-box;font-family:'Inter',sans-serif;background:#fff;outline:none;">
+          <option value="transferencia">Transferencia bancaria</option>
+          <option value="mercadopago">MercadoPago</option>
+          <option value="efectivo">Efectivo</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#64748b;">DESTINO (cuenta / alias / teléfono)</label>
+        <input id="retiro-dest" type="text" placeholder="Ej: 123456789 / alias.mp / 099..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:4px;box-sizing:border-box;font-family:'Inter',sans-serif;outline:none;">
+      </div>
+    </div>
+
+    <button onclick="ooConfirmarRetiro()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+      Confirmar retiro
+    </button>
+  `;
+}
+
+async function ooConfirmarRetiro() {
+  const amount = parseFloat(document.getElementById('retiro-amount')?.value);
+  const method = document.getElementById('retiro-method')?.value;
+  const dest   = document.getElementById('retiro-dest')?.value?.trim();
+  const balance = _ooDashData?.balance || 0;
+
+  if (!amount || amount <= 0)          { showToast('Ingresá un monto válido'); return; }
+  if (amount > balance)                { showToast('Saldo insuficiente'); return; }
+  if (!dest)                           { showToast('Ingresá el destino'); return; }
+
+  try {
+    await ooFetch('/api/wallet/withdraw', { method:'POST', body: JSON.stringify({ amount, method, destination: dest }) });
+    showToast('✓ Solicitud enviada. El equipo de Blow la procesará pronto.');
+    // Actualizar balance local
+    if (_ooDashData) _ooDashData.balance = balance - amount;
+    ooShowWallet();
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 </script>
 
