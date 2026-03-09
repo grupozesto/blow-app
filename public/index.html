@@ -3574,6 +3574,10 @@ function saveSession(t, u) {
     api('/api/auth/me', { method:'PATCH', body: JSON.stringify({ city: activeCity, department: activeDept || '' }) })
       .catch(() => {});
   }
+  // Suscribir a push para recibir actualizaciones de pedidos (customers y owners)
+  if (u.role === 'customer') {
+    setTimeout(initCustomerPush, 1500);
+  }
 }
 
 function doLogout() {
@@ -6056,6 +6060,29 @@ let _ooDashData = null;
 let _ooWalletIdx = 0;
 let _ooTouchX = 0;
 
+// ── Push notifications para clientes ──────────
+async function initCustomerPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const kRes = await fetch('/api/push/vapid-public-key');
+    if (!kRes.ok) return;
+    const { key } = await kRes.json();
+    const reg = await navigator.serviceWorker.ready;
+    // Si ya tiene suscripción activa, registrarla en el server (por si cambió el token)
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await api('/api/push/subscribe', { method:'POST', body: JSON.stringify(existing.toJSON()) });
+      return;
+    }
+    // Pedir permiso solo si no fue denegado previamente
+    if (Notification.permission === 'denied') return;
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:_vapidB64ToUint8(key) });
+    await api('/api/push/subscribe', { method:'POST', body: JSON.stringify(sub.toJSON()) });
+  } catch(e) { console.warn('Customer push init:', e.message); }
+}
+
 // ── Push notifications para owners ────────────
 let _ooPushSub = null;
 
@@ -6345,41 +6372,82 @@ async function ooRenderOrders() {
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando pedidos...</div>';
   try {
-    // /api/orders returns orders for the owner's business in v115
     const data = await ooFetch('/api/orders');
     const orders = Array.isArray(data) ? data : (data.orders || []);
     const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
     if (!active.length) {
-      el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin pedidos activos</div></div>';
+      el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin pedidos activos</div><div style="font-size:13px;color:#cbd5e1;margin-top:6px;">Los pedidos nuevos aparecerán aquí</div></div>';
       return;
     }
-    const sc = { pending:'#f59e0b', accepted:'#3b82f6', confirmed:'#3b82f6', ready:'#16a34a' };
-    const sl = { pending:'Nuevo', accepted:'Preparando', confirmed:'Confirmado', ready:'Listo' };
-    el.innerHTML = active.map(o => `
-      <div class="oo-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <div style="font-size:15px;font-weight:800;color:#0f172a;">#${String(o.id).slice(-4)} · ${o.customer_name||'Cliente'}</div>
-          <span style="background:${sc[o.status]||'#64748b'}22;color:${sc[o.status]||'#64748b'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${sl[o.status]||o.status}</span>
+
+    const STATUS_COLOR = { pending:'#f59e0b', confirmed:'#3b82f6', preparing:'#f97316', ready:'#16a34a', on_way:'#8b5cf6' };
+    const STATUS_LABEL = { pending:'🆕 Nuevo', confirmed:'✅ Confirmado', preparing:'👨‍🍳 Preparando', ready:'🟢 Listo', on_way:'🛵 En camino' };
+    // Botón siguiente según estado actual
+    const NEXT_BTN = {
+      pending:    { label:'✓ Aceptar pedido',   next:'confirmed', color:'#2558d4' },
+      confirmed:  { label:'👨‍🍳 Empezar a preparar', next:'preparing', color:'#f97316' },
+      preparing:  { label:'✓ Marcar como listo', next:'ready',     color:'#16a34a' },
+      ready:      null, // delivery toma desde acá
+      on_way:     null,
+    };
+
+    el.innerHTML = active.map(o => {
+      const sc = STATUS_COLOR[o.status] || '#64748b';
+      const sl = STATUS_LABEL[o.status] || o.status;
+      const btn = NEXT_BTN[o.status];
+      const items = (o.items||[]).map(i => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;"><span style="font-size:13px;color:#0f172a;">${i.quantity||1}× ${i.name||i.product_name||''}</span><span style="font-size:13px;font-weight:700;color:#0f172a;">$${Math.round((i.price||0)*(i.quantity||1))}</span></div>`).join('');
+      const dt = new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+      const fulfillIcon = o.fulfillment_type === 'pickup' ? '🏪 Retiro en local' : '🛵 Delivery';
+
+      return `<div class="oo-card" style="margin-bottom:12px;padding:14px;">
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#0f172a;">#${String(o.id).slice(-6).toUpperCase()}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${dt} · ${fulfillIcon}</div>
+          </div>
+          <span style="background:${sc}22;color:${sc};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;">${sl}</span>
         </div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:8px;">${(o.items||[]).map(i=>`${i.quantity||1}× ${i.name||i.product_name||''}`).join(' · ')}</div>
-        <div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:10px;">$${o.total||0}</div>
+
+        <!-- Cliente -->
+        <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:#0f172a;">👤 ${o.customer_name||'Cliente'}</div>
+          ${o.customer_phone ? `<div style="font-size:12px;color:#2558d4;margin-top:2px;"><a href="tel:${o.customer_phone}" style="color:#2558d4;text-decoration:none;">📞 ${o.customer_phone}</a></div>` : ''}
+          ${o.address && o.fulfillment_type!=='pickup' ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">📍 ${o.address}</div>` : ''}
+        </div>
+
+        <!-- Items -->
+        <div style="margin-bottom:10px;">${items}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:13px;color:#64748b;">${(o.items||[]).length} productos</span>
+          <span style="font-size:18px;font-weight:900;color:#0f172a;">$${Math.round(o.total||0)}</span>
+        </div>
+
+        <!-- Botones de acción -->
         <div style="display:flex;gap:8px;">
-          ${o.status==='pending'  ? `<button onclick="ooUpdateOrder('${o.id}','accepted')" style="flex:1;background:#2558d4;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Aceptar</button>` : ''}
-          ${o.status==='accepted'||o.status==='confirmed' ? `<button onclick="ooUpdateOrder('${o.id}','ready')" style="flex:1;background:#16a34a;border:none;border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✓ Listo</button>` : ''}
-          <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✕</button>
+          ${btn ? `<button onclick="ooUpdateOrder('${o.id}','${btn.next}')" style="flex:1;background:${btn.color};border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${btn.label}</button>` : `<div style="flex:1;background:#f1f5f9;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#94a3b8;">Esperando delivery</div>`}
+          <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1.5px solid #fee2e2;border-radius:10px;padding:12px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Cancelar">✕</button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } catch(e) {
     el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
   }
 }
 
 async function ooUpdateOrder(id, status) {
+  if (status === 'cancelled' && !confirm('¿Cancelar este pedido?')) return;
   try {
-    await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify({status}) });
+    if (status === 'cancelled') {
+      await ooFetch(`/api/orders/${id}/cancel`, { method:'POST' });
+    } else {
+      await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify({status}) });
+    }
+    showToast(status === 'cancelled' ? '✅ Pedido cancelado' : '✅ Estado actualizado');
     ooRenderOrders();
-  } catch(e) { alert(e.message); }
+    // Actualizar KPI de pendientes en el header
+    ooLoadData();
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function ooRenderMenu() {
