@@ -4380,10 +4380,10 @@ function updateCartBadge() {
   });
 }
 function changeCartQty(id, d) {
-  const item = cart.find(x=>x.id===id);
+  const item = cart.find(x=>(x.cart_key||x.id)===id);
   if (!item) return;
   item.qty+=d;
-  if (item.qty<=0) cart=cart.filter(x=>x.id!==id);
+  if (item.qty<=0) cart=cart.filter(x=>(x.cart_key||x.id)!==id);
   saveCart(); updateCartBadge(); renderCart();
 }
 function renderCart() {
