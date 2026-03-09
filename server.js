@@ -1832,6 +1832,44 @@ app.post('/api/webhooks/mp', async (req, res) => {
   } catch(e) { console.error('Webhook error:', e.message); }
 });
 
+// ── Geocoding proxy (evita CORS y throttling de Nominatim) ─
+// Rate limit: 1 req/seg por IP (respetando ToS de Nominatim)
+const geoCache = new Map(); // cache en memoria para evitar duplicados
+app.get('/api/geocode/reverse', async (req, res) => {
+  const { lat, lng } = req.query;
+  const flat = parseFloat(lat), flng = parseFloat(lng);
+  if (isNaN(flat) || isNaN(flng)) return res.status(400).json({ error: 'lat y lng requeridos' });
+
+  // Redondear a 3 decimales para cachear (~100m de precisión)
+  const cacheKey = `${flat.toFixed(3)},${flng.toFixed(3)}`;
+  if (geoCache.has(cacheKey)) return res.json(geoCache.get(cacheKey));
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${flat}&lon=${flng}&accept-language=es&zoom=14`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'blow-app/1.0 (hola@blow.uy)' }, // requerido por Nominatim ToS
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!response.ok) throw new Error(`Nominatim error ${response.status}`);
+    const geo = await response.json();
+    const addr = geo.address || {};
+    const result = {
+      city:    addr.city || addr.town || addr.village || addr.municipality || addr.suburb || addr.county || '',
+      dept:    addr.state || addr.county || '',
+      street:  addr.road ? `${addr.road}${addr.house_number ? ' ' + addr.house_number : ''}` : '',
+      country: addr.country_code?.toUpperCase() || '',
+      display: geo.display_name || ''
+    };
+    // Cachear 30 minutos
+    geoCache.set(cacheKey, result);
+    setTimeout(() => geoCache.delete(cacheKey), 30 * 60 * 1000);
+    res.json(result);
+  } catch(e) {
+    console.warn('Geocode error:', e.message);
+    res.status(503).json({ error: 'Servicio de geocodificación no disponible', detail: e.message });
+  }
+});
+
 // ── Public settings (no auth) ────────────────
 app.get('/api/public-settings', async (_, res) => {
   try {
@@ -1840,6 +1878,63 @@ app.get('/api/public-settings', async (_, res) => {
     rows.forEach(r => { try { obj[r.key] = JSON.parse(r.value); } catch { obj[r.key] = r.value; } });
     res.json(obj);
   } catch(e) { res.json({}); }
+});
+
+// ── Geocoding proxy ───────────────────────────
+// Evita que Nominatim bloquee requests desde el cliente.
+// El server actúa de proxy con cache simple en memoria.
+const _geoCache = new Map();
+
+function nominatimFetch(lat, lng) {
+  return new Promise((resolve, reject) => {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es&zoom=10`;
+    const opts = {
+      hostname: 'nominatim.openstreetmap.org',
+      path: `/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es&zoom=10`,
+      method: 'GET',
+      headers: { 'User-Agent': 'BlowApp/1.0 (hola@blow.uy)' }
+    };
+    const https = require('https');
+    const req = https.request(opts, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error('Parse error')); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(8000, () => { req.destroy(); reject(new Error('Timeout')); });
+    req.end();
+  });
+}
+
+app.get('/api/geocode', async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'lat y lng requeridos' });
+
+  // Cache por coordenada redondeada a 2 decimales (~1km)
+  const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  if (_geoCache.has(cacheKey)) return res.json(_geoCache.get(cacheKey));
+
+  try {
+    const geo = await nominatimFetch(lat, lng);
+    const addr = geo.address || {};
+    const result = {
+      city:    addr.city || addr.town || addr.village || addr.municipality || addr.county || '',
+      dept:    addr.state || addr.county || '',
+      street:  addr.road ? `${addr.road}${addr.house_number ? ' ' + addr.house_number : ''}` : '',
+      country: addr.country_code || '',
+      raw:     addr
+    };
+    // Cachear por 24hs
+    _geoCache.set(cacheKey, result);
+    setTimeout(() => _geoCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+    res.json(result);
+  } catch(e) {
+    res.status(502).json({ error: 'No se pudo geocodificar: ' + e.message });
+  }
 });
 
 // ── Push Notifications ────────────────────────
