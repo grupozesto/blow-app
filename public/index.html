@@ -3379,8 +3379,9 @@ async function loadTracking() {
       return `<div class="order-card">
         <div class="oc-top">
           <div><div class="oc-store">${o.business_name||o.business_id}</div><div class="oc-time">Pedido · ${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>
-          <div class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</div>
+          <div class="status-badge ${o.status}">${o.status==='pending'?'⏳ Esperando pago':STATUS_LABELS[o.status]||o.status}</div>
         </div>
+        ${o.status==='pending'?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:13px;color:#92400e;margin:8px 0;">⏳ Confirmando pago con MercadoPago... Esto puede demorar unos segundos.</div>`:''}
         ${o.status==='on_way'?`<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>`:''}
         <div class="track-steps">${steps.map((s,i)=>`
           <div class="track-step ${s.done?'done':''}">
@@ -5863,8 +5864,10 @@ if (activeCity) {
 } else {
   // Primera vez — intentar GPS automáticamente (solo para clientes, no owners)
   loadStores(); // Cargar demo mientras
-  if (user?.role === 'owner') {
-    // Owners no necesitan ciudad — tienen el overlay directo
+  const _isPaymentReturn = new URLSearchParams(window.location.search).has('payment');
+  if (user?.role === 'owner' || _isPaymentReturn) {
+    // Owners: tienen el overlay directo
+    // Payment return: no relanzar GPS, ya hay ciudad guardada o se muestra "Elegir ubicación"
   } else {
     setTimeout(() => {
       if (navigator.geolocation) {
@@ -5977,10 +5980,37 @@ const urlP = new URLSearchParams(window.location.search);
 const payStatus = urlP.get('payment');
 const blowplusStatus = urlP.get('blowplus');
 if (payStatus) {
-  if (payStatus==='success') { showToast('🎉 ¡Pago exitoso! Tu pedido fue confirmado.'); setTimeout(()=>nav('page-tracking'),500); }
-  else if (payStatus==='failure') showToast('❌ El pago fue rechazado. Intentá de nuevo.');
-  else if (payStatus==='pending') showToast('⏳ Pago pendiente. Te notificaremos cuando se confirme.');
-  window.history.replaceState({}, '', '/');
+  // MP devuelve external_reference = order_id en la URL de retorno
+  const returnOrderId = urlP.get('external_reference') || urlP.get('order_id') || null;
+
+  if (payStatus === 'success') {
+    window.history.replaceState({}, '', '/');
+    showToast('✅ Pago confirmado — cargando tu pedido...');
+
+    if (returnOrderId) {
+      // Esperar hasta 8s a que el webhook confirme el pedido, luego navegar al tracking
+      (async () => {
+        for (let i = 0; i < 8; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          try {
+            const order = await api(`/api/orders/${returnOrderId}`);
+            if (order && order.status !== 'pending') break;
+          } catch(e) { break; }
+        }
+        nav('page-tracking');
+        loadTracking();
+      })();
+    } else {
+      setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1500);
+    }
+  } else if (payStatus === 'failure') {
+    window.history.replaceState({}, '', '/');
+    showToast('❌ El pago fue rechazado. Intentá de nuevo.');
+  } else if (payStatus === 'pending') {
+    window.history.replaceState({}, '', '/');
+    showToast('⏳ Pago pendiente. Te avisamos cuando se confirme.');
+    setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1500);
+  }
 }
 // ── Secret admin access via URL ──────────────────
 const secretPath = window.location.pathname;
