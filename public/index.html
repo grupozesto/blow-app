@@ -9797,7 +9797,7 @@ async function oaRenderMore() {
   const items = [
     { icon:'💰', label:'Cobros y pagos',   sub:'Saldo, retiros, transacciones', action:"oaOpenSub('payments')" },
     { icon:'⚙️', label:'Configuración',    sub:'Horarios, dirección, fotos',    action:"oaOpenSub('settings')" },
-    { icon:'🏷️', label:'Promociones',      sub:'Descuentos y cupones',           action:"exitOwnerMode();setTimeout(()=>{nav('page-owner-dash');},100)" },
+    { icon:'🏷️', label:'Promociones',      sub:'Descuentos y cupones',           action:"oaOpenSub('promos')" },
     { icon:'📊', label:'Estadísticas avanzadas', sub:'Retención, horas pico', action:"oaGoTab('stats')" },
     { icon:'🚪', label:'Salir del portal', sub:'Cerrar sesión y volver a Blow',  action:"if(confirm('¿Salir del portal?'))exitOwnerMode()", danger: true },
   ];
