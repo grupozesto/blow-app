@@ -586,19 +586,19 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 /* Product cards with photo */
 .prod-section-title{font-size:17px;font-weight:900;padding:18px 16px 10px;color:#1a1a1a;}
 .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 8px;}
-.prod-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;position:relative;transition:transform .15s;}
+.prod-card{background:#fff;border-radius:16px;overflow:visible;box-shadow:0 2px 10px rgba(0,0,0,.08);cursor:pointer;position:relative;transition:transform .15s;display:flex;flex-direction:column;}
 .prod-card:active{transform:scale(.97);}
-.prod-card-img{width:100%;aspect-ratio:1;background:#f5f5f5;overflow:hidden;position:relative;}
+.prod-card-img{width:100%;aspect-ratio:1;background:#f5f5f5;overflow:hidden;position:relative;border-radius:16px 16px 0 0;flex-shrink:0;}
 .prod-card-img img{width:100%;height:100%;object-fit:cover;}
 .prod-card-img .prod-emoji-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;background:linear-gradient(135deg,#f5f5f5,#ebebeb);}
-.prod-card-
-.prod-card-name{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:3px;line-height:1.3;}
-.prod-card-desc{font-size:11px;color:#888;line-height:1.3;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.prod-card-footer{display:flex;align-items:center;justify-content:space-between;}
-.prod-card-price{font-size:15px;font-weight:900;color:#1a1a1a;}
-.prod-card-price .original{font-size:11px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:4px;}
-.prod-card-add{width:32px;height:32px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;}
-.prod-discount-badge{position:absolute;top:8px;left:8px;background:var(--primary);color:#fff;border-radius:8px;padding:3px 7px;font-size:11px;font-weight:800;}
+.prod-card-body{padding:10px 10px 14px;display:flex;flex-direction:column;flex:1;}
+.prod-card-name{font-size:13px;font-weight:700;color:#1a1a1a;margin-bottom:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.prod-card-desc{font-size:11px;color:#888;line-height:1.3;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:1;}
+.prod-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px;}
+.prod-card-price{font-size:15px;font-weight:900;color:#1a1a1a;line-height:1.2;}
+.prod-card-price .original{font-size:11px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:3px;display:block;line-height:1;}
+.prod-card-add{width:36px;height:36px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;box-shadow:0 3px 10px rgba(37,88,212,.4);position:relative;z-index:1;}
+.prod-discount-badge{position:absolute;top:8px;left:8px;background:#e11d48;color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:800;letter-spacing:.3px;}
 .prod-featured-badge{position:absolute;top:8px;right:8px;background:#FFB800;color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:800;}
 
 /* Section with horizontal scroll (featured) */
@@ -607,7 +607,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .prod-hscroll{display:flex;gap:12px;}
 .prod-card-h{flex-shrink:0;width:150px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);cursor:pointer;}
 .prod-card-h .prod-card-img{height:130px;aspect-ratio:unset;}
-.prod-card-h .prod-card-
+.prod-card-h .prod-card-body{padding:8px 10px 10px;}
 
 /* ════════════════════════════════════════
    BLOW+ PREMIUM
@@ -1035,6 +1035,25 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
       </div>
     </div>
     <div id="cart-body"></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: CHECKOUT ══ -->
+<div class="page page-wrap" id="page-checkout">
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <button onclick="nav('page-cart')" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;">←</button>
+    <h1 style="margin:0;font-size:18px;">Último paso</h1>
+  </div>
+  <div class="sc" id="checkout-body" style="padding:0 16px 140px;"></div>
+  <!-- Total fijo al fondo — encima de la nav bar -->
+  <div style="position:fixed;bottom:var(--nav);left:0;right:0;background:#fff;border-top:1.5px solid #f0f0f0;padding:12px 16px 12px;z-index:190;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span style="font-size:15px;font-weight:700;color:#64748b;">Total a pagar</span>
+      <span style="font-size:24px;font-weight:900;color:#0f172a;" id="checkout-total-display">$0</span>
+    </div>
+    <button id="checkout-pay-btn" onclick="doCheckout()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);border:none;border-radius:14px;padding:16px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      Pedir ahora
+    </button>
   </div>
 </div>
 
@@ -2313,7 +2332,7 @@ function nav(pageId) {
 
   // Mobile nav
   ['nb-home','nb-cart','nb-tracking','nb-profile'].forEach(id => document.getElementById(id)?.classList.remove('active'));
-  const mMap = {'page-home':'nb-home','page-cart':'nb-cart','page-tracking':'nb-tracking','page-profile':'nb-profile'};
+  const mMap = {'page-home':'nb-home','page-cart':'nb-cart','page-checkout':'nb-cart','page-tracking':'nb-tracking','page-profile':'nb-profile'};
   if (mMap[pageId]) document.getElementById(mMap[pageId])?.classList.add('active');
 
   // Sidebar
@@ -3320,40 +3339,302 @@ function renderCart() {
       ${activePromo?.type==='free_delivery' ? `<div class="sum-row" style="color:#27ae60;font-size:12px;"><span>Envío gratis aplicado</span><span>✓</span></div>` : ''}
       <div class="sum-row total"><span>Total</span><span>$${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</span></div>
     </div>
-    <button class="checkout-btn" onclick="checkout()">Confirmar pedido · $${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</button>`;
+    <button class="checkout-btn" onclick="openCheckoutPage()">Ver resumen y pagar · $${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</button>`;
 }
 
-async function checkout() {
-  if (!user) { openAuth('Iniciá sesión en Blow'); return; }
+// ── Estado del checkout ──────────────────────────
+let _chkPayMethod = 'mercadopago'; // 'mercadopago' | 'cash'
+let _chkTip = 0;
+let _chkPriority = false;
+let _chkNotes = '';
+let _chkFulfillment = null; // 'delivery' | 'pickup' — null = auto
+let _chkAddress = '';
+
+function openCheckoutPage() {
+  if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
   if (!cart.length) return;
+  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkFulfillment = null; _chkAddress = user?.address || '';
+  nav('page-checkout');
+  renderCheckoutPage();
+}
+
+function renderCheckoutPage() {
+  const body = document.getElementById('checkout-body');
+  if (!body) return;
+  const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
+  const hasPickup   = store?.offers_pickup === true;
+  const hasDelivery = store?.offers_delivery !== false;
+  const offersPriority = store?.offers_priority !== false;
+  const priorityPercent = store?.priority_percent || 50;
+
+  if (!hasDelivery && hasPickup) _chkFulfillment = 'pickup';
+  else if (!_chkFulfillment) _chkFulfillment = hasDelivery ? 'delivery' : 'pickup';
+
+  const fulfillmentType = _chkFulfillment;
+  const baseFee = fulfillmentType === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0);
+  const fee = baseFee;
+  const priorityFee = _chkPriority ? Math.round(fee * priorityPercent / 100) : 0;
+  const sub = cart.reduce((a, b) => a + b.price * b.qty, 0);
+  const promoDisc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
+  const total = Math.max(0, sub + fee + priorityFee + _chkTip - promoDisc);
+
+  const td = document.getElementById('checkout-total-display');
+  if (td) td.textContent = `$${total}`;
+  const pb = document.getElementById('checkout-pay-btn');
+  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '\u{1F4B5} Confirmar pedido en efectivo' : `\u{1F4B3} Ir a pagar · $${total}`;
+
+  const tipOptions = [0, 20, 30, 40, 50, 70];
+  const isCustomTip = _chkTip > 0 && !tipOptions.includes(_chkTip);
+  const userAddr = user?.address || '';
+
+  body.innerHTML = `
+    <div style="margin-top:18px;margin-bottom:18px;">
+      <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:14px;">¿Cómo querés pagar?</div>
+      <div style="display:flex;gap:10px;">
+        <div onclick="chkSetPay('mercadopago')"
+          style="flex:1;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:16px;padding:16px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
+          <div style="font-size:24px;margin-bottom:8px;">💳</div>
+          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Tarjeta, saldo, QR</div>
+          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:8px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        </div>
+        <div onclick="chkSetPay('cash')"
+          style="flex:1;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:16px;padding:16px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
+          <div style="font-size:24px;margin-bottom:8px;">💵</div>
+          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Pagás al recibir</div>
+          ${_chkPayMethod==='cash'?'<div style="margin-top:8px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Datos de entrega</div>
+      ${(hasDelivery && hasPickup) ? `
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button onclick="chkSetFulfillment('delivery')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid ${fulfillmentType==='delivery'?'#0f172a':'#e2e8f0'};background:${fulfillmentType==='delivery'?'#0f172a':'#fff'};color:${fulfillmentType==='delivery'?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          🛵 Delivery
+        </button>
+        <button onclick="chkSetFulfillment('pickup')"
+          style="flex:1;padding:10px;border-radius:12px;border:2px solid ${fulfillmentType==='pickup'?'#0f172a':'#e2e8f0'};background:${fulfillmentType==='pickup'?'#0f172a':'#fff'};color:${fulfillmentType==='pickup'?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          🏪 Retiro yo
+        </button>
+      </div>` : ''}
+      ${fulfillmentType === 'delivery' ? `
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;">📍 Dirección de entrega</div>
+        ${(() => {
+          const addrs = user?.addresses || [];
+          const saved = addrs.map((a,i) => {
+            const sel = (_chkAddress === (a.full_address||a.label));
+            return `<div onclick="chkSelectAddr('${(a.full_address||a.label).replace(/'/g,'')}')"
+              style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:2px solid ${sel?'#0f172a':'#e2e8f0'};background:${sel?'#0f172a':'#fff'};margin-bottom:8px;cursor:pointer;">
+              <span style="font-size:16px;">📍</span>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:700;color:${sel?'#fff':'#0f172a'};">${a.label||'Mi dirección'}</div>
+                <div style="font-size:12px;color:${sel?'rgba(255,255,255,.7)':'#64748b'};">${a.full_address||a.label}</div>
+              </div>
+              ${sel?'<span style="color:#fff;font-size:16px;">✓</span>':''}
+            </div>`;
+          }).join('');
+          return saved;
+        })()}
+        <div id="chk-new-addr-toggle">
+          <button onclick="chkShowNewAddr()" style="width:100%;padding:10px 12px;border-radius:12px;border:2px dashed #e2e8f0;background:#f8fafc;color:#2558d4;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <span>+</span> Agregar dirección nueva
+          </button>
+        </div>
+        <div id="chk-new-addr-box" style="display:${(!user?.addresses?.length||!_chkAddress)?'block':'none'};margin-top:8px;">
+          <input id="chk-address-input" value="${_chkAddress||''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
+            style="width:100%;border:1.5px solid #2558d4;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
+            oninput="_chkAddress=this.value">
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Esta dirección se guardará en tu perfil.</div>
+        </div>
+      </div>` : `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:20px;">🏪</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#0f172a;">Retiro en tienda</div>
+          <div style="font-size:12px;color:#64748b;">${store?.address || 'Dirección del negocio'}</div>
+        </div>
+      </div>`}
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:4px;">🛵 Propina para el repartidor</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px;">El 100% va directo a su bolsillo.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${tipOptions.map(t => `
+          <button onclick="chkSetTip(${t})"
+            style="padding:9px 16px;border-radius:20px;border:2px solid ${_chkTip===t&&!isCustomTip?'#0f172a':'#e2e8f0'};background:${_chkTip===t&&!isCustomTip?'#0f172a':'#fff'};color:${_chkTip===t&&!isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+            ${t === 0 ? 'Ahora no' : '$' + t}
+          </button>`).join('')}
+        <button onclick="chkOpenCustomTip()"
+          style="padding:9px 16px;border-radius:20px;border:2px solid ${isCustomTip?'#0f172a':'#e2e8f0'};background:${isCustomTip?'#0f172a':'#fff'};color:${isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          ${isCustomTip ? '$'+_chkTip+' ✓' : 'Otro'}
+        </button>
+      </div>
+      <div id="custom-tip-box" style="display:${isCustomTip?'flex':'none'};gap:8px;margin-top:12px;align-items:center;">
+        <span style="font-size:15px;font-weight:700;">$</span>
+        <input id="custom-tip-input" type="number" min="1" value="${isCustomTip?_chkTip:''}" placeholder="Ej: 80"
+          style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        <button onclick="chkApplyCustomTip()"
+          style="background:#0f172a;border:none;border-radius:10px;padding:9px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          Aplicar
+        </button>
+      </div>
+    </div>
+
+    ${(fulfillmentType === 'delivery' && offersPriority && fee > 0) ? `
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="flex:1;margin-right:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:18px;">⚡</span>
+            <span style="font-size:15px;font-weight:800;color:#0f172a;">Envío prioritario</span>
+            <span style="background:#eff6ff;color:#2558d4;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;">+$${Math.round(fee*priorityPercent/100)}</span>
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-left:26px;">Tu pedido se prepara antes que los demás.</div>
+        </div>
+        <button onclick="chkTogglePriority()" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;">
+          <div style="width:48px;height:28px;border-radius:14px;background:${_chkPriority?'#0f172a':'#e2e8f0'};position:relative;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;${_chkPriority?'right:3px':'left:3px'};box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
+          </div>
+        </button>
+      </div>
+    </div>` : ''}
+
+    <div style="background:#fff;border-radius:16px;padding:14px 16px;margin-bottom:14px;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;flex-shrink:0;">📝</span>
+      <input id="chk-notes" value="${_chkNotes}" placeholder="Instrucciones: sin cebolla, timbre roto..."
+        style="flex:1;border:none;outline:none;font-size:14px;font-family:'Inter',sans-serif;color:#0f172a;background:transparent;"
+        oninput="_chkNotes=this.value">
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Resumen</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#64748b;">Productos</span><span style="font-weight:600;">$${sub}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+        <span style="color:#64748b;">${fulfillmentType==='pickup'?'Retiro en tienda':'Envío'}</span>
+        <span style="font-weight:600;">${fee===0?'Gratis':'$'+fee}</span>
+      </div>
+      ${_chkPriority?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#64748b;">⚡ Prioritario</span><span style="font-weight:600;">+$${priorityFee}</span></div>`:''}
+      ${_chkTip>0?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#64748b;">🛵 Propina</span><span style="font-weight:600;">+$${_chkTip}</span></div>`:''}
+      ${promoDisc>0?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#16a34a;">🏷️ Descuento</span><span style="font-weight:600;color:#16a34a;">-$${promoDisc}</span></div>`:''}
+      <div style="border-top:1px solid #f1f5f9;padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;">
+        <span style="font-size:16px;font-weight:900;color:#0f172a;">Total</span>
+        <span style="font-size:16px;font-weight:900;color:#0f172a;">$${total}</span>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#94a3b8;">Pago online aplica 9% devolución de IVA en productos y 2% en envío (Leyes N° 17.934 y 19.210).</div>
+    </div>
+  `;
+}
+
+function chkSetPay(method) {
+  _chkPayMethod = method;
+  renderCheckoutPage();
+}
+
+function chkSetTip(amount) {
+  _chkTip = amount;
+  renderCheckoutPage();
+}
+
+function chkTogglePriority() {
+  _chkPriority = !_chkPriority;
+  renderCheckoutPage();
+}
+
+function chkSetFulfillment(type) {
+  _chkFulfillment = type;
+  _chkPriority = false; // reset priority on fulfillment change
+  renderCheckoutPage();
+}
+
+function chkSelectAddr(addr) {
+  _chkAddress = addr;
+  renderCheckoutPage();
+}
+
+function chkShowNewAddr() {
+  const box = document.getElementById('chk-new-addr-box');
+  if (box) { box.style.display = 'block'; document.getElementById('chk-address-input')?.focus(); }
+}
+
+function chkOpenCustomTip() {
+  const box = document.getElementById('custom-tip-box');
+  if (box) { box.style.display = 'flex'; document.getElementById('custom-tip-input')?.focus(); }
+}
+
+function chkApplyCustomTip() {
+  const val = parseInt(document.getElementById('custom-tip-input')?.value) || 0;
+  if (val < 1) { showToast('Ingresá un monto válido'); return; }
+  _chkTip = val;
+  renderCheckoutPage();
+}
+
+async function doCheckout() {
+  if (!user) { openAuth('Iniciá sesión para continuar'); return; }
+  if (!cart.length) return;
+
+  const btn = document.getElementById('checkout-pay-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Procesando...';
 
   const bizId = cart[0].biz_id;
+
   if (isDemoMode || !bizId || bizId.startsWith('demo-')) {
-    cart=[]; saveCart(); updateCartBadge();
+    cart = []; saveCart(); updateCartBadge();
     showToast('🎉 ¡Pedido confirmado! (modo demo)');
-    setTimeout(()=>nav('page-tracking'),800);
+    setTimeout(() => nav('page-tracking'), 800);
     return;
   }
 
-  const btn = document.querySelector('.checkout-btn');
-  btn.disabled = true; btn.textContent = 'Procesando...';
   try {
-    const fulfillmentType = currentSdFulfillment || 'delivery';
-    const items = cart.map(i=>({ product_id:i.id, quantity:i.qty, variant_id: i.variant_id||null }));
-    const res = await api('/api/orders', { method:'POST', body:JSON.stringify({ business_id:bizId, items, address:user.address||'', fulfillment_type: fulfillmentType }) });
-    cart=[]; saveCart(); updateCartBadge();
-    if (res.payment?.init_point && !res.payment.demo) {
+    const fulfillmentType = _chkFulfillment || currentSdFulfillment || 'delivery';
+    const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null }));
+    const res = await api('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        business_id: bizId,
+        items,
+        address: _chkAddress || user.address || '',
+        fulfillment_type: fulfillmentType,
+        payment_method: _chkPayMethod,
+        tip: _chkTip,
+        priority: _chkPriority,
+        notes: _chkNotes || ''
+      })
+    });
+
+    cart = []; saveCart(); updateCartBadge();
+    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
+
+    if (_chkPayMethod === 'cash' || res.cash) {
+      // Efectivo → va directo a tracking
+      showToast('✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
+      setTimeout(() => nav('page-tracking'), 800);
+    } else if (res.payment?.init_point && !res.payment.demo) {
       showToast('💳 Redirigiendo a MercadoPago...');
-      setTimeout(()=>{ window.location.href = res.payment.init_point; }, 1000);
+      setTimeout(() => { window.location.href = res.payment.init_point; }, 900);
     } else {
-      showToast('🎉 ¡Pedido creado! Esperando confirmación de pago.');
-      setTimeout(()=>nav('page-tracking'),800);
+      showToast('🎉 ¡Pedido creado! Esperando confirmación.');
+      setTimeout(() => nav('page-tracking'), 800);
     }
-  } catch(e) {
+  } catch (e) {
     showToast(`❌ ${e.message}`);
-    btn.disabled=false; btn.textContent='Confirmar pedido';
+    btn.disabled = false;
+    btn.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar pedido en efectivo' : '💳 Ir a pagar';
   }
+}
+
+async function checkout() {
+  // Legacy redirect — usar openCheckoutPage()
+  openCheckoutPage();
 }
 
 // ═══════════════════════════════════════════════
@@ -3927,6 +4208,7 @@ function renderOwnerOrders(orders) {
         ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
         ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">🍳 Listo para retiro</button>`:''}
         ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')" style="background:#8b5cf6;">🛵 Salió para entrega</button>`:''}\n        ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Marcar entregado</button>`:''}\n      </div>
+        ${o.status==='ready'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Entregado</button>`:''}\
     </div>`).join('');
 }
 
@@ -6238,6 +6520,8 @@ function ooTab(tab) {
   if (tab === 'menu')     ooRenderMenu();
   if (tab === 'settings') ooRenderSettings();
   if (tab === 'more')     ooRenderMore();
+  if (tab === 'stats')    ooRenderStats();
+  if (tab === 'wallet')   ooShowWallet();
 }
 
 function ooRenderHome() {
@@ -6305,10 +6589,20 @@ function ooRenderHome() {
         <span class="oo-action-title">Configuración</span>
         <span class="oo-action-sub">Horarios y datos</span>
       </button>
+      <button class="oo-action-btn" onclick="ooTab('stats')">
+        <span class="oo-action-icon">📊</span>
+        <span class="oo-action-title">Estadísticas</span>
+        <span class="oo-action-sub">Ventas históricas</span>
+      </button>
+      <button class="oo-action-btn" onclick="ooTab('wallet')">
+        <span class="oo-action-icon">💳</span>
+        <span class="oo-action-title">Pagos y wallet</span>
+        <span class="oo-action-sub">Retiro de fondos</span>
+      </button>
       <button class="oo-action-btn" onclick="ooTab('more')">
         <span class="oo-action-icon">📣</span>
-        <span class="oo-action-title">Más</span>
-        <span class="oo-action-sub">Stats, novedades</span>
+        <span class="oo-action-title">Novedades</span>
+        <span class="oo-action-sub">Publicar contenido</span>
       </button>
     </div>
   `;
@@ -6383,8 +6677,8 @@ async function ooRenderOrders() {
       pending:    { label:'✓ Aceptar pedido',       next:'confirmed', color:'#2558d4' },
       confirmed:  { label:'👨‍🍳 Empezar a preparar',  next:'preparing', color:'#f97316' },
       preparing:  { label:'✓ Marcar como listo',    next:'ready',     color:'#16a34a' },
-      ready:      { label:'🛵 Salió para entrega',   next:'on_way',    color:'#8b5cf6' },
-      on_way:     { label:'✅ Marcar como entregado',next:'delivered', color:'#0ea5e9' },
+      ready:      { label:'🛵 Salió para entrega',    next:'on_way',    color:'#8b5cf6' },
+      on_way:     { label:'✅ Marcar como entregado', next:'delivered', color:'#0ea5e9' },
     };
 
     el.innerHTML = active.map(o => {
@@ -6420,8 +6714,9 @@ async function ooRenderOrders() {
         </div>
 
         <!-- Botones de acción -->
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${btn ? `<button onclick="ooUpdateOrder('${o.id}','${btn.next}')" style="flex:1;background:${btn.color};border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${btn.label}</button>` : `<div style="flex:1;background:#dcfce7;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#16a34a;font-weight:700;">✅ Entregado</div>`}
+          ${['ready','on_way'].includes(o.status) ? `<button onclick="ooUpdateOrder('${o.id}','delivered')" style="background:#0ea5e9;border:none;border-radius:10px;padding:12px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Marcar entregado">✅ Entregado</button>` : ''}
           <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1.5px solid #fee2e2;border-radius:10px;padding:12px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Cancelar">✕</button>
         </div>
       </div>`;
@@ -6489,11 +6784,14 @@ async function ooRenderMenu() {
             <div style="font-size:28px;flex-shrink:0;">${p.emoji||'🍽️'}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-              <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}${p.discount_percent?` <span style="color:#ef4444;font-size:11px;">-${p.discount_percent}%</span>`:''}${p.stock!=null?` · Stock: ${p.stock}`:''}</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
               <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.available!==false?'Activo':'Pausado'}</span>
-              <button onclick="ooToggleProduct('${p.id}',${p.available!==false})" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">${p.available!==false?'Pausar':'Activar'}</button>
+              <div style="display:flex;gap:4px;">
+                <button onclick="ooAddProduct(_ooDashData.products.find(x=>x.id==='${p.id}'))" style="background:#eff6ff;border:none;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;color:#2558d4;cursor:pointer;font-family:'Inter',sans-serif;">✏️ Editar</button>
+                <button onclick="ooToggleProduct('${p.id}',${p.available!==false})" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">${p.available!==false?'Pausar':'Activar'}</button>
+              </div>
             </div>
           </div>`;
       });
@@ -6504,55 +6802,223 @@ async function ooRenderMenu() {
   }
 }
 
-function ooAddProduct() {
-  // Show simple add form inside overlay
+function ooAddProduct(editProduct = null) {
   const el = document.getElementById('oo-body');
   if (!el) return;
+  const isEdit = !!editProduct;
+  const p = editProduct || {};
+  const cats = (_ooDashData?.categories || []);
+
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
       <button onclick="ooRenderMenu()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
-      <div style="font-size:17px;font-weight:800;color:#0f172a;">Nuevo producto</div>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">${isEdit ? 'Editar producto' : 'Nuevo producto'}</div>
     </div>
-    <div class="oo-card">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">EMOJI</label>
-        <input id="np-emoji" value="🍽️" style="width:60px;font-size:24px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-family:'Inter',sans-serif;">
+
+    <!-- FOTOS -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;letter-spacing:.5px;">FOTOS DEL PRODUCTO <span style="font-weight:400;color:#94a3b8;">(máx. 4)</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;" id="np-photos-grid">
+        ${[0,1,2,3].map(i => {
+          const existing = (p.photos||[])[i];
+          return `<div id="np-photo-slot-${i}" onclick="document.getElementById('np-photo-input-${i}').click()"
+            style="aspect-ratio:1;border-radius:12px;border:2px dashed #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:#f8fafc;position:relative;">
+            ${existing ? `<img src="${existing.url}" style="width:100%;height:100%;object-fit:cover;" id="np-photo-preview-${i}">
+              <button onclick="event.stopPropagation();npRemovePhoto(${i})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>`
+            : `<div style="font-size:24px;color:#cbd5e1;">📷</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">${i===0?'Principal':'Foto '+(i+1)}</div>
+              <img id="np-photo-preview-${i}" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">`}
+            <input type="file" id="np-photo-input-${i}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${i},this)">
+          </div>`;
+        }).join('')}
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">NOMBRE</label>
-        <input id="np-name" placeholder="Nombre del producto" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">DESCRIPCIÓN</label>
-        <textarea id="np-desc" placeholder="Descripción (opcional)" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;height:80px;resize:none;"></textarea>
-      </div>
-      <div style="margin-bottom:20px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">PRECIO ($)</label>
-        <input id="np-price" type="number" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
-      </div>
-      <button onclick="ooSaveProduct()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" id="np-save-btn">Guardar producto</button>
     </div>
+
+    <!-- INFO BÁSICA -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">INFORMACIÓN BÁSICA</div>
+
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex-shrink:0;">
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">EMOJI</label>
+          <input id="np-emoji" value="${p.emoji||'🍽️'}" style="width:56px;font-size:24px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">NOMBRE *</label>
+          <input id="np-name" value="${p.name||''}" placeholder="Ej: Hamburguesa clásica" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">DESCRIPCIÓN</label>
+        <textarea id="np-desc" placeholder="Ingredientes, preparación, tamaño..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;height:80px;resize:none;">${p.description||''}</textarea>
+      </div>
+
+      ${cats.length ? `<div style="margin-bottom:0;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">CATEGORÍA</label>
+        <select id="np-cat" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;background:#fff;box-sizing:border-box;">
+          <option value="">Sin categoría</option>
+          ${cats.map(c=>`<option value="${c.id}" ${p.category_id===c.id?'selected':''}>${c.name}</option>`).join('')}
+        </select>
+      </div>` : ''}
+    </div>
+
+    <!-- PRECIO Y DESCUENTO -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">PRECIO Y DESCUENTO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">PRECIO ($) *</label>
+          <input id="np-price" type="number" min="0" value="${p.price||''}" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">DESCUENTO (%)</label>
+          <input id="np-discount" type="number" min="0" max="99" value="${p.discount_percent||''}" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+      </div>
+      <div id="np-price-preview" style="background:#f0fdf4;border-radius:10px;padding:10px 12px;font-size:13px;color:#16a34a;display:none;"></div>
+    </div>
+
+    <!-- DETALLES EXTRA -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">DETALLES <span style="font-weight:400;color:#94a3b8;">(opcional)</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">⏱ TIEMPO PREP. (min)</label>
+          <input id="np-preptime" type="number" min="1" value="${p.preparation_time||''}" placeholder="Ej: 15" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">🔥 CALORÍAS (kcal)</label>
+          <input id="np-calories" type="number" min="0" value="${p.calories||''}" placeholder="Ej: 450" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">⚠️ ALÉRGENOS</label>
+        <input id="np-allergens" value="${p.allergens||''}" placeholder="Gluten, lácteos, huevo, maní..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">📦 STOCK (dejar vacío = ilimitado)</label>
+        <input id="np-stock" type="number" min="0" value="${p.stock!=null?p.stock:''}" placeholder="Ilimitado" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <!-- OPCIONES -->
+    <div class="oo-card" style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">OPCIONES</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;">
+        <input type="checkbox" id="np-featured" ${p.is_featured?'checked':''} style="width:18px;height:18px;accent-color:#2558d4;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0f172a;">⭐ Destacado</div>
+          <div style="font-size:12px;color:#94a3b8;">Aparece primero en el menú</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="np-available" ${p.is_available!==false?'checked':''} style="width:18px;height:18px;accent-color:#2558d4;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0f172a;">✅ Disponible</div>
+          <div style="font-size:12px;color:#94a3b8;">Los clientes pueden pedirlo</div>
+        </div>
+      </label>
+    </div>
+
+    <button onclick="ooSaveProduct(${isEdit?`'${p.id}'`:'null'})" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);border:none;border-radius:14px;padding:15px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:20px;" id="np-save-btn">
+      ${isEdit ? '💾 Guardar cambios' : '✅ Publicar producto'}
+    </button>
   `;
+
+  // Preview de precio con descuento
+  const updatePreview = () => {
+    const price = parseFloat(document.getElementById('np-price')?.value)||0;
+    const disc  = parseInt(document.getElementById('np-discount')?.value)||0;
+    const prev  = document.getElementById('np-price-preview');
+    if (prev && price > 0 && disc > 0) {
+      const final = Math.round(price * (1 - disc/100));
+      prev.style.display = 'block';
+      prev.innerHTML = `💸 Precio final con ${disc}% off: <strong>$${final}</strong> <span style="text-decoration:line-through;color:#94a3b8;font-size:12px;">$${price}</span>`;
+    } else if (prev) prev.style.display = 'none';
+  };
+  document.getElementById('np-price')?.addEventListener('input', updatePreview);
+  document.getElementById('np-discount')?.addEventListener('input', updatePreview);
+  updatePreview();
 }
 
-async function ooSaveProduct() {
-  const btn  = document.getElementById('np-save-btn');
+// Fotos en memoria para el formulario
+let _npPhotos = [null, null, null, null];
+
+function npPhotoSelected(slot, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _npPhotos[slot] = { data: e.target.result.split(',')[1], mime_type: file.type, preview: e.target.result };
+    const slot_el = document.getElementById(`np-photo-slot-${slot}`);
+    if (slot_el) {
+      slot_el.style.border = '2px solid #2558d4';
+      slot_el.innerHTML = `
+        <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">
+        <button onclick="event.stopPropagation();npRemovePhoto(${slot})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:11px;cursor:pointer;">✕</button>
+        <input type="file" id="np-photo-input-${slot}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${slot},this)">
+      `;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function npRemovePhoto(slot) {
+  _npPhotos[slot] = null;
+  const slot_el = document.getElementById(`np-photo-slot-${slot}`);
+  if (slot_el) {
+    slot_el.style.border = '2px dashed #e2e8f0';
+    slot_el.innerHTML = `
+      <div style="font-size:24px;color:#cbd5e1;">📷</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;">${slot===0?'Principal':'Foto '+(slot+1)}</div>
+      <input type="file" id="np-photo-input-${slot}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${slot},this)">
+    `;
+  }
+}
+
+async function ooSaveProduct(editId = null) {
+  const btn   = document.getElementById('np-save-btn');
   const name  = document.getElementById('np-name')?.value?.trim();
   const price = parseFloat(document.getElementById('np-price')?.value);
   const emoji = document.getElementById('np-emoji')?.value?.trim() || '🍽️';
   const desc  = document.getElementById('np-desc')?.value?.trim() || '';
-  if (!name) { alert('Ingresá un nombre'); return; }
-  if (!price || price <= 0) { alert('Ingresá un precio válido'); return; }
-  btn.textContent = 'Guardando...'; btn.disabled = true;
+  const discount = parseInt(document.getElementById('np-discount')?.value) || 0;
+  const cat   = document.getElementById('np-cat')?.value || null;
+  const preptime = parseInt(document.getElementById('np-preptime')?.value) || null;
+  const calories = parseInt(document.getElementById('np-calories')?.value) || null;
+  const allergens = document.getElementById('np-allergens')?.value?.trim() || '';
+  const stock = document.getElementById('np-stock')?.value !== '' ? parseInt(document.getElementById('np-stock')?.value) : null;
+  const featured = document.getElementById('np-featured')?.checked || false;
+  const available = document.getElementById('np-available')?.checked !== false;
+
+  if (!name)              { showToast('Ingresá un nombre'); return; }
+  if (!price || price<=0) { showToast('Ingresá un precio válido'); return; }
+
+  const photos = _npPhotos.filter(Boolean);
+  btn.textContent = photos.length ? '⬆️ Subiendo fotos...' : '⏳ Guardando...';
+  btn.disabled = true;
+
   try {
-    await ooFetch('/api/businesses/mine/products', { method:'POST', body:JSON.stringify({ name, price, emoji, description:desc, available:true }) });
-    // Reload dashboard data
+    const body = { name, price, emoji, description:desc, discount_percent:discount,
+      category_id:cat, preparation_time:preptime, calories, allergens, stock,
+      is_featured:featured, is_available:available,
+      photos: photos.map(p => ({ data:p.data, mime_type:p.mime_type })) };
+
+    if (editId) {
+      await ooFetch(`/api/businesses/mine/products/${editId}`, { method:'PATCH', body:JSON.stringify(body) });
+      showToast('✅ Producto actualizado');
+    } else {
+      await ooFetch('/api/businesses/mine/products', { method:'POST', body:JSON.stringify(body) });
+      showToast('✅ Producto publicado');
+    }
+    _npPhotos = [null,null,null,null];
     const d = await ooFetch('/api/businesses/mine/dashboard');
     _ooDashData = d;
     ooRenderMenu();
   } catch(e) {
-    btn.textContent = 'Guardar producto'; btn.disabled = false;
-    alert('Error: ' + e.message);
+    btn.textContent = editId ? 'Guardar cambios' : 'Publicar producto';
+    btn.disabled = false;
+    showToast('❌ ' + e.message);
   }
 }
 
@@ -6613,14 +7079,60 @@ function ooRenderSettings() {
         <span style="font-size:14px;color:#64748b;">Costo de envío</span>
         <span style="font-size:14px;font-weight:700;color:#0f172a;">$${b.delivery_cost||0}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
         <span style="font-size:14px;color:#64748b;">Tiempo estimado</span>
         <span style="font-size:14px;font-weight:700;color:#0f172a;">${b.delivery_time||30} min</span>
+      </div>
+      <div style="border-top:1px solid #f1f5f9;padding-top:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#0f172a;">⚡ Envío prioritario</div>
+            <div style="font-size:12px;color:#64748b;">Ofrecer a clientes por un costo extra</div>
+          </div>
+          <button onclick="ooToggleOffersPriority()" style="background:none;border:none;cursor:pointer;padding:0;">
+            <div style="width:44px;height:26px;border-radius:13px;background:${b.offers_priority!==false?'#0f172a':'#e2e8f0'};position:relative;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;${b.offers_priority!==false?'right:3px':'left:3px'};box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
+            </div>
+          </button>
+        </div>
+        ${b.offers_priority!==false ? `
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+          <span style="font-size:13px;color:#64748b;white-space:nowrap;">Costo extra (%)</span>
+          <input type="number" id="priority-pct-input" value="${b.priority_percent||50}" min="10" max="200"
+            style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+          <button onclick="ooSavePriorityPercent()" style="background:#2558d4;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+            Guardar
+          </button>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">Con ${b.priority_percent||50}% extra, un envío de $100 cobra $${100 + (b.priority_percent||50)} prioritario.</div>
+        ` : ''}
       </div>
     </div>
   `;
 }
 
+
+async function ooToggleOffersPriority() {
+  const current = _ooBiz?.offers_priority !== false;
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ offers_priority: !current }) });
+    if (_ooBiz) _ooBiz.offers_priority = !current;
+    const d = await ooFetch('/api/businesses/mine/dashboard');
+    _ooDashData = d; _ooBiz = d.business;
+    ooRenderSettings();
+  } catch(e) { showToast('Error: '+e.message); }
+}
+
+async function ooSavePriorityPercent() {
+  const val = parseInt(document.getElementById('priority-pct-input')?.value);
+  if (!val || val < 10 || val > 200) { showToast('Ingresá un valor entre 10 y 200'); return; }
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ priority_percent: val }) });
+    if (_ooBiz) _ooBiz.priority_percent = val;
+    showToast('✅ Guardado');
+    ooRenderSettings();
+  } catch(e) { showToast('Error: '+e.message); }
+}
 
 // ── HORARIOS ────────────────────────────────────────────────────
 function ooEditHours() {
@@ -6969,6 +7481,8 @@ async function ooDeletePromo(id) {
 }
 
 
+function ooRenderStats() { ooShowStats(); }
+
 function ooRenderMore() {
   const el = document.getElementById('oo-body');
   if (!el) return;
@@ -7121,7 +7635,9 @@ function ooShowNovedades() {
     </div>
 
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:12px;color:#92400e;">⚠️ Esta función publicará una notificación a todos tus clientes. Próximamente disponible cuando integres campañas push.</div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;font-size:12px;color:#92400e;">
+        📣 Esta novedad se enviará como notificación push a todos tus clientes que hayan pedido anteriormente.
+      </div>
     </div>
 
     <button onclick="ooEnviarNovedad()" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
@@ -7152,12 +7668,26 @@ async function ooEnviarNovedad() {
   const ta = document.getElementById('novedad-text');
   const txt = ta?.value?.trim();
   if (!txt) { showToast('Escribí algo antes de publicar'); return; }
-  // Por ahora guarda la novedad en el campo description del negocio como prueba
+  if (!confirm(`¿Enviar esta novedad a todos tus clientes?\n\n"${txt}"`)) return;
+
+  const btn = document.querySelector('[onclick="ooEnviarNovedad()"]');
+  if (btn) { btn.textContent = '⏳ Enviando...'; btn.disabled = true; }
+
   try {
-    await ooFetch('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ description: txt }) });
-    showToast('✓ Novedad guardada en tu descripción');
-    if (_ooBiz) _ooBiz.description = txt;
-  } catch(e) { showToast('Error: ' + e.message); }
+    const res = await ooFetch('/api/businesses/mine/broadcast', {
+      method: 'POST',
+      body: JSON.stringify({ message: txt })
+    });
+    const { sent, total } = res;
+    showToast(`✅ Novedad enviada a ${sent} cliente${sent !== 1 ? 's' : ''}`);
+    if (ta) ta.value = '';
+    document.getElementById('novedad-count').textContent = '0/280';
+    document.getElementById('novedad-preview').textContent = 'Tu novedad aparecerá aquí...';
+  } catch(e) {
+    showToast('❌ ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = '📣 Publicar novedad'; btn.disabled = false; }
+  }
 }
 
 // ── Wallet / Pagos ───────────────────────────
@@ -7241,9 +7771,9 @@ async function ooOpenRetiroModal() {
 
   const overlay = document.createElement('div');
   overlay.id = 'retiro-modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
   overlay.innerHTML = `
-    <div style="background:#f8fafc;border-radius:24px 24px 0 0;width:100%;max-width:520px;padding:20px 16px 32px;max-height:90vh;overflow-y:auto;">
+    <div style="background:#f8fafc;border-radius:20px;width:100%;max-width:460px;padding:24px 20px 28px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
       <!-- Handle -->
       <div style="width:36px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 16px;"></div>
 
@@ -7478,8 +8008,6 @@ function ooShowRetiro() { ooOpenRetiroModal(); }
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <span id="oo-push-badge" title="Notificaciones" style="font-size:18px;cursor:default;color:#94a3b8;">🔕</span>
-      <span id="oo-status" class="oo-status-closed">● Cerrado</span>
       <button class="oo-exit-btn" onclick="exitOwnerOverlay()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Salir
@@ -7496,8 +8024,8 @@ function ooShowRetiro() { ooOpenRetiroModal(); }
     <button class="oo-tab active" id="oo-tab-home"     onclick="ooTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</button>
     <button class="oo-tab"        id="oo-tab-orders"   onclick="ooTab('orders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Pedidos</button>
     <button class="oo-tab"        id="oo-tab-menu"     onclick="ooTab('menu')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>Menú</button>
+    <button class="oo-tab"        id="oo-tab-stats"    onclick="ooTab('stats')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Stats</button>
     <button class="oo-tab"        id="oo-tab-settings" onclick="ooTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Config</button>
-    <button class="oo-tab"        id="oo-tab-more"     onclick="ooTab('more')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>Más</button>
   </div>
 </div>
 
