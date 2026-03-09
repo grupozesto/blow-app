@@ -719,7 +719,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.55);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.6px;}
 
 #owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;}
-body.owner-mode #owner-app{display:flex;pointer-events:auto;}
+body.owner-mode 
 body.owner-mode 
 #owner-content{flex:1;overflow:hidden;position:relative;}
 .owner-panel{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:24px;}
@@ -2842,7 +2842,7 @@ function showOrderBanner(msg) {
       <div style="font-size:15px;font-weight:900;line-height:1.2;">¡Nuevo pedido!</div>
       <div style="font-size:13px;opacity:.9;margin-top:2px;">${msg.message||'Revisá tu panel de pedidos'}</div>
     </div>
-    <button onclick="document.getElementById('order-alert-banner').remove();nav('page-owner-dash');loadOwnerDash();"
+    <button onclick="document.getElementById('order-alert-banner').remove();enterOwnerMode(true);"
       style="background:#fff;color:#2558d4;border:none;border-radius:10px;padding:10px 16px;font-weight:900;font-size:13px;cursor:pointer;white-space:nowrap;">
       Ver pedido
     </button>
@@ -5001,7 +5001,7 @@ async function doLogin() {
     saveSession(data.token, data.user);
     closeAuth(); showToast(`👋 ¡Bienvenido, ${data.user.name}!`);
     renderProfile(); updateCartBadge();
-    if (data.user.role==='owner') { nav('page-owner-dash'); }
+    if (data.user.role==='owner') { enterOwnerMode(true); }
     // delivery role hidden for now
     else if (data.user.role==='admin') {
       const redirect = localStorage.getItem('post_login_redirect');
@@ -5187,7 +5187,7 @@ async function ownerLogin() {
     if (data.user.role!=='owner') { err.textContent='Esta cuenta no es de dueño de negocio'; err.style.display='block'; return; }
     saveSession(data.token, data.user);
     showToast(`👋 ¡Bienvenido, ${data.user.name}!`);
-    nav('page-owner-dash');
+    enterOwnerMode(true);
   } catch(e) { err.textContent=e.message; err.style.display='block'; }
 }
 
@@ -5257,8 +5257,7 @@ async function completeRegistration() {
     const data = await api('/api/register/complete', { method:'POST', body:JSON.stringify({ reg_id: pendingRegId }) });
     saveSession(data.token, data.user);
     showToast('🎉 ¡Bienvenido a Blow!');
-    nav('page-owner-dash');
-    loadOwnerDash();
+    enterOwnerMode(true);
   } catch(e) {
     document.getElementById('or-pending-msg').textContent = '❌ ' + e.message;
     btn.disabled = false; btn.textContent = 'Reintentar';
@@ -5446,9 +5445,8 @@ async function obFinish() {
       .then(data => {
         saveSession(data.token, data.user);
         showToast('🎉 ¡Pago confirmado! Bienvenido a Blow.');
-        history.replaceState({}, '', '/owner');
-        nav('page-owner-dash');
-        loadOwnerDash();
+        history.replaceState({}, '', '/');
+        enterOwnerMode(true);
       })
       .catch(e => {
         showToast('⚠️ ' + e.message);
@@ -5456,7 +5454,7 @@ async function obFinish() {
       });
   } else if (payment === 'success') {
     showToast('✅ Pago confirmado');
-    if (user && user.role === 'owner') { nav('page-owner-dash'); loadOwnerDash(); }
+    if (user && user.role === 'owner') { enterOwnerMode(true); }
   } else if (payment === 'failure') {
     nav('page-owner-login');
     showToast('❌ El pago no fue aprobado. Intentá de nuevo.');
@@ -5505,8 +5503,7 @@ async function renewSubscription() {
     if (res.demo) {
       showToast('✅ Suscripción renovada (modo demo)');
       await loadSubStatus();
-      nav('page-owner-dash');
-      loadOwnerDash();
+      enterOwnerMode(true);
     } else if (res.init_point) {
       showToast('🔀 Redirigiendo a MercadoPago...');
       setTimeout(() => { window.location.href = res.init_point; }, 600);
@@ -8628,7 +8625,7 @@ if (blowplusStatus === 'success') {
   window.history.replaceState({}, '', '/');
   setTimeout(() => {
     showToast('⚡ ¡Blow+ activado! Bienvenido al plan premium.');
-    nav('page-owner-dash');
+    enterOwnerMode(true);
     setTimeout(() => { document.getElementById('otab-btn-blowplus')?.click(); }, 800);
   }, 500);
 } else if (blowplusStatus === 'failure') {
