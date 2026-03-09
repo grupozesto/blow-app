@@ -721,7 +721,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 #owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;}
 body.owner-mode #owner-app{display:flex;pointer-events:auto;}
 body.owner-mode .page{display:none!important;}
-#owner-content{flex:1;overflow:hidden;position:relative;}
+#owner-content{flex:1;overflow-x:hidden;overflow-y:visible;position:relative;}
 .owner-panel{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;box-sizing:border-box;}
 .owner-panel.active{display:block;}
 .oa-sub-panel{transform:translateX(100%);position:absolute;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;background:#f0f4fb;}
@@ -732,7 +732,6 @@ body.owner-mode .page{display:none!important;}
 .obn.active{color:#0f172a;}
 .obn.active svg{stroke:#0f172a;}
 .obn svg{width:24px;height:24px;stroke-width:1.8;}
-#wallet-carousel-wrap{border-radius:20px;width:100%;}
 
 /* ── Blue theme polish ── */
 .app-header .search-bar{background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);}
@@ -820,7 +819,6 @@ body.owner-mode .page{display:none!important;}
 #page-home { background: linear-gradient(to bottom, #2d63d8 0px, #b8cef0 120px, #ffffff 260px); }
 
 
-#wallet-carousel-wrap{padding:0 0 4px;}
 /* ── Owner App quick-btn ── */
 .oa-quick-btn{background:#fff;border:none;border-radius:18px;padding:18px 14px;text-align:left;cursor:pointer;box-shadow:0 2px 10px rgba(37,88,212,.07);font-family:'Inter',sans-serif;width:100%;transition:transform .1s;}
 .oa-quick-btn:active{transform:scale(.97);}
@@ -835,7 +833,6 @@ body.owner-mode .page{display:none!important;}
 @keyframes dot-pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
 
 /* ── Carousel scrollbar hide ── */
-#wallet-carousel::-webkit-scrollbar{display:none;}
 
 #header-search-results { animation: fadeIn .15s ease; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
@@ -843,7 +840,13 @@ body.owner-mode .page{display:none!important;}
 .app-header .search-bar input::placeholder { color: rgba(255,255,255,.6); }
 .app-header .search-bar input:focus { outline: none; }
 
-#wallet-carousel{width:100%;}
+
+/* ── Wallet carousel ── */
+#wallet-carousel-wrap{position:relative;width:100%;height:200px;overflow:hidden;border-radius:20px;margin-bottom:18px;}
+#wallet-track{position:absolute;top:0;left:0;height:100%;display:flex;will-change:transform;transition:transform .35s cubic-bezier(.4,0,.2,1);}
+.wallet-slide{height:100%;flex-shrink:0;border-radius:20px;padding:22px;color:#fff;position:relative;overflow:hidden;box-sizing:border-box;}
+#wallet-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;}
+.wdot{height:6px;border-radius:3px;background:rgba(37,88,212,.25);transition:all .25s;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -9188,60 +9191,95 @@ async function oaLoadHomeData() {
 
 // ── Wallet Carousel ───────────────────────────────────────────
 function oaRenderWalletCarousel(ws) {
-  const carousel = document.getElementById('wallet-carousel');
-  const dots     = document.getElementById('wallet-dots');
-  if (!carousel) return;
+  const wrap  = document.getElementById('wallet-carousel-wrap');
+  const track = document.getElementById('wallet-track');
+  const dots  = document.getElementById('wallet-dots');
+  if (!wrap || !track) return;
 
   ws = ws || {};
-  const onlineToday    = parseFloat(ws.online_today)    || 0;
-  const inPersonToday  = parseFloat(ws.in_person_today) || 0;
-  const onlineBalance  = parseFloat(ws.online_balance)  || 0;
-  const total          = onlineToday + inPersonToday;
+  const onlineToday   = parseFloat(ws.online_today)   || 0;
+  const inPersonToday = parseFloat(ws.in_person_today) || 0;
+  const onlineBalance = parseFloat(ws.online_balance)  || 0;
+  const total         = onlineToday + inPersonToday;
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-UY');
 
-  const fmt = n => n % 1 === 0 ? `$${n}` : `$${n.toFixed(0)}`;
+  window._walletSlideIdx = 0;
 
-  carousel.innerHTML = `
-    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
-      <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="font-size:11px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💳 COBRADO ONLINE</div>
-      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">${fmt(onlineToday)}</span></div>
-      <div style="font-size:44px;font-weight:900;margin:16px 0 4px;line-height:1;">${fmt(onlineBalance)}</div>
-      <div style="font-size:12px;opacity:.7;">Saldo acumulado · MercadoPago</div>
-      <button onclick="oaGoOldSettings('otab-payments')" style="margin-top:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px;width:100%;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>
-    </div>
-    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#052e16 0%,#14532d 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
-      <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="font-size:11px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">💵 COBRADO EN PERSONA</div>
-      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Hoy<br><span style="font-size:18px;font-weight:800;opacity:1;color:#fff;">${fmt(inPersonToday)}</span></div>
-      <div style="font-size:44px;font-weight:900;margin:16px 0 4px;line-height:1;">${fmt(inPersonToday)}</div>
-      <div style="font-size:12px;opacity:.7;">Efectivo · Ya en tu bolsillo</div>
-      <div style="margin-top:16px;background:rgba(255,255,255,.1);border-radius:12px;padding:11px;font-size:12px;opacity:.8;text-align:center;">0% comisión · Sin intermediarios</div>
-    </div>
-    <div style="flex:0 0 auto;min-width:100%;scroll-snap-align:start;background:linear-gradient(135deg,#2e1065 0%,#4c1d95 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;min-height:180px;box-sizing:border-box;">
-      <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="font-size:11px;font-weight:700;opacity:.7;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">📊 VENTA TOTAL HOY</div>
-      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:24px;right:24px;">Online<br><span style="font-size:14px;font-weight:800;opacity:1;color:#fff;">${fmt(onlineToday)}</span></div>
-      <div style="font-size:44px;font-weight:900;margin:16px 0 4px;line-height:1;">${fmt(total)}</div>
-      <div style="font-size:12px;opacity:.7;">Online + Presencial</div>
-      <button onclick="oaGoTab('stats')" style="margin-top:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:11px;width:100%;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Ver estadísticas →</button>
-    </div>`;
+  const slides = [
+    {
+      bg: 'linear-gradient(135deg,#0f2249 0%,#1a3a6e 100%)',
+      label: '💳 COBRADO ONLINE',
+      amount: fmt(onlineBalance),
+      sub: 'Saldo acumulado · MercadoPago',
+      todayLabel: 'Hoy', todayVal: fmt(onlineToday),
+      btn: `<button onclick="oaGoOldSettings('otab-payments')" style="margin-top:14px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:11px;width:100%;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">↑ Retirar fondos</button>`
+    },
+    {
+      bg: 'linear-gradient(135deg,#052e16 0%,#14532d 100%)',
+      label: '💵 COBRADO EN PERSONA',
+      amount: fmt(inPersonToday),
+      sub: 'Efectivo · Ya en tu bolsillo',
+      todayLabel: 'Hoy', todayVal: fmt(inPersonToday),
+      btn: `<div style="margin-top:14px;background:rgba(255,255,255,.1);border-radius:12px;padding:11px;font-size:12px;opacity:.8;text-align:center;">0% comisión · Sin intermediarios</div>`
+    },
+    {
+      bg: 'linear-gradient(135deg,#2e1065 0%,#4c1d95 100%)',
+      label: '📊 VENTA TOTAL HOY',
+      amount: fmt(total),
+      sub: 'Online + Presencial',
+      todayLabel: 'Online', todayVal: fmt(onlineToday),
+      btn: `<button onclick="oaGoTab('stats')" style="margin-top:14px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:11px;width:100%;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">Ver estadísticas →</button>`
+    }
+  ];
 
-  // Dots
+  const setWidths = () => {
+    const w = wrap.offsetWidth || 340;
+    track.style.width = (w * 3) + 'px';
+    track.querySelectorAll('.wallet-slide').forEach(s => s.style.width = w + 'px');
+    track.style.transform = `translateX(-${window._walletSlideIdx * w}px)`;
+  };
+
+  track.innerHTML = slides.map((s, i) => `
+    <div class="wallet-slide" style="background:${s.bg};">
+      <div style="position:absolute;top:-20px;right:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+      <div style="font-size:11px;font-weight:700;opacity:.65;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;">${s.label}</div>
+      <div style="font-size:12px;opacity:.6;text-align:right;position:absolute;top:22px;right:22px;">${s.todayLabel}<br><span style="font-size:17px;font-weight:800;opacity:1;color:#fff;">${s.todayVal}</span></div>
+      <div style="font-size:40px;font-weight:900;margin:14px 0 4px;line-height:1;">${s.amount}</div>
+      <div style="font-size:12px;opacity:.7;">${s.sub}</div>
+      ${s.btn}
+    </div>`).join('');
+
+  // Touch swipe support
+  let tx0 = 0;
+  track.addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive: true });
+  track.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx0;
+    if (Math.abs(dx) > 40) oaCarouselGoTo(window._walletSlideIdx + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+
   const renderDots = () => {
-    const slideW = (carousel.parentElement ? carousel.parentElement.offsetWidth : carousel.offsetWidth) || 300;
-    const cur    = Math.round(carousel.scrollLeft / Math.max(slideW, 1));
-    if (dots) dots.innerHTML = [0,1,2].map(i =>
-      `<div style="width:${i===cur?18:6}px;height:6px;border-radius:3px;background:${i===cur?'#2558d4':'rgba(37,88,212,.25)'};transition:all .2s;cursor:pointer;" onclick="oaCarouselGoTo(${i})"></div>`
+    if (!dots) return;
+    dots.innerHTML = [0,1,2].map(i =>
+      `<div class="wdot" style="width:${i===window._walletSlideIdx?18:6}px;background:${i===window._walletSlideIdx?'#2558d4':'rgba(37,88,212,.25)'};" onclick="oaCarouselGoTo(${i})"></div>`
     ).join('');
   };
-  carousel.addEventListener('scroll', renderDots, { passive: true });
-  setTimeout(renderDots, 60);
+
+  window._walletRenderDots = renderDots;
+  window._walletSetWidths  = setWidths;
+
+  // Set widths after DOM is painted
+  requestAnimationFrame(() => { setWidths(); renderDots(); });
+  setTimeout(() => { setWidths(); renderDots(); }, 120);
 }
-function oaCarouselGoTo(idx) {
-  const carousel = document.getElementById('wallet-carousel');
-  if (!carousel) return;
-  const slideW = (carousel.parentElement ? carousel.parentElement.offsetWidth : carousel.offsetWidth) || 300;
-  carousel.scrollTo({ left: idx * slideW, behavior: 'smooth' });
+
+function oaCarouselGoTo(i) {
+  const wrap = document.getElementById('wallet-carousel-wrap');
+  const track = document.getElementById('wallet-track');
+  if (!wrap || !track) return;
+  window._walletSlideIdx = Math.max(0, Math.min(2, i));
+  const w = wrap.offsetWidth || 340;
+  track.style.transform = `translateX(-${window._walletSlideIdx * w}px)`;
+  if (window._walletRenderDots) window._walletRenderDots();
 }
 
 // ── New orders on home tab ────────────────────────────────────
@@ -10335,11 +10373,10 @@ function handleOwnerAccess(data) {
     <div class="owner-panel active" id="oa-panel-home" style="padding:16px;">
 
       <!-- Wallet carousel (3 slides) -->
-      <div id="wallet-carousel-wrap" style="margin-bottom:18px;overflow:hidden;border-radius:20px;width:100%;">
-        <div id="wallet-carousel" style="display:flex;flex-wrap:nowrap;overflow-x:scroll;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;width:100%;padding:0;">
-          <!-- Slides injected by JS -->
-        </div>
-        <div id="wallet-dots" style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;"></div>
+      <div id="wallet-carousel-wrap">
+        <div id="wallet-track"><!-- slides injected by JS --></div>
+      </div>
+      <div id="wallet-dots"></div>
       </div>
 
       <!-- Pedidos nuevos -->
