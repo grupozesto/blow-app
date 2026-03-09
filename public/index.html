@@ -742,19 +742,6 @@ body.owner-mode
 .nb.active svg{stroke:#2558d4;}
 .nb-badge{background:#2558d4;}
 
-/* Header gradient seamless transition */
-.app-header::after{
-  content:'';
-  display:block;
-  position:absolute;
-  bottom:-28px;
-  left:0;right:0;
-  height:28px;
-  background:linear-gradient(180deg,#2558d4 0%,transparent 100%);
-  pointer-events:none;
-  z-index:99;
-}
-#page-home{background:linear-gradient(180deg,#2558d4 0%,#1d4fc8 120px,#f0f4fb 280px);}
 
 /* Seamless gradient on home content */
 .banner-wrap{background:transparent;}
@@ -771,6 +758,23 @@ body.owner-mode
 .chip.active{background:rgba(255,255,255,.95);border-color:transparent;color:#1a3a6e;}
 /* Section title after gradient area - these sit in the white zone */
 .section-title{color:#0f172a;font-size:17px;font-weight:900;margin-bottom:12px;}
+
+/* ── Seamless header → content gradient ── */
+#page-home {
+  background: linear-gradient(180deg,
+    #1a3a6e 0px,
+    #2558d4 80px,
+    #2558d4 240px,
+    #1e4ec7 320px,
+    #e8edf8 480px,
+    #f0f4fb 580px
+  );
+}
+.app-header {
+  background: transparent !important;
+  position: relative;
+}
+.banner-wrap, .banner-viewport { background: transparent !important; }
 </style>
 </head>
 <body>
@@ -4918,10 +4922,7 @@ function renderProfile() {
 
 
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
-function handleOwnerAccess() {
-  if (user?.role==='owner') nav('page-owner-dash');
-  else { nav('page-owner-login'); ownerTab('register'); }
-}
+
 
 // ═══════════════════════════════════════════════
 //  AUTH
@@ -9363,15 +9364,16 @@ function oaRenderSettingsSub() {
     </button>`;
 }
 
-// ── Hook into existing auth flow ──────────────────────────────
-// Override the existing handleOwnerAccess to use new UI
-const _origHandleOwnerAccess = typeof handleOwnerAccess === 'function' ? handleOwnerAccess : null;
+// ── Owner access entry point ──────────────────────────────────
 function handleOwnerAccess(data) {
-  if (data && data.role === 'owner') {
+  // Called from header button, sidebar, profile menu, or after login
+  const role = data?.role || user?.role;
+  if (role === 'owner') {
     enterOwnerMode(true);
-    return;
+  } else {
+    nav('page-owner-login');
+    ownerTab('register');
   }
-  if (_origHandleOwnerAccess) _origHandleOwnerAccess(data);
 }
 </script>
 
