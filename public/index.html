@@ -2246,6 +2246,9 @@ let selectedFulfillment = 'delivery';
 let currentStoreForCart = null;
 let appCategories = [];
 
+// Registro global de productos — evita pasar JSON en onclick
+const _prodReg = {};
+
 // Demo stores for when backend is not configured yet
 const DEMO_STORES = [
   {id:'demo-1',logo_emoji:'🍔',name:'Burger Palace',category:'food',rating:4.8,delivery_time:'20-30',delivery_cost:50,tag:'Más pedido',is_open:1},
@@ -2410,6 +2413,40 @@ function showAddAddress() {
   document.getElementById('loc-city').focus();
 }
 
+// Geocoding con 3 niveles de fallback
+async function geocodeCoords(lat, lng) {
+  // Nivel 1: propio server (proxy con cache, sin CORS, con User-Agent correcto)
+  try {
+    const r = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, {
+      signal: AbortSignal.timeout(7000)
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.city) return d;
+    }
+  } catch(e) { console.warn('Server geocode failed:', e.message); }
+
+  // Nivel 2: Nominatim directo desde el cliente (fallback)
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`,
+      { headers: { 'Accept-Language': 'es' }, signal: AbortSignal.timeout(6000) }
+    );
+    if (r.ok) {
+      const geo = await r.json();
+      const addr = geo.address || {};
+      return {
+        city:   addr.city || addr.town || addr.village || addr.municipality || addr.suburb || addr.county || '',
+        dept:   addr.state || addr.county || '',
+        street: addr.road ? `${addr.road}${addr.house_number ? ' ' + addr.house_number : ''}` : ''
+      };
+    }
+  } catch(e) { console.warn('Nominatim fallback failed:', e.message); }
+
+  // Nivel 3: falló todo — devolver null para mostrar modal manual
+  return null;
+}
+
 async function detectGPS() {
   const btn = document.getElementById('gps-btn');
   const status = document.getElementById('gps-status');
@@ -2423,41 +2460,33 @@ async function detectGPS() {
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
       const { latitude: lat, longitude: lng } = pos.coords;
-      status.textContent = '⏳ Detectando tu ubicación...';
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`);
-        const geo = await res.json();
-        const addr = geo.address;
-        const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
-        const dept = addr.state || addr.county || '';
-        const street = addr.road ? `${addr.road}${addr.house_number?' '+addr.house_number:''}` : '';
-
-        // Auto-save and close
-        document.getElementById('gps-btn').dataset.lat = lat;
-        document.getElementById('gps-btn').dataset.lng = lng;
-        document.getElementById('loc-full-address').value = street;
-        document.getElementById('loc-city').value = city;
-        document.getElementById('loc-dept').value = dept;
-        btn.disabled = false;
-        btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
-        await saveAddress();
-      } catch(e) {
-        status.textContent = '⚠️ No pudimos obtener tu dirección. Intentá de nuevo.';
-        btn.disabled = false;
-        btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
+      status.textContent = '⏳ Detectando tu ciudad...';
+      const geo = await geocodeCoords(lat, lng);
+      btn.disabled = false;
+      btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
+      if (!geo || !geo.city) {
+        status.textContent = '⚠️ No pudimos identificar tu ciudad. Ingresala manualmente.';
+        return;
       }
+      document.getElementById('gps-btn').dataset.lat = lat;
+      document.getElementById('gps-btn').dataset.lng = lng;
+      document.getElementById('loc-full-address').value = geo.street || '';
+      document.getElementById('loc-city').value = geo.city;
+      document.getElementById('loc-dept').value = geo.dept || '';
+      status.textContent = `✅ ${geo.city}${geo.dept ? ', ' + geo.dept : ''}`;
+      await saveAddress();
     },
     (err) => {
       btn.disabled = false;
       btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
       const msgs = {
-        1: '❌ Permiso denegado. Habilitá la ubicación en la configuración de tu dispositivo.',
+        1: '❌ Permiso denegado. Habilitá la ubicación en la configuración.',
         2: '❌ No se pudo detectar tu ubicación. Intentá de nuevo.',
         3: '❌ Tiempo agotado. Intentá de nuevo.'
       };
       status.textContent = msgs[err.code] || '❌ Error al obtener ubicación.';
     },
-    { timeout: 10000, enableHighAccuracy: true }
+    { timeout: 12000, enableHighAccuracy: true }
   );
 }
 
@@ -2942,15 +2971,16 @@ function renderProductCard(p, s) {
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
   const discBadge = disc > 0 ? `<div class="prod-discount-badge">${disc}% OFF</div>` : '';
   const featBadge = p.is_featured ? `<div class="prod-featured-badge">⭐</div>` : '';
-  const pData = JSON.stringify({...p, biz_id:s?.id}).replace(/'/g,"\'");
-  return `<div class="prod-card" onclick="quickAdd(${pData})">
+  const regKey = `${p.id}_${s?.id||''}`;
+  _prodReg[regKey] = {...p, biz_id: s?.id};
+  return `<div class="prod-card" onclick="quickAdd('${regKey}')">
     <div class="prod-card-img">${imgHtml}${discBadge}${featBadge}</div>
     <div class="prod-card-body">
       <div class="prod-card-name">${p.name}</div>
       ${p.description ? `<div class="prod-card-desc">${p.description}</div>` : ''}
       <div class="prod-card-footer">
         <div class="prod-card-price">${priceHtml}</div>
-        <button class="prod-card-add" onclick="event.stopPropagation();quickAdd(${pData})">+</button>
+        <button class="prod-card-add" onclick="event.stopPropagation();quickAdd('${regKey}')">+</button>
       </div>
     </div>
   </div>`;
@@ -2962,8 +2992,9 @@ function renderProductCardH(p, s) {
   const imgHtml = p.photo_url
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
-  const pData = JSON.stringify({...p, biz_id:s?.id}).replace(/'/g,"\'");
-  return `<div class="prod-card-h" onclick="quickAdd(${pData})">
+  const regKey = `${p.id}_${s?.id||''}`;
+  _prodReg[regKey] = {...p, biz_id: s?.id};
+  return `<div class="prod-card-h" onclick="quickAdd('${regKey}')">
     <div class="prod-card-img">${imgHtml}</div>
     <div class="prod-card-body">
       <div class="prod-card-name">${p.name}</div>
@@ -3143,10 +3174,17 @@ function addFromModal() {
 }
 
 function quickAdd(p) {
-  if (typeof p === 'string') p = JSON.parse(p);
+  // Si es string, puede ser una registry key o JSON legacy
+  if (typeof p === 'string') {
+    if (_prodReg[p]) {
+      p = _prodReg[p];
+    } else {
+      try { p = JSON.parse(p); } catch { return; }
+    }
+  }
   // Si tiene variantes, abrir el modal
   if (p.variants && p.variants.length > 0) { openProduct(p); return; }
-  addToCart({...p, biz_id:currentBizId, cart_key:`${p.id}_base`});
+  addToCart({...p, biz_id: p.biz_id || currentBizId, cart_key:`${p.id}_base`});
   showToast(`✅ ${p.name} agregado`);
 }
 
@@ -3447,6 +3485,20 @@ function saveSession(t, u) {
   localStorage.setItem('da_token',t);
   localStorage.setItem('da_user',JSON.stringify(u));
   connectWS();
+  // Sincronizar ciudad: si hay ciudad local y el perfil no tiene, subir al servidor
+  // Si el perfil tiene ciudad, tomarla como fuente de verdad
+  if (u.city) {
+    activeCity = u.city;
+    activeDept = u.department || '';
+    localStorage.setItem('da_city', u.city);
+    if (u.department) localStorage.setItem('da_dept', u.department);
+    updateHeaderCity();
+    loadStores();
+  } else if (activeCity && u.role === 'customer') {
+    // Subir la ciudad local al perfil del servidor silenciosamente
+    api('/api/auth/me', { method:'PATCH', body: JSON.stringify({ city: activeCity, department: activeDept || '' }) })
+      .catch(() => {});
+  }
 }
 
 function doLogout() {
@@ -5735,43 +5787,38 @@ if (activeCity) {
   updateHeaderCity();
   loadStores();
 } else {
-  // Primera vez — intentar GPS automáticamente
+  // Primera vez — intentar GPS automáticamente (solo para clientes, no owners)
   loadStores(); // Cargar demo mientras
-  setTimeout(() => {
-    // Solo lanzar GPS si no hay modal abierto
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
+  if (user?.role === 'owner') {
+    // Owners no necesitan ciudad — tienen el overlay directo
+  } else {
+    setTimeout(() => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
             const { latitude: lat, longitude: lng } = pos.coords;
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es`);
-            const geo = await res.json();
-            const addr = geo.address;
-            const city = addr.city || addr.town || addr.village || addr.municipality || '';
-            const dept = addr.state || '';
-            if (city) {
-              activeCity = city;
-              activeDept = dept;
-              localStorage.setItem('da_city', city);
-              localStorage.setItem('da_dept', dept);
+            const geo = await geocodeCoords(lat, lng);
+            if (geo?.city) {
+              activeCity = geo.city;
+              activeDept = geo.dept || '';
+              localStorage.setItem('da_city', geo.city);
+              localStorage.setItem('da_dept', geo.dept || '');
               updateHeaderCity();
               loadStores();
-              showToast(`📍 Ubicación detectada: ${city}`);
+              showToast(`📍 Ubicación detectada: ${geo.city}`);
             } else {
               openLocModal();
             }
-          } catch { openLocModal(); }
-        },
-        () => {
-          // GPS denegado — mostrar toast sin abrir modal
-          showToast('📍 Activá la ubicación para ver negocios cercanos');
-        },
-        { timeout: 8000 }
-      );
-    } else {
-      showToast('📍 GPS no disponible en este dispositivo');
-    }
-  }, 1500);
+          },
+          () => {
+            // GPS denegado — invitar sin ser intrusivo
+            showToast('📍 Activá la ubicación para ver negocios cercanos');
+          },
+          { timeout: 8000 }
+        );
+      }
+    }, 1500);
+  }
 }
 
 if (token) connectWS();
