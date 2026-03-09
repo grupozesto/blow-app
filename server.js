@@ -45,9 +45,9 @@ let PLAN_PRICE = 2990; // $UYU por mes — se puede cambiar desde admin
 async function loadPlanPrice() {
   try {
     const r1 = await q1("SELECT value FROM app_settings WHERE key='registration_fee'", []);
-    if (r1) { const v = parseFloat(JSON.parse(r1.value)); PLAN_PRICE = isNaN(v) ? 2990 : v; return; }
+    if (r1) { const v = parseFloat(JSON.parse(r1.value)); PLAN_PRICE = (isNaN(v) || v < 1) ? 2990 : v; return; }
     const r2 = await q1("SELECT value FROM app_settings WHERE key='plan_price'", []);
-    if (r2) { const v = parseFloat(JSON.parse(r2.value)); PLAN_PRICE = isNaN(v) ? 2990 : v; }
+    if (r2) { const v = parseFloat(JSON.parse(r2.value)); PLAN_PRICE = (isNaN(v) || v < 1) ? 2990 : v; }
   } catch(e) {}
 }
 const BLOW_PLUS_PRICE = 990;  // $UYU por mes — Blow+ negocio
@@ -1740,7 +1740,7 @@ app.post('/api/register/initiate', async (req, res) => {
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
-        transaction_amount: PLAN_PRICE,
+        transaction_amount: Math.max(PLAN_PRICE || 2990, 1),
         currency_id: 'UYU',
         start_date: mpDate(Date.now()),
         end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
