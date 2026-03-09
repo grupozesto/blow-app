@@ -6491,11 +6491,14 @@ async function ooRenderMenu() {
             <div style="font-size:28px;flex-shrink:0;">${p.emoji||'🍽️'}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-              <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}${p.discount_percent?` <span style="color:#ef4444;font-size:11px;">-${p.discount_percent}%</span>`:''}${p.stock!=null?` · Stock: ${p.stock}`:''}</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
               <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.available!==false?'Activo':'Pausado'}</span>
-              <button onclick="ooToggleProduct('${p.id}',${p.available!==false})" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">${p.available!==false?'Pausar':'Activar'}</button>
+              <div style="display:flex;gap:4px;">
+                <button onclick="ooAddProduct(_ooDashData.products.find(x=>x.id==='${p.id}'))" style="background:#eff6ff;border:none;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;color:#2558d4;cursor:pointer;font-family:'Inter',sans-serif;">✏️ Editar</button>
+                <button onclick="ooToggleProduct('${p.id}',${p.available!==false})" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">${p.available!==false?'Pausar':'Activar'}</button>
+              </div>
             </div>
           </div>`;
       });
@@ -6506,55 +6509,223 @@ async function ooRenderMenu() {
   }
 }
 
-function ooAddProduct() {
-  // Show simple add form inside overlay
+function ooAddProduct(editProduct = null) {
   const el = document.getElementById('oo-body');
   if (!el) return;
+  const isEdit = !!editProduct;
+  const p = editProduct || {};
+  const cats = (_ooDashData?.categories || []);
+
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
       <button onclick="ooRenderMenu()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
-      <div style="font-size:17px;font-weight:800;color:#0f172a;">Nuevo producto</div>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">${isEdit ? 'Editar producto' : 'Nuevo producto'}</div>
     </div>
-    <div class="oo-card">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">EMOJI</label>
-        <input id="np-emoji" value="🍽️" style="width:60px;font-size:24px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-family:'Inter',sans-serif;">
+
+    <!-- FOTOS -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;letter-spacing:.5px;">FOTOS DEL PRODUCTO <span style="font-weight:400;color:#94a3b8;">(máx. 4)</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;" id="np-photos-grid">
+        ${[0,1,2,3].map(i => {
+          const existing = (p.photos||[])[i];
+          return `<div id="np-photo-slot-${i}" onclick="document.getElementById('np-photo-input-${i}').click()"
+            style="aspect-ratio:1;border-radius:12px;border:2px dashed #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:#f8fafc;position:relative;">
+            ${existing ? `<img src="${existing.url}" style="width:100%;height:100%;object-fit:cover;" id="np-photo-preview-${i}">
+              <button onclick="event.stopPropagation();npRemovePhoto(${i})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>`
+            : `<div style="font-size:24px;color:#cbd5e1;">📷</div><div style="font-size:10px;color:#94a3b8;margin-top:4px;">${i===0?'Principal':'Foto '+(i+1)}</div>
+              <img id="np-photo-preview-${i}" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">`}
+            <input type="file" id="np-photo-input-${i}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${i},this)">
+          </div>`;
+        }).join('')}
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">NOMBRE</label>
-        <input id="np-name" placeholder="Nombre del producto" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">DESCRIPCIÓN</label>
-        <textarea id="np-desc" placeholder="Descripción (opcional)" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;height:80px;resize:none;"></textarea>
-      </div>
-      <div style="margin-bottom:20px;">
-        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">PRECIO ($)</label>
-        <input id="np-price" type="number" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
-      </div>
-      <button onclick="ooSaveProduct()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" id="np-save-btn">Guardar producto</button>
     </div>
+
+    <!-- INFO BÁSICA -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">INFORMACIÓN BÁSICA</div>
+
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex-shrink:0;">
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">EMOJI</label>
+          <input id="np-emoji" value="${p.emoji||'🍽️'}" style="width:56px;font-size:24px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">NOMBRE *</label>
+          <input id="np-name" value="${p.name||''}" placeholder="Ej: Hamburguesa clásica" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">DESCRIPCIÓN</label>
+        <textarea id="np-desc" placeholder="Ingredientes, preparación, tamaño..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;height:80px;resize:none;">${p.description||''}</textarea>
+      </div>
+
+      ${cats.length ? `<div style="margin-bottom:0;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">CATEGORÍA</label>
+        <select id="np-cat" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;background:#fff;box-sizing:border-box;">
+          <option value="">Sin categoría</option>
+          ${cats.map(c=>`<option value="${c.id}" ${p.category_id===c.id?'selected':''}>${c.name}</option>`).join('')}
+        </select>
+      </div>` : ''}
+    </div>
+
+    <!-- PRECIO Y DESCUENTO -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">PRECIO Y DESCUENTO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">PRECIO ($) *</label>
+          <input id="np-price" type="number" min="0" value="${p.price||''}" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:15px;font-weight:700;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">DESCUENTO (%)</label>
+          <input id="np-discount" type="number" min="0" max="99" value="${p.discount_percent||''}" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+      </div>
+      <div id="np-price-preview" style="background:#f0fdf4;border-radius:10px;padding:10px 12px;font-size:13px;color:#16a34a;display:none;"></div>
+    </div>
+
+    <!-- DETALLES EXTRA -->
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">DETALLES <span style="font-weight:400;color:#94a3b8;">(opcional)</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">⏱ TIEMPO PREP. (min)</label>
+          <input id="np-preptime" type="number" min="1" value="${p.preparation_time||''}" placeholder="Ej: 15" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">🔥 CALORÍAS (kcal)</label>
+          <input id="np-calories" type="number" min="0" value="${p.calories||''}" placeholder="Ej: 450" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">⚠️ ALÉRGENOS</label>
+        <input id="np-allergens" value="${p.allergens||''}" placeholder="Gluten, lácteos, huevo, maní..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">📦 STOCK (dejar vacío = ilimitado)</label>
+        <input id="np-stock" type="number" min="0" value="${p.stock!=null?p.stock:''}" placeholder="Ilimitado" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <!-- OPCIONES -->
+    <div class="oo-card" style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px;letter-spacing:.5px;">OPCIONES</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;">
+        <input type="checkbox" id="np-featured" ${p.is_featured?'checked':''} style="width:18px;height:18px;accent-color:#2558d4;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0f172a;">⭐ Destacado</div>
+          <div style="font-size:12px;color:#94a3b8;">Aparece primero en el menú</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="np-available" ${p.is_available!==false?'checked':''} style="width:18px;height:18px;accent-color:#2558d4;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0f172a;">✅ Disponible</div>
+          <div style="font-size:12px;color:#94a3b8;">Los clientes pueden pedirlo</div>
+        </div>
+      </label>
+    </div>
+
+    <button onclick="ooSaveProduct(${isEdit?`'${p.id}'`:'null'})" style="width:100%;background:linear-gradient(135deg,#2558d4,#1a3a6e);border:none;border-radius:14px;padding:15px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:20px;" id="np-save-btn">
+      ${isEdit ? '💾 Guardar cambios' : '✅ Publicar producto'}
+    </button>
   `;
+
+  // Preview de precio con descuento
+  const updatePreview = () => {
+    const price = parseFloat(document.getElementById('np-price')?.value)||0;
+    const disc  = parseInt(document.getElementById('np-discount')?.value)||0;
+    const prev  = document.getElementById('np-price-preview');
+    if (prev && price > 0 && disc > 0) {
+      const final = Math.round(price * (1 - disc/100));
+      prev.style.display = 'block';
+      prev.innerHTML = `💸 Precio final con ${disc}% off: <strong>$${final}</strong> <span style="text-decoration:line-through;color:#94a3b8;font-size:12px;">$${price}</span>`;
+    } else if (prev) prev.style.display = 'none';
+  };
+  document.getElementById('np-price')?.addEventListener('input', updatePreview);
+  document.getElementById('np-discount')?.addEventListener('input', updatePreview);
+  updatePreview();
 }
 
-async function ooSaveProduct() {
-  const btn  = document.getElementById('np-save-btn');
+// Fotos en memoria para el formulario
+let _npPhotos = [null, null, null, null];
+
+function npPhotoSelected(slot, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _npPhotos[slot] = { data: e.target.result.split(',')[1], mime_type: file.type, preview: e.target.result };
+    const slot_el = document.getElementById(`np-photo-slot-${slot}`);
+    if (slot_el) {
+      slot_el.style.border = '2px solid #2558d4';
+      slot_el.innerHTML = `
+        <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">
+        <button onclick="event.stopPropagation();npRemovePhoto(${slot})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:20px;height:20px;color:#fff;font-size:11px;cursor:pointer;">✕</button>
+        <input type="file" id="np-photo-input-${slot}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${slot},this)">
+      `;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function npRemovePhoto(slot) {
+  _npPhotos[slot] = null;
+  const slot_el = document.getElementById(`np-photo-slot-${slot}`);
+  if (slot_el) {
+    slot_el.style.border = '2px dashed #e2e8f0';
+    slot_el.innerHTML = `
+      <div style="font-size:24px;color:#cbd5e1;">📷</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;">${slot===0?'Principal':'Foto '+(slot+1)}</div>
+      <input type="file" id="np-photo-input-${slot}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${slot},this)">
+    `;
+  }
+}
+
+async function ooSaveProduct(editId = null) {
+  const btn   = document.getElementById('np-save-btn');
   const name  = document.getElementById('np-name')?.value?.trim();
   const price = parseFloat(document.getElementById('np-price')?.value);
   const emoji = document.getElementById('np-emoji')?.value?.trim() || '🍽️';
   const desc  = document.getElementById('np-desc')?.value?.trim() || '';
-  if (!name) { alert('Ingresá un nombre'); return; }
-  if (!price || price <= 0) { alert('Ingresá un precio válido'); return; }
-  btn.textContent = 'Guardando...'; btn.disabled = true;
+  const discount = parseInt(document.getElementById('np-discount')?.value) || 0;
+  const cat   = document.getElementById('np-cat')?.value || null;
+  const preptime = parseInt(document.getElementById('np-preptime')?.value) || null;
+  const calories = parseInt(document.getElementById('np-calories')?.value) || null;
+  const allergens = document.getElementById('np-allergens')?.value?.trim() || '';
+  const stock = document.getElementById('np-stock')?.value !== '' ? parseInt(document.getElementById('np-stock')?.value) : null;
+  const featured = document.getElementById('np-featured')?.checked || false;
+  const available = document.getElementById('np-available')?.checked !== false;
+
+  if (!name)              { showToast('Ingresá un nombre'); return; }
+  if (!price || price<=0) { showToast('Ingresá un precio válido'); return; }
+
+  const photos = _npPhotos.filter(Boolean);
+  btn.textContent = photos.length ? '⬆️ Subiendo fotos...' : '⏳ Guardando...';
+  btn.disabled = true;
+
   try {
-    await ooFetch('/api/businesses/mine/products', { method:'POST', body:JSON.stringify({ name, price, emoji, description:desc, available:true }) });
-    // Reload dashboard data
+    const body = { name, price, emoji, description:desc, discount_percent:discount,
+      category_id:cat, preparation_time:preptime, calories, allergens, stock,
+      is_featured:featured, is_available:available,
+      photos: photos.map(p => ({ data:p.data, mime_type:p.mime_type })) };
+
+    if (editId) {
+      await ooFetch(`/api/businesses/mine/products/${editId}`, { method:'PATCH', body:JSON.stringify(body) });
+      showToast('✅ Producto actualizado');
+    } else {
+      await ooFetch('/api/businesses/mine/products', { method:'POST', body:JSON.stringify(body) });
+      showToast('✅ Producto publicado');
+    }
+    _npPhotos = [null,null,null,null];
     const d = await ooFetch('/api/businesses/mine/dashboard');
     _ooDashData = d;
     ooRenderMenu();
   } catch(e) {
-    btn.textContent = 'Guardar producto'; btn.disabled = false;
-    alert('Error: ' + e.message);
+    btn.textContent = editId ? 'Guardar cambios' : 'Publicar producto';
+    btn.disabled = false;
+    showToast('❌ ' + e.message);
   }
 }
 
