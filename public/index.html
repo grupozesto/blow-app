@@ -719,8 +719,8 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .owner-kpi-lbl{font-size:10px;color:rgba(255,255,255,.55);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.6px;}
 
 #owner-app{position:fixed;inset:0;z-index:500;display:none;pointer-events:none;flex-direction:column;background:#f0f4fb;}
-body.owner-mode 
-body.owner-mode 
+body.owner-mode #owner-app{display:flex;pointer-events:auto;}
+body.owner-mode .page{display:none!important;}
 #owner-content{flex:1;overflow:hidden;position:relative;}
 .owner-panel{display:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;box-sizing:border-box;}
 .owner-panel.active{display:block;}
@@ -836,6 +836,12 @@ body.owner-mode
 
 /* ── Carousel scrollbar hide ── */
 #wallet-carousel::-webkit-scrollbar{display:none;}
+
+#header-search-results { animation: fadeIn .15s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+.app-header .search-bar input { color: #fff; }
+.app-header .search-bar input::placeholder { color: rgba(255,255,255,.6); }
+.app-header .search-bar input:focus { outline: none; }
 </style>
 </head>
 <body>
@@ -894,10 +900,11 @@ body.owner-mode
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" onfocus="openGlobalSearch()" readonly>
-      <button class="sbtn" onclick="openGlobalSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="headerSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';headerSearch('')}" autocomplete="off">
+      <button class="sbtn" onclick="document.getElementById('search-input').focus()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
   </div>
+  <div id="header-search-results" style="display:none;background:#fff;position:relative;z-index:50;border-bottom:1px solid #eef2f8;max-height:65vh;overflow-y:auto;"></div>
   <div class="sc">
     <!-- BANNER -->
     <div class="banner-wrap">
@@ -3553,6 +3560,96 @@ function closeGlobalSearch() {
   overlay.classList.remove('open');
   panel.classList.remove('open');
   document.body.style.overflow = '';
+}
+
+function headerSearch(q) {
+  const container = document.getElementById('header-search-results');
+  const sc = document.querySelector('#page-home .sc');
+  if (!container) return;
+  clearTimeout(window._headerSearchTimer);
+
+  if (!q || !q.trim()) {
+    container.style.display = 'none';
+    if (sc) sc.style.display = '';
+    return;
+  }
+
+  // Show container, hide scroll content
+  container.style.display = 'block';
+  if (sc) sc.style.display = 'none';
+
+  if (q.trim().length < 2) {
+    container.innerHTML = '<div style="text-align:center;padding:32px 20px;color:#bbb;font-size:14px;">Seguí escribiendo...</div>';
+    return;
+  }
+
+  container.innerHTML = '<div style="text-align:center;padding:32px 20px;"><div class="spinner"></div></div>';
+
+  window._headerSearchTimer = setTimeout(async () => {
+    try {
+      const cityParam = activeCity ? `&city=${encodeURIComponent(activeCity)}` : '';
+      const data = await api(`/api/search?q=${encodeURIComponent(q.trim())}${cityParam}`);
+      renderInlineSearchResults(container, data, q.trim());
+    } catch(e) {
+      container.innerHTML = `<div style="text-align:center;padding:32px;color:#e74c3c;">${e.message}</div>`;
+    }
+  }, 280);
+}
+
+function renderInlineSearchResults(container, data, q) {
+  const { products = [], businesses = [] } = data;
+
+  if (!products.length && !businesses.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:48px 20px;">
+        <div style="font-size:44px;margin-bottom:12px;">😕</div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px;">Sin resultados para "${q}"</div>
+        <div style="font-size:13px;color:#999;">Probá con otro término o revisá tu zona.</div>
+      </div>`;
+    return;
+  }
+
+  let html = '<div style="padding:12px 16px 4px;">';
+
+  if (businesses.length) {
+    html += `<div class="srp-section-title" style="padding:8px 0 6px;">🏪 Negocios (${businesses.length})</div>`;
+    html += businesses.map(b => `
+      <div class="srp-biz" onclick="openStore('${b.id}');document.getElementById('search-input').value='';headerSearch('');">
+        <div class="srp-product-img" style="background:${b.bg_color||'#f5f5f5'};border-radius:12px;">
+          <span style="font-size:22px;">${b.logo_emoji||'🏪'}</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;color:#1a1a1a;">${b.name}</div>
+          <div style="font-size:12px;color:#999;">${b.category||''} · ${b.city||''}</div>
+        </div>
+        <div style="font-size:12px;color:${b.is_open?'#22c55e':'#ef4444'};font-weight:700;">${b.is_open?'Abierto':'Cerrado'}</div>
+      </div>`).join('');
+  }
+
+  if (products.length) {
+    html += `<div class="srp-section-title" style="padding:12px 0 6px;">🍔 Productos (${products.length})</div>`;
+    html += products.slice(0, 12).map(p => {
+      const disc = parseInt(p.discount_pct) > 0;
+      const finalPrice = disc ? Math.round(p.price * (1 - p.discount_pct/100)) : p.price;
+      return `
+      <div class="srp-product" onclick="openStore('${p.business_id}');document.getElementById('search-input').value='';headerSearch('');">
+        <div class="srp-product-img">
+          ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" loading="lazy">` : `<span style="font-size:24px;">${p.emoji||'🍔'}</span>`}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+          <div style="font-size:12px;color:#999;margin-top:1px;">${p.biz_name||''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          ${disc ? `<div style="font-size:11px;text-decoration:line-through;color:#bbb;">$${p.price}</div>` : ''}
+          <div style="font-size:14px;font-weight:800;color:${disc?'#22c55e':'#1a1a1a'};">$${finalPrice}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 async function globalSearch(q) {
