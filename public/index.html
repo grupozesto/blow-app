@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Blow">
-<link rel="apple-touch-icon" href="/icons/icon-152.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="72x72"  href="/icons/icon-72.png">
 <link rel="apple-touch-icon" sizes="96x96"  href="/icons/icon-96.png">
 <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128.png">
@@ -1044,7 +1044,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <button onclick="nav('page-cart')" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;">←</button>
     <h1 style="margin:0;font-size:18px;">Último paso</h1>
   </div>
-  <div class="sc" id="checkout-body" style="padding:0 16px 140px;"></div>
+  <div class="sc" id="checkout-body" style="padding:0 16px 160px;"></div>
   <!-- Total fijo al fondo — encima de la nav bar -->
   <div style="position:fixed;bottom:var(--nav);left:0;right:0;background:#fff;border-top:1.5px solid #f0f0f0;padding:12px 16px 12px;z-index:190;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -3368,168 +3368,170 @@ function renderCheckoutPage() {
   const offersPriority = store?.offers_priority !== false;
   const priorityPercent = store?.priority_percent || 50;
 
-  if (!hasDelivery && hasPickup) _chkFulfillment = 'pickup';
-  else if (!_chkFulfillment) _chkFulfillment = hasDelivery ? 'delivery' : 'pickup';
+  if (!hasDelivery && hasPickup)      _chkFulfillment = 'pickup';
+  else if (!_chkFulfillment)          _chkFulfillment = hasDelivery ? 'delivery' : 'pickup';
+  const isDelivery = _chkFulfillment === 'delivery';
 
-  const fulfillmentType = _chkFulfillment;
-  const baseFee = fulfillmentType === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0);
-  const fee = baseFee;
-  const priorityFee = _chkPriority ? Math.round(fee * priorityPercent / 100) : 0;
+  const fee = isDelivery ? (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0) : 0;
+  const priorityFee = (_chkPriority && isDelivery) ? Math.round(fee * priorityPercent / 100) : 0;
+  const tipAmt = isDelivery ? _chkTip : 0; // sin propina si retira
   const sub = cart.reduce((a, b) => a + b.price * b.qty, 0);
   const promoDisc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
-  const total = Math.max(0, sub + fee + priorityFee + _chkTip - promoDisc);
+  const total = Math.max(0, sub + fee + priorityFee + tipAmt - promoDisc);
 
   const td = document.getElementById('checkout-total-display');
   if (td) td.textContent = `$${total}`;
   const pb = document.getElementById('checkout-pay-btn');
-  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '\u{1F4B5} Confirmar pedido en efectivo' : `\u{1F4B3} Ir a pagar · $${total}`;
+  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar · $' + total : '💳 Ir a pagar · $' + total;
 
   const tipOptions = [0, 20, 30, 40, 50, 70];
-  const isCustomTip = _chkTip > 0 && !tipOptions.includes(_chkTip);
-  const userAddr = user?.address || '';
+  const isCustomTip = tipAmt > 0 && !tipOptions.includes(tipAmt);
+
+  // Saved addresses
+  const addrs = user?.addresses || [];
+  const defaultAddr = addrs.find(a => a.is_active) || addrs[0] || null;
+  // Auto-select default if nothing selected yet
+  if (!_chkAddress && defaultAddr) _chkAddress = defaultAddr.full_address || defaultAddr.label;
 
   body.innerHTML = `
-    <div style="margin-top:18px;margin-bottom:18px;">
-      <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:14px;">¿Cómo querés pagar?</div>
+    <!-- MÉTODO DE PAGO -->
+    <div style="margin-top:16px;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;">¿Cómo querés pagar?</div>
       <div style="display:flex;gap:10px;">
-        <div onclick="chkSetPay('mercadopago')"
-          style="flex:1;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:16px;padding:16px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
-          <div style="font-size:24px;margin-bottom:8px;">💳</div>
-          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
-          <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Tarjeta, saldo, QR</div>
-          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:8px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        <div onclick="chkSetPay('mercadopago')" style="flex:1;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
+          <div style="font-size:22px;margin-bottom:6px;">💳</div>
+          <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Tarjeta, saldo, QR</div>
+          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
-        <div onclick="chkSetPay('cash')"
-          style="flex:1;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:16px;padding:16px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
-          <div style="font-size:24px;margin-bottom:8px;">💵</div>
-          <div style="font-size:14px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo</div>
-          <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.8)':'#64748b'};margin-top:3px;">Pagás al recibir</div>
-          ${_chkPayMethod==='cash'?'<div style="margin-top:8px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        <div onclick="chkSetPay('cash')" style="flex:1;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
+          <div style="font-size:22px;margin-bottom:6px;">💵</div>
+          <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Pagás al recibir</div>
+          ${_chkPayMethod==='cash'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
       </div>
     </div>
 
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
-      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Datos de entrega</div>
-      ${(hasDelivery && hasPickup) ? `
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <!-- ENTREGA -->
+    <div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;border:1px solid #f1f5f9;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">Datos de entrega</div>
+
+      <!-- Delivery / Retiro siempre visible -->
+      <div style="display:flex;gap:8px;margin-bottom:${isDelivery?'12px':'0'};">
         <button onclick="chkSetFulfillment('delivery')"
-          style="flex:1;padding:10px;border-radius:12px;border:2px solid ${fulfillmentType==='delivery'?'#0f172a':'#e2e8f0'};background:${fulfillmentType==='delivery'?'#0f172a':'#fff'};color:${fulfillmentType==='delivery'?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          style="flex:1;padding:9px;border-radius:10px;border:2px solid ${isDelivery?'#0f172a':'#e2e8f0'};background:${isDelivery?'#0f172a':'#fff'};color:${isDelivery?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           🛵 Delivery
         </button>
         <button onclick="chkSetFulfillment('pickup')"
-          style="flex:1;padding:10px;border-radius:12px;border:2px solid ${fulfillmentType==='pickup'?'#0f172a':'#e2e8f0'};background:${fulfillmentType==='pickup'?'#0f172a':'#fff'};color:${fulfillmentType==='pickup'?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          style="flex:1;padding:9px;border-radius:10px;border:2px solid ${!isDelivery?'#0f172a':'#e2e8f0'};background:${!isDelivery?'#0f172a':'#fff'};color:${!isDelivery?'#fff':'#64748b'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           🏪 Retiro yo
         </button>
-      </div>` : ''}
-      ${fulfillmentType === 'delivery' ? `
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;">📍 Dirección de entrega</div>
-        ${(() => {
-          const addrs = user?.addresses || [];
-          const saved = addrs.map((a,i) => {
-            const sel = (_chkAddress === (a.full_address||a.label));
-            return `<div onclick="chkSelectAddr('${(a.full_address||a.label).replace(/'/g,'')}')"
-              style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:2px solid ${sel?'#0f172a':'#e2e8f0'};background:${sel?'#0f172a':'#fff'};margin-bottom:8px;cursor:pointer;">
-              <span style="font-size:16px;">📍</span>
-              <div style="flex:1;">
-                <div style="font-size:13px;font-weight:700;color:${sel?'#fff':'#0f172a'};">${a.label||'Mi dirección'}</div>
-                <div style="font-size:12px;color:${sel?'rgba(255,255,255,.7)':'#64748b'};">${a.full_address||a.label}</div>
-              </div>
-              ${sel?'<span style="color:#fff;font-size:16px;">✓</span>':''}
-            </div>`;
-          }).join('');
-          return saved;
-        })()}
-        <div id="chk-new-addr-toggle">
-          <button onclick="chkShowNewAddr()" style="width:100%;padding:10px 12px;border-radius:12px;border:2px dashed #e2e8f0;background:#f8fafc;color:#2558d4;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;">
-            <span>+</span> Agregar dirección nueva
-          </button>
-        </div>
-        <div id="chk-new-addr-box" style="display:${(!user?.addresses?.length||!_chkAddress)?'block':'none'};margin-top:8px;">
-          <input id="chk-address-input" value="${_chkAddress||''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
-            style="width:100%;border:1.5px solid #2558d4;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
-            oninput="_chkAddress=this.value">
-          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Esta dirección se guardará en tu perfil.</div>
-        </div>
+      </div>
+
+      ${isDelivery ? `
+      <!-- Dirección guardada por defecto -->
+      ${addrs.map(a => {
+        const addrVal = a.full_address || a.label;
+        const sel = _chkAddress === addrVal;
+        return `<div onclick="chkSelectAddr('${addrVal.replace(/'/g,"\\'")}', event)"
+          style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:2px solid ${sel?'#2558d4':'#e2e8f0'};background:${sel?'#eff6ff':'#fff'};margin-bottom:8px;cursor:pointer;">
+          <span style="font-size:16px;">📍</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:${sel?'#2558d4':'#0f172a'};">${a.label||'Mi dirección'}</div>
+            <div style="font-size:11px;color:#64748b;">${a.full_address||a.label}</div>
+          </div>
+          ${sel?'<span style="color:#2558d4;font-weight:800;font-size:14px;">✓</span>':''}
+        </div>`;
+      }).join('')}
+
+      <!-- Agregar dirección nueva (siempre visible abajo) -->
+      <div style="border-top:${addrs.length?'1px solid #f1f5f9':'none'};padding-top:${addrs.length?'10px':'0'};">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;">OTRA DIRECCIÓN</div>
+        <input id="chk-address-input" value="${!addrs.length?(_chkAddress||''):''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
+          style="width:100%;border:1.5px solid ${!_chkAddress||!addrs.length?'#2558d4':'#e2e8f0'};border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
+          oninput="_chkAddress=this.value;_chkCustomAddr=this.value;">
       </div>` : `
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:20px;">🏪</span>
+      <!-- Retiro -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;">
+        <span style="font-size:18px;">🏪</span>
         <div>
-          <div style="font-size:14px;font-weight:700;color:#0f172a;">Retiro en tienda</div>
+          <div style="font-size:13px;font-weight:700;color:#0f172a;">Retirás en el local</div>
           <div style="font-size:12px;color:#64748b;">${store?.address || 'Dirección del negocio'}</div>
         </div>
       </div>`}
     </div>
 
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
-      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:4px;">🛵 Propina para el repartidor</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:12px;">El 100% va directo a su bolsillo.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${tipOptions.map(t => `
-          <button onclick="chkSetTip(${t})"
-            style="padding:9px 16px;border-radius:20px;border:2px solid ${_chkTip===t&&!isCustomTip?'#0f172a':'#e2e8f0'};background:${_chkTip===t&&!isCustomTip?'#0f172a':'#fff'};color:${_chkTip===t&&!isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-            ${t === 0 ? 'Ahora no' : '$' + t}
-          </button>`).join('')}
+    <!-- PROPINA (solo delivery) -->
+    ${isDelivery ? `
+    <div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;border:1px solid #f1f5f9;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:3px;">🛵 Propina para el repartidor</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px;">El 100% va directo a su bolsillo.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${tipOptions.map(t => `<button onclick="chkSetTip(${t})"
+          style="padding:8px 14px;border-radius:20px;border:2px solid ${_chkTip===t&&!isCustomTip?'#0f172a':'#e2e8f0'};background:${_chkTip===t&&!isCustomTip?'#0f172a':'#fff'};color:${_chkTip===t&&!isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          ${t === 0 ? 'No' : '$' + t}
+        </button>`).join('')}
         <button onclick="chkOpenCustomTip()"
-          style="padding:9px 16px;border-radius:20px;border:2px solid ${isCustomTip?'#0f172a':'#e2e8f0'};background:${isCustomTip?'#0f172a':'#fff'};color:${isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-          ${isCustomTip ? '$'+_chkTip+' ✓' : 'Otro'}
+          style="padding:8px 14px;border-radius:20px;border:2px solid ${isCustomTip?'#0f172a':'#e2e8f0'};background:${isCustomTip?'#0f172a':'#fff'};color:${isCustomTip?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          ${isCustomTip ? '$'+tipAmt+' ✓' : 'Otro'}
         </button>
       </div>
-      <div id="custom-tip-box" style="display:${isCustomTip?'flex':'none'};gap:8px;margin-top:12px;align-items:center;">
-        <span style="font-size:15px;font-weight:700;">$</span>
-        <input id="custom-tip-input" type="number" min="1" value="${isCustomTip?_chkTip:''}" placeholder="Ej: 80"
-          style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      <div id="custom-tip-box" style="display:${isCustomTip?'flex':'none'};gap:8px;margin-top:10px;align-items:center;">
+        <span style="font-size:14px;font-weight:700;">$</span>
+        <input id="custom-tip-input" type="number" min="1" value="${isCustomTip?tipAmt:''}" placeholder="Ej: 80"
+          style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
         <button onclick="chkApplyCustomTip()"
-          style="background:#0f172a;border:none;border-radius:10px;padding:9px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          style="background:#0f172a;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           Aplicar
-        </button>
-      </div>
-    </div>
-
-    ${(fulfillmentType === 'delivery' && offersPriority && fee > 0) ? `
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="flex:1;margin-right:12px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-            <span style="font-size:18px;">⚡</span>
-            <span style="font-size:15px;font-weight:800;color:#0f172a;">Envío prioritario</span>
-            <span style="background:#eff6ff;color:#2558d4;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;">+$${Math.round(fee*priorityPercent/100)}</span>
-          </div>
-          <div style="font-size:12px;color:#64748b;margin-left:26px;">Tu pedido se prepara antes que los demás.</div>
-        </div>
-        <button onclick="chkTogglePriority()" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;">
-          <div style="width:48px;height:28px;border-radius:14px;background:${_chkPriority?'#0f172a':'#e2e8f0'};position:relative;">
-            <div style="width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;${_chkPriority?'right:3px':'left:3px'};box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
-          </div>
         </button>
       </div>
     </div>` : ''}
 
-    <div style="background:#fff;border-radius:16px;padding:14px 16px;margin-bottom:14px;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:18px;flex-shrink:0;">📝</span>
+    <!-- PRIORITARIO (solo delivery con costo) -->
+    ${(isDelivery && offersPriority && fee > 0) ? `
+    <div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;border:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+      <div style="flex:1;margin-right:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+          <span>⚡</span>
+          <span style="font-size:14px;font-weight:800;color:#0f172a;">Envío prioritario</span>
+          <span style="background:#eff6ff;color:#2558d4;font-size:11px;font-weight:800;border-radius:20px;padding:2px 8px;">+$${Math.round(fee*priorityPercent/100)}</span>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-left:22px;">Tu pedido se prepara antes que los demás.</div>
+      </div>
+      <button onclick="chkTogglePriority()" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;">
+        <div style="width:46px;height:26px;border-radius:13px;background:${_chkPriority?'#0f172a':'#e2e8f0'};position:relative;">
+          <div style="width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;${_chkPriority?'right:3px':'left:3px'};box-shadow:0 1px 4px rgba(0,0,0,.2);"></div>
+        </div>
+      </button>
+    </div>` : ''}
+
+    <!-- NOTAS -->
+    <div style="background:#fff;border-radius:16px;padding:12px 14px;margin-bottom:12px;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:17px;flex-shrink:0;">📝</span>
       <input id="chk-notes" value="${_chkNotes}" placeholder="Instrucciones: sin cebolla, timbre roto..."
-        style="flex:1;border:none;outline:none;font-size:14px;font-family:'Inter',sans-serif;color:#0f172a;background:transparent;"
+        style="flex:1;border:none;outline:none;font-size:13px;font-family:'Inter',sans-serif;color:#0f172a;background:transparent;"
         oninput="_chkNotes=this.value">
     </div>
 
-    <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #f1f5f9;">
-      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Resumen</div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+    <!-- RESUMEN -->
+    <div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:10px;border:1px solid #f1f5f9;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">Resumen</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:14px;">
         <span style="color:#64748b;">Productos</span><span style="font-weight:600;">$${sub}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-        <span style="color:#64748b;">${fulfillmentType==='pickup'?'Retiro en tienda':'Envío'}</span>
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:14px;">
+        <span style="color:#64748b;">${isDelivery?'Envío':'Retiro en tienda'}</span>
         <span style="font-weight:600;">${fee===0?'Gratis':'$'+fee}</span>
       </div>
-      ${_chkPriority?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#64748b;">⚡ Prioritario</span><span style="font-weight:600;">+$${priorityFee}</span></div>`:''}
-      ${_chkTip>0?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#64748b;">🛵 Propina</span><span style="font-weight:600;">+$${_chkTip}</span></div>`:''}
-      ${promoDisc>0?`<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#16a34a;">🏷️ Descuento</span><span style="font-weight:600;color:#16a34a;">-$${promoDisc}</span></div>`:''}
+      ${priorityFee>0?`<div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:14px;"><span style="color:#64748b;">⚡ Prioritario</span><span style="font-weight:600;">+$${priorityFee}</span></div>`:''}
+      ${tipAmt>0?`<div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:14px;"><span style="color:#64748b;">🛵 Propina</span><span style="font-weight:600;">+$${tipAmt}</span></div>`:''}
+      ${promoDisc>0?`<div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:14px;"><span style="color:#16a34a;">🏷️ Descuento</span><span style="font-weight:600;color:#16a34a;">-$${promoDisc}</span></div>`:''}
       <div style="border-top:1px solid #f1f5f9;padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;">
-        <span style="font-size:16px;font-weight:900;color:#0f172a;">Total</span>
-        <span style="font-size:16px;font-weight:900;color:#0f172a;">$${total}</span>
+        <span style="font-size:15px;font-weight:900;color:#0f172a;">Total</span>
+        <span style="font-size:15px;font-weight:900;color:#0f172a;">$${total}</span>
       </div>
-      <div style="margin-top:8px;font-size:11px;color:#94a3b8;">Pago online aplica 9% devolución de IVA en productos y 2% en envío (Leyes N° 17.934 y 19.210).</div>
+      <div style="margin-top:6px;font-size:10px;color:#94a3b8;">Pago online aplica 9% devolución IVA (Leyes N° 17.934 y 19.210).</div>
     </div>
   `;
 }
@@ -3551,7 +3553,8 @@ function chkTogglePriority() {
 
 function chkSetFulfillment(type) {
   _chkFulfillment = type;
-  _chkPriority = false; // reset priority on fulfillment change
+  _chkPriority = false;
+  if (type === 'pickup') _chkTip = 0; // sin propina al retirar
   renderCheckoutPage();
 }
 
