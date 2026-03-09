@@ -10275,21 +10275,31 @@ async function oaSaveEmoji() {
 async function oaUploadPhoto(input, type) {
   const file = input.files[0];
   if (!file) return;
+  // Validate file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) { showToast('❌ La imagen no puede superar 5MB'); return; }
   showToast('⏳ Subiendo foto...');
   try {
     const fd = new FormData();
     fd.append('photo', file);
-    fd.append('type', type); // 'logo' or 'cover'
-    const res = await fetch('/api/businesses/mine/upload-photo', {
+    const endpoint = type === 'cover'
+      ? '/api/businesses/mine/upload-cover'
+      : '/api/businesses/mine/upload-logo';
+    // Use da_token (the correct key) and DO NOT set Content-Type (browser sets multipart boundary)
+    const authToken = token || localStorage.getItem('da_token') || '';
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('blow_token') },
+      headers: { 'Authorization': 'Bearer ' + authToken },
       body: fd
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Error al subir');
-    showToast('✅ Foto actualizada');
-    oaOpenPhotosSub(); // reload
-    if (_oaBiz) oaUpdateTopbar();
+    showToast('✅ ' + (type === 'cover' ? 'Portada' : 'Logo') + ' actualizado');
+    if (_oaBiz) {
+      if (type === 'cover') _oaBiz.cover_url = d.url;
+      else _oaBiz.logo_url = d.url;
+      oaUpdateTopbar();
+    }
+    oaOpenPhotosSub(); // reload preview
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
