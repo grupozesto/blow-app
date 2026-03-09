@@ -311,6 +311,16 @@ async function initDB() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, endpoint)
+    );
+
     CREATE TABLE IF NOT EXISTS user_coupons (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
@@ -389,6 +399,41 @@ try {
     cloudinary = null;
   }
 } catch(e) { console.warn('⚠️  cloudinary no instalado'); cloudinary = null; }
+
+// ── Web Push (VAPID) ──────────────────────────
+let webpush = null;
+try {
+  webpush = require('web-push');
+  const pubKey  = process.env.VAPID_PUBLIC_KEY;
+  const privKey = process.env.VAPID_PRIVATE_KEY;
+  if (pubKey && privKey) {
+    webpush.setVapidDetails('mailto:hola@blow.uy', pubKey, privKey);
+    console.log('🔔 web-push VAPID configurado');
+  } else {
+    console.warn('⚠️  VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY no definidas — push desactivado');
+    webpush = null;
+  }
+} catch(e) { console.warn('⚠️  web-push no instalado:', e.message); webpush = null; }
+
+async function sendPushToOwner(ownerId, payload) {
+  if (!webpush) return;
+  try {
+    const subs = await qa('SELECT * FROM push_subscriptions WHERE user_id=$1', [ownerId]);
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch(e) {
+        // Suscripción expirada o inválida → borrar
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          await q('DELETE FROM push_subscriptions WHERE id=$1', [sub.id]);
+        }
+      }
+    }
+  } catch(e) { console.error('sendPushToOwner error:', e.message); }
+}
 
 async function uploadPhoto(base64Data, mimeType) {
   if (!cloudinary) throw new Error('Cloudinary no configurado. Agregá las variables CLOUDINARY_* en Railway.');
@@ -1119,6 +1164,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
+    sendPushToOwner(biz.owner_id,{ title:'🛍️ Nuevo pedido', body:`#${orderId.slice(-6).toUpperCase()} — $${total}`, tag:'new_order', url:'/' });
     if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
       const pref = await mp.preferences.create({
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
@@ -1132,6 +1178,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     } else {
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
       notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido confirmado #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total });
+      sendPushToOwner(biz.owner_id,{ title:'💰 Pedido confirmado', body:`#${orderId.slice(-6).toUpperCase()} — $${total}`, tag:'new_order', url:'/' });
       notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
       res.json({ order_id:orderId,demo:true });
     }
@@ -1776,6 +1823,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
       await q("UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1",[orderId]);
       const biz = await q1('SELECT * FROM businesses WHERE id=$1',[order.business_id]);
       if (biz) notify(biz.owner_id,{ type:'new_order',message:`💰 Pago confirmado! #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total:order.total });
+      if (biz) sendPushToOwner(biz.owner_id,{ title:'💰 Pago confirmado', body:`#${orderId.slice(-6).toUpperCase()} — $${order.total}`, tag:'new_order', url:'/' });
       notify(order.customer_id,{ type:'status_change',message:'✅ Pago recibido!',status:'confirmed',order_id:orderId });
     }
     if (order && ['rejected','cancelled'].includes(payment.status) && order.status === 'pending')
@@ -1792,6 +1840,41 @@ app.get('/api/public-settings', async (_, res) => {
     rows.forEach(r => { try { obj[r.key] = JSON.parse(r.value); } catch { obj[r.key] = r.value; } });
     res.json(obj);
   } catch(e) { res.json({}); }
+});
+
+// ── Push Notifications ────────────────────────
+// Devuelve la public key VAPID para que el frontend pueda suscribirse
+app.get('/api/push/vapid-public-key', (req, res) => {
+  if (!webpush || !process.env.VAPID_PUBLIC_KEY)
+    return res.status(503).json({ error: 'Push no disponible' });
+  res.json({ key: process.env.VAPID_PUBLIC_KEY });
+});
+
+// Guarda suscripción push del owner
+app.post('/api/push/subscribe', auth, async (req, res) => {
+  const { endpoint, keys } = req.body || {};
+  if (!endpoint || !keys?.p256dh || !keys?.auth)
+    return res.status(400).json({ error: 'Datos de suscripción inválidos' });
+  try {
+    await q(
+      `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (user_id, endpoint) DO UPDATE SET p256dh=$4, auth=$5`,
+      [uuid(), req.user.id, endpoint, keys.p256dh, keys.auth]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Elimina suscripción push
+app.delete('/api/push/unsubscribe', auth, async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (endpoint) {
+    await q('DELETE FROM push_subscriptions WHERE user_id=$1 AND endpoint=$2', [req.user.id, endpoint]);
+  } else {
+    await q('DELETE FROM push_subscriptions WHERE user_id=$1', [req.user.id]);
+  }
+  res.json({ ok: true });
 });
 
 // ── Health + Static ───────────────────────────
