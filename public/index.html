@@ -6112,68 +6112,179 @@ async function ooRenderMenu() {
   el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;">Cargando menú...</div>';
   try {
     const products = (_ooDashData && _ooDashData.products) ? _ooDashData.products : [];
+    const categories = (_ooDashData && _ooDashData.categories) ? _ooDashData.categories : [];
     if (!products.length) {
-      el.innerHTML = `<div style="text-align:center;padding:60px 20px;">
-        <div style="font-size:48px;">🍽️</div>
-        <div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin productos aún</div>
-        <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="margin-top:16px;background:#2558d4;border:none;border-radius:10px;padding:12px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar producto</button>
-      </div>`;
+      el.innerHTML = `
+        <div style="text-align:center;padding:60px 20px;">
+          <div style="font-size:48px;">🍽️</div>
+          <div style="font-size:18px;font-weight:800;color:#0f172a;margin-top:12px;">Sin productos aún</div>
+          <div style="font-size:14px;color:#94a3b8;margin-top:6px;">Agregá tu primer producto</div>
+          <button onclick="ooAddProduct()" style="margin-top:20px;background:#2558d4;border:none;border-radius:12px;padding:14px 28px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar producto</button>
+        </div>`;
       return;
     }
-    el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    // Group by category
+    const grouped = {};
+    const uncategorized = [];
+    products.forEach(p => {
+      const cat = categories.find(c => c.id === p.category_id);
+      if (cat) {
+        if (!grouped[cat.name]) grouped[cat.name] = [];
+        grouped[cat.name].push(p);
+      } else uncategorized.push(p);
+    });
+    if (uncategorized.length) grouped['Sin categoría'] = uncategorized;
+
+    let html = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div style="font-size:16px;font-weight:800;color:#0f172a;">${products.length} productos</div>
-        <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="background:#2558d4;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar</button>
+        <button onclick="ooAddProduct()" style="background:#2558d4;border:none;border-radius:10px;padding:8px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar</button>
       </div>
-      ${products.map(p => `
-        <div class="oo-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
-          <div style="font-size:28px;">${p.emoji||'🍽️'}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-            <div style="font-size:13px;color:#64748b;">$${p.price}</div>
-          </div>
-          <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;">${p.available!==false?'Activo':'Pausado'}</span>
-        </div>
-      `).join('')}
-      <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:#f1f5f9;border:none;border-radius:12px;padding:14px;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;">Editar menú completo →</button>
     `;
+    Object.entries(grouped).forEach(([catName, prods]) => {
+      html += `<div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;">${catName}</div>`;
+      prods.forEach(p => {
+        html += `
+          <div class="oo-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;">
+            <div style="font-size:28px;flex-shrink:0;">${p.emoji||'🍽️'}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+              <span style="background:${p.available!==false?'#dcfce7':'#fee2e2'};color:${p.available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.available!==false?'Activo':'Pausado'}</span>
+              <button onclick="ooToggleProduct('${p.id}',${p.available!==false})" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">${p.available!==false?'Pausar':'Activar'}</button>
+            </div>
+          </div>`;
+      });
+    });
+    el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
   }
 }
 
-function ooRenderSettings() {
+function ooAddProduct() {
+  // Show simple add form inside overlay
   const el = document.getElementById('oo-body');
   if (!el) return;
   el.innerHTML = `
-    <div class="oo-section-title">Configuración del negocio</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <button onclick="ooRenderMenu()" style="background:#f1f5f9;border:none;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">← Volver</button>
+      <div style="font-size:17px;font-weight:800;color:#0f172a;">Nuevo producto</div>
+    </div>
+    <div class="oo-card">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">EMOJI</label>
+        <input id="np-emoji" value="🍽️" style="width:60px;font-size:24px;text-align:center;border:1px solid #e2e8f0;border-radius:10px;padding:8px;font-family:'Inter',sans-serif;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">NOMBRE</label>
+        <input id="np-name" placeholder="Nombre del producto" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">DESCRIPCIÓN</label>
+        <textarea id="np-desc" placeholder="Descripción (opcional)" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;height:80px;resize:none;"></textarea>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">PRECIO ($)</label>
+        <input id="np-price" type="number" placeholder="0" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <button onclick="ooSaveProduct()" style="width:100%;background:#2558d4;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" id="np-save-btn">Guardar producto</button>
+    </div>
+  `;
+}
+
+async function ooSaveProduct() {
+  const btn  = document.getElementById('np-save-btn');
+  const name  = document.getElementById('np-name')?.value?.trim();
+  const price = parseFloat(document.getElementById('np-price')?.value);
+  const emoji = document.getElementById('np-emoji')?.value?.trim() || '🍽️';
+  const desc  = document.getElementById('np-desc')?.value?.trim() || '';
+  if (!name) { alert('Ingresá un nombre'); return; }
+  if (!price || price <= 0) { alert('Ingresá un precio válido'); return; }
+  btn.textContent = 'Guardando...'; btn.disabled = true;
+  try {
+    await ooFetch('/api/businesses/mine/products', { method:'POST', body:JSON.stringify({ name, price, emoji, description:desc, available:true }) });
+    // Reload dashboard data
+    const d = await ooFetch('/api/businesses/mine/dashboard');
+    _ooDashData = d;
+    ooRenderMenu();
+  } catch(e) {
+    btn.textContent = 'Guardar producto'; btn.disabled = false;
+    alert('Error: ' + e.message);
+  }
+}
+
+async function ooToggleProduct(productId, currentlyAvailable) {
+  try {
+    await ooFetch(`/api/businesses/mine/products/${productId}`, { method:'PATCH', body:JSON.stringify({ available: !currentlyAvailable }) });
+    // Update local data
+    if (_ooDashData && _ooDashData.products) {
+      const p = _ooDashData.products.find(p => p.id == productId);
+      if (p) p.available = !currentlyAvailable;
+    }
+    ooRenderMenu();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function ooRenderSettings() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  const b = _ooBiz || {};
+  el.innerHTML = `
+    <div class="oo-section-title">Mi negocio</div>
+    <div class="oo-card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:36px;">${b.logo_emoji||'🏪'}</div>
+        <div style="flex:1;">
+          <div style="font-size:16px;font-weight:800;color:#0f172a;">${b.name||'Mi Negocio'}</div>
+          <div style="font-size:13px;color:#64748b;">${b.address||''} · ${b.city||''}</div>
+          <div style="font-size:13px;color:#64748b;margin-top:2px;">📞 ${b.phone||'Sin teléfono'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="oo-section-title">Configuración</div>
     <div class="oo-action-grid">
-      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
-        <span class="oo-action-icon">🖼️</span>
-        <span class="oo-action-title">Fotos</span>
-        <span class="oo-action-sub">Logo y portada</span>
-      </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
+      <button class="oo-action-btn" onclick="ooEditHours()">
         <span class="oo-action-icon">🕐</span>
         <span class="oo-action-title">Horarios</span>
         <span class="oo-action-sub">Días y horas</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
+      <button class="oo-action-btn" onclick="ooEditDelivery()">
         <span class="oo-action-icon">🛵</span>
         <span class="oo-action-title">Delivery</span>
         <span class="oo-action-sub">Zona y costo</span>
       </button>
-      <button class="oo-action-btn" onclick="nav('page-owner-dash');exitOwnerOverlay();">
+      <button class="oo-action-btn" onclick="ooRenderPromos()">
         <span class="oo-action-icon">🏷️</span>
         <span class="oo-action-title">Promociones</span>
         <span class="oo-action-sub">Cupones</span>
       </button>
+      <button class="oo-action-btn" onclick="ooEditPhotos()">
+        <span class="oo-action-icon">🖼️</span>
+        <span class="oo-action-title">Fotos</span>
+        <span class="oo-action-sub">Logo y portada</span>
+      </button>
     </div>
-    <button onclick="nav('page-owner-dash');exitOwnerOverlay();" style="width:100%;background:#f1f5f9;border:none;border-radius:14px;padding:14px;color:#2558d4;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-      Ir al panel completo →
-    </button>
+    <div class="oo-section-title">Delivery</div>
+    <div class="oo-card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:14px;color:#64748b;">Costo de envío</span>
+        <span style="font-size:14px;font-weight:700;color:#0f172a;">$${b.delivery_cost||0}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-size:14px;color:#64748b;">Tiempo estimado</span>
+        <span style="font-size:14px;font-weight:700;color:#0f172a;">${b.delivery_time||30} min</span>
+      </div>
+    </div>
   `;
 }
+
+function ooEditHours()    { alert('Próximamente: editor de horarios en el portal'); }
+function ooEditDelivery() { alert('Próximamente: editor de delivery en el portal'); }
+function ooEditPhotos()   { alert('Próximamente: subir fotos en el portal'); }
+function ooRenderPromos() { alert('Próximamente: gestión de promociones en el portal'); }
 
 function ooRenderMore() {
   const el = document.getElementById('oo-body');
