@@ -3729,6 +3729,7 @@ async function loadTracking() {
         </div>
         ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
         ${o.status!=='cancelled'?`<button onclick="openOrderChat('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;color:#0f172a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💬 Chat con el negocio</button>`:''}
+        ${o.status==='delivered'?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
       </div>`;
     }).join('');
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
@@ -3738,6 +3739,53 @@ async function cancelOrder(id) {
   if (!confirm('¿Cancelar este pedido?')) return;
   try { await api(`/api/orders/${id}/cancel`,{method:'POST'}); showToast('✅ Pedido cancelado'); loadTracking(); }
   catch(e) { showToast(`❌ ${e.message}`); }
+}
+
+// ── Reviews ──────────────────────────────────
+let _reviewOrderId = null;
+let _reviewStar = 0;
+
+function openReviewModal(orderId, bizName) {
+  _reviewOrderId = orderId;
+  _reviewStar = 0;
+  document.getElementById('review-modal-title').textContent = '⭐ Reseñar ' + (bizName||'negocio');
+  document.getElementById('review-comment').value = '';
+  document.getElementById('review-submit-btn').textContent = 'Enviar reseña';
+  document.getElementById('review-submit-btn').disabled = false;
+  [1,2,3,4,5].forEach(i => {
+    const el = document.getElementById('rstar-'+i);
+    if (el) el.style.opacity = '0.3';
+  });
+  const modal = document.getElementById('review-modal');
+  modal.style.display = 'flex';
+}
+
+function closeReviewModal() {
+  document.getElementById('review-modal').style.display = 'none';
+}
+
+function setReviewStar(n) {
+  _reviewStar = n;
+  [1,2,3,4,5].forEach(i => {
+    const el = document.getElementById('rstar-'+i);
+    if (el) el.style.opacity = i <= n ? '1' : '0.3';
+  });
+}
+
+async function submitReview() {
+  if (!_reviewStar) { showToast('Seleccioná una calificación'); return; }
+  const comment = document.getElementById('review-comment')?.value?.trim() || '';
+  const btn = document.getElementById('review-submit-btn');
+  btn.textContent = 'Enviando...'; btn.disabled = true;
+  try {
+    await api(`/api/orders/${_reviewOrderId}/review`, { method:'POST', body: JSON.stringify({ rating: _reviewStar, comment }) });
+    closeReviewModal();
+    showToast('✅ ¡Gracias por tu reseña!');
+    loadTracking();
+  } catch(e) {
+    showToast('❌ ' + e.message);
+    btn.textContent = 'Enviar reseña'; btn.disabled = false;
+  }
 }
 
 // ── Order Chat ───────────────────────────────
@@ -7079,7 +7127,7 @@ async function ooRenderMenu() {
               <div style="font-size:28px;flex-shrink:0;">${p.emoji||'🍽️'}</div>
               <div style="flex:1;min-width:0;">
                 <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-                <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}${p.discount_percent?` <span style="color:#ef4444;font-size:11px;">-${p.discount_percent}%</span>`:''}</div>
+                <div style="font-size:13px;color:#64748b;margin-top:2px;">$${p.price}${p.discount_percent?` <span style="color:#ef4444;font-size:11px;">-${p.discount_percent}%</span>`:''}${p.available_from?` <span style="color:#7c3aed;font-size:11px;">🕐 ${p.available_from.slice(0,5)}–${p.available_until?p.available_until.slice(0,5):''}`:''}</span></div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
                 <span style="background:${p.is_available!==false?'#dcfce7':'#fee2e2'};color:${p.is_available!==false?'#16a34a':'#dc2626'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;">${p.is_available!==false?'Activo':'Sin stock'}</span>
@@ -7204,6 +7252,17 @@ function ooAddProduct(editProduct = null) {
         <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">📦 STOCK (dejar vacío = ilimitado)</label>
         <input id="np-stock" type="number" min="0" value="${p.stock!=null?p.stock:''}" placeholder="Ilimitado" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
       </div>
+      <!-- Horario del producto -->
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px;">🕐 DISPONIBLE EN HORARIO (dejar vacío = siempre)</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input id="np-avail-from" type="time" value="${p.available_from?p.available_from.slice(0,5):''}" style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+          <span style="color:#94a3b8;font-size:13px;">a</span>
+          <input id="np-avail-until" type="time" value="${p.available_until?p.available_until.slice(0,5):''}" style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:11px 12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+          <button onclick="document.getElementById('np-avail-from').value='';document.getElementById('np-avail-until').value='';" style="background:#f1f5f9;border:none;border-radius:8px;padding:8px;font-size:12px;color:#64748b;cursor:pointer;">✕</button>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Ej: 07:00 a 11:00 para desayuno, 12:00 a 15:00 para almuerzo</div>
+      </div>
     </div>
 
     <!-- OPCIONES -->
@@ -7295,6 +7354,8 @@ async function ooSaveProduct(editId = null) {
   const stock = document.getElementById('np-stock')?.value !== '' ? parseInt(document.getElementById('np-stock')?.value) : null;
   const featured = document.getElementById('np-featured')?.checked || false;
   const available = document.getElementById('np-available')?.checked !== false;
+  const availFrom  = document.getElementById('np-avail-from')?.value  || null;
+  const availUntil = document.getElementById('np-avail-until')?.value || null;
 
   if (!name)              { showToast('Ingresá un nombre'); return; }
   if (!price || price<=0) { showToast('Ingresá un precio válido'); return; }
@@ -7307,6 +7368,7 @@ async function ooSaveProduct(editId = null) {
     const body = { name, price, emoji, description:desc, discount_percent:discount,
       category_id:cat, preparation_time:preptime, calories, allergens, stock,
       is_featured:featured, is_available:available,
+      available_from: availFrom || null, available_until: availUntil || null,
       photos: photos.map(p => ({ data:p.data, mime_type:p.mime_type })) };
 
     if (editId) {
@@ -7854,11 +7916,22 @@ function ooAddPromo() {
           <option value="percent_discount">% Descuento en todo el pedido</option>
           <option value="fixed_discount">Descuento fijo ($)</option>
           <option value="free_delivery">Envío gratis</option>
+          <option value="combo">🎁 Combo a precio especial</option>
         </select>
       </div>
       <div id="pr-value-wrap" style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">VALOR</label>
         <input id="pr-value" type="number" placeholder="Ej: 20" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+      </div>
+      <!-- Combo products selector -->
+      <div id="pr-combo-wrap" style="display:none;margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:8px;">PRODUCTOS DEL COMBO</label>
+        <div id="pr-combo-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+        <button onclick="ooAddComboItem()" style="width:100%;background:#f1f5f9;border:none;border-radius:10px;padding:9px;color:#2558d4;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Agregar producto</button>
+        <div style="margin-top:12px;">
+          <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">PRECIO ESPECIAL DEL COMBO ($)</label>
+          <input id="pr-combo-price" type="number" placeholder="Ej: 450" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        </div>
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;">PEDIDO MÍNIMO ($)</label>
@@ -7881,8 +7954,36 @@ function ooAddPromo() {
 
 function ooPromoTypeChange() {
   const type = document.getElementById('pr-type')?.value;
-  const wrap = document.getElementById('pr-value-wrap');
-  if (wrap) wrap.style.display = type === 'free_delivery' ? 'none' : 'block';
+  const valueWrap = document.getElementById('pr-value-wrap');
+  const comboWrap = document.getElementById('pr-combo-wrap');
+  if (valueWrap) valueWrap.style.display = (type === 'free_delivery' || type === 'combo') ? 'none' : 'block';
+  if (comboWrap) comboWrap.style.display = type === 'combo' ? 'block' : 'none';
+  if (type === 'combo') ooRenderComboList();
+}
+
+function ooRenderComboList() {
+  const prods = _ooDashData?.products || [];
+  const list = document.getElementById('pr-combo-list');
+  if (!list) return;
+  const rows = list.querySelectorAll('[data-combo-item]');
+  if (!rows.length) ooAddComboItem();
+}
+
+function ooAddComboItem() {
+  const prods = _ooDashData?.products || [];
+  const list = document.getElementById('pr-combo-list');
+  if (!list) return;
+  const idx = list.children.length;
+  const div = document.createElement('div');
+  div.dataset.comboItem = idx;
+  div.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  div.innerHTML = `
+    <select style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:9px;font-size:13px;font-family:'Inter',sans-serif;background:#fff;">
+      ${prods.map(p=>`<option value="${p.id}">${p.emoji||'🍽️'} ${p.name} — $${p.price}</option>`).join('')}
+    </select>
+    <button onclick="this.parentElement.remove()" style="width:30px;height:30px;border-radius:50%;border:none;background:#fee2e2;color:#ef4444;cursor:pointer;font-size:16px;flex-shrink:0;">×</button>
+  `;
+  list.appendChild(div);
 }
 function ooPromoCodeToggle() {
   const needs = document.getElementById('pr-needs-code')?.checked;
@@ -7898,10 +7999,25 @@ async function ooSavePromo() {
   const needsCode = document.getElementById('pr-needs-code')?.checked;
   const code  = document.getElementById('pr-code')?.value?.trim()?.toUpperCase() || null;
   if (!name) { alert('Ingresá un nombre'); return; }
+
+  // Combo data
+  let combo_products = [];
+  let combo_price = 0;
+  if (type === 'combo') {
+    const selects = document.querySelectorAll('#pr-combo-list [data-combo-item] select');
+    combo_products = [...selects].map(s => s.value).filter(Boolean);
+    combo_price = parseFloat(document.getElementById('pr-combo-price')?.value) || 0;
+    if (!combo_products.length) { alert('Agregá al menos un producto al combo'); return; }
+    if (!combo_price) { alert('Ingresá el precio especial del combo'); return; }
+  }
+
   const btn = document.getElementById('pr-save-btn');
   btn.textContent = 'Creando...'; btn.disabled = true;
   try {
-    await ooFetch('/api/businesses/mine/promotions', { method:'POST', body:JSON.stringify({ name, type, value, min_order_amount:min, requires_code:needsCode, code:needsCode?code:null }) });
+    await ooFetch('/api/businesses/mine/promotions', { method:'POST', body:JSON.stringify({
+      name, type, value, min_order_amount:min, requires_code:needsCode,
+      code:needsCode?code:null, combo_products, combo_price
+    }) });
     ooRenderPromos();
   } catch(e) {
     btn.textContent = 'Crear promoción'; btn.disabled = false;
@@ -7940,6 +8056,11 @@ function ooRenderMore() {
     <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowNovedades()">
       <span style="font-size:26px;">📣</span>
       <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Novedades</div><div style="font-size:12px;color:#64748b;">Publicar contenido</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowReviews()">
+      <span style="font-size:26px;">⭐</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Reseñas</div><div style="font-size:12px;color:#64748b;">Lo que dicen tus clientes</div></div>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
     <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowWallet()">
@@ -8080,6 +8201,69 @@ async function ooShowStats(period) {
     const statsEl = document.getElementById('oo-stats-content');
     if (statsEl) statsEl.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
   }
+}
+
+// ── Reseñas ──────────────────────────────────
+async function ooShowReviews() {
+  const el = document.getElementById('oo-body');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;">
+      <button onclick="ooRenderMore()" style="background:none;border:none;cursor:pointer;color:#2558d4;font-size:13px;font-weight:600;padding:0;">← Volver</button>
+      <div style="font-size:15px;font-weight:800;color:#0f172a;">⭐ Reseñas</div>
+    </div>
+    <div id="oo-reviews-list"><div style="text-align:center;padding:40px;color:#94a3b8;">Cargando...</div></div>
+  `;
+  try {
+    const reviews = await ooFetch('/api/businesses/mine/reviews');
+    const listEl = document.getElementById('oo-reviews-list');
+    if (!listEl) return;
+    if (!reviews.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:50px 20px;"><div style="font-size:48px;">⭐</div><div style="font-size:15px;color:#94a3b8;margin-top:12px;">Todavía no tenés reseñas</div><div style="font-size:13px;color:#cbd5e1;margin-top:6px;">Las reseñas aparecen cuando los clientes califican sus pedidos entregados</div></div>';
+      return;
+    }
+    const avg = (reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1);
+    listEl.innerHTML = `
+      <div style="background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+        <div style="font-size:36px;font-weight:900;color:#0f172a;">${avg}</div>
+        <div style="color:#fbbf24;font-size:20px;margin:4px 0;">${'⭐'.repeat(Math.round(parseFloat(avg)))}</div>
+        <div style="font-size:13px;color:#64748b;">${reviews.length} reseña${reviews.length!==1?'s':''}</div>
+      </div>
+      ${reviews.map(r => `
+        <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div style="font-size:13px;font-weight:700;color:#0f172a;">${r.customer_name||'Cliente'}</div>
+            <div style="display:flex;gap:2px;">${'⭐'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
+          </div>
+          ${r.comment?`<div style="font-size:13px;color:#374151;margin-bottom:8px;">"${r.comment}"</div>`:''}
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:${r.owner_reply?'10':'0'}px;">${new Date(r.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short',year:'numeric'})}</div>
+          ${r.owner_reply ? `
+            <div style="background:#f0fdf4;border-left:3px solid #16a34a;border-radius:0 10px 10px 0;padding:10px 12px;margin-top:8px;">
+              <div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:4px;">Tu respuesta</div>
+              <div style="font-size:13px;color:#374151;">${r.owner_reply}</div>
+            </div>` : `
+            <div style="margin-top:8px;display:flex;gap:8px;">
+              <input id="reply-input-${r.id}" placeholder="Escribí tu respuesta..." style="flex:1;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;">
+              <button onclick="ooReplyReview('${r.id}')" style="background:#0f172a;border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Responder</button>
+            </div>`}
+        </div>
+      `).join('')}
+    `;
+  } catch(e) {
+    const listEl = document.getElementById('oo-reviews-list');
+    if (listEl) listEl.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+  }
+}
+
+async function ooReplyReview(reviewId) {
+  const input = document.getElementById('reply-input-'+reviewId);
+  const reply = input?.value?.trim();
+  if (!reply) { showToast('Escribí una respuesta'); return; }
+  try {
+    await ooFetch(`/api/reviews/${reviewId}/reply`, { method:'PATCH', body: JSON.stringify({ reply }) });
+    showToast('✅ Respuesta publicada');
+    ooShowReviews();
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 // ── Novedades ────────────────────────────────
@@ -8510,6 +8694,25 @@ function ooShowRetiro() { ooOpenRetiroModal(); }
     <button class="oo-tab"        id="oo-tab-menu"     onclick="ooTab('menu')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>Menú</button>
     <button class="oo-tab"        id="oo-tab-stats"    onclick="ooTab('stats')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Stats</button>
     <button class="oo-tab"        id="oo-tab-settings" onclick="ooTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Config</button>
+  </div>
+</div>
+
+<!-- ── Review Modal ── -->
+<div id="review-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);align-items:flex-end;justify-content:center;">
+  <div style="background:#fff;border-radius:24px 24px 0 0;padding:24px;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));">
+    <div style="font-size:17px;font-weight:800;color:#0f172a;margin-bottom:4px;" id="review-modal-title">⭐ Dejar reseña</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:20px;" id="review-modal-sub">Contanos tu experiencia</div>
+    <!-- Stars -->
+    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px;" id="review-stars">
+      ${[1,2,3,4,5].map(i=>`<button onclick="setReviewStar(${i})" id="rstar-${i}" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>`).join('')}
+    </div>
+    <textarea id="review-comment" placeholder="¿Qué te pareció? (opcional)" rows="3"
+      style="width:100%;border:1.5px solid #e2e8f0;border-radius:14px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;resize:none;box-sizing:border-box;outline:none;"></textarea>
+    <button onclick="submitReview()" id="review-submit-btn"
+      style="width:100%;margin-top:14px;background:#0f172a;border:none;border-radius:14px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+      Enviar reseña
+    </button>
+    <button onclick="closeReviewModal()" style="width:100%;margin-top:8px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar</button>
   </div>
 </div>
 
