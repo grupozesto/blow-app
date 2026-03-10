@@ -13,10 +13,17 @@
 /* ════════════════════════════════════
    BASE: Móvil navegador (Chrome/Safari)
    ════════════════════════════════════ */
-html,body{
+html{
   width:100%;height:100%;
   overflow:hidden;
-  background:#1740b0;
+  /* Azul: status bar iOS en PWA queda del color del header */
+  background:#1535a8;
+}
+body{
+  width:100%;height:100%;
+  overflow:hidden;
+  /* Blanco: safe-area inferior toma color del bot-nav */
+  background:#fff;
   font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI','Helvetica Neue',sans-serif;
 }
 #shell{
@@ -53,6 +60,7 @@ html,body{
 
   /* html y body: full screen, sin scroll exterior */
   html,body{width:100%!important;height:100%!important;overflow:hidden!important;background:#f0f3f8!important;}
+  html{background:#f0f3f8!important;}
 
   /* Shell: fila sidebar + área principal, ocupa toda la pantalla */
   #shell{
@@ -233,7 +241,7 @@ html,body{
 .w-sub{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:14px;}
 .w-btn{width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;}
 .w-btn:active{background:rgba(255,255,255,.22);transform:scale(.98);}
-.w-dots{display:flex;justify-content:center;gap:7px;margin-bottom:14px;}
+.w-dots{display:flex;justify-content:center;gap:7px;padding:10px 0 12px;margin-bottom:0;}
 .w-dot{width:6px;height:6px;border-radius:50%;background:#d1d9e6;cursor:pointer;transition:all .2s;border:none;}
 .w-dot.on{background:#1c4ed8;width:18px;border-radius:3px;}
 
@@ -999,7 +1007,7 @@ function renderHome(){
 
   el.innerHTML=`
     <!-- WALLET SLIDER (primero, like screenshot) -->
-    <div class="wallet-outer" style="margin-bottom:0;">
+    <div class="wallet-outer">
       <div class="wallet-track" id="wt" ontouchstart="wTouchStart(event)" ontouchend="wTouchEnd(event)">
         <div style="min-width:100%;"><div class="wallet-slide ws-blue">
           <div class="w-label">
