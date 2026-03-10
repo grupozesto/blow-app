@@ -997,6 +997,46 @@ const NEXT_STATUS={
 
 // ════════ HOME ════════
 function renderHome(){
+  // Onboarding para negocios nuevos
+  const biz = _biz || {};
+  const isNew = (!_dash?.orders?.length) && (!_dash?.products?.length);
+  if (isNew) {
+    const el = document.getElementById('content-area');
+    el.innerHTML = `
+      <div style="text-align:center;padding:30px 20px 20px;">
+        <div style="font-size:48px;margin-bottom:12px;">🎉</div>
+        <div style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:8px;">¡Bienvenido a Blow!</div>
+        <div style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:24px;">Tu negocio está registrado. Completá estos pasos para empezar a recibir pedidos.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${!biz.logo_url ? `<div onclick="showEditPhotos()" style="background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+          <div style="width:44px;height:44px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📸</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:700;">Subir logo y portada</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">Los negocios con fotos reciben 3× más pedidos</div></div>
+          <span style="color:#94a3b8;font-size:18px;">›</span>
+        </div>` : `<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;">
+          <div style="font-size:22px;">✅</div><div style="font-size:14px;font-weight:700;color:#166534;">Fotos subidas</div>
+        </div>`}
+        <div onclick="nav('menu')" style="background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+          <div style="width:44px;height:44px;border-radius:12px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🍽️</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:700;">Agregar tus productos</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">Sin productos no podés recibir pedidos</div></div>
+          <span style="color:#94a3b8;font-size:18px;">›</span>
+        </div>
+        <div onclick="nav('settings')" style="background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+          <div style="width:44px;height:44px;border-radius:12px;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">⏰</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:700;">Configurar horarios</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">El negocio se abre y cierra automáticamente</div></div>
+          <span style="color:#94a3b8;font-size:18px;">›</span>
+        </div>
+        <div onclick="showEditDelivery()" style="background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+          <div style="width:44px;height:44px;border-radius:12px;background:#e0f2fe;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🛵</div>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:700;">Configurar delivery</div><div style="font-size:12px;color:#94a3b8;margin-top:2px;">Costo y tiempo de entrega</div></div>
+          <span style="color:#94a3b8;font-size:18px;">›</span>
+        </div>
+      </div>
+      <div style="margin-top:20px;background:#eff6ff;border-radius:16px;padding:16px;text-align:center;">
+        <div style="font-size:13px;color:#1e40af;">¿Necesitás ayuda? <a href="https://wa.me/59891234567?text=Hola, necesito ayuda para configurar mi negocio en Blow" target="_blank" style="font-weight:700;color:#1e40af;">Escribinos por WhatsApp →</a></div>
+      </div>`;
+    return;
+  }
   const el=document.getElementById('content-area');
   const b=_biz||{};
   const d=_dash||{};
@@ -1219,6 +1259,7 @@ function renderOrderCard(o,compact=false){
     ${next?`<div style="display:flex;gap:8px;">
       <button onclick="updateOrder('${o.id}','${next.next}')" style="flex:1;background:var(--primary);border:none;border-radius:10px;padding:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">${next.label}</button>
       <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}',this)" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">💬</button>
+      <button onclick="printTicket(${JSON.stringify(o).replace(/'/g,'&#39;')})" style="background:rgba(255,255,255,.08);border:none;border-radius:10px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;" title="Imprimir ticket">🖨️</button>
       <button onclick="updateOrder('${o.id}','cancelled')" style="background:rgba(239,68,68,.15);border:none;border-radius:10px;padding:10px 13px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;">✕</button>
     </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}',this)" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">💬 Ver chat</button>`}
   </div>`;
@@ -1523,6 +1564,43 @@ function renderSettings(){
         {fn:"renderNovedades()",icon:'📣',label:'Novedades',sub:'Publicar contenido'},
       ].map(a=>`<button class="ab" onclick="${a.fn}"><span class="qa-icon">${a.icon}</span><span class="qa-title">${a.label}</span><span class="qa-sub">${a.sub}</span></button>`).join('')}
     </div>
+    <div class="sec">SOPORTE</div>
+    <div class="card" style="margin-bottom:10px;">
+      <a href="https://wa.me/59891234567?text=Hola, soy dueño de un negocio en Blow y necesito ayuda" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:6px 0;">
+        <div style="width:40px;height:40px;border-radius:12px;background:#25D366;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">💬</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;color:#1a1a1a;">WhatsApp soporte</div>
+          <div style="font-size:12px;color:#94a3b8;">Lun a Vie · 9 a 18hs</div>
+        </div>
+        <span style="color:#94a3b8;font-size:18px;">›</span>
+      </a>
+      <div style="height:1px;background:var(--border);margin:8px 0;"></div>
+      <a href="mailto:negocios@blow.uy" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:6px 0;">
+        <div style="width:40px;height:40px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">✉️</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;color:#1a1a1a;">negocios@blow.uy</div>
+          <div style="font-size:12px;color:#94a3b8;">Respondemos en 24hs</div>
+        </div>
+      </a>
+    </div>
+    <div class="sec">LEGAL</div>
+    <div class="card" style="margin-bottom:10px;">
+      <div onclick="showTerms()" style="display:flex;align-items:center;gap:12px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border);">
+        <span style="font-size:20px;">📋</span>
+        <span style="font-size:14px;font-weight:600;flex:1;">Términos y condiciones</span>
+        <span style="color:#94a3b8;">›</span>
+      </div>
+      <div onclick="showPrivacy()" style="display:flex;align-items:center;gap:12px;padding:8px 0;cursor:pointer;">
+        <span style="font-size:20px;">🔒</span>
+        <span style="font-size:14px;font-weight:600;flex:1;">Política de privacidad</span>
+        <span style="color:#94a3b8;">›</span>
+      </div>
+    </div>
+    <div style="padding:20px 0 8px;text-align:center;">
+      <div style="font-size:20px;margin-bottom:4px;">⚡</div>
+      <div style="font-size:12px;font-weight:700;color:#94a3b8;">Blow Negocios · Uruguay</div>
+      <div style="font-size:11px;color:#cbd5e1;margin-top:2px;">negocios@blow.uy</div>
+    </div>
     <div class="sec">HORARIOS AUTOMÁTICOS</div>
     <div class="card" style="margin-bottom:10px;">
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">El negocio se abre y cierra solo según este horario.</div>
@@ -1716,6 +1794,88 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 function playAlert(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[520,660,800].forEach((freq,i)=>{const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=freq;o.type='sine';g.gain.setValueAtTime(.3,ctx.currentTime+i*.12);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+i*.12+.15);o.start(ctx.currentTime+i*.12);o.stop(ctx.currentTime+i*.12+.15);});}catch(_){}}
 
 
+
+// ════════════════════════════════════════
+// IMPRIMIR TICKET
+// ════════════════════════════════════════
+function printTicket(o) {
+  const time = new Date(o.created_at).toLocaleString('es-UY', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const items = (o.items||[]).map(i => `
+    <tr>
+      <td style="padding:4px 0;">${i.quantity}× ${i.name}</td>
+      <td style="text-align:right;padding:4px 0;">$${Math.round((i.unit_price||i.price||0)*i.quantity)}</td>
+    </tr>`).join('');
+  const pay = o.payment_method === 'cash' ? '💵 Efectivo' : '💳 Online';
+  const typ = o.fulfillment_type === 'pickup' ? '🏪 Retiro en el local' : '🛵 Delivery';
+
+  const win = window.open('', '_blank', 'width=400,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Ticket #${(o.id||'').slice(-6).toUpperCase()}</title>
+  <style>
+    body{font-family:monospace;max-width:320px;margin:20px auto;padding:20px;font-size:14px;}
+    .center{text-align:center;} .big{font-size:20px;font-weight:bold;} .line{border-top:1px dashed #000;margin:10px 0;}
+    table{width:100%;} td{vertical-align:top;} .total{font-size:16px;font-weight:bold;}
+    @media print{body{margin:0;padding:10px;}}
+  </style></head><body>
+  <div class="center big">⚡ Blow</div>
+  <div class="center" style="font-size:12px;margin-bottom:8px;">${_biz?.name||'Mi Negocio'}</div>
+  <div class="line"></div>
+  <div><b>Pedido:</b> #${(o.id||'').slice(-6).toUpperCase()}</div>
+  <div><b>Fecha:</b> ${time}</div>
+  <div><b>Cliente:</b> ${o.customer_name||'—'}</div>
+  <div><b>Tipo:</b> ${typ}</div>
+  <div><b>Pago:</b> ${pay}</div>
+  ${o.delivery_address?`<div><b>Dirección:</b> ${o.delivery_address}</div>`:''}
+  ${o.notes?`<div><b>Notas:</b> ${o.notes}</div>`:''}
+  <div class="line"></div>
+  <table>${items}</table>
+  <div class="line"></div>
+  ${o.delivery_cost>0?`<div style="display:flex;justify-content:space-between;"><span>Envío:</span><span>$${o.delivery_cost}</span></div>`:''}
+  ${o.tip>0?`<div style="display:flex;justify-content:space-between;"><span>Propina:</span><span>$${o.tip}</span></div>`:''}
+  <div class="line"></div>
+  <div style="display:flex;justify-content:space-between;" class="total"><span>TOTAL:</span><span>$${Math.round(o.total||0)}</span></div>
+  <div class="line"></div>
+  <div class="center" style="font-size:11px;margin-top:10px;">Gracias por elegir Blow ⚡<br>blow.uy</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => { win.print(); win.close(); }, 300);
+}
+
+// ════════════════════════════════════════
+// TÉRMINOS Y PRIVACIDAD
+// ════════════════════════════════════════
+function showTerms() {
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 Términos y condiciones</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:16px;">Última actualización: enero 2025</div>
+    <div style="font-size:13px;color:#444;line-height:1.7;max-height:60vh;overflow-y:auto;padding-right:4px;">
+      <b>1. Servicio</b><br>Blow es una plataforma que conecta negocios con clientes para pedidos a domicilio o retiro. Blow actúa como intermediario tecnológico.<br><br>
+      <b>2. Suscripción</b><br>El acceso al portal de negocios requiere una suscripción mensual activa. El precio y condiciones están disponibles en blow.uy/negocios.<br><br>
+      <b>3. Comisiones</b><br>Blow cobra una comisión por pedido completado según el plan contratado. Las comisiones se descuentan automáticamente del saldo acumulado.<br><br>
+      <b>4. Responsabilidades</b><br>El negocio es responsable de la calidad, inocuidad y entrega de sus productos. Blow no es responsable por productos defectuosos o entregas fallidas.<br><br>
+      <b>5. Contenido</b><br>El negocio garantiza que sus fotos, descripciones y precios son verídicos y actualizados. Blow puede suspender cuentas con información falsa.<br><br>
+      <b>6. Ley aplicable</b><br>Estos términos se rigen por las leyes de la República Oriental del Uruguay.
+    </div>
+    <button class="btn btn-g btn-f" style="margin-top:16px;" onclick="closeMod()">Cerrar</button>`;
+  document.getElementById('modal-ov').classList.add('show');
+}
+
+function showPrivacy() {
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔒 Política de privacidad</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:16px;">Ley 18.331 Uruguay</div>
+    <div style="font-size:13px;color:#444;line-height:1.7;max-height:60vh;overflow-y:auto;padding-right:4px;">
+      <b>Datos que recopilamos</b><br>Nombre del negocio, RUT, datos de contacto, fotos e información de productos. Datos de facturación para procesar pagos.<br><br>
+      <b>Uso de los datos</b><br>Para gestionar tu cuenta, procesar pagos, mostrar tu negocio a clientes y enviarte notificaciones operativas.<br><br>
+      <b>Compartición</b><br>Compartimos datos necesarios con MercadoPago para procesar pagos. No vendemos datos a terceros.<br><br>
+      <b>Seguridad</b><br>Usamos HTTPS, tokens JWT y cifrado de datos sensibles. No almacenamos datos de tarjetas.<br><br>
+      <b>Tus derechos</b><br>Podés solicitar acceso, rectificación o eliminación de tus datos escribiendo a privacidad@blow.uy.
+    </div>
+    <button class="btn btn-g btn-f" style="margin-top:16px;" onclick="closeMod()">Cerrar</button>`;
+  document.getElementById('modal-ov').classList.add('show');
+}
 </script>
 </body>
 </html>
