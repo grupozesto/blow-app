@@ -6597,8 +6597,28 @@ function dismissIOSBanner() {
   localStorage.setItem('ios_banner_dismissed', Date.now());
 }
 
-// Detectar retorno desde MercadoPago
+// ── Impersonación desde panel admin ──
 const urlP = new URLSearchParams(window.location.search);
+const _impToken = urlP.get('imp_token');
+const _impUserStr = urlP.get('imp_user');
+if (_impToken && _impUserStr) {
+  try {
+    const _impUser = JSON.parse(decodeURIComponent(_impUserStr));
+    // Guardar sesión impersonada
+    localStorage.setItem('da_token', _impToken);
+    localStorage.setItem('da_user', JSON.stringify(_impUser));
+    token = _impToken;
+    user = _impUser;
+    window.history.replaceState({}, '', '/');
+    showToast(`👤 Accediendo como ${_impUser.name} (${_impUser.role})`);
+    renderProfile();
+    if (_impUser.role === 'owner') {
+      setTimeout(() => enterOwnerOverlay(), 300);
+    }
+  } catch(e) { console.error('Impersonation error:', e); }
+}
+
+// Detectar retorno desde MercadoPago
 const payStatus = urlP.get('payment');
 const blowplusStatus = urlP.get('blowplus');
 if (payStatus) {
