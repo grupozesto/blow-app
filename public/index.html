@@ -1203,10 +1203,12 @@ body.owner-mode #owner-overlay {
     <!-- Configuración -->
     <div class="menu-list">
       <div class="menu-sec-title">Configuración</div>
-      <div class="menu-item" id="portal-negocios-item" onclick="handleOwnerAccess()">
-        <div class="mi-icon yellow">🏪</div>
-        <div class="mi-text"><span>Portal de Negocios</span><small>Gestioná tu marca</small></div>
-        <span class="mi-arrow">›</span>
+      <div class="menu-item" id="portal-negocios-item" onclick="handleOwnerAccess()" style="border:1.5px solid #ea356b22;border-radius:14px;background:linear-gradient(135deg,#fff5f8,#fff);">
+        <div class="mi-icon" style="background:linear-gradient(135deg,#ea356b,#c42558);font-size:20px;">🏪</div>
+        <div class="mi-text">
+          <span style="font-weight:800;color:#0f172a;">Portal de Negocios</span>
+          <small id="portal-negocios-sub" style="color:#ea356b;font-weight:600;">Ingresar o registrar negocio →</small>
+        </div>
       </div>
       <div class="menu-sec-title">Sesión</div>
       <div class="menu-item" id="session-item" onclick="handleSession()">
@@ -4041,9 +4043,9 @@ function renderProfile() {
       const s = el(id); if(s) s.style.display = isCustomer ? '' : 'none';
     });
 
-    // Portal de Negocios: hide for customers
+    // Portal de Negocios: siempre visible para todos los roles
     const portalItem = el('portal-negocios-item');
-    if (portalItem) portalItem.style.display = isCustomer ? 'none' : '';
+    if (portalItem) portalItem.style.display = '';
 
   } else {
     // NOT logged in - hide everything except session button and portal
@@ -4064,13 +4066,29 @@ function renderProfile() {
     const portalItem = el('portal-negocios-item');
     if (portalItem) portalItem.style.display = '';
   }
+  updatePortalItemText();
 }
 
 
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
-  // Redirigir siempre al portal de negocios independiente
+  // Siempre redirigir al portal de negocios independiente
   window.location.href = '/business';
+}
+
+function updatePortalItemText() {
+  const sub = document.getElementById('portal-negocios-sub');
+  if (!sub) return;
+  if (user && user.role === 'owner') {
+    sub.textContent = 'Gestionar mi negocio →';
+    sub.style.color = '#16a34a';
+  } else if (user) {
+    sub.textContent = 'Registrar mi negocio →';
+    sub.style.color = '#ea356b';
+  } else {
+    sub.textContent = 'Ingresar o registrar negocio →';
+    sub.style.color = '#ea356b';
+  }
 }
 
 // ═══════════════════════════════════════════════
