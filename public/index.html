@@ -6534,8 +6534,7 @@ async function ooLoadData() {
     else logoEl.textContent = _ooBiz.logo_emoji || '🏪';
     const isOpen = _ooBiz.is_open;
     const statusEl = document.getElementById('oo-status');
-    statusEl.className   = isOpen ? 'oo-status-open' : 'oo-status-closed';
-    statusEl.textContent = isOpen ? '● Abierto' : '● Cerrado';
+    if (statusEl) { statusEl.className = isOpen ? 'oo-status-open' : 'oo-status-closed'; statusEl.textContent = isOpen ? '● Abierto' : '● Cerrado'; }
     // KPIs from dashboard data
     const orders = d.orders || [];
     const today  = d.today  || {};
