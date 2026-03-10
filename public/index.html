@@ -1044,9 +1044,9 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
     <button onclick="nav('page-cart')" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;">←</button>
     <h1 style="margin:0;font-size:18px;">Último paso</h1>
   </div>
-  <div class="sc" id="checkout-body" style="padding:0 16px 160px;"></div>
+  <div class="sc" id="checkout-body" style="padding:0 16px 200px;"></div>
   <!-- Total fijo al fondo — encima de la nav bar -->
-  <div style="position:fixed;bottom:var(--nav);left:0;right:0;background:#fff;border-top:1.5px solid #f0f0f0;padding:12px 16px 12px;z-index:190;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
+  <div style="position:fixed;bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px));left:0;right:0;background:#fff;border-top:1.5px solid #f0f0f0;padding:12px 16px;z-index:190;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <span style="font-size:15px;font-weight:700;color:#64748b;">Total a pagar</span>
       <span style="font-size:24px;font-weight:900;color:#0f172a;" id="checkout-total-display">$0</span>
@@ -3349,12 +3349,15 @@ let _chkPriority = false;
 let _chkNotes = '';
 let _chkFulfillment = null; // 'delivery' | 'pickup' — null = auto
 let _chkAddress = '';
+let _chkAltAddress = '';
+let _chkShowAltAddr = false;
 
 function openCheckoutPage() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
   if (!cart.length) return;
-  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkFulfillment = null; _chkAddress = user?.address || '';
+  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkFulfillment = null;
+  _chkAddress = ''; _chkAltAddress = ''; _chkShowAltAddr = false;
   nav('page-checkout');
   renderCheckoutPage();
 }
@@ -3430,28 +3433,31 @@ function renderCheckoutPage() {
       </div>
 
       ${isDelivery ? `
-      <!-- Dirección guardada por defecto -->
-      ${addrs.map(a => {
-        const addrVal = a.full_address || a.label;
-        const sel = _chkAddress === addrVal;
-        return `<div onclick="chkSelectAddr('${addrVal.replace(/'/g,"\\'")}', event)"
-          style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:2px solid ${sel?'#2558d4':'#e2e8f0'};background:${sel?'#eff6ff':'#fff'};margin-bottom:8px;cursor:pointer;">
-          <span style="font-size:16px;">📍</span>
+      ${(() => {
+        const defaultA = addrs[0];
+        const defaultVal = defaultA ? (defaultA.full_address || defaultA.label) : '';
+        if (!_chkAddress && defaultVal) _chkAddress = defaultVal;
+        const showInput = _chkShowAltAddr || !defaultVal;
+        return \`
+        \${defaultVal ? \`
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:#eff6ff;border:2px solid #2558d4;margin-bottom:10px;">
+          <span style="font-size:18px;">📍</span>
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:700;color:${sel?'#2558d4':'#0f172a'};">${a.label||'Mi dirección'}</div>
-            <div style="font-size:11px;color:#64748b;">${a.full_address||a.label}</div>
+            <div style="font-size:11px;font-weight:700;color:#2558d4;margin-bottom:1px;">\${defaultA.label||'Mi dirección'}</div>
+            <div style="font-size:13px;font-weight:600;color:#0f172a;">\${defaultVal}</div>
           </div>
-          ${sel?'<span style="color:#2558d4;font-weight:800;font-size:14px;">✓</span>':''}
-        </div>`;
-      }).join('')}
-
-      <!-- Agregar dirección nueva (siempre visible abajo) -->
-      <div style="border-top:${addrs.length?'1px solid #f1f5f9':'none'};padding-top:${addrs.length?'10px':'0'};">
-        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px;">OTRA DIRECCIÓN</div>
-        <input id="chk-address-input" value="${!addrs.length?(_chkAddress||''):''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
-          style="width:100%;border:1.5px solid ${!_chkAddress||!addrs.length?'#2558d4':'#e2e8f0'};border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
-          oninput="_chkAddress=this.value;_chkCustomAddr=this.value;">
-      </div>` : `
+          <span style="color:#2558d4;font-weight:900;font-size:15px;">✓</span>
+        </div>
+        <button onclick="chkToggleAltAddr()" style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:\${showInput?'8px':'0'};">
+          \${showInput ? '✕ Cancelar' : '📝 Entregar en otra dirección'}
+        </button>\` : ''}
+        <div style="display:\${showInput?'block':'none'};">
+          \${!defaultVal?'<div style="font-size:12px;color:#ef4444;font-weight:600;margin-bottom:6px;">⚠️ No tenés dirección guardada</div>':''}
+          <input id="chk-address-input" value="\${(!defaultVal||_chkShowAltAddr)?(_chkAltAddress||''):''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
+            style="width:100%;border:1.5px solid #2558d4;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
+            oninput="_chkAltAddress=this.value;_chkAddress=this.value;">
+        </div>\`;
+      })()}` : `
       <!-- Retiro -->
       <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;">
         <span style="font-size:18px;">🏪</span>
@@ -3551,10 +3557,24 @@ function chkTogglePriority() {
   renderCheckoutPage();
 }
 
+function chkToggleAltAddr() {
+  _chkShowAltAddr = !_chkShowAltAddr;
+  if (!_chkShowAltAddr) {
+    // Revert to saved address
+    const addrs = user?.addresses || [];
+    const defaultA = addrs[0];
+    _chkAddress = defaultA ? (defaultA.full_address || defaultA.label) : '';
+    _chkAltAddress = '';
+  }
+  renderCheckoutPage();
+  if (_chkShowAltAddr) setTimeout(() => document.getElementById('chk-address-input')?.focus(), 50);
+}
+
 function chkSetFulfillment(type) {
   _chkFulfillment = type;
   _chkPriority = false;
-  if (type === 'pickup') _chkTip = 0; // sin propina al retirar
+  _chkShowAltAddr = false;
+  if (type === 'pickup') _chkTip = 0;
   renderCheckoutPage();
 }
 
