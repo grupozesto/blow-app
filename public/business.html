@@ -1474,7 +1474,7 @@ async function renderStats(period){
     const dayNames=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     const barW=Math.floor(280/entries.length);const chartH=80;
     const svgBars=entries.map(([date,v],i)=>{const h=Math.max(3,Math.round((v.revenue/maxRev)*chartH));const x=i*barW+2;const y=chartH-h;const dn=dayNames[new Date(date+'T12:00:00').getDay()];return `<g><rect x="${x}" y="${y}" width="${barW-3}" height="${h}" rx="3" fill="${v.revenue>0?'#3b82f6':'rgba(255,255,255,.08)'}"/>${_statsPeriod<=14?`<text x="${x+(barW-3)/2}" y="${chartH+14}" text-anchor="middle" font-size="8" fill="rgba(255,255,255,.4)">${dn}</text>`:''}</g>`;}).join('');
-    const pills=[7,14,30].map(p=>`<button onclick="renderStats(${p})" style="padding:6px 14px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;background:${_statsPeriod===p?'var(--primary)':'rgba(255,255,255,.08)'};color:${_statsPeriod===p?'#fff':'var(--muted)'};">${p} días</button>`).join('');
+    const pills=[7,14,30].map(p=>`<button onclick="renderStats(${p})" style="padding:6px 14px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;background:${_statsPeriod===p?'var(--primary)':'#e2e8f0'};color:${_statsPeriod===p?'#fff':'#64748b'};">${p} días</button>`).join('');
     el.innerHTML=`
       <div style="display:flex;gap:6px;margin-bottom:14px;">${pills}</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
