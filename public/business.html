@@ -41,8 +41,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #content-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f1f5f9;padding:12px 12px calc(env(safe-area-inset-bottom) + 12px);}
 
 /* ── BOTTOM NAV (blanco) ── */
-#bot-nav{flex-shrink:0;background:#fff;border-top:1px solid #e2e8f0;display:flex;padding-bottom:env(safe-area-inset-bottom);}
-.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 2px 6px;border:none;background:none;color:#94a3b8;font-size:9px;font-weight:600;cursor:pointer;font-family:inherit;position:relative;}
+#bot-nav{flex-shrink:0;background:#fff;border-top:1px solid #e2e8f0;display:flex;padding-bottom:max(12px,env(safe-area-inset-bottom));}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 2px 6px;border:none;background:none;color:#94a3b8;font-size:9px;font-weight:600;cursor:pointer;font-family:inherit;position:relative;}
 .nb svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .nb.on{color:#1e40af;}
 .nb.on svg{stroke-width:2.2;}
@@ -53,27 +53,27 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .card-title{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:10px;}
 
 /* ── TOGGLE ── */
-.tog{width:46px;height:26px;border-radius:13px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
+.tog{width:50px;height:28px;border-radius:14px;border:none;cursor:pointer;position:relative;transition:background .25s;flex-shrink:0;display:inline-block;}
 .tog.on{background:#16a34a;}
 .tog.off{background:#cbd5e1;}
-.tog::after{content:'';width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;transition:left .18s;box-shadow:0 1px 4px rgba(0,0,0,.2);}
-.tog.on::after{left:23px;}
-.tog.off::after{left:3px;}
+.tog-k{width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;transition:left .2s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 6px rgba(0,0,0,.25);}
+.tog.on .tog-k{left:25px;}
+.tog.off .tog-k{left:3px;}
 
 /* ── WALLET SLIDER ── */
 .wallet-outer{overflow:hidden;border-radius:14px;margin-bottom:8px;box-shadow:0 2px 12px rgba(0,0,0,.12);}
 .wallet-track{display:flex;transition:transform .28s cubic-bezier(.4,0,.2,1);}
 .wallet-slide{min-width:100%;padding:18px;color:#fff;}
-.ws-blue{background:linear-gradient(135deg,#1e3a8a,#2563eb);}
-.ws-green{background:linear-gradient(135deg,#064e3b,#059669);}
-.ws-amber{background:linear-gradient(135deg,#78350f,#d97706);}
+.ws-blue{background:linear-gradient(135deg,#1e40af,#3b82f6);}
+.ws-green{background:linear-gradient(135deg,#065f46,#10b981);}
+.ws-amber{background:linear-gradient(135deg,#92400e,#f59e0b);}
 .w-label{font-size:9px;font-weight:800;opacity:.6;letter-spacing:.8px;margin-bottom:4px;}
 .w-amount{font-size:32px;font-weight:900;margin-bottom:1px;}
 .w-sub{font-size:11px;opacity:.5;margin-bottom:14px;}
 .w-btn{width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
 .w-dots{display:flex;justify-content:center;gap:6px;margin-bottom:10px;}
-.w-dot{width:6px;height:6px;border-radius:50%;background:#cbd5e1;cursor:pointer;transition:background .18s;}
-.w-dot.on{background:#1e40af;width:18px;}
+.w-dot{width:7px;height:7px;border-radius:50%;background:#cbd5e1;cursor:pointer;transition:all .18s;}
+.w-dot.on{background:#1e40af;width:20px;border-radius:4px;}
 
 /* ── ORDER CARDS ── */
 .oc{background:#fff;border-radius:12px;border:1px solid #e8edf5;border-left:3px solid #94a3b8;padding:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
@@ -386,7 +386,7 @@ select.finp{background:#f8faff;}
       <div class="hdr-name" id="h-name">Mi Negocio</div>
       <div class="hdr-sub" id="h-sub">Portal de gestión</div>
     </div>
-    <span id="h-badge" class="badge-closed">● Cerrado</span>
+    <span id="h-badge" class="badge-closed" style="display:none;"></span>
     <button class="hdr-exit" onclick="volverABlow()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Salir
@@ -673,7 +673,7 @@ function updateHeader(){
   const b=_biz||{};
   document.getElementById('h-name').textContent=b.name||'Mi Negocio';
   document.getElementById('h-sub').textContent=b.city||'Portal de gestión';
-  const statusEl=document.getElementById('h-badge');
+  const statusEl=document.getElementById('h-badge');statusEl.style.display='none';
   statusEl.textContent=b.is_open?'● Abierto':'● Cerrado';
   statusEl.className=b.is_open?'h-open':'h-closed';
   const logoEl=document.getElementById('h-logo-img');
@@ -714,7 +714,7 @@ function nav(tab){
   else if(tab==='orders')renderOrders();
   else if(tab==='menu')renderMenu();
   else if(tab==='stats')renderStats();
-  else if(tab==='settings')renderSettings();
+  else if(tab==='settings'||tab==='cfg')renderSettings();
 }
 
 // ════════ STATUS MAPS ════════
@@ -746,44 +746,56 @@ function renderHome(){
   const isOpen=b.is_open;
 
   el.innerHTML=`
-    <!-- Toggle -->
-    <div class="card" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div>
-        <div style="font-size:14px;font-weight:700;">Estado del negocio</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="toggle-sub">${isOpen?'Estás recibiendo pedidos':'No estás recibiendo pedidos'}</div>
+    <!-- Estado del negocio -->
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;padding:14px 16px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:2px;">Estado del negocio</div>
+        <div style="font-size:12px;color:${isOpen?'#16a34a':'#94a3b8'};font-weight:600;" id="toggle-sub">${isOpen?'✅ Estás recibiendo pedidos':'⏸️ No estás recibiendo pedidos'}</div>
       </div>
-      <button class="toggle ${isOpen?'on':'off'}" id="toggle-btn" onclick="toggleOpen()"><div class="toggle-knob"></div></button>
+      <button class="tog ${isOpen?'on':'off'}" id="toggle-btn" onclick="toggleOpen()"><div class="tog-k"></div></button>
     </div>
 
+    <!-- 🆕 Pedidos nuevos (pendientes) -->
+    ${(()=>{
+      const newOrders = orders.filter(o=>o.status==='pending');
+      if(!newOrders.length) return '';
+      return `<div style="margin-bottom:10px;">
+        <div class="sec" style="margin-bottom:8px;">
+          <span>🔔 PEDIDOS NUEVOS (${newOrders.length})</span>
+        </div>
+        ${newOrders.map(o=>renderOrderCard(o)).join('')}
+      </div>`;
+    })()}
+
     <!-- Tiempo entrega -->
-    <div class="card" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div>
-        <div style="font-size:13px;font-weight:700;">⏱️ Tiempo de entrega</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Lo ve el cliente al hacer seguimiento</div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:14px 16px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:2px;">⏱️ Tiempo de entrega</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Lo ve el cliente al hacer seguimiento</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <button onclick="changeDeliveryTime(-5)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--card2);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
-        <span id="delivery-time-display" style="font-size:15px;font-weight:900;min-width:60px;text-align:center;">${b.delivery_time||'30'} min</span>
-        <button onclick="changeDeliveryTime(5)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--card2);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="changeDeliveryTime(-5)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid #e2e8f0;background:#f8faff;color:#0f172a;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;">−</button>
+        <span id="delivery-time-display" style="font-size:17px;font-weight:900;color:#0f172a;min-width:62px;text-align:center;">${b.delivery_time||'30'} min</span>
+        <button onclick="changeDeliveryTime(5)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid #e2e8f0;background:#f8faff;color:#0f172a;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;">+</button>
       </div>
     </div>
 
     <!-- Wallet slider -->
     <div style="overflow:hidden;margin-bottom:6px;border-radius:var(--r);" class="wallet-outer">
       <div style="display:flex;transition:transform .3s;" id="wt" ontouchstart="wTouchStart(event)" ontouchend="wTouchEnd(event)">
-        <div style="min-width:100%;"><div class="wallet-slide w-blue">
+        <div style="min-width:100%;"><div class="wallet-slide ws-blue">
           <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:4px;">💳 COBRADO ONLINE</div>
           <div style="font-size:34px;font-weight:900;" id="w-mp-val">$0</div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:14px;">Hoy: <span id="w-mp-today">$0</span></div>
           <button onclick="openRetiroModal()" style="width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">↑ Retirar fondos</button>
         </div></div>
-        <div style="min-width:100%;"><div class="wallet-slide w-blue" style="background:linear-gradient(135deg,#065f46,#059669);">
+        <div style="min-width:100%;"><div class="wallet-slide ws-green">
           <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:4px;">💵 COBRADO EN PERSONA</div>
           <div style="font-size:34px;font-weight:900;" id="w-cash-val">$0</div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:14px;">Hoy: <span id="w-cash-today">$0</span></div>
           <div style="font-size:13px;color:rgba(255,255,255,.6);">Pagos directos al negocio</div>
         </div></div>
-        <div style="min-width:100%;"><div class="wallet-slide w-blue" style="background:linear-gradient(135deg,#92400e,#d97706);">
+        <div style="min-width:100%;"><div class="wallet-slide ws-amber">
           <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:4px;">📊 VENTA TOTAL</div>
           <div style="font-size:34px;font-weight:900;" id="w-total-val">$0</div>
           <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:14px;">Este mes: <span id="w-month-val">$0</span></div>
@@ -792,9 +804,9 @@ function renderHome(){
       </div>
     </div>
     <div style="display:flex;justify-content:center;gap:6px;margin-bottom:14px;" id="wd">
-      <div onclick="walletGo(0)" style="width:6px;height:6px;border-radius:50%;background:var(--primary);cursor:pointer;"></div>
-      <div onclick="walletGo(1)" style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;"></div>
-      <div onclick="walletGo(2)" style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;"></div>
+      <div onclick="walletGo(0)" class="w-dot on"></div>
+      <div onclick="walletGo(1)" class="w-dot"></div>
+      <div onclick="walletGo(2)" class="w-dot"></div>
     </div>
 
     <!-- Pedidos activos -->
@@ -829,7 +841,7 @@ function renderHome(){
 }
 
 function showMore(sub){
-  nav('settings');
+  nav('cfg');
   // override after render
   setTimeout(()=>{
     if(sub==='reviews')renderReviews();
@@ -844,7 +856,7 @@ function wTouchEnd(e){const dx=e.changedTouches[0].clientX-_ooTouchX;if(dx<-40)w
 function walletGo(n){
   _ooWalletIdx=Math.max(0,Math.min(2,n));
   const t=document.getElementById('wt');if(t)t.style.transform=`translateX(-${_ooWalletIdx*100}%)`;
-  document.querySelectorAll('#wd .w-dot').forEach((d,i)=>d.style.background=i===_ooWalletIdx?'var(--primary)':'rgba(255,255,255,.2)');
+  document.querySelectorAll('#wd .w-dot').forEach((d,i)=>{d.classList.toggle('on',i===_ooWalletIdx);d.style.width='';});
 }
 
 function loadWalletData(){
