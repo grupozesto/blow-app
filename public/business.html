@@ -9,11 +9,16 @@
 <style>
 /* ── RESET ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html{height:100%;overflow:hidden;background:#1740b0;}
-body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI','Helvetica Neue',sans-serif;background:#f4f6f9;}
+html,body{
+  width:100%;height:100%;
+  overflow:hidden;
+  /* Azul del header: cubre la zona de status bar en iOS */
+  background:#1740b0;
+  font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI','Helvetica Neue',sans-serif;
+}
 
 /* ═══ SHELL ═══ */
-#shell{display:none;flex-direction:column;height:100%;overflow:hidden;}
+#shell{display:none;flex-direction:column;width:100%;height:100%;overflow:hidden;background:#f4f6f9;}
 /* En pantallas grandes, centrar y limitar ancho */
 @media(min-width:600px){
   body{background:#1c4ed8;}
@@ -24,18 +29,19 @@ body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'I
 /* Safe-area spacer: tapa la status bar con el mismo color del header */
 #hdr{
   flex-shrink:0;
+  width:100%;
   background:linear-gradient(175deg,#1740b0 0%,#2055d4 60%,#2d6ef0 100%);
-  padding:calc(env(safe-area-inset-top) + 10px) 14px 14px;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 16px;
   position:relative;overflow:hidden;
 }
 #hdr::before{content:'';position:absolute;top:-40px;right:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none;}
 @media(min-width:600px){#hdr{padding:16px 18px 16px;}}
-.hdr-top{display:flex;align-items:center;gap:9px;margin-bottom:10px;position:relative;z-index:1;}
-.hdr-logo{width:42px;height:42px;border-radius:10px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.15);}
+.hdr-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;position:relative;z-index:1;}
+.hdr-logo{width:48px;height:48px;border-radius:12px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.15);box-shadow:0 2px 12px rgba(0,0,0,.25);}
 .hdr-logo img{width:100%;height:100%;object-fit:cover;display:block;}
 .hdr-info{flex:1;min-width:0;}
-.hdr-name{font-size:17px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px;line-height:1.2;}
-.hdr-sub{font-size:12px;color:rgba(255,255,255,.45);margin-top:1px;}
+.hdr-name{font-size:19px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.2px;line-height:1.2;}
+.hdr-sub{font-size:13px;color:rgba(255,255,255,.55);margin-top:2px;}
 /* badge Abierto — verde sólido, punto pulsante */
 .hdr-status-btn{display:inline-flex;align-items:center;gap:5px;border:none;cursor:pointer;font-family:inherit;border-radius:20px;padding:6px 12px;flex-shrink:0;font-size:12px;font-weight:600;transition:opacity .2s;}
 .hdr-status-btn.open{background:#1a9e5c;color:#fff;border:none;box-shadow:none;}
@@ -46,25 +52,25 @@ body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'I
 .hdr-status-btn.closed .hdr-status-dot{background:rgba(255,255,255,.4);}
 .hdr-exit{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:6px 12px;color:rgba(255,255,255,.7);font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;font-family:inherit;flex-shrink:0;}
 /* KPI cards glassmorphism dentro del header */
-#kpi-bar{display:flex;gap:8px;position:relative;z-index:1;flex-shrink:0;background:none;border:none;}
-.kpi{flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 4px 8px;text-align:center;}
-.kpi-v{font-size:18px;font-weight:700;color:#fff;line-height:1;letter-spacing:-.2px;}
-.kpi-l{font-size:8px;font-weight:600;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
+#kpi-bar{display:flex;gap:10px;position:relative;z-index:1;flex-shrink:0;background:none;border:none;}
+.kpi{flex:1;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px 6px 10px;text-align:center;}
+.kpi-v{font-size:20px;font-weight:700;color:#fff;line-height:1;letter-spacing:-.3px;}
+.kpi-l{font-size:9px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-top:5px;}
 
 /* ═══ SCROLL CONTENT ═══ */
-#content-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f4f6f9;padding:12px 13px calc(env(safe-area-inset-bottom) + 14px);scroll-behavior:smooth;}
+#content-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f4f6f9;padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);scroll-behavior:smooth;}
 
 /* ═══ BOTTOM NAV ═══ */
 #bot-nav{flex-shrink:0;background:#fff;border-top:1px solid #e8edf5;display:flex;padding-bottom:calc(env(safe-area-inset-bottom) + 4px);box-shadow:none;}
-.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:9px 2px 9px;border:none;background:none;color:#94a3b8;font-size:9px;font-weight:600;cursor:pointer;font-family:inherit;position:relative;transition:color .15s;}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 2px 8px;border:none;background:none;color:#94a3b8;font-size:9px;font-weight:600;cursor:pointer;font-family:inherit;position:relative;transition:color .15s;}
 .nb:active{opacity:.7;}
-.nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.nb svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .nb.on{color:#1c4ed8;}
 .nb.on svg{stroke-width:2.4;}
 .nb-badge{position:absolute;top:6px;right:calc(50% - 18px);background:#ef4444;color:#fff;font-size:9px;font-weight:800;padding:1px 4px;border-radius:10px;min-width:14px;text-align:center;}
 
 /* ── CARDS blancas ── */
-.card{background:#fff;border-radius:14px;border:1px solid #e8edf5;padding:14px;margin-bottom:10px;box-shadow:none;}
+.card{background:#fff;border-radius:16px;border:1px solid #eaeef5;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
 @media(hover:hover){.qa-btn:hover,.ab:hover{background:#f8faff;border-color:#c7d2fe;}}
 .card-title{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:10px;}
 
@@ -79,23 +85,23 @@ body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'I
 /* ── WALLET SLIDER ── */
 .wallet-outer{overflow:hidden;border-radius:14px;margin-bottom:10px;box-shadow:0 1px 8px rgba(0,0,0,.1);}
 .wallet-track{display:flex;transition:transform .3s cubic-bezier(.4,0,.2,1);}
-.wallet-slide{min-width:100%;padding:14px 15px 13px;color:#fff;position:relative;overflow:hidden;}
+.wallet-slide{min-width:100%;padding:20px 18px 16px;color:#fff;position:relative;overflow:hidden;}
 .wallet-slide::before{display:none;}
 .ws-blue{background:linear-gradient(145deg,#0f2878 0%,#1a3fa6 55%,#2055cc 100%);}
 .ws-green{background:linear-gradient(145deg,#033d2c 0%,#065f46 55%,#057a5a 100%);}
 .ws-amber{background:linear-gradient(145deg,#5c2800 0%,#7c3a00 55%,#a05020 100%);}
 .w-label{font-size:9px;font-weight:600;color:rgba(255,255,255,.5);letter-spacing:.8px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
 .w-label-today{margin-left:auto;font-size:11px;color:rgba(255,255,255,.7);font-weight:700;letter-spacing:0;}
-.w-amount{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:1px;}
-.w-sub{font-size:10px;color:rgba(255,255,255,.45);margin-bottom:8px;}
+.w-amount{font-size:32px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px;}
+.w-sub{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:14px;}
 .w-btn{width:100%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;}
 .w-btn:active{background:rgba(255,255,255,.22);transform:scale(.98);}
-.w-dots{display:flex;justify-content:center;gap:6px;margin-bottom:12px;}
+.w-dots{display:flex;justify-content:center;gap:7px;margin-bottom:14px;}
 .w-dot{width:6px;height:6px;border-radius:50%;background:#d1d9e6;cursor:pointer;transition:all .2s;border:none;}
 .w-dot.on{background:#1c4ed8;width:18px;border-radius:3px;}
 
 /* ── ORDER CARDS ── */
-.oc{background:#fff;border-radius:12px;border:1px solid #e8edf5;border-left:3px solid #94a3b8;padding:13px;margin-bottom:10px;}
+.oc{background:#fff;border-radius:14px;border:1px solid #eaeef5;border-left:4px solid #94a3b8;padding:14px 14px 14px 12px;margin-bottom:10px;}
 .oc.pending{border-left-color:#f59e0b;}
 .oc.confirmed{border-left-color:#3b82f6;}
 .oc.preparing{border-left-color:#8b5cf6;}
@@ -115,16 +121,16 @@ body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'I
 .b-gray{background:#f1f5f9;color:#64748b;}
 
 /* ── SECTION LABELS ── */
-.sec{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin:18px 0 10px;display:flex;align-items:center;justify-content:space-between;}
+.sec{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.7px;margin:20px 0 10px;display:flex;align-items:center;justify-content:space-between;}
 .sec a{font-size:10px;font-weight:700;color:#1e40af;text-decoration:none;}
 
 /* ── QUICK ACTION GRID ── */
 .qa-grid,.ag{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
-.qa-btn,.ab{background:#fff;border:1px solid #e8edf5;border-radius:14px;padding:16px 14px 14px;cursor:pointer;text-align:left;font-family:inherit;box-shadow:none;display:block;width:100%;}
+.qa-btn,.ab{background:#fff;border:1px solid #eaeef5;border-radius:16px;padding:18px 16px 16px;cursor:pointer;text-align:left;font-family:inherit;box-shadow:0 1px 4px rgba(0,0,0,.04);display:block;width:100%;}
 .qa-btn:active,.ab:active{background:#f8faff;}
-.qa-icon{font-size:30px;margin-bottom:10px;display:block;}
-.qa-title{font-size:14px;font-weight:700;color:#0f172a;display:block;}
-.qa-sub{font-size:11px;color:#94a3b8;margin-top:3px;display:block;line-height:1.4;}
+.qa-icon{font-size:32px;margin-bottom:12px;display:block;}
+.qa-title{font-size:14px;font-weight:800;color:#0f172a;display:block;}
+.qa-sub{font-size:11px;color:#94a3b8;margin-top:4px;display:block;line-height:1.4;}
 
 /* ── DELIVERY TIME ROW ── */
 .dt-row{display:flex;align-items:center;gap:10px;}
