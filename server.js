@@ -1250,7 +1250,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
 app.get('/api/orders', auth, async (req, res) => {
   let orders;
-  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
+  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji,b.delivery_time as business_delivery_time FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
   else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
   const result=await Promise.all(orders.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])})));
