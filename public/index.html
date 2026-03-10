@@ -4101,13 +4101,11 @@ async function doLogin() {
     saveSession(data.token, data.user);
     closeAuth(); showToast(`👋 ¡Bienvenido, ${data.user.name}!`);
     renderProfile(); updateCartBadge();
-    if (data.user.role==='owner') { ownerAppSwitch(data.user); }
-    // delivery role hidden for now
-    else if (data.user.role==='admin') {
+    if (data.user.role==='admin') {
       const redirect = localStorage.getItem('post_login_redirect');
       localStorage.removeItem('post_login_redirect');
       nav(redirect || 'page-admin');
-    }
+    } else if (data.user.role==='owner') { ownerAppSwitch(data.user); }
   } catch(e) { showAuthErr(e.message); }
 }
 
@@ -6453,6 +6451,13 @@ updateHeaderCity();
 // Si es owner con sesión activa, abrir portal directamente sin pasar por home
 if (user && user.role === 'owner') {
   setTimeout(() => enterOwnerOverlay(), 50);
+} else if (user && user.role === 'admin') {
+  renderProfile();
+  loadHomeDynamic();
+  // Verificar si había redirect pendiente al panel admin
+  const adminRedirect = localStorage.getItem('post_login_redirect');
+  if (adminRedirect) { localStorage.removeItem('post_login_redirect'); setTimeout(() => nav(adminRedirect), 100); }
+  else { setTimeout(() => nav('page-admin'), 100); }
 } else {
   renderProfile();
   loadHomeDynamic();
