@@ -7328,9 +7328,83 @@ function ooRenderSettings() {
         ` : ''}
       </div>
     </div>
+
+    <div class="oo-section-title">Horarios automáticos</div>
+    <div class="oo-card">
+      <div style="font-size:12px;color:#64748b;margin-bottom:14px;">El negocio se abre y cierra solo. Podés sobreescribirlo manualmente en cualquier momento.</div>
+      ${ooRenderScheduleEditor(b.schedule)}
+      <button onclick="ooSaveSchedule()" style="width:100%;margin-top:14px;background:#0f172a;border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Guardar horarios</button>
+    </div>
   `;
 }
 
+
+const OO_DAYS = [
+  { key:'mon', label:'Lunes' },
+  { key:'tue', label:'Martes' },
+  { key:'wed', label:'Miércoles' },
+  { key:'thu', label:'Jueves' },
+  { key:'fri', label:'Viernes' },
+  { key:'sat', label:'Sábado' },
+  { key:'sun', label:'Domingo' },
+];
+const OO_DEFAULT_SCHEDULE = () => {
+  const s = {};
+  OO_DAYS.forEach(d => {
+    s[d.key] = { enabled: ['mon','tue','wed','thu','fri'].includes(d.key), open:'09:00', close:'21:00' };
+  });
+  return s;
+};
+
+function ooRenderScheduleEditor(scheduleRaw) {
+  let sched;
+  try { sched = scheduleRaw ? (typeof scheduleRaw==='string'?JSON.parse(scheduleRaw):scheduleRaw) : OO_DEFAULT_SCHEDULE(); }
+  catch(_) { sched = OO_DEFAULT_SCHEDULE(); }
+  return OO_DAYS.map(d => {
+    const day = sched[d.key] || { enabled:false, open:'09:00', close:'21:00' };
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f8fafc;">
+      <div style="width:80px;font-size:13px;font-weight:700;color:#0f172a;">${d.label}</div>
+      <button onclick="ooToggleDay('${d.key}',this)"
+        style="width:38px;height:22px;border-radius:11px;border:none;cursor:pointer;background:${day.enabled?'#16a34a':'#e2e8f0'};position:relative;flex-shrink:0;"
+        data-enabled="${day.enabled}">
+        <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;${day.enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>
+      </button>
+      <input type="time" id="sched-open-${d.key}" value="${day.open||'09:00'}"
+        style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:5px 8px;font-size:12px;font-family:'Inter',sans-serif;${day.enabled?'':'opacity:.4;'}">
+      <span style="font-size:11px;color:#94a3b8;">a</span>
+      <input type="time" id="sched-close-${d.key}" value="${day.close||'21:00'}"
+        style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:5px 8px;font-size:12px;font-family:'Inter',sans-serif;${day.enabled?'':'opacity:.4;'}">
+    </div>`;
+  }).join('');
+}
+
+function ooToggleDay(key, btn) {
+  const enabled = btn.dataset.enabled !== 'true';
+  btn.dataset.enabled = enabled;
+  btn.style.background = enabled ? '#16a34a' : '#e2e8f0';
+  btn.children[0].style.cssText = `width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:3px;${enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.2);`;
+  const openEl = document.getElementById('sched-open-'+key);
+  const closeEl = document.getElementById('sched-close-'+key);
+  if (openEl) openEl.style.opacity = enabled?'1':'0.4';
+  if (closeEl) closeEl.style.opacity = enabled?'1':'0.4';
+}
+
+async function ooSaveSchedule() {
+  const sched = {};
+  OO_DAYS.forEach(d => {
+    const btn = document.querySelector(`button[onclick="ooToggleDay('${d.key}',this)"]`);
+    const enabled = btn ? btn.dataset.enabled === 'true' : false;
+    const open  = document.getElementById('sched-open-'+d.key)?.value  || '09:00';
+    const close = document.getElementById('sched-close-'+d.key)?.value || '21:00';
+    sched[d.key] = { enabled, open, close };
+  });
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ schedule: sched }) });
+    if (_ooBiz) _ooBiz.schedule = sched;
+    showToast('✅ Horarios guardados');
+  } catch(e) { showToast('❌ Error: ' + e.message); }
+}
 
 async function ooToggleOffersPriority() {
   const current = _ooBiz?.offers_priority !== false;
