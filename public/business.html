@@ -36,6 +36,9 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .login-field input:focus{border-color:var(--primary);}
 .login-field input::placeholder{color:rgba(255,255,255,.3);}
 .login-btn{width:100%;background:var(--primary);border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:4px;box-shadow:0 4px 16px rgba(59,130,246,.4);}
+
+.login-select{width:100%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;outline:none;font-family:inherit;-webkit-appearance:none;}
+.login-select option{background:#1e40af;color:#fff;}
 .login-err{color:#fca5a5;font-size:13px;text-align:center;margin-top:10px;min-height:18px;}
 .login-switch{text-align:center;margin-top:16px;font-size:13px;color:rgba(255,255,255,.45);}
 .login-switch a{color:var(--primary);font-weight:700;text-decoration:none;}
@@ -175,20 +178,148 @@ select.field-input{background:var(--card2);}
 </div>
 
 <!-- ── REGISTER ── -->
-<div id="register-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0f1e4a 0%,#1e40af 70%,#3b82f6 100%);display:none;align-items:center;justify-content:center;z-index:9999;padding:24px;">
-  <div class="login-card" style="max-height:92vh;overflow-y:auto;">
+<div id="register-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0f1e4a 0%,#1e40af 70%,#3b82f6 100%);align-items:flex-start;justify-content:center;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));">
+  <div class="login-card" style="width:100%;max-width:420px;margin:auto;">
     <div class="login-logo">
       <div class="login-icon"><img src="data:image/png;base64,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AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//9k=" alt="Blow"></div>
       <div class="login-title">Registrar negocio</div>
       <div class="login-sub">Comenzá a vender en Blow hoy</div>
     </div>
-    <div class="login-field"><label>Nombre del negocio *</label><input id="r-biz" placeholder="Ej: Pizzería Don Mario"></div>
-    <div class="login-field"><label>Tu nombre *</label><input id="r-name" placeholder="Juan García"></div>
-    <div class="login-field"><label>Email *</label><input type="email" id="r-email" placeholder="tu@negocio.com"></div>
-    <div class="login-field"><label>Teléfono *</label><input type="tel" id="r-phone" placeholder="09X XXX XXX"></div>
-    <div class="login-field"><label>Contraseña *</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres"></div>
-    <div class="login-field"><label>Dirección</label><input id="r-address" placeholder="Calle 1234, Montevideo"></div>
-    <button class="login-btn" onclick="doRegister()">Crear cuenta →</button>
+
+    <!-- PASO 1: Datos básicos -->
+    <div id="reg-step-1">
+      <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">Paso 1 de 2 — Datos del negocio</div>
+      <div class="login-field"><label>Nombre del negocio *</label><input id="r-biz" placeholder="Ej: Pizzería Don Mario" autocomplete="organization"></div>
+      <div class="login-field"><label>Tu nombre completo *</label><input id="r-name" placeholder="Juan García" autocomplete="name"></div>
+      <div class="login-field">
+        <label>Email *</label>
+        <div style="position:relative;">
+          <input type="email" id="r-email" placeholder="tu@negocio.com" autocomplete="email" oninput="regEmailChange()" style="padding-right:36px;">
+          <span id="r-email-ok" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#4ade80;font-size:16px;">✓</span>
+        </div>
+        <div id="r-email-hint" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;display:none;">Te enviaremos un código de verificación</div>
+      </div>
+      <div class="login-field">
+        <label>Celular *</label>
+        <input type="tel" id="r-phone" placeholder="099 333 444" autocomplete="tel" maxlength="11" oninput="formatPhone(this)" inputmode="numeric">
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;">Formato: 099 333 444</div>
+      </div>
+      <div class="login-field"><label>Contraseña *</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+      <div class="login-field">
+        <label>Confirmar contraseña *</label>
+        <div style="position:relative;">
+          <input type="password" id="r-pass2" placeholder="Repetí la contraseña" autocomplete="new-password" oninput="checkPassMatch()" style="padding-right:36px;">
+          <span id="r-pass-ok" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#4ade80;font-size:16px;">✓</span>
+        </div>
+      </div>
+      <button class="login-btn" onclick="regStep1Next()">Continuar →</button>
+    </div>
+
+    <!-- PASO 2: Ubicación -->
+    <div id="reg-step-2" style="display:none;">
+      <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;">Paso 2 de 2 — Ubicación del negocio</div>
+      <div class="login-field">
+        <label>Departamento *</label>
+        <select id="r-dept" onchange="loadLocalidades()" class="login-select">
+          <option value="">Seleccioná un departamento</option>
+          <option>Artigas</option><option>Canelones</option><option>Cerro Largo</option>
+          <option>Colonia</option><option>Durazno</option><option>Flores</option>
+          <option>Florida</option><option>Lavalleja</option><option>Maldonado</option>
+          <option selected>Montevideo</option><option>Paysandú</option><option>Río Negro</option>
+          <option>Rivera</option><option>Rocha</option><option>Salto</option>
+          <option>San José</option><option>Soriano</option><option>Tacuarembó</option>
+          <option>Treinta y Tres</option>
+        </select>
+      </div>
+      <div class="login-field">
+        <label>Ciudad / Localidad *</label>
+        <select id="r-city" class="login-select">
+          <option value="">Seleccioná el departamento primero</option>
+        </select>
+      </div>
+      <div class="login-field"><label>Dirección *</label><input id="r-address" placeholder="Ej: Av. 18 de Julio 1234, apto 5" autocomplete="street-address"></div>
+      <div class="login-field"><label>Código postal</label><input id="r-cp" type="number" placeholder="Ej: 11300" inputmode="numeric" maxlength="5"></div>
+      <div class="login-field">
+      <div class="login-field">
+        <label>Tipo de negocio *</label>
+        <select id="r-type" class="login-select">
+          <option value="">Seleccioná el tipo de negocio</option>
+          <optgroup label="🍽️ Gastronomía">
+            <option value="restaurant">🍽️ Restaurante</option>
+            <option value="pizzeria">🍕 Pizzería</option>
+            <option value="hamburgueseria">🍔 Hamburguesería</option>
+            <option value="sushi">🍣 Sushi / Japonesa</option>
+            <option value="parrilla">🥩 Parrilla / Asados</option>
+            <option value="pasteleria">🥐 Panadería / Pastelería</option>
+            <option value="heladeria">🍦 Heladería</option>
+            <option value="cafeteria">☕ Cafetería</option>
+            <option value="comida_rapida">🌮 Comida rápida</option>
+            <option value="vegetariano">🥗 Vegetariano / Vegano</option>
+          </optgroup>
+          <optgroup label="🛒 Almacenes y Mercados">
+            <option value="supermercado">🛒 Supermercado</option>
+            <option value="almacen">🏪 Almacén / Minimercado</option>
+            <option value="kiosco">🍬 Kiosco / Despensa</option>
+            <option value="verduleria">🥦 Verdulería / Frutería</option>
+            <option value="carniceria">🥩 Carnicería</option>
+            <option value="pescaderia">🐟 Pescadería</option>
+            <option value="lacteos">🧀 Lácteos / Fiambrería</option>
+          </optgroup>
+          <optgroup label="🍺 Bebidas">
+            <option value="bebidas">🍺 Licorería / Bebidas</option>
+            <option value="vinoteca">🍷 Vinoteca</option>
+            <option value="agua">💧 Agua y Bebidas sin alcohol</option>
+          </optgroup>
+          <optgroup label="💊 Salud y Bienestar">
+            <option value="farmacia">💊 Farmacia</option>
+            <option value="perfumeria">🧴 Perfumería / Cosmética</option>
+            <option value="optica">👓 Óptica</option>
+            <option value="veterinaria">🐾 Veterinaria / Pet shop</option>
+          </optgroup>
+          <optgroup label="🔧 Ferretería y Hogar">
+            <option value="ferreteria">🔧 Ferretería</option>
+            <option value="bazar">🏠 Bazar / Hogar</option>
+            <option value="electricidad">💡 Electricidad / Iluminación</option>
+            <option value="pintureria">🎨 Pinturería</option>
+          </optgroup>
+          <optgroup label="👗 Ropa y Accesorios">
+            <option value="ropa">👗 Ropa / Indumentaria</option>
+            <option value="calzado">👟 Calzado</option>
+            <option value="accesorios">💍 Accesorios / Bijouterie</option>
+            <option value="deportes">⚽ Deportes</option>
+          </optgroup>
+          <optgroup label="📦 Otros">
+            <option value="libreria">📚 Librería / Papelería</option>
+            <option value="jugueteria">🧸 Juguetería</option>
+            <option value="electronica">📱 Electrónica / Tecnología</option>
+            <option value="floristeria">💐 Floristería</option>
+            <option value="lavanderia">👕 Lavandería / Tintorería</option>
+            <option value="otro">📦 Otro</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="login-field">
+        <label>Descripción del negocio</label>
+        <textarea id="r-desc" placeholder="Qué vendés, horarios, especialidad..." style="width:100%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;outline:none;font-family:inherit;resize:none;height:70px;" maxlength="200"></textarea>
+      </div>
+
+      <!-- Verificación email -->
+      <div id="email-verify-block" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px;margin-bottom:12px;display:none;">
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">📧 Verificá tu email</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:10px;">Ingresá el código de 6 dígitos enviado a <span id="ev-email" style="color:#93c5fd;font-weight:600;"></span></div>
+        <div style="display:flex;gap:8px;">
+          <input id="r-email-code" type="number" placeholder="000000" inputmode="numeric" maxlength="6" style="flex:1;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 12px;color:#fff;font-size:18px;font-weight:700;letter-spacing:6px;outline:none;font-family:inherit;">
+          <button onclick="resendEmailCode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px 12px;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Reenviar</button>
+        </div>
+        <div id="ev-status" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:4px;">
+        <button onclick="regStep2Back()" style="flex:1;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:11px;padding:13px;color:rgba(255,255,255,.8);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">← Volver</button>
+        <button class="login-btn" id="r-create-btn" onclick="doRegister()" style="flex:2;">Crear cuenta →</button>
+      </div>
+    </div>
+
     <div class="login-err" id="r-err"></div>
     <div class="login-switch">¿Ya tenés cuenta? <a href="#" onclick="showLogin()">Iniciar sesión</a></div>
   </div>
@@ -286,6 +417,135 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ════════ AUTH ════════
+// ─── LOCALIDADES POR DEPARTAMENTO ───
+const LOCALIDADES = {
+  'Montevideo': ['Montevideo','Carrasco','Pocitos','Punta Carretas','Palermo','Cordón','Ciudad Vieja','Aguada','Barrio Sur','Centro','Colón','Conciliación','Jacinto Vera','La Blanqueada','La Comercial','La Figurita','La Teja','Las Acacias','Malvín','Malvín Norte','Maroñas','Paso Molino','Punta Gorda','Sayago','Tres Cruces','Unión','Villa Española','Villa García','Casabó','El Cerro','Flor de Maroñas','Jardines del Hipódromo','La Paloma','Lezica','Nuevo París','Prado','Quebrada de los Cuervos','Reducto','Rincón de Milberg','Solymar','Toledo'],
+  'Canelones': ['Las Piedras','Canelones','La Paz','Progreso','San Jacinto','Santa Lucía','Pando','Ciudad de la Costa','Atlántida','La Floresta','Salinas','Lagomar','Paso Carrasco','Sauce','Tala','San Bautista','Santa Rosa','Suárez','Barros Blancos','El Pinar','Empalme Olmos','Juanicó','Migues','Montes','Parque del Plata','San Antonio','San Luis','Toledo','Villa Aeroparque'],
+  'Maldonado': ['Maldonado','Punta del Este','San Carlos','Pan de Azúcar','Piriápolis','Aiguá','Garzón','La Paloma','Manantiales','Solís Grande','El Tesoro','José Ignacio','La Barra','Playa Hermosa'],
+  'Colonia': ['Colonia del Sacramento','Carmelo','Nueva Palmira','Juan Lacaze','Rosario','Tarariras','Cardona','Conchillas','Florencio Sánchez','Ombúes de Lavalle','Real de San Carlos','Valdense','Villa Soriano'],
+  'San José': ['San José de Mayo','Ciudad del Plata','Libertad','Ecilda Paullier','Mal Abrigo','Puntas de Valdéz','Rafael Perazza','Rodríguez','Fray Marcos','Capurro'],
+  'Salto': ['Salto','Belén','Constitución','San Antonio','Minas de Corrales','Pueblo Fernández','Santana','Colonia Lavalleja'],
+  'Paysandú': ['Paysandú','Guichón','Quebracho','Lorenzo Geyres','Tambores','Porvenir','Casablanca','Chapicuy'],
+  'Rivera': ['Rivera','Tranqueras','Vichadero','Minas de Corrales','Lapuente','Lago del Norte'],
+  'Tacuarembó': ['Tacuarembó','Paso de los Toros','San Gregorio de Polanco','Curtina','Pueblo del Barro','Ansina','Achar','Cuchilla del Ombú'],
+  'Cerro Largo': ['Melo','Río Branco','Fraile Muerto','Tupambaé','Aceguá','Isidoro Noblía','Toledo','Tres Islas'],
+  'Durazno': ['Durazno','Sarandí del Yí','La Paloma','Villa del Carmen','Carlos Reyles','Centenario','La Charqueada','Ombúes de Orozco'],
+  'Florida': ['Florida','Sarandí Grande','Casupá','Fray Marcos','25 de Mayo','Cardal','Independencia','La Cruz','Mansavillagra','Nico Pérez'],
+  'Flores': ['Trinidad','Ismael Cortinas','Andresito'],
+  'Lavalleja': ['Minas','José Batlle y Ordóñez','Mariscala','Solís de Mataojo','José Pedro Varela','Castillos','Zapicán'],
+  'Rocha': ['Rocha','Castillos','La Paloma','Lascano','Chuy','Velázquez','La Pedrera','La Coronilla','Barra del Chuy','19 de Abril'],
+  'Treinta y Tres': ['Treinta y Tres','Vergara','Santa Clara de Olimar','Cerro Chato','Valentines','Villa Sara'],
+  'Artigas': ['Artigas','Bella Unión','Tomás Gomensoro','Baltasar Brum'],
+  'Río Negro': ['Fray Bentos','Young','Algorta','Nuevo Berlín','San Javier','Nuevo Berlín','Grecco','Villa María'],
+  'Soriano': ['Mercedes','Dolores','Cardona','José Enrique Rodó','Palmitas','Agraciada','Villa Soriano'],
+};
+
+function loadLocalidades(){
+  const dept = document.getElementById('r-dept')?.value;
+  const citySelect = document.getElementById('r-city');
+  if(!citySelect) return;
+  const locs = LOCALIDADES[dept] || [];
+  citySelect.innerHTML = locs.length
+    ? locs.map(c=>`<option value="${c}">${c}</option>`).join('')
+    : '<option value="">Seleccioná el departamento primero</option>';
+}
+
+function formatPhone(input){
+  let v = input.value.replace(/\D/g,'');
+  if(v.length > 9) v = v.slice(0,9);
+  if(v.length >= 7) v = v.slice(0,3)+' '+v.slice(3,6)+' '+v.slice(6);
+  else if(v.length >= 4) v = v.slice(0,3)+' '+v.slice(3);
+  input.value = v;
+}
+
+function regEmailChange(){
+  const email = document.getElementById('r-email')?.value?.trim();
+  const hint = document.getElementById('r-email-hint');
+  const ok = document.getElementById('r-email-ok');
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if(hint) hint.style.display = valid ? 'block' : 'none';
+  if(ok) ok.style.display = valid ? 'block' : 'none';
+}
+
+function checkPassMatch(){
+  const p1 = document.getElementById('r-pass')?.value;
+  const p2 = document.getElementById('r-pass2')?.value;
+  const ok = document.getElementById('r-pass-ok');
+  if(ok) ok.style.display = (p2 && p1 === p2) ? 'block' : 'none';
+}
+
+function regStep1Next(){
+  const err = document.getElementById('r-err');
+  err.textContent = '';
+  const biz = document.getElementById('r-biz')?.value?.trim();
+  const name = document.getElementById('r-name')?.value?.trim();
+  const email = document.getElementById('r-email')?.value?.trim();
+  const phone = document.getElementById('r-phone')?.value?.trim();
+  const pass = document.getElementById('r-pass')?.value;
+  const pass2 = document.getElementById('r-pass2')?.value;
+  if(!biz||!name||!email||!phone||!pass) { err.textContent='Completá todos los campos del paso 1'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent='Email inválido'; return; }
+  if(pass.length<6) { err.textContent='Contraseña: mínimo 6 caracteres'; return; }
+  if(pass !== pass2) { err.textContent='Las contraseñas no coinciden'; return; }
+  const phoneDigits = phone.replace(/\D/g,'');
+  if(phoneDigits.length < 8) { err.textContent='Celular inválido (mínimo 8 dígitos)'; return; }
+  // Go to step 2
+  document.getElementById('reg-step-1').style.display = 'none';
+  document.getElementById('reg-step-2').style.display = 'block';
+  // Pre-load Montevideo localidades
+  loadLocalidades();
+  // Send verification email
+  sendVerificationEmail(email);
+}
+
+function regStep2Back(){
+  document.getElementById('reg-step-2').style.display = 'none';
+  document.getElementById('reg-step-1').style.display = 'block';
+}
+
+let _emailVerified = false;
+let _verifyCode = null;
+
+async function sendVerificationEmail(email){
+  // Generate 6-digit code client-side (server should do this ideally, but fallback)
+  _verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+  _emailVerified = false;
+  const block = document.getElementById('email-verify-block');
+  const evEmail = document.getElementById('ev-email');
+  if(block) block.style.display = 'block';
+  if(evEmail) evEmail.textContent = email;
+  const status = document.getElementById('ev-status');
+  try {
+    await fetch('/api/auth/send-verification', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, code: _verifyCode})
+    });
+    if(status){ status.style.color='#4ade80'; status.textContent='✓ Código enviado — revisá tu bandeja de entrada'; }
+  } catch(e) {
+    if(status){ status.style.color='rgba(255,255,255,.4)'; status.textContent='No se pudo enviar — podés continuar sin verificar'; }
+    _emailVerified = true; // allow proceed if email service unavailable
+  }
+}
+
+function resendEmailCode(){
+  const email = document.getElementById('r-email')?.value?.trim();
+  if(email) sendVerificationEmail(email);
+}
+
+function verifyEmailCode(){
+  const input = document.getElementById('r-email-code')?.value?.trim();
+  const status = document.getElementById('ev-status');
+  if(input === _verifyCode){
+    _emailVerified = true;
+    if(status){ status.style.color='#4ade80'; status.textContent='✅ Email verificado correctamente'; }
+    return true;
+  } else {
+    if(status){ status.style.color='#fca5a5'; status.textContent='Código incorrecto — revisalo e intentá de nuevo'; }
+    return false;
+  }
+}
+
 function showLogin(){
   document.getElementById('register-screen').style.display='none';
   document.getElementById('login-screen').style.display='flex';
@@ -293,6 +553,7 @@ function showLogin(){
 function showRegister(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('register-screen').style.display='flex';
+  loadLocalidades();
 }
 async function doLogin(){
   const email=document.getElementById('l-email').value.trim();
@@ -313,26 +574,54 @@ async function doLogin(){
   }catch(e){err.textContent='Error de conexión';}
 }
 async function doRegister(){
+  const err=document.getElementById('r-err');
+  err.textContent='';
   const bizName=document.getElementById('r-biz').value.trim();
   const name=document.getElementById('r-name').value.trim();
   const email=document.getElementById('r-email').value.trim();
-  const phone=document.getElementById('r-phone').value.trim();
+  const phone=document.getElementById('r-phone').value.replace(/\D/g,'');
   const pass=document.getElementById('r-pass').value;
   const address=document.getElementById('r-address').value.trim();
-  const err=document.getElementById('r-err');
-  err.textContent='';
-  if(!bizName||!name||!email||!phone||!pass){err.textContent='Completá todos los campos obligatorios';return;}
-  if(pass.length<6){err.textContent='La contraseña debe tener al menos 6 caracteres';return;}
+  const dept=document.getElementById('r-dept')?.value||'';
+  const city=document.getElementById('r-city')?.value||'';
+  const cp=document.getElementById('r-cp')?.value||'';
+  const desc=document.getElementById('r-desc')?.value?.trim()||'';
+
+  const type=document.getElementById('r-type')?.value||'';
+  if(!dept||!city||!address){err.textContent='Completá departamento, ciudad y dirección';return;}
+  if(!type){err.textContent='Seleccioná el tipo de negocio';return;}
+
+  // Check email verification (if code was entered, verify it)
+  const codeInput = document.getElementById('r-email-code')?.value?.trim();
+  if(codeInput && !_emailVerified){
+    if(!verifyEmailCode()) return;
+  }
+
+  const btn=document.getElementById('r-create-btn');
+  btn.textContent='Creando cuenta...';btn.disabled=true;
+
   try{
-    const r=await fetch('/api/auth/register-business',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({business_name:bizName,name,email,phone,password:pass,address,role:'owner'})});
+    const fullAddress = `${address}, ${city}, ${dept}${cp ? ' CP '+cp : ''}`;
+    const r=await fetch('/api/auth/register-business',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      business_name:bizName,
+      name,email,
+      phone: phone,
+      password:pass,
+      address:fullAddress,
+      city, department:dept,
+      postal_code:cp,
+      description:desc,
+      business_type:type,
+      role:'owner'
+    })});
     const d=await r.json();
-    if(!r.ok){err.textContent=d.error||'Error al registrarse';return;}
+    if(!r.ok){err.textContent=d.error||'Error al registrarse';btn.textContent='Crear cuenta →';btn.disabled=false;return;}
     _token=d.token;_user=d.user;
     localStorage.setItem('blow_biz_token',_token);
     localStorage.setItem('blow_biz_user',JSON.stringify(_user));
     document.getElementById('register-screen').style.display='none';
     showApp();
-  }catch(e){err.textContent='Error de conexión';}
+  }catch(e){err.textContent='Error de conexión';btn.textContent='Crear cuenta →';btn.disabled=false;}
 }
 function doLogout(){
   if(!confirm('¿Cerrar sesión del portal?'))return;
