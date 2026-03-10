@@ -1735,62 +1735,96 @@ body.owner-mode #owner-overlay {
 
 <!-- ══ PRODUCT MODAL ══ -->
 <!-- ══ PRODUCT PAGE (full screen) ══ -->
-<div id="prod-page" style="display:none;position:fixed;inset:0;z-index:3000;background:#f8f9fb;flex-direction:column;overflow:hidden;">
-  <!-- Hero foto / emoji -->
-  <div id="pp-hero" style="position:relative;flex-shrink:0;">
-    <div id="pp-hero-inner" style="width:100%;height:260px;background:#e8ecf4;overflow:hidden;position:relative;">
-      <!-- contenido inyectado por JS -->
-    </div>
-    <!-- Botón volver -->
-    <button onclick="closeProdPage()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));left:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.92);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.18);font-size:20px;z-index:2;">←</button>
-    <!-- Botón like -->
-    <button id="pp-like-btn" onclick="toggleProdLike()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.92);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.18);font-size:18px;z-index:2;">🤍</button>
+<div id="prod-page" style="display:none;position:fixed;inset:0;z-index:3000;background:#fff;flex-direction:column;overflow:hidden;">
+
+  <!-- ══ HERO: ocupa todo el ancho hasta arriba ══ -->
+  <div id="pp-hero-inner" style="position:relative;width:100%;height:52vw;min-height:220px;max-height:320px;background:#f1f5f9;flex-shrink:0;overflow:hidden;">
+    <!-- Foto/emoji inyectado por JS -->
+
+    <!-- overlay degradado suave abajo -->
+    <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(0,0,0,.08));pointer-events:none;"></div>
+
+    <!-- Botón ← volver -->
+    <button onclick="closeProdPage()" style="position:absolute;top:max(16px,env(safe-area-inset-top,16px));left:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.93);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);z-index:5;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+
+    <!-- Botón ❤ favorito -->
+    <button id="pp-like-btn" onclick="toggleProdLike()" style="position:absolute;top:max(16px,env(safe-area-inset-top,16px));right:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.93);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:16px;z-index:5;">🤍</button>
   </div>
 
-  <!-- Scroll body -->
-  <div id="pp-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 100px);">
+  <!-- ══ SCROLL BODY ══ -->
+  <div id="pp-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#fff;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 96px);">
 
-    <!-- Nombre, descripción, precio -->
-    <div style="padding:20px 18px 0;">
-      <div id="pp-name" style="font-size:22px;font-weight:900;color:#0f172a;margin-bottom:6px;line-height:1.2;"></div>
-      <div id="pp-desc" style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:12px;"></div>
-      <div id="pp-price-main" style="font-size:26px;font-weight:900;color:#0f172a;margin-bottom:4px;"></div>
-      <div id="pp-orig-price" style="font-size:14px;color:#94a3b8;text-decoration:line-through;display:none;margin-bottom:4px;"></div>
+    <!-- Nombre + descripción + precio -->
+    <div style="padding:18px 16px 0;">
+      <div id="pp-name" style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.25;margin-bottom:5px;"></div>
+      <div id="pp-desc" style="font-size:14px;color:#64748b;line-height:1.55;margin-bottom:14px;"></div>
+
+      <!-- Precio -->
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;">
+        <div id="pp-price-main" style="font-size:24px;font-weight:900;color:#0f172a;"></div>
+        <div id="pp-orig-price" style="font-size:14px;color:#94a3b8;text-decoration:line-through;display:none;"></div>
+        <div id="pp-discount-badge" style="display:none;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;"></div>
+      </div>
     </div>
 
-    <!-- Ingredientes -->
-    <div id="pp-ingredients-wrap" style="display:none;padding:14px 18px 0;">
-      <div style="font-size:12px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Ingredientes</div>
+    <!-- Ingredientes (chips) -->
+    <div id="pp-ingredients-wrap" style="display:none;padding:14px 16px 0;">
+      <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:.7px;text-transform:uppercase;margin-bottom:9px;">Ingredientes</div>
       <div id="pp-ingredients-list" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
     </div>
 
-    <!-- Separador -->
-    <div style="height:1px;background:#edf0f7;margin:18px 18px 0;"></div>
+    <!-- Divider -->
+    <div id="pp-divider-vars" style="height:1px;background:#f1f5f9;margin:18px 16px 0;"></div>
 
     <!-- Grupos de variantes / extras -->
-    <div id="pp-variants" style="padding:0 18px;"></div>
+    <div id="pp-variants"></div>
+
+    <!-- Divider observaciones -->
+    <div style="height:1px;background:#f1f5f9;margin:4px 16px 0;"></div>
 
     <!-- Observaciones -->
-    <div style="padding:6px 18px 0;">
-      <div style="font-size:12px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Observaciones</div>
-      <textarea id="pp-notes" placeholder="Ej: sin cebolla, bien cocido, extra salsa…" style="width:100%;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;color:#0f172a;resize:none;height:72px;outline:none;box-sizing:border-box;" oninput="this.style.borderColor='#1e40af'"></textarea>
+    <div style="padding:16px 16px 0;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">Notas para este producto</div>
+      <textarea id="pp-notes"
+        placeholder="Ej: sin cebolla, bien cocido, extra salsa…"
+        style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:14px;font-family:inherit;color:#0f172a;resize:none;height:76px;outline:none;box-sizing:border-box;transition:border-color .15s;"
+        onfocus="this.style.borderColor='#1e40af'"
+        onblur="this.style.borderColor='#e2e8f0'"></textarea>
+    </div>
+
+    <!-- "Otras personas lo combinaron con" -->
+    <div id="pp-combos-wrap" style="display:none;padding:16px 16px 0;">
+      <div style="font-size:15px;font-weight:800;color:#0f172a;margin-bottom:12px;">Otras personas lo combinaron con</div>
+      <div id="pp-combos-list"></div>
     </div>
 
   </div><!-- /pp-body -->
 
-  <!-- Footer sticky: cantidad + agregar -->
-  <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #edf0f7;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
-    <!-- Control cantidad -->
-    <div style="display:flex;align-items:center;gap:0;background:#f1f5f9;border-radius:12px;overflow:hidden;flex-shrink:0;">
-      <button onclick="ppChangeQty(-1)" style="width:40px;height:44px;border:none;background:none;font-size:22px;cursor:pointer;color:#0f172a;display:flex;align-items:center;justify-content:center;">−</button>
-      <span id="pp-qty" style="font-size:16px;font-weight:800;color:#0f172a;min-width:28px;text-align:center;">1</span>
-      <button onclick="ppChangeQty(1)" style="width:40px;height:44px;border:none;background:none;font-size:22px;cursor:pointer;color:#0f172a;display:flex;align-items:center;justify-content:center;">+</button>
+  <!-- ══ FOOTER STICKY ══ -->
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #f1f5f9;padding:10px 14px calc(env(safe-area-inset-bottom,0px) + 10px);box-shadow:0 -6px 24px rgba(0,0,0,.07);">
+    <!-- Resumen cantidad -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span id="pp-footer-count" style="font-size:13px;font-weight:700;color:#64748b;"></span>
+      <span id="pp-footer-total" style="font-size:16px;font-weight:900;color:#0f172a;"></span>
     </div>
-    <!-- Botón agregar -->
-    <button id="pp-add-btn" onclick="ppAddToCart()" style="flex:1;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-      Agregar · <span id="pp-price-btn">$0</span>
-    </button>
+    <!-- Controles -->
+    <div style="display:flex;align-items:center;gap:10px;">
+      <!-- Qty -->
+      <div style="display:flex;align-items:center;background:#f1f5f9;border-radius:12px;overflow:hidden;flex-shrink:0;">
+        <button onclick="ppChangeQty(-1)" style="width:42px;height:46px;border:none;background:none;font-size:24px;font-weight:300;cursor:pointer;color:#0f172a;line-height:1;">−</button>
+        <span id="pp-qty" style="font-size:16px;font-weight:800;color:#0f172a;min-width:26px;text-align:center;">1</span>
+        <button onclick="ppChangeQty(1)" style="width:42px;height:46px;border:none;background:none;font-size:24px;font-weight:300;cursor:pointer;color:#0f172a;line-height:1;">+</button>
+      </div>
+      <!-- Agregar btn -->
+      <button id="pp-add-btn" onclick="ppAddToCart()"
+        style="flex:1;background:#ea1f5c;border:none;border-radius:14px;height:46px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.1px;">
+        Agregar&nbsp;·&nbsp;<span id="pp-price-btn">$0</span>
+      </button>
+    </div>
   </div>
+
 </div>
 
 
@@ -3317,50 +3351,78 @@ let ppProduct = null, ppQty = 1, ppSelections = {}, ppLiked = false;
 function openProduct(p) {
   if (typeof p === 'string') p = JSON.parse(p);
   ppProduct = p; ppQty = 1; ppSelections = {};
+  ppSlideIdx = 0;
 
   const page = document.getElementById('prod-page');
   page.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
-  // ── Hero ──
+  // ── Hero: foto o emoji ──
   const hero = document.getElementById('pp-hero-inner');
-  if (p.photos && p.photos.length > 0) {
+  // Limpiamos manteniendo los botones fijos (← y ❤)
+  const btns = hero.querySelectorAll('button');
+  // Eliminar slides/emojis anteriores
+  hero.querySelectorAll('.pp-slide,.pp-emoji-bg,.pp-dots-row,.pp-hero-media').forEach(e=>e.remove());
+
+  const hasPhotos = p.photos && p.photos.length > 0;
+  const photoUrl = p.photo_url || (hasPhotos ? p.photos[0].url : null);
+
+  if (hasPhotos) {
     const slides = p.photos.map((ph,i) =>
-      `<img src="${ph.url}" alt="${p.name}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .3s;opacity:${i===0?1:0};" class="pp-slide">`
+      `<img src="${ph.url}" alt="${p.name}" class="pp-slide" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .25s;opacity:${i===0?1:0};">`
     ).join('');
-    const dots = p.photos.length > 1 ? p.photos.map((_,i) =>
-      `<button onclick="ppGoTo(${i})" style="width:${i===0?'20px':'7px'};height:7px;border-radius:4px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:none;cursor:pointer;transition:all .2s;padding:0;" class="pp-dot"></button>`
-    ).join('') : '';
-    const arrows = p.photos.length > 1
-      ? `<button onclick="ppMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;">‹</button>
-         <button onclick="ppMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;">›</button>` : '';
-    hero.innerHTML = `${slides}${arrows}
-      <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:2;">${dots}</div>`;
+    const dots = p.photos.length > 1 ? `<div class="pp-dots-row" style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:4;">${
+      p.photos.map((_,i)=>`<button onclick="ppGoTo(${i})" class="pp-dot" style="width:${i===0?'20px':'7px'};height:7px;border-radius:4px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:none;cursor:pointer;padding:0;transition:all .2s;"></button>`).join('')
+    }</div>` : '';
+    const arrows = p.photos.length > 1 ? `
+      <button onclick="ppMove(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:4;line-height:1;">‹</button>
+      <button onclick="ppMove(1)"  style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:4;line-height:1;">›</button>` : '';
+    const mediaDiv = document.createElement('div');
+    mediaDiv.className = 'pp-hero-media';
+    mediaDiv.style.cssText = 'position:absolute;inset:0;';
+    mediaDiv.innerHTML = slides + arrows + dots;
+    hero.insertBefore(mediaDiv, hero.firstChild);
+  } else if (photoUrl) {
+    // single photo_url (legacy)
+    const img = document.createElement('img');
+    img.className = 'pp-slide';
+    img.src = photoUrl;
+    img.alt = p.name;
+    img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+    hero.insertBefore(img, hero.firstChild);
   } else {
-    hero.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:80px;background:linear-gradient(135deg,#e8ecf4,#dde3f0);">${p.emoji||'🍽️'}</div>`;
+    const em = document.createElement('div');
+    em.className = 'pp-emoji-bg';
+    em.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:88px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);';
+    em.textContent = p.emoji || '🍽️';
+    hero.insertBefore(em, hero.firstChild);
   }
 
   // ── Info básica ──
   document.getElementById('pp-name').textContent = p.name;
-  document.getElementById('pp-desc').textContent = p.description || '';
-  document.getElementById('pp-desc').style.display = p.description ? '' : 'none';
+  const descEl = document.getElementById('pp-desc');
+  descEl.textContent = p.description || '';
+  descEl.style.display = p.description ? '' : 'none';
 
-  // Precio con descuento
-  const hasDiscount = p.discount_percent > 0;
-  const finalBase = hasDiscount ? Math.round(p.price * (1 - p.discount_percent/100)) : p.price;
-  document.getElementById('pp-price-main').textContent = '$' + finalBase;
+  // ── Precio ──
+  const disc = parseInt(p.discount_percent) || 0;
+  const basePrice = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
+  document.getElementById('pp-price-main').textContent = '$ ' + basePrice;
   const origEl = document.getElementById('pp-orig-price');
-  origEl.style.display = hasDiscount ? '' : 'none';
-  if (hasDiscount) origEl.textContent = '$' + p.price;
+  origEl.style.display = disc > 0 ? '' : 'none';
+  if (disc > 0) origEl.textContent = '$ ' + p.price;
+  const badgeEl = document.getElementById('pp-discount-badge');
+  badgeEl.style.display = disc > 0 ? '' : 'none';
+  if (disc > 0) badgeEl.textContent = disc + '% OFF';
 
   // ── Ingredientes ──
   const ingWrap = document.getElementById('pp-ingredients-wrap');
   const ingList = document.getElementById('pp-ingredients-list');
   const ings = (p.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (ings.length > 0) {
+  if (ings.length) {
     ingWrap.style.display = '';
     ingList.innerHTML = ings.map(ing =>
-      `<span style="background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;color:#334155;">${ing}</span>`
+      `<span style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:20px;padding:5px 12px;font-size:13px;font-weight:500;color:#334155;">${ing}</span>`
     ).join('');
   } else {
     ingWrap.style.display = 'none';
@@ -3370,62 +3432,108 @@ function openProduct(p) {
   const variantsEl = document.getElementById('pp-variants');
   const groups = {};
   (p.variants || []).forEach(v => {
-    if (!groups[v.group_name]) groups[v.group_name] = { opts: [], is_required: v.is_required, is_multi: v.is_multi, max_selections: v.max_selections || 1 };
+    if (!groups[v.group_name]) groups[v.group_name] = {
+      opts: [], is_required: Boolean(v.is_required), is_multi: Boolean(v.is_multi), max_selections: v.max_selections || 1
+    };
     groups[v.group_name].opts.push(v);
   });
+  const dividerVars = document.getElementById('pp-divider-vars');
 
-  let varHtml = '';
-  for (const [gname, g] of Object.entries(groups)) {
-    const reqBadge = g.is_required
-      ? `<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;">Requerido</span>`
-      : `<span style="background:#f1f5f9;color:#64748b;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;">Opcional</span>`;
-    const multiBadge = g.is_multi
-      ? `<span style="font-size:11px;color:#94a3b8;margin-left:6px;">Elegí hasta ${g.max_selections}</span>` : '';
-    const opts = g.opts.map(v => {
-      const deltaStr = v.price_delta > 0 ? `<span style="font-size:11px;color:#1e40af;font-weight:700;margin-left:4px;">+$${v.price_delta}</span>`
-                     : v.price_delta < 0 ? `<span style="font-size:11px;color:#16a34a;font-weight:700;margin-left:4px;">-$${Math.abs(v.price_delta)}</span>` : '';
-      return `<button class="pp-vopt" data-group="${gname}" data-vid="${v.id}" data-delta="${v.price_delta}" data-multi="${g.is_multi}" data-max="${g.max_selections}"
-        onclick="ppSelectVariant('${gname}','${v.id}',${v.price_delta},${g.is_multi},${g.max_selections})"
-        style="display:inline-flex;align-items:center;gap:4px;padding:9px 14px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:#0f172a;transition:all .15s;font-family:inherit;">
-        <span class="pp-vopt-check" style="display:none;color:#1e40af;font-size:14px;">✓</span>
-        ${v.option_name}${deltaStr}
-      </button>`;
-    }).join('');
-    varHtml += `
-      <div style="padding-top:18px;" data-group-container="${gname}">
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
-          <span style="font-size:14px;font-weight:800;color:#0f172a;">${gname}</span>
-          ${reqBadge}${multiBadge}
+  if (Object.keys(groups).length) {
+    dividerVars.style.display = '';
+    let varHtml = '';
+    for (const [gname, g] of Object.entries(groups)) {
+      const reqBadge = g.is_required
+        ? `<span style="background:#fef2f2;color:#dc2626;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">Obligatorio</span>`
+        : `<span style="background:#f1f5f9;color:#64748b;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;">Opcional</span>`;
+      const subLabel = g.is_multi
+        ? `<div style="font-size:12px;color:#94a3b8;margin-top:1px;">Elegí hasta ${g.max_selections}</div>` : '';
+      const opts = g.opts.map(v => {
+        const dNum = parseFloat(v.price_delta)||0;
+        const dStr = dNum > 0 ? `<span style="font-size:12px;color:#1e40af;font-weight:700;">+$${dNum}</span>`
+                   : dNum < 0 ? `<span style="font-size:12px;color:#16a34a;font-weight:700;">-$${Math.abs(dNum)}</span>` : '';
+        return `<button class="pp-vopt" data-group="${gname}" data-vid="${v.id}" data-delta="${dNum}"
+          onclick="ppSelectVariant('${gname}','${v.id}',${dNum},${g.is_multi},${g.max_selections})"
+          style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:13px 14px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:14px;font-weight:600;color:#0f172a;transition:all .15s;font-family:inherit;margin-bottom:8px;">
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="pp-vopt-check" style="display:none;width:20px;height:20px;border-radius:50%;background:#1e40af;color:#fff;font-size:11px;font-weight:900;align-items:center;justify-content:center;flex-shrink:0;">✓</span>
+            <span class="pp-vopt-circle" style="display:flex;width:20px;height:20px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;"></span>
+            ${v.option_name}
+          </span>
+          ${dStr}
+        </button>`;
+      }).join('');
+      varHtml += `<div style="padding:16px 16px 8px;" data-group-container="${gname}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div>
+            <span style="font-size:15px;font-weight:800;color:#0f172a;">${gname}</span>
+            ${subLabel}
+          </div>
+          ${reqBadge}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">${opts}</div>
-      </div>`;
+        <div style="margin-top:10px;">${opts}</div>
+      </div>
+      <div style="height:1px;background:#f1f5f9;margin:0 16px;"></div>`;
+    }
+    variantsEl.innerHTML = varHtml;
+  } else {
+    dividerVars.style.display = 'none';
+    variantsEl.innerHTML = '';
   }
-  variantsEl.innerHTML = varHtml || '';
-  if (!varHtml) variantsEl.style.paddingTop = '0';
 
-  // ── Observaciones limpiar ──
+  // ── Combos (otros productos del negocio) ──
+  const combosWrap = document.getElementById('pp-combos-wrap');
+  const combosList = document.getElementById('pp-combos-list');
+  if (combosWrap && combosList && currentSdProducts && currentSdProducts.length > 1) {
+    const others = currentSdProducts
+      .filter(op => op.id !== p.id && op.is_available !== false)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+    if (others.length) {
+      combosWrap.style.display = '';
+      combosList.innerHTML = others.map(op => {
+        const opDisc = parseInt(op.discount_percent)||0;
+        const opPrice = opDisc > 0 ? Math.round(op.price*(1-opDisc/100)) : op.price;
+        const opImg = op.photo_url
+          ? `<img src="${op.photo_url}" style="width:70px;height:70px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
+          : `<div style="width:70px;height:70px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;">${op.emoji||'🍽️'}</div>`;
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+          ${opImg}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${op.name}</div>
+            <div style="font-size:15px;font-weight:800;color:#0f172a;margin-top:2px;">$ ${opPrice}</div>
+          </div>
+          <button onclick="ppComboAdd('${op.id}')" style="width:34px;height:34px;border-radius:50%;border:2px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;color:#64748b;flex-shrink:0;">+</button>
+        </div>`;
+      }).join('');
+    } else combosWrap.style.display = 'none';
+  } else if (combosWrap) combosWrap.style.display = 'none';
+
+  // ── Reset ──
   document.getElementById('pp-notes').value = '';
-  document.getElementById('pp-notes').style.borderColor = '#e2e8f0';
-
-  // ── Reset qty display ──
   document.getElementById('pp-qty').textContent = '1';
   ppUpdatePrice();
 
-  // Like state
+  // Like
   const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
   ppLiked = !!liked[p.id];
   document.getElementById('pp-like-btn').textContent = ppLiked ? '❤️' : '🤍';
 
-  // Scroll al top
   document.getElementById('pp-body').scrollTop = 0;
 
-  // Animación entrada
+  // Slide-in desde la derecha
   page.style.transform = 'translateX(100%)';
   page.style.transition = 'none';
   requestAnimationFrame(() => {
     page.style.transition = 'transform .28s cubic-bezier(.4,0,.2,1)';
     page.style.transform = 'translateX(0)';
   });
+}
+
+function ppComboAdd(pid) {
+  const op = (currentSdProducts||[]).find(p => p.id === pid);
+  if (!op) return;
+  openProduct({...op, biz_id: currentBizId});
 }
 
 let ppSlideIdx = 0;
@@ -3444,7 +3552,6 @@ function ppMove(dir) {
 function ppSelectVariant(group, vid, delta, isMulti, maxSel) {
   if (!ppSelections[group]) ppSelections[group] = {};
   if (isMulti) {
-    // Multi-select: toggle
     if (ppSelections[group][vid]) {
       delete ppSelections[group][vid];
     } else {
@@ -3453,15 +3560,17 @@ function ppSelectVariant(group, vid, delta, isMulti, maxSel) {
       ppSelections[group][vid] = { id: vid, delta: parseFloat(delta)||0 };
     }
   } else {
-    // Single select
     ppSelections[group] = { [vid]: { id: vid, delta: parseFloat(delta)||0 } };
   }
-  // Update UI
+  // Update button styles — radio/check visual
   document.querySelectorAll(`.pp-vopt[data-group="${group}"]`).forEach(el => {
     const isOn = !!ppSelections[group][el.dataset.vid];
     el.style.borderColor = isOn ? '#1e40af' : '#e2e8f0';
-    el.style.background = isOn ? '#eff6ff' : '#fff';
-    el.querySelector('.pp-vopt-check').style.display = isOn ? '' : 'none';
+    el.style.background = isOn ? '#f0f5ff' : '#fff';
+    const chk = el.querySelector('.pp-vopt-check');
+    const circle = el.querySelector('.pp-vopt-circle');
+    if (chk) { chk.style.display = isOn ? 'flex' : 'none'; }
+    if (circle) { circle.style.display = isOn ? 'none' : 'flex'; }
   });
   ppUpdatePrice();
 }
@@ -3474,12 +3583,18 @@ function ppChangeQty(d) {
 
 function ppUpdatePrice() {
   if (!ppProduct) return;
-  const hasDiscount = ppProduct.discount_percent > 0;
-  const base = hasDiscount ? Math.round(ppProduct.price * (1 - ppProduct.discount_percent/100)) : ppProduct.price;
+  const disc = parseInt(ppProduct.discount_percent)||0;
+  const base = disc > 0 ? Math.round(ppProduct.price * (1 - disc/100)) : ppProduct.price;
   const delta = Object.values(ppSelections).reduce((sum, grp) =>
     sum + Object.values(grp).reduce((s, v) => s + (v.delta||0), 0), 0);
-  const total = (base + delta) * ppQty;
-  document.getElementById('pp-price-btn').textContent = '$' + total;
+  const unit = base + delta;
+  const total = unit * ppQty;
+  const btn = document.getElementById('pp-price-btn');
+  if (btn) btn.textContent = '$ ' + total;
+  const countEl = document.getElementById('pp-footer-count');
+  const totalEl = document.getElementById('pp-footer-total');
+  if (countEl) countEl.textContent = ppQty === 1 ? '1 producto' : ppQty + ' productos';
+  if (totalEl) totalEl.textContent = '$ ' + total;
 }
 
 function toggleProdLike() {
@@ -3543,7 +3658,7 @@ function closeProdPage() {
 }
 
 function quickAdd(p) {
-  // Si es string, puede ser una registry key o JSON legacy
+  // Si es string, buscar en el registro
   if (typeof p === 'string') {
     if (_prodReg[p]) {
       p = _prodReg[p];
@@ -3551,10 +3666,13 @@ function quickAdd(p) {
       try { p = JSON.parse(p); } catch { return; }
     }
   }
-  // Si tiene variantes, abrir el modal
-  if (p.variants && p.variants.length > 0) { openProduct(p); return; }
-  addToCart({...p, biz_id: p.biz_id || currentBizId, cart_key:`${p.id}_base`});
-  showToast(`✅ ${p.name} agregado`);
+  // Si tiene variantes → página del producto; si no → agregar directo
+  if (p.variants && p.variants.length > 0) {
+    openProduct({...p, biz_id: p.biz_id || currentBizId});
+  } else {
+    addToCart({...p, biz_id: p.biz_id || currentBizId, cart_key: `${p.id}_base`});
+    showToast(`✅ ${p.name} agregado`);
+  }
 }
 
 // ═══════════════════════════════════════════════
