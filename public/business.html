@@ -1514,7 +1514,7 @@ function renderSettings(){
       ${[
         {fn:'showEditInfo()',icon:'✏️',label:'Datos',sub:'Nombre, dirección y teléfono'},
         {fn:'showEditPhotos()',icon:'🖼️',label:'Fotos',sub:'Logo y portada'},
-        {fn:'showEditDelivery()',icon:'🛵',label:'Delivery',sub:'Zona y costo de envío'},
+        {fn:'showEditDelivery()',icon:'🛵',label:'Delivery y retiro',sub:(()=>{const b=_biz||{};const modes=[];if(b.offers_delivery!==false)modes.push('Delivery');if(b.offers_pickup)modes.push('Take away');return modes.length?modes.join(' · '):'Sin modalidad activa';})()},
         {fn:'renderPromos()',icon:'🏷️',label:'Promociones',sub:'Descuentos y cupones'},
         {fn:"renderReviews()",icon:'⭐',label:'Reseñas',sub:'Lo que dicen tus clientes'},
         {fn:"renderNovedades()",icon:'📣',label:'Novedades',sub:'Publicar contenido'},
@@ -1542,8 +1542,68 @@ async function uploadLogo(input){const file=input.files[0];if(!file)return;const
 async function uploadCover(input){const file=input.files[0];if(!file)return;const s=document.getElementById('cover-status');s.style.display='flex';s.style.color='var(--muted)';s.textContent='Subiendo...';const fd=new FormData();fd.append('photo',file);try{const r=await fetch('/api/businesses/mine/upload-cover',{method:'POST',headers:{Authorization:'Bearer '+_token},body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');if(_biz)_biz.cover_url=d.cover_url||d.url;document.getElementById('cover-prev').innerHTML=`<img src="${d.cover_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;s.style.color='#4ade80';s.textContent='✓ Portada actualizada';}catch(e){s.style.color='var(--red)';s.textContent='Error: '+e.message;}}
 
 // Edit Delivery
-function showEditDelivery(){const b=_biz||{};document.getElementById('modal-box').innerHTML=`<div class="modal-handle"></div><div class="modal-title">🛵 Delivery</div><div style="margin-bottom:12px;"><label class="flbl">COSTO DE ENVÍO ($)</label><input id="dl-cost" type="number" value="${b.delivery_cost||0}" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">TIEMPO ESTIMADO (min)</label><input id="dl-time" type="number" value="${b.delivery_time||30}" class="finp"></div><div style="margin-bottom:20px;"><label class="flbl">TELÉFONO</label><input id="dl-phone" type="tel" value="${b.phone||''}" placeholder="09X XXX XXX" class="finp"></div><div style="display:flex;gap:8px;"><button class="btn btn-g" style="flex:1;" onclick="closeMod()">Cancelar</button><button class="btn btn-p" style="flex:2;" id="dl-save" onclick="saveDelivery()">Guardar</button></div>`;document.getElementById('modal-ov').classList.add('show');}
-async function saveDelivery(){const btn=document.getElementById('dl-save');btn.textContent='Guardando...';btn.disabled=true;try{const d=await api('/api/businesses/mine',{method:'PATCH',body:JSON.stringify({delivery_cost:parseFloat(document.getElementById('dl-cost')?.value)||0,delivery_time:parseInt(document.getElementById('dl-time')?.value)||30,phone:document.getElementById('dl-phone')?.value?.trim()||''})});if(_biz){_biz.delivery_cost=d.delivery_cost;_biz.delivery_time=d.delivery_time;_biz.phone=d.phone;}closeMod();toast('✅ Guardado');renderSettings();}catch(e){btn.textContent='Guardar';btn.disabled=false;toast('❌ '+e.message);}}
+function showEditDelivery(){
+  const b=_biz||{};
+  const hasDelivery = b.offers_delivery !== false;
+  const hasPickup   = b.offers_pickup   === true;
+  document.getElementById('modal-box').innerHTML=`
+    <div class="modal-handle"></div>
+    <div class="modal-title">🛵 Delivery y retiro</div>
+
+    <div style="margin-bottom:16px;">
+      <label class="flbl">MODALIDADES DISPONIBLES</label>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="display:flex;align-items:center;gap:10px;background:#f8faff;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;cursor:pointer;">
+          <input type="checkbox" id="dl-has-delivery" ${hasDelivery?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);" onchange="dlToggleFields()">
+          <div><div style="font-size:14px;font-weight:700;">🛵 Delivery</div><div style="font-size:11px;color:#94a3b8;">El repartidor lleva el pedido al cliente</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;background:#f8faff;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;cursor:pointer;">
+          <input type="checkbox" id="dl-has-pickup" ${hasPickup?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);" onchange="dlToggleFields()">
+          <div><div style="font-size:14px;font-weight:700;">🏪 Take away</div><div style="font-size:11px;color:#94a3b8;">El cliente retira en el local</div></div>
+        </label>
+      </div>
+    </div>
+
+    <div id="dl-delivery-fields">
+      <div style="margin-bottom:12px;"><label class="flbl">COSTO DE ENVÍO ($)</label><input id="dl-cost" type="number" value="${b.delivery_cost||0}" class="finp"></div>
+      <div style="margin-bottom:12px;"><label class="flbl">TIEMPO ESTIMADO (min)</label><input id="dl-time" type="number" value="${b.delivery_time||30}" class="finp"></div>
+    </div>
+
+    <div style="margin-bottom:20px;"><label class="flbl">TELÉFONO DE CONTACTO</label><input id="dl-phone" type="tel" value="${b.phone||''}" placeholder="09X XXX XXX" class="finp"></div>
+
+    <div id="dl-warn" style="display:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:10px 12px;font-size:12px;color:#c2410c;margin-bottom:12px;">⚠️ Activá al menos una modalidad</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-g" style="flex:1;" onclick="closeMod()">Cancelar</button>
+      <button class="btn btn-p" style="flex:2;" id="dl-save" onclick="saveDelivery()">Guardar</button>
+    </div>`;
+  document.getElementById('modal-ov').classList.add('show');
+  dlToggleFields();
+}
+function dlToggleFields(){
+  const hasD = document.getElementById('dl-has-delivery')?.checked;
+  const hasP = document.getElementById('dl-has-pickup')?.checked;
+  const fields = document.getElementById('dl-delivery-fields');
+  const warn   = document.getElementById('dl-warn');
+  if(fields) fields.style.display = hasD ? '' : 'none';
+  if(warn)   warn.style.display   = (!hasD && !hasP) ? '' : 'none';
+}
+async function saveDelivery(){
+  const hasD = document.getElementById('dl-has-delivery')?.checked;
+  const hasP = document.getElementById('dl-has-pickup')?.checked;
+  if(!hasD && !hasP){ toast('⚠️ Activá al menos una modalidad'); return; }
+  const btn=document.getElementById('dl-save');btn.textContent='Guardando...';btn.disabled=true;
+  try{
+    const d=await api('/api/businesses/mine',{method:'PATCH',body:JSON.stringify({
+      offers_delivery: hasD,
+      offers_pickup:   hasP,
+      delivery_cost:   hasD ? parseFloat(document.getElementById('dl-cost')?.value)||0 : undefined,
+      delivery_time:   hasD ? parseInt(document.getElementById('dl-time')?.value)||30   : undefined,
+      phone:           document.getElementById('dl-phone')?.value?.trim()||''
+    })});
+    if(_biz){_biz.offers_delivery=d.offers_delivery;_biz.offers_pickup=d.offers_pickup;_biz.delivery_cost=d.delivery_cost;_biz.delivery_time=d.delivery_time;_biz.phone=d.phone;}
+    closeMod();toast('✅ Guardado');renderSettings();
+  }catch(e){btn.textContent='Guardar';btn.disabled=false;toast('❌ '+e.message);}
+}
 
 // ════════ REVIEWS ════════
 async function renderReviews(){
