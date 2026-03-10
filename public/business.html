@@ -182,6 +182,100 @@ select.finp{background:#f8faff;}
 .step-lbl{font-size:10px;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
 .step-dot{width:20px;height:3px;border-radius:2px;background:rgba(255,255,255,.2);}
 .step-dot.on{background:rgba(255,255,255,.7);}
+
+/* ══ HOME REDESIGN ══ */
+.home-status-card{
+  background:linear-gradient(135deg,#0f1e4a 0%,#1e40af 100%);
+  border-radius:18px;padding:18px 20px;margin-bottom:12px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 4px 20px rgba(30,64,175,.25);
+  border:none;
+}
+.home-status-open{
+  background:linear-gradient(135deg,#064e3b 0%,#059669 100%);
+  box-shadow:0 4px 20px rgba(5,150,105,.25);
+}
+.hs-label{font-size:11px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;}
+.hs-state{font-size:18px;font-weight:900;color:#fff;letter-spacing:-.3px;}
+.hs-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;}
+.hs-tog{width:54px;height:30px;border-radius:15px;border:none;cursor:pointer;position:relative;transition:background .25s;flex-shrink:0;background:rgba(255,255,255,.2);}
+.hs-tog.on{background:#fff;}
+.hs-tog-k{width:24px;height:24px;border-radius:50%;position:absolute;top:3px;transition:left .22s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 6px rgba(0,0,0,.2);}
+.hs-tog.on .hs-tog-k{left:27px;background:#059669;}
+.hs-tog.off .hs-tog-k{left:3px;background:rgba(255,255,255,.7);}
+
+/* New orders alert */
+.new-orders-strip{
+  background:linear-gradient(135deg,#7c3aed,#6d28d9);
+  border-radius:14px;padding:12px 16px;margin-bottom:12px;
+  box-shadow:0 4px 16px rgba(109,40,217,.3);
+  position:relative;overflow:hidden;
+}
+.new-orders-strip::before{
+  content:'';position:absolute;top:-20px;right:-20px;
+  width:80px;height:80px;border-radius:50%;
+  background:rgba(255,255,255,.06);
+}
+.nos-row{display:flex;align-items:center;justify-content:space-between;}
+.nos-count{font-size:28px;font-weight:900;color:#fff;line-height:1;}
+.nos-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.6);margin-top:2px;letter-spacing:.4px;}
+.nos-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 14px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.nos-orders{margin-top:12px;display:flex;flex-direction:column;gap:6px;}
+.nos-order-row{background:rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.nos-order-id{font-size:13px;font-weight:800;color:#fff;}
+.nos-order-amt{font-size:13px;font-weight:900;color:#fff;}
+.nos-order-time{font-size:10px;color:rgba(255,255,255,.5);}
+.nos-accept{background:#fff;color:#7c3aed;border:none;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;}
+
+/* Delivery time row */
+.dt-card{background:#fff;border:1px solid #e8edf5;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+.dt-icon{width:38px;height:38px;border-radius:10px;background:#f0f4ff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.dt-info{flex:1;}
+.dt-title{font-size:13px;font-weight:800;color:#0f172a;}
+.dt-sub{font-size:10px;color:#94a3b8;margin-top:1px;}
+.dt-controls{display:flex;align-items:center;gap:8px;}
+.dt-minus,.dt-plus{width:30px;height:30px;border-radius:50%;border:1.5px solid #e2e8f0;background:#f8faff;color:#0f172a;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;font-family:inherit;}
+.dt-minus:active,.dt-plus:active{background:#e0e7ff;border-color:#818cf8;}
+.dt-val{font-size:16px;font-weight:900;color:#1e40af;min-width:52px;text-align:center;}
+
+/* Payment cards — new design */
+.pay-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+.pay-card{border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;transition:transform .15s;}
+.pay-card:active{transform:scale(.97);}
+.pc-mp{background:linear-gradient(160deg,#1e3a8a,#3b82f6);box-shadow:0 4px 14px rgba(59,130,246,.3);}
+.pc-cash{background:linear-gradient(160deg,#064e3b,#10b981);box-shadow:0 4px 14px rgba(16,185,129,.3);}
+.pc-total{background:linear-gradient(160deg,#78350f,#f59e0b);box-shadow:0 4px 14px rgba(245,158,11,.3);}
+.pc-icon{font-size:20px;margin-bottom:6px;}
+.pc-amount{font-size:20px;font-weight:900;color:#fff;line-height:1;}
+.pc-label{font-size:9px;font-weight:700;color:rgba(255,255,255,.55);letter-spacing:.5px;margin-top:4px;text-transform:uppercase;}
+.pc-today{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;}
+.pay-withdraw{width:100%;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#1e40af;cursor:pointer;margin-bottom:12px;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;}
+.pay-withdraw:active{background:#f0f4ff;}
+
+/* Recent orders — clean list */
+.ro-card{background:#fff;border:1px solid #e8edf5;border-radius:12px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.ro-line{width:3px;height:36px;border-radius:2px;flex-shrink:0;}
+.ro-info{flex:1;min-width:0;}
+.ro-id{font-size:13px;font-weight:800;color:#0f172a;}
+.ro-meta{font-size:10px;color:#94a3b8;margin-top:1px;}
+.ro-right{text-align:right;flex-shrink:0;}
+.ro-amt{font-size:14px;font-weight:900;color:#0f172a;}
+.ro-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;margin-top:2px;display:inline-block;}
+.ro-chat{background:none;border:none;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;padding:0;display:flex;align-items:center;gap:3px;margin-top:3px;}
+
+/* Quick actions — horizontal scroll chips */
+.qa-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px;-webkit-overflow-scrolling:touch;}
+.qa-chips::-webkit-scrollbar{display:none;}
+.qa-chip{flex-shrink:0;background:#fff;border:1px solid #e8edf5;border-radius:20px;padding:8px 14px;display:flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.qa-chip:active{background:#f0f4ff;border-color:#c7d2fe;}
+.qa-chip-icon{font-size:15px;}
+.qa-chip-label{font-size:12px;font-weight:700;color:#0f172a;}
+
+/* Section headers */
+.sh{display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px;}
+.sh-title{font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.7px;}
+.sh-link{font-size:12px;font-weight:700;color:#1e40af;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;}
+
 </style>
 </head>
 <body>
@@ -741,101 +835,142 @@ function renderHome(){
   const b=_biz||{};
   const d=_dash||{};
   const orders=d.orders||[];
-  const active=orders.filter(o=>!['delivered','cancelled'].includes(o.status));
-  const recent=orders.filter(o=>['delivered','cancelled'].includes(o.status)).slice(0,3);
+  const newOrders=orders.filter(o=>o.status==='pending');
+  const activeOrders=orders.filter(o=>!['delivered','cancelled','pending'].includes(o.status));
+  const recent=orders.filter(o=>['delivered','cancelled'].includes(o.status)).slice(0,4);
   const isOpen=b.is_open;
 
   el.innerHTML=`
-    <!-- Estado del negocio -->
-    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;padding:14px 16px;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:2px;">Estado del negocio</div>
-        <div style="font-size:12px;color:${isOpen?'#16a34a':'#94a3b8'};font-weight:600;" id="toggle-sub">${isOpen?'✅ Estás recibiendo pedidos':'⏸️ No estás recibiendo pedidos'}</div>
+
+    <!-- ① ESTADO DEL NEGOCIO -->
+    <div class="home-status-card ${isOpen?'home-status-open':''}" id="status-card">
+      <div>
+        <div class="hs-label">Estado del negocio</div>
+        <div class="hs-state">${isOpen?'Abierto':'Cerrado'}</div>
+        <div class="hs-sub">${isOpen?'Estás recibiendo pedidos':'No recibís pedidos ahora'}</div>
       </div>
-      <button class="tog ${isOpen?'on':'off'}" id="toggle-btn" onclick="toggleOpen()"><div class="tog-k"></div></button>
+      <button class="hs-tog ${isOpen?'on':'off'}" id="toggle-btn" onclick="toggleOpen()">
+        <div class="hs-tog-k"></div>
+      </button>
     </div>
 
-    <!-- 🆕 Pedidos nuevos (pendientes) -->
-    ${(()=>{
-      const newOrders = orders.filter(o=>o.status==='pending');
-      if(!newOrders.length) return '';
-      return `<div style="margin-bottom:10px;">
-        <div class="sec" style="margin-bottom:8px;">
-          <span>🔔 PEDIDOS NUEVOS (${newOrders.length})</span>
+    <!-- ② PEDIDOS NUEVOS -->
+    ${newOrders.length ? `
+    <div class="new-orders-strip">
+      <div class="nos-row">
+        <div>
+          <div class="nos-count">${newOrders.length}</div>
+          <div class="nos-label">PEDIDO${newOrders.length>1?'S':''} NUEVO${newOrders.length>1?'S':''} 🔔</div>
         </div>
-        ${newOrders.map(o=>renderOrderCard(o)).join('')}
+        <button class="nos-btn" onclick="nav('orders')">Ver todos →</button>
+      </div>
+      <div class="nos-orders">
+        ${newOrders.slice(0,2).map(o=>{
+          const t=o.created_at?new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'}):'';
+          return `<div class="nos-order-row" onclick="nav('orders')">
+            <div>
+              <div class="nos-order-id">#${(o.id||'').toString().slice(-6).toUpperCase()}</div>
+              <div class="nos-order-time">${t} · ${o.items?.length||0} ítem${(o.items?.length||0)>1?'s':''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="nos-order-amt">$${Math.round(parseFloat(o.total)||0)}</div>
+              <button class="nos-accept" onclick="event.stopPropagation();updateOrder(${o.id},'confirmed')">Aceptar</button>
+            </div>
+          </div>`;
+        }).join('')}
+        ${newOrders.length>2?`<div style="text-align:center;font-size:11px;color:rgba(255,255,255,.45);padding-top:2px;">+${newOrders.length-2} más</div>`:''}
+      </div>
+    </div>` : ''}
+
+    <!-- ③ PEDIDOS EN CURSO -->
+    ${activeOrders.length ? `
+    <div class="sh"><span class="sh-title">⚡ En curso (${activeOrders.length})</span><button class="sh-link" onclick="nav('orders')">Ver todos</button></div>
+    ${activeOrders.slice(0,2).map(o=>renderOrderCard(o)).join('')}
+    ` : ''}
+
+    <!-- ④ TIEMPO DE ENTREGA -->
+    <div class="dt-card">
+      <div class="dt-icon">⏱️</div>
+      <div class="dt-info">
+        <div class="dt-title">Tiempo de entrega</div>
+        <div class="dt-sub">Visible para el cliente</div>
+      </div>
+      <div class="dt-controls">
+        <button class="dt-minus" onclick="changeDeliveryTime(-5)">−</button>
+        <span class="dt-val" id="delivery-time-display">${b.delivery_time||30} min</span>
+        <button class="dt-plus" onclick="changeDeliveryTime(5)">+</button>
+      </div>
+    </div>
+
+    <!-- ⑤ PAGOS -->
+    <div class="sh"><span class="sh-title">💰 Mis pagos</span></div>
+    <div class="pay-cards">
+      <div class="pay-card pc-mp" onclick="openRetiroModal()">
+        <div class="pc-icon">💳</div>
+        <div class="pc-amount" id="w-mp-val">$0</div>
+        <div class="pc-label">Mercado Pago</div>
+        <div class="pc-today">Hoy: <span id="w-mp-today">$0</span></div>
+      </div>
+      <div class="pay-card pc-cash">
+        <div class="pc-icon">💵</div>
+        <div class="pc-amount" id="w-cash-val">$0</div>
+        <div class="pc-label">En persona</div>
+        <div class="pc-today">Hoy: <span id="w-cash-today">$0</span></div>
+      </div>
+      <div class="pay-card pc-total">
+        <div class="pc-icon">📊</div>
+        <div class="pc-amount" id="w-total-val">$0</div>
+        <div class="pc-label">Total mes</div>
+        <div class="pc-today"><span id="w-month-val">$0</span></div>
+      </div>
+    </div>
+    <button class="pay-withdraw" onclick="openRetiroModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      Retirar fondos
+    </button>
+
+    <!-- ⑥ PEDIDOS RECIENTES -->
+    ${recent.length ? `
+    <div class="sh">
+      <span class="sh-title">Pedidos recientes</span>
+      <button class="sh-link" onclick="nav('orders')">Ver todos</button>
+    </div>
+    ${recent.map(o=>{
+      const statusColors={delivered:'#16a34a',cancelled:'#ef4444',confirmed:'#3b82f6',preparing:'#8b5cf6',ready:'#16a34a',on_way:'#0ea5e9'};
+      const statusLabels={pending:'Pendiente',confirmed:'Confirmado',preparing:'Preparando',ready:'Listo',on_way:'En camino',delivered:'Entregado',cancelled:'Cancelado'};
+      const color=statusColors[o.status]||'#94a3b8';
+      const label=statusLabels[o.status]||o.status;
+      const t=o.created_at?new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'}):'';
+      return `<div class="ro-card">
+        <div class="ro-line" style="background:${color};"></div>
+        <div class="ro-info">
+          <div class="ro-id">#${(o.id||'').toString().slice(-6).toUpperCase()}</div>
+          <div class="ro-meta">${t} · ${o.items?.length||0} ítem${(o.items?.length||0)>1?'s':''}</div>
+          <button class="ro-chat" onclick="openChat(${o.id})">💬 Chat</button>
+        </div>
+        <div class="ro-right">
+          <div class="ro-amt">$${Math.round(parseFloat(o.total)||0)}</div>
+          <div class="ro-badge" style="background:${color}20;color:${color};">${label}</div>
+        </div>
       </div>`;
-    })()}
+    }).join('')}` : `
+    <div style="text-align:center;padding:28px 16px;color:#94a3b8;">
+      <div style="font-size:36px;margin-bottom:8px;">📭</div>
+      <div style="font-size:13px;font-weight:600;">Sin pedidos recientes hoy</div>
+    </div>`}
 
-    <!-- Tiempo entrega -->
-    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:14px 16px;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:2px;">⏱️ Tiempo de entrega</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Lo ve el cliente al hacer seguimiento</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button onclick="changeDeliveryTime(-5)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid #e2e8f0;background:#f8faff;color:#0f172a;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;">−</button>
-        <span id="delivery-time-display" style="font-size:17px;font-weight:900;color:#0f172a;min-width:62px;text-align:center;">${b.delivery_time||'30'} min</span>
-        <button onclick="changeDeliveryTime(5)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid #e2e8f0;background:#f8faff;color:#0f172a;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;">+</button>
-      </div>
+    <!-- ⑦ ACCIONES RÁPIDAS -->
+    <div class="sh"><span class="sh-title">Acciones rápidas</span></div>
+    <div class="qa-chips">
+      <button class="qa-chip" onclick="nav('orders')"><span class="qa-chip-icon">📋</span><span class="qa-chip-label">Pedidos</span></button>
+      <button class="qa-chip" onclick="nav('menu')"><span class="qa-chip-icon">🍔</span><span class="qa-chip-label">Mi Menú</span></button>
+      <button class="qa-chip" onclick="nav('stats')"><span class="qa-chip-icon">📊</span><span class="qa-chip-label">Estadísticas</span></button>
+      <button class="qa-chip" onclick="nav('cfg')"><span class="qa-chip-icon">⚙️</span><span class="qa-chip-label">Configuración</span></button>
+      <button class="qa-chip" onclick="showMore('promos')"><span class="qa-chip-icon">🏷️</span><span class="qa-chip-label">Promociones</span></button>
+      <button class="qa-chip" onclick="showMore('reviews')"><span class="qa-chip-icon">⭐</span><span class="qa-chip-label">Reseñas</span></button>
+      <button class="qa-chip" onclick="showMore('novedades')"><span class="qa-chip-icon">📣</span><span class="qa-chip-label">Novedades</span></button>
     </div>
-
-    <!-- Wallet slider -->
-    <div style="overflow:hidden;margin-bottom:6px;border-radius:var(--r);" class="wallet-outer">
-      <div style="display:flex;transition:transform .3s;" id="wt" ontouchstart="wTouchStart(event)" ontouchend="wTouchEnd(event)">
-        <div style="min-width:100%;"><div class="wallet-slide ws-blue">
-          <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:4px;">💳 COBRADO ONLINE</div>
-          <div style="font-size:34px;font-weight:900;" id="w-mp-val">$0</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:14px;">Hoy: <span id="w-mp-today">$0</span></div>
-          <button onclick="openRetiroModal()" style="width:100%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">↑ Retirar fondos</button>
-        </div></div>
-        <div style="min-width:100%;"><div class="wallet-slide ws-green">
-          <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:4px;">💵 COBRADO EN PERSONA</div>
-          <div style="font-size:34px;font-weight:900;" id="w-cash-val">$0</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:14px;">Hoy: <span id="w-cash-today">$0</span></div>
-          <div style="font-size:13px;color:rgba(255,255,255,.6);">Pagos directos al negocio</div>
-        </div></div>
-        <div style="min-width:100%;"><div class="wallet-slide ws-amber">
-          <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);letter-spacing:.5px;margin-bottom:4px;">📊 VENTA TOTAL</div>
-          <div style="font-size:34px;font-weight:900;" id="w-total-val">$0</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:14px;">Este mes: <span id="w-month-val">$0</span></div>
-          <div style="font-size:13px;color:rgba(255,255,255,.6);">Online + efectivo</div>
-        </div></div>
-      </div>
-    </div>
-    <div style="display:flex;justify-content:center;gap:6px;margin-bottom:14px;" id="wd">
-      <div onclick="walletGo(0)" class="w-dot on"></div>
-      <div onclick="walletGo(1)" class="w-dot"></div>
-      <div onclick="walletGo(2)" class="w-dot"></div>
-    </div>
-
-    <!-- Pedidos activos -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <div class="sec" style="margin:0;">${active.length?`⚡ EN CURSO (${active.length})`:'PEDIDOS RECIENTES'}</div>
-      <button onclick="nav('orders')" style="background:none;border:none;color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Ver todos →</button>
-    </div>
-    ${active.length?active.map(o=>renderOrderCard(o)).join(''):
-      recent.length?recent.map(o=>renderOrderCard(o,true)).join(''):
-      `<div class="empty"><div class="empty-icon">📭</div><div>Sin pedidos aún hoy</div></div>`}
-
-    <!-- Acciones rápidas -->
-    <div class="sec">ACCIONES RÁPIDAS</div>
-    <div class="ag">
-      ${[
-        {tab:'orders',icon:'📋',label:'Pedidos',sub:'Ver pendientes'},
-        {tab:'menu',icon:'🍔',label:'Mi Menú',sub:'Gestionar productos'},
-        {tab:'settings',icon:'⚙️',label:'Configuración',sub:'Horarios y datos'},
-        {tab:'stats',icon:'📊',label:'Estadísticas',sub:'Ventas históricas'},
-      ].map(a=>`<button class="ab" onclick="nav('${a.tab}')"><span class="qa-icon">${a.icon}</span><span class="qa-title">${a.label}</span><span class="qa-sub">${a.sub}</span></button>`).join('')}
-    </div>
-    <div class="ag" style="margin-top:10px;">
-      ${[
-        {fn:"openRetiroModal()",icon:'💳',label:'Pagos y wallet',sub:'Retiro de fondos'},
-        {fn:"showMore('reviews')",icon:'⭐',label:'Reseñas',sub:'Lo que dicen tus clientes'},
-        {fn:"showMore('promos')",icon:'🏷️',label:'Promociones',sub:'Cupones y descuentos'},
-        {fn:"showMore('novedades')",icon:'📣',label:'Novedades',sub:'Publicar contenido'},
-      ].map(a=>`<button class="ab" onclick="${a.fn}"><span class="qa-icon">${a.icon}</span><span class="qa-title">${a.label}</span><span class="qa-sub">${a.sub}</span></button>`).join('')}
-    </div>
+    <div style="height:8px;"></div>
   `;
   loadWalletData();
 }
