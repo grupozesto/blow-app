@@ -2275,6 +2275,152 @@ app.get('/api/public-settings', async (_, res) => {
   } catch(e) { res.json({}); }
 });
 
+// ════════════════════════════════════════════════
+//  ADMIN PANEL — ENDPOINTS EXTENDIDOS
+// ════════════════════════════════════════════════
+
+// Stats avanzadas con filtro por fecha
+app.get('/api/admin/stats/advanced', auth, role('admin'), async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const dateFrom = from || new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+    const dateTo = to || new Date().toISOString().split('T')[0];
+    const [totals, dailyRevenue, topBusinesses, topCustomers, ordersByStatus, newUsers, subscriptionStats] = await Promise.all([
+      q1(`SELECT COUNT(DISTINCT o.id) FILTER (WHERE o.status NOT IN ('cancelled','pending')) as total_orders,
+        COALESCE(SUM(o.total) FILTER (WHERE o.status='delivered'),0) as gmv,
+        COALESCE(SUM(o.platform_fee) FILTER (WHERE o.status='delivered'),0) as platform_revenue,
+        COUNT(DISTINCT o.customer_id) FILTER (WHERE o.status NOT IN ('cancelled','pending')) as active_customers,
+        AVG(o.total) FILTER (WHERE o.status='delivered') as avg_order_value,
+        COUNT(*) FILTER (WHERE o.status='cancelled') as cancelled_orders
+        FROM orders o WHERE DATE(o.created_at) BETWEEN $1 AND $2`, [dateFrom, dateTo]),
+      qa(`SELECT DATE(created_at) as day,
+        COUNT(*) FILTER (WHERE status NOT IN ('cancelled','pending')) as orders,
+        COALESCE(SUM(total) FILTER (WHERE status='delivered'),0) as revenue,
+        COALESCE(SUM(platform_fee) FILTER (WHERE status='delivered'),0) as fee
+        FROM orders WHERE DATE(created_at) BETWEEN $1 AND $2
+        GROUP BY DATE(created_at) ORDER BY day`, [dateFrom, dateTo]),
+      qa(`SELECT b.id,b.name,b.logo_emoji,b.city,
+        COUNT(o.id) FILTER (WHERE o.status='delivered') as orders,
+        COALESCE(SUM(o.total) FILTER (WHERE o.status='delivered'),0) as revenue
+        FROM businesses b LEFT JOIN orders o ON o.business_id=b.id AND DATE(o.created_at) BETWEEN $1 AND $2
+        GROUP BY b.id ORDER BY revenue DESC LIMIT 10`, [dateFrom, dateTo]),
+      qa(`SELECT u.id,u.name,u.email,u.phone,
+        COUNT(o.id) as orders, COALESCE(SUM(o.total),0) as spent
+        FROM users u JOIN orders o ON o.customer_id=u.id
+        WHERE u.role='customer' AND DATE(o.created_at) BETWEEN $1 AND $2 AND o.status='delivered'
+        GROUP BY u.id ORDER BY spent DESC LIMIT 10`, [dateFrom, dateTo]),
+      qa(`SELECT status, COUNT(*) as c FROM orders WHERE DATE(created_at) BETWEEN $1 AND $2 GROUP BY status`, [dateFrom, dateTo]),
+      qa(`SELECT DATE(created_at) as day, COUNT(*) as c FROM users WHERE DATE(created_at) BETWEEN $1 AND $2 GROUP BY DATE(created_at) ORDER BY day`, [dateFrom, dateTo]),
+      q1(`SELECT COUNT(*) FILTER (WHERE s.status='active') as active,
+        COUNT(*) FILTER (WHERE s.status='cancelled') as cancelled,
+        COUNT(*) FILTER (WHERE s.current_period_end < NOW()+INTERVAL '7 days' AND s.status='active') as expiring_soon
+        FROM subscriptions s`, []),
+    ]);
+    res.json({ totals, dailyRevenue, topBusinesses, topCustomers, ordersByStatus, newUsers, subscriptionStats, dateFrom, dateTo });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Suscripciones con detalle de vencimiento
+app.get('/api/admin/subscriptions/detail', auth, role('admin'), async (req, res) => {
+  try {
+    const rows = await qa(`SELECT s.*,b.name as business_name,b.logo_emoji,b.city,b.category,
+      u.name as owner_name,u.email as owner_email,u.phone as owner_phone,
+      (SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as total_orders,
+      (SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue
+      FROM subscriptions s JOIN businesses b ON b.id=s.business_id JOIN users u ON u.id=s.owner_id
+      ORDER BY s.current_period_end ASC`, []);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Impersonar owner — genera token temporal
+app.post('/api/admin/impersonate/:userId', auth, role('admin'), async (req, res) => {
+  try {
+    const target = await q1('SELECT * FROM users WHERE id=$1', [req.params.userId]);
+    if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (target.role === 'admin') return res.status(403).json({ error: 'No podés impersonar otro admin' });
+    const impToken = jwt.sign({ id: target.id, role: target.role, impersonated_by: req.user.id }, JWT_SECRET, { expiresIn: '2h' });
+    console.log(`🔐 IMPERSONATE: admin ${req.user.id} → ${target.email}`);
+    res.json({ token: impToken, user: { id: target.id, name: target.name, email: target.email, role: target.role } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Banear / desbanear usuario
+app.post('/api/admin/users/:id/ban', auth, role('admin'), async (req, res) => {
+  try {
+    const { banned, reason } = req.body;
+    await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE', []);
+    await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT', []);
+    await q('UPDATE users SET banned=$1,ban_reason=$2 WHERE id=$3', [!!banned, reason||null, req.params.id]);
+    if (banned) notify(req.params.id, { type:'account_banned', message:`⛔ Tu cuenta fue suspendida${reason?': '+reason:''}` });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cancelar pedido desde admin
+app.post('/api/admin/orders/:id/cancel', auth, role('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    await q("UPDATE orders SET status='cancelled', updated_at=NOW() WHERE id=$1", [req.params.id]);
+    notify(order.customer_id, { type:'order_cancelled', message:`❌ Tu pedido fue cancelado por administración${reason?': '+reason:''}`, order_id:order.id });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Exportar CSV
+app.get('/api/admin/export/users', auth, role('admin'), async (req, res) => {
+  const users = await qa('SELECT id,name,email,phone,role,city,department,created_at FROM users ORDER BY created_at DESC', []);
+  const csv = ['ID,Nombre,Email,Teléfono,Rol,Ciudad,Dpto,Registro',
+    ...users.map(u=>`${u.id},${JSON.stringify(u.name)},${u.email},${u.phone||''},${u.role},${u.city||''},${u.department||''},${new Date(u.created_at).toLocaleDateString('es-UY')}`)].join('\n');
+  res.setHeader('Content-Type','text/csv;charset=utf-8');
+  res.setHeader('Content-Disposition','attachment;filename="usuarios.csv"');
+  res.send('\uFEFF'+csv);
+});
+app.get('/api/admin/export/businesses', auth, role('admin'), async (req, res) => {
+  const rows = await qa(`SELECT b.name,b.category,b.city,u.name as owner,u.email,s.status as sub,s.current_period_end,b.created_at
+    FROM businesses b JOIN users u ON b.owner_id=u.id LEFT JOIN subscriptions s ON s.business_id=b.id ORDER BY b.created_at DESC`,[]);
+  const csv = ['Negocio,Categoría,Ciudad,Dueño,Email,Suscripción,Vence,Registro',
+    ...rows.map(r=>`${JSON.stringify(r.name)},${r.category||''},${r.city||''},${JSON.stringify(r.owner)},${r.email},${r.sub||''},${r.current_period_end?new Date(r.current_period_end).toLocaleDateString('es-UY'):''},${new Date(r.created_at).toLocaleDateString('es-UY')}`)].join('\n');
+  res.setHeader('Content-Type','text/csv;charset=utf-8');
+  res.setHeader('Content-Disposition','attachment;filename="negocios.csv"');
+  res.send('\uFEFF'+csv);
+});
+app.get('/api/admin/export/orders', auth, role('admin'), async (req, res) => {
+  const { from, to } = req.query;
+  const dateFrom = from || new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0];
+  const dateTo = to || new Date().toISOString().split('T')[0];
+  const rows = await qa(`SELECT o.id,o.status,o.total,o.platform_fee,o.payment_method,u.name as customer,u.email,b.name as business,o.created_at
+    FROM orders o JOIN users u ON o.customer_id=u.id JOIN businesses b ON o.business_id=b.id
+    WHERE DATE(o.created_at) BETWEEN $1 AND $2 ORDER BY o.created_at DESC`, [dateFrom, dateTo]);
+  const csv = ['ID,Estado,Total,Fee,Pago,Cliente,Email,Negocio,Fecha',
+    ...rows.map(r=>`${r.id.slice(-8)},${r.status},$${r.total},$${r.platform_fee||0},${r.payment_method||''},${JSON.stringify(r.customer)},${r.email},${JSON.stringify(r.business)},${new Date(r.created_at).toLocaleString('es-UY')}`)].join('\n');
+  res.setHeader('Content-Type','text/csv;charset=utf-8');
+  res.setHeader('Content-Disposition',`attachment;filename="pedidos-${dateFrom}-${dateTo}.csv"`);
+  res.send('\uFEFF'+csv);
+});
+
+// Toggle open/closed negocio
+app.post('/api/admin/businesses/:id/toggle-open', auth, role('admin'), async (req, res) => {
+  const b = await q1('SELECT is_open FROM businesses WHERE id=$1',[req.params.id]);
+  if (!b) return res.status(404).json({ error:'No encontrado' });
+  await q('UPDATE businesses SET is_open=$1 WHERE id=$2',[!b.is_open,req.params.id]);
+  res.json({ is_open: !b.is_open });
+});
+
+// Cancelar suscripción con notificación
+app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const sub = await q1('SELECT * FROM subscriptions WHERE id=$1',[req.params.id]);
+    if (!sub) return res.status(404).json({ error:'No encontrada' });
+    await q("UPDATE subscriptions SET status='cancelled',updated_at=NOW() WHERE id=$1",[req.params.id]);
+    notify(sub.owner_id, { type:'subscription_cancelled', message:`❌ Tu suscripción fue cancelada${reason?': '+reason:''}` });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Geocoding proxy ───────────────────────────
 // Evita que Nominatim bloquee requests desde el cliente.
 // El server actúa de proxy con cache simple en memoria.
