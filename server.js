@@ -261,6 +261,7 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS priority_percent INTEGER DEFAULT 50;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_mp_id TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_free_delivery BOOLEAN DEFAULT FALSE;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -878,8 +879,9 @@ app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
   const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, description, tags, offers_pickup, offers_delivery, custom_delivery_cost, schedule, offers_priority, priority_percent } = req.body;
-  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),offers_priority=COALESCE($12,offers_priority),priority_percent=COALESCE($13,priority_percent) WHERE owner_id=$14`,
-    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,offers_priority!=null?Boolean(offers_priority):null,priority_percent!=null?parseInt(priority_percent):null,req.user.id]);
+  const scheduleVal = schedule !== undefined ? JSON.stringify(schedule) : null;
+  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),offers_priority=COALESCE($12,offers_priority),priority_percent=COALESCE($13,priority_percent),schedule=COALESCE($14,schedule) WHERE owner_id=$15`,
+    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,offers_priority!=null?Boolean(offers_priority):null,priority_percent!=null?parseInt(priority_percent):null,scheduleVal,req.user.id]);
   res.json(await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]));
 });
 
@@ -2506,6 +2508,39 @@ initDB().then(()=>{
     console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
     console.log(`🔐  JWT         : ${process.env.JWT_SECRET!=='dev_secret_cambiar_en_prod'?'✅ OK':'⚠️  cambiar'}\n`);
   });
+
+  // ── Schedule auto-open/close (cada minuto) ──
+  setInterval(async () => {
+    try {
+      const businesses = await qa(`SELECT id, is_open, schedule FROM businesses WHERE schedule IS NOT NULL`,[]);
+      const now = new Date();
+      // Uruguay = UTC-3
+      const uyOffset = -3 * 60;
+      const uyNow = new Date(now.getTime() + (uyOffset - now.getTimezoneOffset()) * 60000);
+      const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
+      const dayKey = dayNames[uyNow.getDay()];
+      const currentMins = uyNow.getHours() * 60 + uyNow.getMinutes();
+
+      for (const biz of businesses) {
+        let sched;
+        try { sched = typeof biz.schedule === 'string' ? JSON.parse(biz.schedule) : biz.schedule; }
+        catch(_) { continue; }
+        if (!sched || !sched[dayKey]) continue;
+        const { open, close, enabled } = sched[dayKey];
+        if (!enabled) continue;
+        const [oh,om] = open.split(':').map(Number);
+        const [ch,cm] = close.split(':').map(Number);
+        const openMins  = oh * 60 + om;
+        const closeMins = ch * 60 + cm;
+        const shouldBeOpen = currentMins >= openMins && currentMins < closeMins;
+        if (shouldBeOpen !== biz.is_open) {
+          await q(`UPDATE businesses SET is_open=$1 WHERE id=$2`,[shouldBeOpen, biz.id]);
+          console.log(`⏰ Schedule: ${biz.id} → ${shouldBeOpen ? 'ABIERTO' : 'CERRADO'}`);
+        }
+      }
+    } catch(e) { console.error('Schedule cron error:', e.message); }
+  }, 60000); // cada 60 segundos
+
 }).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });// ════════════════════════════════════════════════
 //  MULTER + CLOUDINARY UPLOAD
 // ════════════════════════════════════════════════
