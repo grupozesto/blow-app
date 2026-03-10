@@ -3629,28 +3629,35 @@ async function doCheckout() {
     return;
   }
 
+  // Guardamos los valores ANTES de limpiar el estado
+  const payMethod     = _chkPayMethod;
+  const fulfillmentType = _chkFulfillment || 'delivery';
+  const tipAmt        = fulfillmentType === 'pickup' ? 0 : _chkTip;
+  const addrToSend    = fulfillmentType === 'pickup' ? '' : (_chkAddress || user?.address || '');
+
   try {
-    const fulfillmentType = _chkFulfillment || currentSdFulfillment || 'delivery';
     const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null }));
     const res = await api('/api/orders', {
       method: 'POST',
       body: JSON.stringify({
         business_id: bizId,
         items,
-        address: _chkAddress || user.address || '',
+        address: addrToSend,
         fulfillment_type: fulfillmentType,
-        payment_method: _chkPayMethod,
-        tip: _chkTip,
+        payment_method: payMethod,
+        tip: tipAmt,
         priority: _chkPriority,
         notes: _chkNotes || ''
       })
     });
 
+    // Limpiar estado DESPUÉS de enviar
     cart = []; saveCart(); updateCartBadge();
-    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
+    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
+    _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
+    _chkAltAddress = ''; _chkShowAltAddr = false;
 
-    if (_chkPayMethod === 'cash' || res.cash) {
-      // Efectivo → va directo a tracking
+    if (payMethod === 'cash' || res.cash) {
       showToast('✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
       setTimeout(() => nav('page-tracking'), 800);
     } else if (res.payment?.init_point && !res.payment.demo) {
@@ -3663,7 +3670,7 @@ async function doCheckout() {
   } catch (e) {
     showToast(`❌ ${e.message}`);
     btn.disabled = false;
-    btn.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar pedido en efectivo' : '💳 Ir a pagar';
+    renderCheckoutPage();
   }
 }
 
