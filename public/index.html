@@ -2325,6 +2325,23 @@ function connectWS() {
           _chatLastCount = 0; // force refresh
           loadChatMessages();
         } else {
+          // Marcar como no leído
+          _chatUnread.add(msg.order_id);
+          // Actualizar botón cliente en tracking si está visible
+          const clientBtn = document.getElementById('chat-btn-' + msg.order_id);
+          if (clientBtn) {
+            clientBtn.style.background = '#2558d4';
+            clientBtn.style.border = '1.5px solid #2558d4';
+            clientBtn.style.color = '#fff';
+            clientBtn.innerHTML = '💬 Chat con el negocio <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">● nuevo</span>';
+          }
+          // Actualizar botón owner en panel de pedidos si está visible
+          const ownerBtn = document.getElementById('oo-chat-btn-' + msg.order_id);
+          if (ownerBtn) {
+            ownerBtn.style.background = '#2558d4';
+            ownerBtn.style.color = '#fff';
+            ownerBtn.innerHTML = '💬 nuevo';
+          }
           showToast(`💬 Nuevo mensaje en pedido #${msg.order_id.slice(-6).toUpperCase()}`);
         }
       }
@@ -3728,7 +3745,7 @@ async function loadTracking() {
           <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
         </div>
         ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
-        ${o.status!=='cancelled'?`<button onclick="openOrderChat('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;color:#0f172a;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💬 Chat con el negocio</button>`:''}
+        ${(()=>{const chatClosed=o.status==='delivered'&&o.delivered_at&&((Date.now()-new Date(o.delivered_at).getTime())/36e5>48);const hasUnread=_chatUnread.has(o.id);if(o.status==='cancelled')return '';if(chatClosed)return `<div style="width:100%;margin-top:8px;background:#f8fafc;border-radius:10px;padding:10px;color:#94a3b8;font-family:'Inter',sans-serif;font-size:12px;text-align:center;">🔒 Chat cerrado — pasaron más de 48hs</div>`;return `<button id="chat-btn-${o.id}" onclick="openOrderChat('${o.id}','${(o.business_name||'').replace(/'/g,'')}');clearChatBadge('${o.id}')" style="width:100%;margin-top:8px;background:${hasUnread?'#2558d4':'#f8fafc'};border:1.5px solid ${hasUnread?'#2558d4':'#e2e8f0'};border-radius:10px;padding:10px;color:${hasUnread?'#fff':'#0f172a'};font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">💬 Chat con el negocio${hasUnread?` <span style='background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;'>● nuevo</span>`:''}</button>`;})()
         ${o.status==='delivered'?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
       </div>`;
     }).join('');
@@ -3742,6 +3759,18 @@ async function cancelOrder(id) {
 }
 
 // ── Reviews ──────────────────────────────────
+const _chatUnread = new Set(); // order_ids with unread messages
+
+function clearChatBadge(orderId) {
+  _chatUnread.delete(orderId);
+  // Also update owner-side badge if visible
+  const ownerBtn = document.querySelector(`button[id="oo-chat-btn-${orderId}"]`);
+  if (ownerBtn) {
+    ownerBtn.style.background = '#eff6ff';
+    ownerBtn.style.color = '#2558d4';
+    ownerBtn.innerHTML = '💬';
+  }
+}
 let _reviewOrderId = null;
 let _reviewStar = 0;
 
@@ -3829,7 +3858,13 @@ async function loadChatMessages() {
       </div>`;
     }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:13px;margin-top:40px;">Iniciá la conversación 👋</div>';
     el.scrollTop = el.scrollHeight;
-  } catch(e) {}
+  } catch(e) {
+    // If 403 "chat cerrado", show closed state in input
+    if (e.message && e.message.includes('48')) {
+      const inputArea = document.querySelector('#chat-overlay > div:last-child');
+      if (inputArea) inputArea.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:16px;">🔒 Chat cerrado — pasaron más de 48hs desde la entrega</div>';
+    }
+  }
 }
 
 async function sendChatMessage() {
@@ -6804,6 +6839,7 @@ function ooRenderHomePedidos() {
           ${next.label}
         </button>
         <button onclick="ooOpenOrderChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,'')}')"
+          id="oo-chat-btn-${o.id}"
           style="background:#eff6ff;border:none;border-radius:10px;padding:9px 12px;color:#2558d4;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           💬
         </button>
@@ -7489,6 +7525,7 @@ function ooRenderSettings() {
 // ── Owner chat ──
 function ooOpenOrderChat(orderId, customerName) {
   _chatOrderId = orderId;
+  clearChatBadge(orderId);
   const overlay = document.getElementById('chat-overlay');
   document.getElementById('chat-title').textContent = '💬 ' + (customerName || 'Cliente');
   document.getElementById('chat-subtitle').textContent = 'Pedido #' + orderId.slice(-6).toUpperCase();
