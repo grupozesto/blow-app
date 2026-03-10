@@ -256,6 +256,7 @@ async function initDB() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_from TIME DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_until TIME DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -1347,6 +1348,7 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
   if (status==='delivered') {
+    await q('UPDATE orders SET delivered_at=NOW() WHERE id=$1',[order.id]);
     // Si el delivery_id es el owner del negocio (maneja su propio delivery), acreditar también el delivery_amount al negocio
     const deliveryBiz = await q1('SELECT id, owner_id FROM businesses WHERE id=$1',[order.business_id]);
     const ownerHandledDelivery = !order.delivery_id || (deliveryBiz && order.delivery_id === deliveryBiz.owner_id);
@@ -1484,28 +1486,39 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     if (!biz || biz.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
   }
+  // Bloquear chat 48hs después de la entrega
+  if (order.status === 'delivered' && order.delivered_at) {
+    const hoursSinceDelivery = (Date.now() - new Date(order.delivered_at).getTime()) / 36e5;
+    if (hoursSinceDelivery > 48) {
+      return res.status(403).json({ error:'El chat se cierra 48hs después de la entrega' });
+    }
+  }
+  if (order.status === 'cancelled') {
+    return res.status(403).json({ error:'No se puede chatear en un pedido cancelado' });
+  }
   const msg = await q1(
     `INSERT INTO order_messages (id,order_id,sender_id,sender_role,body) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
     [uuid(), req.params.id, req.user.id, req.user.role, body.trim()]
   );
-  // Notificar al otro lado via WS
+  // Notificar al otro lado via WS (incluye order_id para badge)
   const targetId = req.user.role === 'customer' ? order.business_id : order.customer_id;
   notify(targetId, { type:'chat_message', order_id: req.params.id, body: body.trim(), sender_role: req.user.role });
-  // También push notification
+  // Push notification
   if (req.user.role === 'customer') {
     const biz = await q1('SELECT owner_id, name FROM businesses WHERE id=$1', [order.business_id]);
     if (biz) sendPushToOwner(biz.owner_id, {
-      title: `💬 Mensaje en pedido #${req.params.id.slice(-6).toUpperCase()}`,
-      body: body.trim().slice(0,80),
+      title: `💬 Nuevo mensaje — pedido #${req.params.id.slice(-6).toUpperCase()}`,
+      body: body.trim().slice(0, 80),
       tag: 'chat_' + req.params.id,
       url: '/'
     });
   } else {
+    const biz = await q1('SELECT name FROM businesses WHERE id=$1', [order.business_id]);
     sendPushToUser(order.customer_id, {
-      title: `💬 Mensaje del negocio`,
-      body: body.trim().slice(0,80),
+      title: `💬 ${biz?.name || 'El negocio'} te escribió`,
+      body: body.trim().slice(0, 80),
       tag: 'chat_' + req.params.id,
-      url: '/'
+      url: '/?tab=tracking'
     });
   }
   res.json(msg);
