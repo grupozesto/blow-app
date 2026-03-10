@@ -6164,14 +6164,14 @@ function populateDeptSelect(deptId, cityId) {
 //  INIT
 // ═══════════════════════════════════════════════
 updateCartBadge();
-renderProfile();
 updateHeaderCity();
-loadHomeDynamic();
 
-// Si es owner con sesión activa, abrir portal directamente
+// Si es owner con sesión activa, abrir portal directamente sin pasar por home
 if (user && user.role === 'owner') {
-  // Pequeño delay para dejar que el DOM esté listo
-  setTimeout(() => enterOwnerOverlay(), 100);
+  setTimeout(() => enterOwnerOverlay(), 50);
+} else {
+  renderProfile();
+  loadHomeDynamic();
 }
 
 // Si tiene ciudad guardada, cargar directamente
@@ -6776,9 +6776,17 @@ async function ooUpdateOrder(id, status) {
       await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify({status}) });
     }
     showToast(status === 'cancelled' ? '✅ Pedido cancelado' : '✅ Estado actualizado');
-    ooRenderOrders();
-    // Actualizar KPI de pendientes en el header
-    ooLoadData();
+    // Refrescar solo los pedidos sin cambiar de tab ni recargar todo
+    try {
+      const fresh = await ooFetch('/api/businesses/mine/dashboard');
+      _ooDashData = fresh;
+      if (fresh.business) _ooBiz = fresh.business;
+      // Actualizar KPI pendientes sin redirigir
+      const pending = (fresh.orders||[]).filter(o => o.status === 'pending').length;
+      const el = document.getElementById('oo-kpi-pending');
+      if (el) el.textContent = pending;
+    } catch(_) {}
+    ooRenderOrders(); // quedarse en la lista de pedidos
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
