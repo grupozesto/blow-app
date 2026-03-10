@@ -254,6 +254,8 @@ async function initDB() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS calories INTEGER DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS allergens TEXT DEFAULT '';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS available_from TIME DEFAULT NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS available_until TIME DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -272,6 +274,19 @@ async function initDB() {
       seen BOOLEAN DEFAULT FALSE
     );
     CREATE INDEX IF NOT EXISTS idx_order_messages_order ON order_messages(order_id);
+    CREATE TABLE IF NOT EXISTS reviews (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+      customer_id TEXT NOT NULL REFERENCES users(id),
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT DEFAULT '',
+      owner_reply TEXT DEFAULT NULL,
+      owner_replied_at TIMESTAMPTZ DEFAULT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(order_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_reviews_business ON reviews(business_id);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -990,9 +1005,9 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock } = req.body;
-  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock) WHERE id=$13 AND business_id=$14`,
-    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?parseInt(stock):null,req.params.pid,b.id]);
+  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
+  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock),available_from=COALESCE($15,available_from),available_until=COALESCE($16,available_until) WHERE id=$13 AND business_id=$14`,
+    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?parseInt(stock):null,req.params.pid,b.id,available_from||null,available_until||null]);
   if (Array.isArray(photos) && photos.length > 0) {
     const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
     await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
@@ -1379,6 +1394,63 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════
+//  RESEÑAS
+// ════════════════════════════════════════════════
+// Cliente deja reseña (solo en pedidos entregados)
+app.post('/api/orders/:id/review', auth, async (req, res) => {
+  const { rating, comment } = req.body;
+  if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error:'Rating inválido' });
+  const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+  if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
+  if (order.status !== 'delivered') return res.status(400).json({ error:'Solo podés reseñar pedidos entregados' });
+  const existing = await q1('SELECT id FROM reviews WHERE order_id=$1', [req.params.id]);
+  if (existing) return res.status(400).json({ error:'Ya dejaste una reseña para este pedido' });
+  const review = await q1(
+    `INSERT INTO reviews (id,order_id,business_id,customer_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [uuid(), req.params.id, order.business_id, req.user.id, parseInt(rating), (comment||'').trim().slice(0,500)]
+  );
+  // Update business average rating
+  const avg = await q1('SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE business_id=$1', [order.business_id]);
+  await q('UPDATE businesses SET rating=$1 WHERE id=$2', [Math.round(parseFloat(avg.avg)*10)/10, order.business_id]);
+  res.json(review);
+});
+
+// Owner responde reseña
+app.patch('/api/reviews/:id/reply', auth, role('owner'), async (req, res) => {
+  const { reply } = req.body;
+  if (!reply?.trim()) return res.status(400).json({ error:'Respuesta vacía' });
+  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!biz) return res.status(404).json({ error:'Sin negocio' });
+  const review = await q1('SELECT * FROM reviews WHERE id=$1 AND business_id=$2', [req.params.id, biz.id]);
+  if (!review) return res.status(404).json({ error:'Reseña no encontrada' });
+  const updated = await q1(
+    `UPDATE reviews SET owner_reply=$1, owner_replied_at=NOW() WHERE id=$2 RETURNING *`,
+    [reply.trim().slice(0,500), req.params.id]
+  );
+  res.json(updated);
+});
+
+// Ver reseñas de un negocio (público)
+app.get('/api/businesses/:id/reviews', async (req, res) => {
+  const reviews = await qa(
+    `SELECT r.*, u.name as customer_name FROM reviews r JOIN users u ON u.id=r.customer_id WHERE r.business_id=$1 ORDER BY r.created_at DESC LIMIT 30`,
+    [req.params.id]
+  );
+  res.json(reviews);
+});
+
+// Owner ve sus reseñas
+app.get('/api/businesses/mine/reviews', auth, role('owner'), async (req, res) => {
+  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!biz) return res.status(404).json({ error:'Sin negocio' });
+  const reviews = await qa(
+    `SELECT r.*, u.name as customer_name FROM reviews r JOIN users u ON u.id=r.customer_id WHERE r.business_id=$1 ORDER BY r.created_at DESC`,
+    [biz.id]
+  );
+  res.json(reviews);
+});
+
+// ════════════════════════════════════════════════
 //  CHAT DE PEDIDO
 // ════════════════════════════════════════════════
 app.get('/api/orders/:id/messages', auth, async (req, res) => {
@@ -1750,7 +1822,15 @@ app.post('/api/businesses', auth, role('owner'), async (req, res) => {
 app.get('/api/businesses/:id', async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
-  const rawP = await qa('SELECT * FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
+  // Filter products: available + respects time window if set (Uruguay UTC-3)
+  const rawP = await qa(`
+    SELECT * FROM products
+    WHERE business_id=$1 AND is_available=TRUE
+    AND (
+      available_from IS NULL OR available_until IS NULL
+      OR (NOW() AT TIME ZONE 'America/Montevideo')::time BETWEEN available_from AND available_until
+    )
+  `,[b.id]);
   const prods = await Promise.all(rawP.map(async p => ({
     ...p,
     photos:   await qa('SELECT id,url,sort_order FROM product_photos WHERE product_id=$1 ORDER BY sort_order',[p.id]),
