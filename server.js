@@ -488,8 +488,7 @@ async function uploadPhoto(base64Data, mimeType) {
   if (!cloudinary) throw new Error('Cloudinary no configurado. Agregá las variables CLOUDINARY_* en Railway.');
   const dataUri = `data:${mimeType};base64,${base64Data}`;
   const result  = await cloudinary.uploader.upload(dataUri, {
-    folder: 'blow/products',
-    width: 800, height: 800, crop: 'limit', quality: 'auto:good'
+    folder: 'blow/products'
   });
   return { url: result.secure_url, cloudinary_id: result.public_id };
 }
