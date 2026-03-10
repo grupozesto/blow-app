@@ -771,10 +771,15 @@ app.get('/api/businesses', async (req, res) => {
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
   sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   const rows = await qa(sql, params);
-  const result = await Promise.all(rows.map(async b => ({
-    ...b,
-    product_count: parseInt((await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id])).c),
-  })));
+  const result = await Promise.all(rows.map(async b => {
+    const ratingRow = await q1('SELECT ROUND(AVG(rating)::numeric,1) as avg, COUNT(*) as total FROM reviews WHERE business_id=$1',[b.id]);
+    return {
+      ...b,
+      rating: ratingRow?.avg ? parseFloat(ratingRow.avg) : null,
+      rating_count: parseInt(ratingRow?.total||0),
+      product_count: parseInt((await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id])).c),
+    };
+  }));
   res.json(result);
 });
 
@@ -2180,7 +2185,34 @@ app.post('/api/webhooks/mp', async (req, res) => {
   } catch(e) { console.error('Webhook error:', e.message); }
 });
 
-// ── Geocoding proxy (evita CORS y throttling de Nominatim) ─
+// ── Verificar pago manualmente (fallback si webhook no llegó) ──
+app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
+  try {
+    const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (order.status !== 'pending') return res.json({ status: order.status, already_confirmed: true });
+    if (!mp || !order.mp_payment_id) return res.json({ status: order.status });
+    // Consultar MP directamente
+    const payment = (await mp.payment.get(order.mp_payment_id)).body;
+    if (payment.status === 'approved') {
+      await q("UPDATE orders SET status='confirmed', updated_at=NOW() WHERE id=$1", [order.id]);
+      const biz = await q1('SELECT * FROM businesses WHERE id=$1', [order.business_id]);
+      if (biz) {
+        notify(biz.owner_id, { type:'new_order', message:`💰 Pago confirmado #${order.id.slice(-6).toUpperCase()}`, order_id:order.id, total:order.total });
+        sendPushToOwner(biz.owner_id, { title:'💰 Pago confirmado', body:`#${order.id.slice(-6).toUpperCase()} — $${order.total}`, tag:'new_order', url:'/' });
+      }
+      notify(order.customer_id, { type:'status_change', message:'✅ Pago confirmado', status:'confirmed', order_id:order.id });
+      return res.json({ status: 'confirmed' });
+    }
+    if (['rejected','cancelled'].includes(payment.status)) {
+      await q("UPDATE orders SET status='cancelled', updated_at=NOW() WHERE id=$1", [order.id]);
+      return res.json({ status: 'cancelled' });
+    }
+    res.json({ status: order.status });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
 // Rate limit: 1 req/seg por IP (respetando ToS de Nominatim)
 const geoCache = new Map(); // cache en memoria para evitar duplicados
 app.get('/api/geocode/reverse', async (req, res) => {
