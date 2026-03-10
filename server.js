@@ -489,7 +489,7 @@ async function uploadPhoto(base64Data, mimeType) {
   const dataUri = `data:${mimeType};base64,${base64Data}`;
   const result  = await cloudinary.uploader.upload(dataUri, {
     folder: 'blow/products',
-    transformation: [{ width:800, height:800, crop:'limit', quality:'auto:good' }]
+    width: 800, height: 800, crop: 'limit', quality: 'auto:good'
   });
   return { url: result.secure_url, cloudinary_id: result.public_id };
 }
