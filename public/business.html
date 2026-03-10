@@ -1328,6 +1328,7 @@ function showAddProduct(editP=null){
         <div><label class="flbl">PREP. (min)</label><input id="np-preptime" type="number" value="${p.preparation_time||''}" placeholder="15" class="finp"></div>
         <div><label class="flbl">CALORÍAS</label><input id="np-calories" type="number" value="${p.calories||''}" placeholder="450" class="finp"></div>
       </div>
+      <div style="margin-bottom:12px;"><label class="flbl">INGREDIENTES</label><input id="np-ingredients" value="${p.ingredients||''}" placeholder="Ej: Queso, Tomate, Albahaca, Aceite de oliva" class="finp"><div style="font-size:10px;color:#94a3b8;margin-top:4px;">Separados por coma. Se muestran como chips en la página del producto.</div></div>
       <div style="margin-bottom:12px;"><label class="flbl">ALÉRGENOS</label><input id="np-allergens" value="${p.allergens||''}" placeholder="Gluten, lácteos..." class="finp"></div>
       <div style="margin-bottom:12px;"><label class="flbl">STOCK (vacío = ilimitado)</label><input id="np-stock" type="number" value="${p.stock!=null?p.stock:''}" placeholder="Ilimitado" class="finp"></div>
       <div><label class="flbl">HORARIO DISPONIBLE</label>
@@ -1339,6 +1340,12 @@ function showAddProduct(editP=null){
       </div>
     </div>
     <div class="card" style="margin-bottom:16px;">
+      <label class="flbl">EXTRAS Y VARIANTES</label>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Creá grupos de opciones: talle, extras, salsas, etc. El cliente elige antes de agregar al carrito.</div>
+      <div id="np-vgroups"></div>
+      <button onclick="npAddGroup()" style="width:100%;background:none;border:2px dashed var(--border);border-radius:10px;padding:10px;font-family:inherit;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;">+ Agregar grupo de opciones</button>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
       <label class="flbl">OPCIONES</label>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;"><input type="checkbox" id="np-featured" ${p.is_featured?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);"><div><div style="font-size:14px;font-weight:600;">⭐ Destacado</div><div style="font-size:11px;color:var(--muted);">Aparece primero</div></div></label>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="np-available" ${p.is_available!==false?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);"><div><div style="font-size:14px;font-weight:600;">✅ Disponible para pedir</div></div></label>
@@ -1347,6 +1354,13 @@ function showAddProduct(editP=null){
   `;
   const up=()=>{const price=parseFloat(document.getElementById('np-price')?.value)||0;const disc=parseInt(document.getElementById('np-discount')?.value)||0;const prev=document.getElementById('np-price-preview');if(prev&&price>0&&disc>0){const f=Math.round(price*(1-disc/100));prev.style.display='flex';prev.innerHTML=`💸 Precio final: <strong>$${f}</strong> <span style="text-decoration:line-through;color:var(--muted);font-size:12px;">$${price}</span>`;}else if(prev)prev.style.display='none';};
   document.getElementById('np-price')?.addEventListener('input',up);document.getElementById('np-discount')?.addEventListener('input',up);up();
+  // Cargar grupos de variantes existentes
+  _npGroups = (p.variants||[]).reduce((acc,v)=>{
+    if(!acc[v.group_name]) acc[v.group_name]={name:v.group_name,is_required:v.is_required||false,is_multi:v.is_multi||false,max_selections:v.max_selections||1,opts:[]};
+    acc[v.group_name].opts.push({name:v.option_name,delta:v.price_delta||0});
+    return acc;
+  },{});
+  npRenderGroups();
 }
 function npPhotoSelected(slot,input){
   const file=input.files[0];if(!file)return;
@@ -1355,6 +1369,70 @@ function npPhotoSelected(slot,input){
   reader.readAsDataURL(file);
 }
 function npRemovePhoto(slot){_npPhotos[slot]=null;const sl=document.getElementById(`np-slot-${slot}`);if(sl){sl.style.border='2px dashed var(--border)';sl.innerHTML=`<div style="font-size:20px;color:var(--muted2);">📷</div><div style="font-size:9px;color:var(--muted);margin-top:3px;">${slot===0?'Principal':'Foto '+(slot+1)}</div><input type="file" id="np-input-${slot}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${slot},this)">`;}}
+// ════════ VARIANT GROUPS EDITOR ════════
+let _npGroups = {};
+
+function npRenderGroups() {
+  const cont = document.getElementById('np-vgroups');
+  if (!cont) return;
+  const keys = Object.keys(_npGroups);
+  if (!keys.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML = keys.map(gk => {
+    const g = _npGroups[gk];
+    const optsHtml = g.opts.map((o, oi) =>
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;" id="npg-opt-${gk}-${oi}">
+        <input value="${o.name}" placeholder="Nombre opción" class="finp" style="flex:2;padding:8px 10px;" oninput="_npGroups['${gk}'].opts[${oi}].name=this.value">
+        <input type="number" value="${o.delta||0}" placeholder="+$" class="finp" style="flex:1;padding:8px 10px;" oninput="_npGroups['${gk}'].opts[${oi}].delta=parseFloat(this.value)||0">
+        <button onclick="npRemoveOpt('${gk}',${oi})" style="background:#fee2e2;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;color:#dc2626;font-weight:800;font-size:13px;">✕</button>
+      </div>`
+    ).join('');
+    return `<div style="background:#f8faff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <input value="${g.name}" placeholder="Nombre del grupo" class="finp" style="flex:1;min-width:120px;padding:8px 10px;font-weight:700;" oninput="npRenameGroup('${gk}',this.value)">
+        <button onclick="npRemoveGroup('${gk}')" style="background:#fee2e2;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;color:#dc2626;font-size:13px;font-weight:800;">Eliminar</button>
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:700;">
+          <input type="checkbox" ${g.is_required?'checked':''} style="accent-color:var(--primary);" onchange="_npGroups['${gk}'].is_required=this.checked"> Obligatorio
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:700;">
+          <input type="checkbox" ${g.is_multi?'checked':''} style="accent-color:var(--primary);" onchange="_npGroups['${gk}'].is_multi=this.checked;npRenderGroups()"> Múltiple
+        </label>
+        ${g.is_multi?`<div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;">Máx: <input type="number" value="${g.max_selections}" min="1" max="20" class="finp" style="width:52px;padding:5px 8px;" oninput="_npGroups['${gk}'].max_selections=parseInt(this.value)||1"></div>`:''}
+      </div>
+      <div id="npg-opts-${gk}">${optsHtml}</div>
+      <button onclick="npAddOpt('${gk}')" style="background:none;border:1.5px dashed #c7d2fe;border-radius:8px;padding:7px;width:100%;font-size:12px;font-weight:700;color:#1e40af;cursor:pointer;font-family:inherit;">+ Opción</button>
+    </div>`;
+  }).join('');
+}
+
+function npAddGroup() {
+  const key = 'Grupo ' + (Object.keys(_npGroups).length + 1);
+  _npGroups[key] = { name: key, is_required: false, is_multi: false, max_selections: 1, opts: [{ name: '', delta: 0 }] };
+  npRenderGroups();
+}
+function npRemoveGroup(key) { delete _npGroups[key]; npRenderGroups(); }
+function npRenameGroup(oldKey, newName) {
+  if (!newName.trim() || newName === oldKey) { _npGroups[oldKey].name = newName; return; }
+  const newKey = newName.trim();
+  if (_npGroups[newKey]) return;
+  _npGroups[newKey] = { ..._npGroups[oldKey], name: newKey };
+  delete _npGroups[oldKey];
+}
+function npAddOpt(gk) { if (_npGroups[gk]) { _npGroups[gk].opts.push({ name: '', delta: 0 }); npRenderGroups(); } }
+function npRemoveOpt(gk, oi) { if (_npGroups[gk]) { _npGroups[gk].opts.splice(oi, 1); npRenderGroups(); } }
+
+function npGetVariants() {
+  const variants = [];
+  for (const [, g] of Object.entries(_npGroups)) {
+    for (const o of g.opts) {
+      if (!o.name.trim()) continue;
+      variants.push({ group_name: g.name, option_name: o.name.trim(), price_delta: o.delta || 0, is_required: g.is_required, is_multi: g.is_multi, max_selections: g.max_selections || 1 });
+    }
+  }
+  return variants;
+}
+
 async function saveProduct(editId=null){
   const btn=document.getElementById('np-save-btn');
   const name=document.getElementById('np-name')?.value?.trim();
@@ -1364,7 +1442,7 @@ async function saveProduct(editId=null){
   const photos=_npPhotos.filter(Boolean);
   btn.textContent=photos.length?'⬆️ Subiendo...':'⏳ Guardando...';btn.disabled=true;
   try{
-    const body={name,price,emoji:document.getElementById('np-emoji')?.value?.trim()||'🍽️',description:document.getElementById('np-desc')?.value?.trim()||'',discount_percent:parseInt(document.getElementById('np-discount')?.value)||0,category_id:document.getElementById('np-cat')?.value||null,preparation_time:parseInt(document.getElementById('np-preptime')?.value)||null,calories:parseInt(document.getElementById('np-calories')?.value)||null,allergens:document.getElementById('np-allergens')?.value?.trim()||'',stock:document.getElementById('np-stock')?.value!==''?parseInt(document.getElementById('np-stock')?.value):null,is_featured:document.getElementById('np-featured')?.checked||false,is_available:document.getElementById('np-available')?.checked!==false,available_from:document.getElementById('np-from')?.value||null,available_until:document.getElementById('np-until')?.value||null,photos:photos.map(p=>({data:p.data,mime_type:p.mime_type}))};
+    const body={name,price,emoji:document.getElementById('np-emoji')?.value?.trim()||'🍽️',description:document.getElementById('np-desc')?.value?.trim()||'',discount_percent:parseInt(document.getElementById('np-discount')?.value)||0,category_id:document.getElementById('np-cat')?.value||null,preparation_time:parseInt(document.getElementById('np-preptime')?.value)||null,calories:parseInt(document.getElementById('np-calories')?.value)||null,allergens:document.getElementById('np-allergens')?.value?.trim()||'',ingredients:document.getElementById('np-ingredients')?.value?.trim()||'',stock:document.getElementById('np-stock')?.value!==''?parseInt(document.getElementById('np-stock')?.value):null,is_featured:document.getElementById('np-featured')?.checked||false,is_available:document.getElementById('np-available')?.checked!==false,available_from:document.getElementById('np-from')?.value||null,available_until:document.getElementById('np-until')?.value||null,variants:npGetVariants(),photos:photos.map(p=>({data:p.data,mime_type:p.mime_type}))};
     if(editId)await api(`/api/businesses/mine/products/${editId}`,{method:'PATCH',body:JSON.stringify(body)});
     else await api('/api/businesses/mine/products',{method:'POST',body:JSON.stringify(body)});
     toast('✅ Producto '+(editId?'actualizado':'publicado'));

@@ -1734,21 +1734,62 @@ body.owner-mode #owner-overlay {
 </nav>
 
 <!-- ══ PRODUCT MODAL ══ -->
-<div class="modal-overlay" id="prod-modal" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <span class="modal-em" id="modal-em"></span>
-    <div class="modal-name" id="modal-name"></div>
-    <div class="modal-desc" id="modal-desc"></div>
-    <div class="modal-price-row">
-      <div class="modal-price" id="modal-price"></div>
-      <div class="qty-ctrl">
-        <button class="qty-btn" onclick="changeQty(-1)">−</button>
-        <span class="qty-num" id="modal-qty">1</span>
-        <button class="qty-btn" onclick="changeQty(1)">+</button>
-      </div>
+<!-- ══ PRODUCT PAGE (full screen) ══ -->
+<div id="prod-page" style="display:none;position:fixed;inset:0;z-index:3000;background:#f8f9fb;flex-direction:column;overflow:hidden;">
+  <!-- Hero foto / emoji -->
+  <div id="pp-hero" style="position:relative;flex-shrink:0;">
+    <div id="pp-hero-inner" style="width:100%;height:260px;background:#e8ecf4;overflow:hidden;position:relative;">
+      <!-- contenido inyectado por JS -->
     </div>
-    <button class="modal-add-btn" id="modal-add-btn" onclick="addFromModal()">Agregar al carrito</button>
+    <!-- Botón volver -->
+    <button onclick="closeProdPage()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));left:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.92);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.18);font-size:20px;z-index:2;">←</button>
+    <!-- Botón like -->
+    <button id="pp-like-btn" onclick="toggleProdLike()" style="position:absolute;top:max(14px,env(safe-area-inset-top,14px));right:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.92);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.18);font-size:18px;z-index:2;">🤍</button>
+  </div>
+
+  <!-- Scroll body -->
+  <div id="pp-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 100px);">
+
+    <!-- Nombre, descripción, precio -->
+    <div style="padding:20px 18px 0;">
+      <div id="pp-name" style="font-size:22px;font-weight:900;color:#0f172a;margin-bottom:6px;line-height:1.2;"></div>
+      <div id="pp-desc" style="font-size:14px;color:#64748b;line-height:1.6;margin-bottom:12px;"></div>
+      <div id="pp-price-main" style="font-size:26px;font-weight:900;color:#0f172a;margin-bottom:4px;"></div>
+      <div id="pp-orig-price" style="font-size:14px;color:#94a3b8;text-decoration:line-through;display:none;margin-bottom:4px;"></div>
+    </div>
+
+    <!-- Ingredientes -->
+    <div id="pp-ingredients-wrap" style="display:none;padding:14px 18px 0;">
+      <div style="font-size:12px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Ingredientes</div>
+      <div id="pp-ingredients-list" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
+    </div>
+
+    <!-- Separador -->
+    <div style="height:1px;background:#edf0f7;margin:18px 18px 0;"></div>
+
+    <!-- Grupos de variantes / extras -->
+    <div id="pp-variants" style="padding:0 18px;"></div>
+
+    <!-- Observaciones -->
+    <div style="padding:6px 18px 0;">
+      <div style="font-size:12px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Observaciones</div>
+      <textarea id="pp-notes" placeholder="Ej: sin cebolla, bien cocido, extra salsa…" style="width:100%;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;color:#0f172a;resize:none;height:72px;outline:none;box-sizing:border-box;" oninput="this.style.borderColor='#1e40af'"></textarea>
+    </div>
+
+  </div><!-- /pp-body -->
+
+  <!-- Footer sticky: cantidad + agregar -->
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #edf0f7;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
+    <!-- Control cantidad -->
+    <div style="display:flex;align-items:center;gap:0;background:#f1f5f9;border-radius:12px;overflow:hidden;flex-shrink:0;">
+      <button onclick="ppChangeQty(-1)" style="width:40px;height:44px;border:none;background:none;font-size:22px;cursor:pointer;color:#0f172a;display:flex;align-items:center;justify-content:center;">−</button>
+      <span id="pp-qty" style="font-size:16px;font-weight:800;color:#0f172a;min-width:28px;text-align:center;">1</span>
+      <button onclick="ppChangeQty(1)" style="width:40px;height:44px;border:none;background:none;font-size:22px;cursor:pointer;color:#0f172a;display:flex;align-items:center;justify-content:center;">+</button>
+    </div>
+    <!-- Botón agregar -->
+    <button id="pp-add-btn" onclick="ppAddToCart()" style="flex:1;background:var(--primary);border:none;border-radius:12px;padding:13px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+      Agregar · <span id="pp-price-btn">$0</span>
+    </button>
   </div>
 </div>
 
@@ -3268,123 +3309,237 @@ function updateFulfillmentSelector(store) {
 // ═══════════════════════════════════════════════
 let selectedVariants = {}; // groupName -> variantId
 
+// ═══════════════════════════════════════════════
+//  PRODUCT PAGE (full screen)
+// ═══════════════════════════════════════════════
+let ppProduct = null, ppQty = 1, ppSelections = {}, ppLiked = false;
+
 function openProduct(p) {
   if (typeof p === 'string') p = JSON.parse(p);
-  modalProduct = p; modalQty = 1; selectedVariants = {};
-  const sheet = document.querySelector('#prod-modal .modal-sheet');
+  ppProduct = p; ppQty = 1; ppSelections = {};
 
-  // Fotos — carousel o emoji
-  let photosHtml = '';
+  const page = document.getElementById('prod-page');
+  page.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // ── Hero ──
+  const hero = document.getElementById('pp-hero-inner');
   if (p.photos && p.photos.length > 0) {
     const slides = p.photos.map((ph,i) =>
-      `<img class="ppc-slide" src="${ph.url}" alt="${p.name}">`
+      `<img src="${ph.url}" alt="${p.name}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .3s;opacity:${i===0?1:0};" class="pp-slide">`
     ).join('');
-    const dots = p.photos.map((_,i) =>
-      `<div class="ppc-dot ${i===0?'active':''}" onclick="ppcGoTo(${i})"></div>`
-    ).join('');
+    const dots = p.photos.length > 1 ? p.photos.map((_,i) =>
+      `<button onclick="ppGoTo(${i})" style="width:${i===0?'20px':'7px'};height:7px;border-radius:4px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:none;cursor:pointer;transition:all .2s;padding:0;" class="pp-dot"></button>`
+    ).join('') : '';
     const arrows = p.photos.length > 1
-      ? `<button class="ppc-arrow prev" onclick="ppcMove(-1)">‹</button><button class="ppc-arrow next" onclick="ppcMove(1)">›</button>` : '';
-    photosHtml = `<div class="prod-photos-carousel" id="ppc">
-      <div class="ppc-track" id="ppc-track" style="transform:translateX(0)">${slides}</div>
-      ${arrows}
-    </div><div class="ppc-dots" id="ppc-dots">${dots}</div>`;
+      ? `<button onclick="ppMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;">‹</button>
+         <button onclick="ppMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;">›</button>` : '';
+    hero.innerHTML = `${slides}${arrows}
+      <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:2;">${dots}</div>`;
+  } else {
+    hero.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:80px;background:linear-gradient(135deg,#e8ecf4,#dde3f0);">${p.emoji||'🍽️'}</div>`;
   }
 
-  // Variantes por grupo
-  const groups = {};
-  (p.variants||[]).forEach(v => {
-    if (!groups[v.group_name]) groups[v.group_name] = [];
-    groups[v.group_name].push(v);
-  });
-  let variantsHtml = '';
-  for (const [gname, opts] of Object.entries(groups)) {
-    const optsHtml = opts.map(v =>
-      `<div class="variant-opt" data-group="${gname}" data-vid="${v.id}" data-delta="${v.price_delta}" onclick="selectVariant('${gname}','${v.id}',${v.price_delta})">
-        ${v.option_name}${v.price_delta > 0 ? `<span class="variant-extra">+$${v.price_delta}</span>` : v.price_delta < 0 ? `<span class="variant-extra">-$${Math.abs(v.price_delta)}</span>` : ''}
-      </div>`
+  // ── Info básica ──
+  document.getElementById('pp-name').textContent = p.name;
+  document.getElementById('pp-desc').textContent = p.description || '';
+  document.getElementById('pp-desc').style.display = p.description ? '' : 'none';
+
+  // Precio con descuento
+  const hasDiscount = p.discount_percent > 0;
+  const finalBase = hasDiscount ? Math.round(p.price * (1 - p.discount_percent/100)) : p.price;
+  document.getElementById('pp-price-main').textContent = '$' + finalBase;
+  const origEl = document.getElementById('pp-orig-price');
+  origEl.style.display = hasDiscount ? '' : 'none';
+  if (hasDiscount) origEl.textContent = '$' + p.price;
+
+  // ── Ingredientes ──
+  const ingWrap = document.getElementById('pp-ingredients-wrap');
+  const ingList = document.getElementById('pp-ingredients-list');
+  const ings = (p.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (ings.length > 0) {
+    ingWrap.style.display = '';
+    ingList.innerHTML = ings.map(ing =>
+      `<span style="background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:5px 11px;font-size:12px;font-weight:600;color:#334155;">${ing}</span>`
     ).join('');
-    variantsHtml += `<div class="variant-group"><div class="variant-group-title">${gname}</div><div class="variant-options">${optsHtml}</div></div>`;
+  } else {
+    ingWrap.style.display = 'none';
   }
 
-  sheet.innerHTML = `
-    <div class="modal-handle"></div>
-    ${photosHtml}
-    ${!photosHtml ? `<span class="modal-em">${p.emoji||'🍽️'}</span>` : ''}
-    <div class="modal-name">${p.name}</div>
-    <div class="modal-desc">${p.description||''}</div>
-    ${variantsHtml}
-    <div class="modal-price-row">
-      <div class="modal-price" id="modal-price">$${p.price}</div>
-      <div class="qty-ctrl">
-        <button class="qty-btn" onclick="changeQty(-1)">−</button>
-        <span class="qty-num" id="modal-qty">1</span>
-        <button class="qty-btn" onclick="changeQty(1)">+</button>
-      </div>
-    </div>
-    <button class="modal-add-btn" id="modal-add-btn" onclick="addFromModal()">Agregar al carrito · $${p.price}</button>
-  `;
-  document.getElementById('prod-modal').classList.add('open');
+  // ── Variantes / Extras por grupo ──
+  const variantsEl = document.getElementById('pp-variants');
+  const groups = {};
+  (p.variants || []).forEach(v => {
+    if (!groups[v.group_name]) groups[v.group_name] = { opts: [], is_required: v.is_required, is_multi: v.is_multi, max_selections: v.max_selections || 1 };
+    groups[v.group_name].opts.push(v);
+  });
+
+  let varHtml = '';
+  for (const [gname, g] of Object.entries(groups)) {
+    const reqBadge = g.is_required
+      ? `<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;">Requerido</span>`
+      : `<span style="background:#f1f5f9;color:#64748b;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;">Opcional</span>`;
+    const multiBadge = g.is_multi
+      ? `<span style="font-size:11px;color:#94a3b8;margin-left:6px;">Elegí hasta ${g.max_selections}</span>` : '';
+    const opts = g.opts.map(v => {
+      const deltaStr = v.price_delta > 0 ? `<span style="font-size:11px;color:#1e40af;font-weight:700;margin-left:4px;">+$${v.price_delta}</span>`
+                     : v.price_delta < 0 ? `<span style="font-size:11px;color:#16a34a;font-weight:700;margin-left:4px;">-$${Math.abs(v.price_delta)}</span>` : '';
+      return `<button class="pp-vopt" data-group="${gname}" data-vid="${v.id}" data-delta="${v.price_delta}" data-multi="${g.is_multi}" data-max="${g.max_selections}"
+        onclick="ppSelectVariant('${gname}','${v.id}',${v.price_delta},${g.is_multi},${g.max_selections})"
+        style="display:inline-flex;align-items:center;gap:4px;padding:9px 14px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:#0f172a;transition:all .15s;font-family:inherit;">
+        <span class="pp-vopt-check" style="display:none;color:#1e40af;font-size:14px;">✓</span>
+        ${v.option_name}${deltaStr}
+      </button>`;
+    }).join('');
+    varHtml += `
+      <div style="padding-top:18px;" data-group-container="${gname}">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
+          <span style="font-size:14px;font-weight:800;color:#0f172a;">${gname}</span>
+          ${reqBadge}${multiBadge}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">${opts}</div>
+      </div>`;
+  }
+  variantsEl.innerHTML = varHtml || '';
+  if (!varHtml) variantsEl.style.paddingTop = '0';
+
+  // ── Observaciones limpiar ──
+  document.getElementById('pp-notes').value = '';
+  document.getElementById('pp-notes').style.borderColor = '#e2e8f0';
+
+  // ── Reset qty display ──
+  document.getElementById('pp-qty').textContent = '1';
+  ppUpdatePrice();
+
+  // Like state
+  const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
+  ppLiked = !!liked[p.id];
+  document.getElementById('pp-like-btn').textContent = ppLiked ? '❤️' : '🤍';
+
+  // Scroll al top
+  document.getElementById('pp-body').scrollTop = 0;
+
+  // Animación entrada
+  page.style.transform = 'translateX(100%)';
+  page.style.transition = 'none';
+  requestAnimationFrame(() => {
+    page.style.transition = 'transform .28s cubic-bezier(.4,0,.2,1)';
+    page.style.transform = 'translateX(0)';
+  });
 }
 
-// Carousel
-let ppcIdx = 0;
-function ppcGoTo(i) {
-  ppcIdx = i;
-  const track = document.getElementById('ppc-track');
-  if (track) track.style.transform = `translateX(-${i*100}%)`;
-  document.querySelectorAll('.ppc-dot').forEach((d,di) => d.classList.toggle('active', di===i));
+let ppSlideIdx = 0;
+function ppGoTo(i) {
+  ppSlideIdx = i;
+  const slides = document.querySelectorAll('.pp-slide');
+  const dots = document.querySelectorAll('.pp-dot');
+  slides.forEach((s, si) => s.style.opacity = si === i ? 1 : 0);
+  dots.forEach((d, di) => { d.style.width = di === i ? '20px' : '7px'; d.style.background = di === i ? '#fff' : 'rgba(255,255,255,.5)'; });
 }
-function ppcMove(dir) {
-  const slides = document.querySelectorAll('.ppc-slide').length;
-  ppcGoTo((ppcIdx + dir + slides) % slides);
-}
-
-function selectVariant(group, vid, delta) {
-  selectedVariants[group] = { id: vid, delta: parseFloat(delta)||0 };
-  document.querySelectorAll(`.variant-opt[data-group="${group}"]`).forEach(el => el.classList.remove('selected'));
-  document.querySelector(`.variant-opt[data-vid="${vid}"]`)?.classList.add('selected');
-  updateModalPrice();
+function ppMove(dir) {
+  const n = document.querySelectorAll('.pp-slide').length;
+  ppGoTo((ppSlideIdx + dir + n) % n);
 }
 
-function updateModalPrice() {
-  const totalDelta = Object.values(selectedVariants).reduce((s,v) => s + v.delta, 0);
-  const finalPrice = (modalProduct.price + totalDelta) * modalQty;
-  document.getElementById('modal-price').textContent = `$${finalPrice}`;
-  document.getElementById('modal-add-btn').textContent = `Agregar al carrito · $${finalPrice}`;
+function ppSelectVariant(group, vid, delta, isMulti, maxSel) {
+  if (!ppSelections[group]) ppSelections[group] = {};
+  if (isMulti) {
+    // Multi-select: toggle
+    if (ppSelections[group][vid]) {
+      delete ppSelections[group][vid];
+    } else {
+      const cur = Object.keys(ppSelections[group]).length;
+      if (cur >= maxSel) { showToast(`Máximo ${maxSel} opciones para "${group}"`); return; }
+      ppSelections[group][vid] = { id: vid, delta: parseFloat(delta)||0 };
+    }
+  } else {
+    // Single select
+    ppSelections[group] = { [vid]: { id: vid, delta: parseFloat(delta)||0 } };
+  }
+  // Update UI
+  document.querySelectorAll(`.pp-vopt[data-group="${group}"]`).forEach(el => {
+    const isOn = !!ppSelections[group][el.dataset.vid];
+    el.style.borderColor = isOn ? '#1e40af' : '#e2e8f0';
+    el.style.background = isOn ? '#eff6ff' : '#fff';
+    el.querySelector('.pp-vopt-check').style.display = isOn ? '' : 'none';
+  });
+  ppUpdatePrice();
 }
 
-function changeQty(d) {
-  modalQty = Math.max(1, modalQty+d);
-  document.getElementById('modal-qty').textContent = modalQty;
-  updateModalPrice();
+function ppChangeQty(d) {
+  ppQty = Math.max(1, ppQty + d);
+  document.getElementById('pp-qty').textContent = ppQty;
+  ppUpdatePrice();
 }
 
-function addFromModal() {
-  if (!modalProduct) return;
-  // Validar que se eligió variante en todos los grupos
-  const groups = [...new Set((modalProduct.variants||[]).map(v => v.group_name))];
-  for (const g of groups) {
-    if (!selectedVariants[g]) {
+function ppUpdatePrice() {
+  if (!ppProduct) return;
+  const hasDiscount = ppProduct.discount_percent > 0;
+  const base = hasDiscount ? Math.round(ppProduct.price * (1 - ppProduct.discount_percent/100)) : ppProduct.price;
+  const delta = Object.values(ppSelections).reduce((sum, grp) =>
+    sum + Object.values(grp).reduce((s, v) => s + (v.delta||0), 0), 0);
+  const total = (base + delta) * ppQty;
+  document.getElementById('pp-price-btn').textContent = '$' + total;
+}
+
+function toggleProdLike() {
+  if (!ppProduct) return;
+  ppLiked = !ppLiked;
+  document.getElementById('pp-like-btn').textContent = ppLiked ? '❤️' : '🤍';
+  const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
+  if (ppLiked) liked[ppProduct.id] = true; else delete liked[ppProduct.id];
+  localStorage.setItem('blow_liked', JSON.stringify(liked));
+}
+
+function ppAddToCart() {
+  if (!ppProduct) return;
+  // Validar grupos requeridos
+  const groups = {};
+  (ppProduct.variants || []).forEach(v => { groups[v.group_name] = v.is_required; });
+  for (const [g, req] of Object.entries(groups)) {
+    if (req && (!ppSelections[g] || Object.keys(ppSelections[g]).length === 0)) {
       showToast(`⚠️ Elegí una opción para: ${g}`);
+      // Highlight grupo faltante
+      const cont = document.querySelector(`[data-group-container="${g}"]`);
+      if (cont) { cont.style.background = '#fff5f5'; cont.style.borderRadius = '10px'; setTimeout(() => cont.style.background = '', 1500); cont.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       return;
     }
   }
-  const variantId = groups.length > 0 ? Object.values(selectedVariants)[0]?.id : null;
-  const totalDelta = Object.values(selectedVariants).reduce((s,v) => s + v.delta, 0);
-  const finalPrice = modalProduct.price + totalDelta;
-  const variantLabel = groups.length > 0
-    ? groups.map(g => `${g}: ${(modalProduct.variants||[]).find(v=>v.id===selectedVariants[g]?.id)?.option_name||''}`).join(', ')
-    : '';
-  for (let i=0;i<modalQty;i++) addToCart({
-    ...modalProduct,
-    price: finalPrice,
-    biz_id: currentBizId,
-    variant_id: variantId,
-    variant_label: variantLabel,
-    cart_key: `${modalProduct.id}_${variantId||'base'}`
-  });
-  document.getElementById('prod-modal').classList.remove('open');
-  showToast(`✅ ${modalProduct.name}${variantLabel?' ('+variantLabel+')':''} agregado`);
+  const hasDiscount = ppProduct.discount_percent > 0;
+  const base = hasDiscount ? Math.round(ppProduct.price * (1 - ppProduct.discount_percent/100)) : ppProduct.price;
+  const delta = Object.values(ppSelections).reduce((sum, grp) =>
+    sum + Object.values(grp).reduce((s, v) => s + (v.delta||0), 0), 0);
+  const finalPrice = base + delta;
+
+  // Armar label de variantes
+  const variantLabel = Object.entries(ppSelections).map(([g, sel]) =>
+    `${g}: ${Object.values(sel).map(v => (ppProduct.variants||[]).find(vv=>vv.id===v.id)?.option_name||'').join(', ')}`
+  ).filter(s => s.includes(': ')).join(' | ');
+
+  const notes = document.getElementById('pp-notes').value.trim();
+  const cartKey = `${ppProduct.id}_${Object.keys(ppSelections).map(g => Object.keys(ppSelections[g]).join('-')).join('_') || 'base'}_${notes.slice(0,10)}`;
+
+  for (let i = 0; i < ppQty; i++) {
+    addToCart({
+      ...ppProduct,
+      price: finalPrice,
+      biz_id: currentBizId,
+      variant_label: [variantLabel, notes].filter(Boolean).join(' · '),
+      notes: notes || undefined,
+      cart_key: cartKey
+    });
+  }
+
+  closeProdPage();
+  showToast(`✅ ${ppProduct.name} agregado al carrito`);
+}
+
+function closeProdPage() {
+  const page = document.getElementById('prod-page');
+  page.style.transition = 'transform .25s cubic-bezier(.4,0,.2,1)';
+  page.style.transform = 'translateX(100%)';
+  document.body.style.overflow = '';
+  setTimeout(() => { page.style.display = 'none'; }, 260);
 }
 
 function quickAdd(p) {
