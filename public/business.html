@@ -266,6 +266,10 @@ tr:hover td{background:#f0fdf4;}
       <button class="nav-item" data-tab="settings" onclick="navTo('settings')"><span class="ni">⚙️</span> Mi negocio</button>
     </nav>
     <div class="sb-footer">
+      <button onclick="volverABlow()" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:10px;cursor:pointer;color:#fff;font-size:13px;font-weight:700;border:none;background:rgba(255,255,255,.08);width:100%;margin-bottom:6px;font-family:inherit;">
+        <span>Volver a Blow</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
       <button class="sb-logout" onclick="doLogout()">🚪 Cerrar sesión</button>
     </div>
   </div>
@@ -412,6 +416,13 @@ function doLogout() {
   if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+}
+
+function volverABlow() {
+  localStorage.removeItem('blow_biz_token');
+  localStorage.removeItem('blow_biz_user');
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+  window.location.href = '/';
 }
 
 // ════════════════════════════════════════
