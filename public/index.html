@@ -4069,8 +4069,8 @@ function renderProfile() {
 
 function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
-  if (user && user.role === 'owner') enterOwnerOverlay();
-  else { nav('page-owner-login'); ownerTab('register'); }
+  // Redirigir siempre al portal de negocios independiente
+  window.location.href = '/business';
 }
 
 // ═══════════════════════════════════════════════
