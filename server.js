@@ -262,6 +262,16 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_mp_id TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_free_delivery BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT NULL;
+    CREATE TABLE IF NOT EXISTS order_messages (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      sender_id TEXT NOT NULL REFERENCES users(id),
+      sender_role TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      seen BOOLEAN DEFAULT FALSE
+    );
+    CREATE INDEX IF NOT EXISTS idx_order_messages_order ON order_messages(order_id);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -852,6 +862,38 @@ app.delete('/api/admin/subscription-plans/:id', auth, role('admin'), async (req,
   res.json({ success:true });
 });
 
+// ── Stats por período ──────────────────────────
+app.get('/api/businesses/mine/stats', auth, role('owner'), async (req, res) => {
+  const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+  if (!b) return res.status(404).json({ error:'No business' });
+  const days = Math.min(parseInt(req.query.days) || 30, 90);
+  const rows = await qa(`
+    SELECT
+      DATE(created_at AT TIME ZONE 'America/Montevideo') as day,
+      COUNT(*) FILTER (WHERE status NOT IN ('cancelled','pending')) as orders,
+      COALESCE(SUM(total) FILTER (WHERE status NOT IN ('cancelled','pending')),0) as revenue,
+      COUNT(*) FILTER (WHERE status='cancelled') as cancelled
+    FROM orders
+    WHERE business_id=$1
+      AND created_at >= NOW() - INTERVAL '${days} days'
+    GROUP BY day
+    ORDER BY day ASC
+  `, [b.id]);
+  // Top productos
+  const topProducts = await qa(`
+    SELECT oi.name, oi.emoji, SUM(oi.quantity) as qty, SUM(oi.price*oi.quantity) as revenue
+    FROM order_items oi
+    JOIN orders o ON o.id=oi.order_id
+    WHERE o.business_id=$1
+      AND o.status NOT IN ('cancelled','pending')
+      AND o.created_at >= NOW() - INTERVAL '${days} days'
+    GROUP BY oi.name, oi.emoji
+    ORDER BY qty DESC
+    LIMIT 5
+  `, [b.id]);
+  res.json({ days: rows, topProducts });
+});
+
 app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio registrado aún' });
@@ -1217,6 +1259,12 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
+      // Decrementar stock si tiene límite definido
+      if (i.stock !== null && i.stock !== undefined) {
+        const newStock = Math.max(0, i.stock - i.quantity);
+        await q('UPDATE products SET stock=$1, is_available=$2 WHERE id=$3',
+          [newStock, newStock > 0, i.id]);
+      }
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
     sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'🛍️'} Nuevo pedido`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
@@ -1328,6 +1376,67 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
     sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local. Contactanos si tenés dudas.`, tag:`order-${order.id}`, url:'/?tab=tracking' });
   }
   res.json({ success:true });
+});
+
+// ════════════════════════════════════════════════
+//  CHAT DE PEDIDO
+// ════════════════════════════════════════════════
+app.get('/api/orders/:id/messages', auth, async (req, res) => {
+  const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+  if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
+  // Solo el customer o el owner del negocio pueden ver el chat
+  if (req.user.role === 'customer' && order.customer_id !== req.user.id)
+    return res.status(403).json({ error:'No autorizado' });
+  if (req.user.role === 'owner') {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz || biz.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+  }
+  const msgs = await qa(
+    `SELECT m.*, u.name as sender_name FROM order_messages m JOIN users u ON u.id=m.sender_id WHERE m.order_id=$1 ORDER BY m.created_at ASC`,
+    [req.params.id]
+  );
+  // Marcar como vistos los mensajes del otro lado
+  await q(`UPDATE order_messages SET seen=TRUE WHERE order_id=$1 AND sender_id!=$2 AND seen=FALSE`,
+    [req.params.id, req.user.id]);
+  res.json(msgs);
+});
+
+app.post('/api/orders/:id/messages', auth, async (req, res) => {
+  const { body } = req.body;
+  if (!body?.trim()) return res.status(400).json({ error:'Mensaje vacío' });
+  const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+  if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
+  if (req.user.role === 'customer' && order.customer_id !== req.user.id)
+    return res.status(403).json({ error:'No autorizado' });
+  if (req.user.role === 'owner') {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz || biz.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+  }
+  const msg = await q1(
+    `INSERT INTO order_messages (id,order_id,sender_id,sender_role,body) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [uuid(), req.params.id, req.user.id, req.user.role, body.trim()]
+  );
+  // Notificar al otro lado via WS
+  const targetId = req.user.role === 'customer' ? order.business_id : order.customer_id;
+  notify(targetId, { type:'chat_message', order_id: req.params.id, body: body.trim(), sender_role: req.user.role });
+  // También push notification
+  if (req.user.role === 'customer') {
+    const biz = await q1('SELECT owner_id, name FROM businesses WHERE id=$1', [order.business_id]);
+    if (biz) sendPushToOwner(biz.owner_id, {
+      title: `💬 Mensaje en pedido #${req.params.id.slice(-6).toUpperCase()}`,
+      body: body.trim().slice(0,80),
+      tag: 'chat_' + req.params.id,
+      url: '/'
+    });
+  } else {
+    sendPushToUser(order.customer_id, {
+      title: `💬 Mensaje del negocio`,
+      body: body.trim().slice(0,80),
+      tag: 'chat_' + req.params.id,
+      url: '/'
+    });
+  }
+  res.json(msg);
 });
 
 // ════════════════════════════════════════════════
