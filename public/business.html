@@ -13,6 +13,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 
 /* ═══ SHELL ═══ */
 #shell{display:none;flex-direction:column;height:100dvh;overflow:hidden;}
+/* En pantallas grandes, centrar y limitar ancho */
+@media(min-width:600px){
+  body{background:#1c4ed8;}
+  #shell{max-width:420px;margin:0 auto;box-shadow:0 0 60px rgba(0,0,0,.4);}
+}
 
 /* ══════════════════════════════════════════
    HERO HEADER: azul intenso, logo grande,
@@ -25,6 +30,10 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
   position:relative;overflow:hidden;
 }
 #hdr::before{content:'';position:absolute;top:-60px;right:-50px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none;}
+/* PWA standalone: status bar is overlaid, need more top padding */
+.pwa #hdr{padding-top:max(56px,calc(env(safe-area-inset-top)+16px));}
+/* En PC/Chrome sin safe-area, garantizar mínimo razonable */
+@media(min-width:600px){#hdr{padding-top:20px;padding-bottom:18px;}}
 #hdr::after{content:'';position:absolute;top:20px;right:50px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.03);pointer-events:none;}
 .hdr-top{display:flex;align-items:center;gap:10px;margin-bottom:14px;position:relative;z-index:1;}
 .hdr-logo{width:48px;height:48px;border-radius:12px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.15);box-shadow:0 2px 8px rgba(0,0,0,.2);}
@@ -214,6 +223,12 @@ select.finp{background:#f8faff;}
 
 
 </style>
+<script>
+// Detectar PWA standalone (no Safari normal, no PC browser)
+if(window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches){
+  document.documentElement.classList.add('pwa');
+}
+</script>
 </head>
 <body>
 
@@ -647,7 +662,7 @@ function volverABlow(){
 async function api(path,opts={}){
   const r=await fetch(path,{...opts,headers:{'Content-Type':'application/json',Authorization:'Bearer '+_token,...(opts.headers||{})}});
   const d=await r.json();
-  if(!r.ok)throw new Error(d.error||r.statusText);
+  if(!r.ok)throw new Error((d.error||r.statusText)+' ['+r.status+']');
   return d;
 }
 
@@ -663,18 +678,35 @@ async function loadDash(){
     const d=await api('/api/businesses/mine/dashboard');
     _dash=d;_biz=d.business||{};
     updateHeader();updateKPIs();
-  }catch(e){toast('❌ Error al cargar datos');}
+  }catch(e){
+    // Si es 401/403 token expirado → logout silencioso
+    if(e.message&&(e.message.includes('[401]')||e.message.includes('[403]')||e.message.toLowerCase().includes('token')||e.message.toLowerCase().includes('unauthorized'))){
+      _token='';localStorage.removeItem('blow_biz_token');localStorage.removeItem('blow_biz_user');
+      document.getElementById('shell').style.display='none';
+      document.getElementById('login-screen').style.display='flex';
+      return;
+    }
+    toast('❌ Error al cargar datos');
+  }
 }
 function updateHeader(){
   const b=_biz||{};
-  document.getElementById('h-name').textContent=b.name||'Mi Negocio';
-  document.getElementById('h-sub').textContent=b.city||'Portal de gestión';
-  const statusEl=document.getElementById('h-badge');
-  statusEl.textContent=b.is_open?'● Abierto':'● Cerrado';
-  statusEl.className=b.is_open?'h-open':'h-closed';
+  // nombre y ciudad
+  const nameEl=document.getElementById('h-name');
+  const subEl=document.getElementById('h-sub');
+  if(nameEl) nameEl.textContent=b.name||'Mi Negocio';
+  if(subEl)  subEl.textContent=b.city||'Portal de gestión';
+  // botón abierto/cerrado
+  const btn=document.getElementById('h-status-btn');
+  const lbl=document.getElementById('h-status-label');
+  if(btn) btn.className='hdr-status-btn '+(b.is_open?'open':'closed');
+  if(lbl) lbl.textContent=b.is_open?'Abierto':'Cerrado';
+  // logo: solo reemplaza si el negocio tiene logo_url propio
   const logoEl=document.getElementById('h-logo-img');
-  if(b.logo_url)logoEl.innerHTML=`<img src="${b.logo_url}" style="width:100%;height:100%;object-fit:cover;">`;
-  else logoEl.textContent=b.logo_emoji||'🏪';
+  if(logoEl && b.logo_url){
+    logoEl.innerHTML=`<img src="${b.logo_url}" style="width:100%;height:100%;object-fit:cover;">`;
+  }
+  // si no hay logo_url se conserva la imagen de Blow que ya está en el HTML
 }
 function updateKPIs(){
   const d=_dash||{};
@@ -697,7 +729,14 @@ function startRefresh(){
       updateHeader();updateKPIs();
       const cur=(d.orders||[]).filter(o=>o.status==='pending').length;
       if(cur>prev){playAlert();if(_tab==='home')renderHome();else if(_tab==='orders')renderOrders();}
-    }catch(_){}
+    }catch(err){
+      if(err.message&&(err.message.includes('[401]')||err.message.includes('[403]')||err.message.toLowerCase().includes('unauthorized'))){
+        clearInterval(_refreshTimer);_refreshTimer=null;
+        _token='';localStorage.removeItem('blow_biz_token');localStorage.removeItem('blow_biz_user');
+        document.getElementById('shell').style.display='none';
+        document.getElementById('login-screen').style.display='flex';
+      }
+    }
   },30000);
 }
 
