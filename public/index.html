@@ -3432,32 +3432,7 @@ function renderCheckoutPage() {
         </button>
       </div>
 
-      ${isDelivery ? `
-      ${(() => {
-        const defaultA = addrs[0];
-        const defaultVal = defaultA ? (defaultA.full_address || defaultA.label) : '';
-        if (!_chkAddress && defaultVal) _chkAddress = defaultVal;
-        const showInput = _chkShowAltAddr || !defaultVal;
-        return \`
-        \${defaultVal ? \`
-        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:#eff6ff;border:2px solid #2558d4;margin-bottom:10px;">
-          <span style="font-size:18px;">📍</span>
-          <div style="flex:1;">
-            <div style="font-size:11px;font-weight:700;color:#2558d4;margin-bottom:1px;">\${defaultA.label||'Mi dirección'}</div>
-            <div style="font-size:13px;font-weight:600;color:#0f172a;">\${defaultVal}</div>
-          </div>
-          <span style="color:#2558d4;font-weight:900;font-size:15px;">✓</span>
-        </div>
-        <button onclick="chkToggleAltAddr()" style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:\${showInput?'8px':'0'};">
-          \${showInput ? '✕ Cancelar' : '📝 Entregar en otra dirección'}
-        </button>\` : ''}
-        <div style="display:\${showInput?'block':'none'};">
-          \${!defaultVal?'<div style="font-size:12px;color:#ef4444;font-weight:600;margin-bottom:6px;">⚠️ No tenés dirección guardada</div>':''}
-          <input id="chk-address-input" value="\${(!defaultVal||_chkShowAltAddr)?(_chkAltAddress||''):''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
-            style="width:100%;border:1.5px solid #2558d4;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
-            oninput="_chkAltAddress=this.value;_chkAddress=this.value;">
-        </div>\`;
-      })()}` : `
+      ${isDelivery ? chkRenderAddressBlock() : `
       <!-- Retiro -->
       <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;">
         <span style="font-size:18px;">🏪</span>
@@ -3555,6 +3530,43 @@ function chkSetTip(amount) {
 function chkTogglePriority() {
   _chkPriority = !_chkPriority;
   renderCheckoutPage();
+}
+
+function chkRenderAddressBlock() {
+  const addrs = user?.addresses || [];
+  const defaultA = addrs[0];
+  const defaultVal = defaultA ? (defaultA.full_address || defaultA.label) : '';
+  if (!_chkAddress && defaultVal) _chkAddress = defaultVal;
+  const showInput = _chkShowAltAddr || !defaultVal;
+
+  let html = '';
+
+  if (defaultVal) {
+    html += `
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:#eff6ff;border:2px solid #2558d4;margin-bottom:10px;">
+      <span style="font-size:18px;">📍</span>
+      <div style="flex:1;">
+        <div style="font-size:11px;font-weight:700;color:#2558d4;margin-bottom:1px;">${defaultA.label||'Mi dirección'}</div>
+        <div style="font-size:13px;font-weight:600;color:#0f172a;">${defaultVal}</div>
+      </div>
+      <span style="color:#2558d4;font-weight:900;font-size:15px;">✓</span>
+    </div>
+    <button onclick="chkToggleAltAddr()" style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:${showInput?'8px':'0'};">
+      ${showInput ? '✕ Cancelar' : '📝 Entregar en otra dirección'}
+    </button>`;
+  }
+
+  if (showInput) {
+    html += `
+    <div>
+      ${!defaultVal ? '<div style="font-size:12px;color:#ef4444;font-weight:600;margin-bottom:6px;">⚠️ No tenés dirección guardada</div>' : ''}
+      <input id="chk-address-input" value="${_chkAltAddress||''}" placeholder="Ej: Av. 18 de Julio 1234, apto 5"
+        style="width:100%;border:1.5px solid #2558d4;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;color:#0f172a;"
+        oninput="_chkAltAddress=this.value;_chkAddress=this.value;">
+    </div>`;
+  }
+
+  return html;
 }
 
 function chkToggleAltAddr() {
