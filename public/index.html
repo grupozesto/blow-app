@@ -5876,15 +5876,27 @@ async function loadAdminWithdrawals() {
     const ws = await api('/api/admin/withdrawals');
     const el = document.getElementById('admin-withdrawals-list');
     if (!ws.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px 0;">No hay retiros pendientes 🎉</div>'; return; }
-    el.innerHTML = ws.map(w=>`
-      <div class="admin-withdraw-card">
-        <div class="awc-top"><div class="awc-name">${w.owner_name}</div><div class="awc-amt">$${w.amount}</div></div>
-        <div class="awc-info">📧 ${w.email}<br>💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia bancaria'}: <strong>${w.destination}</strong><br>📅 ${new Date(w.created_at).toLocaleString('es-UY')}</div>
+    const pending = ws.filter(w => w.status === 'pending');
+    const done = ws.filter(w => w.status !== 'pending');
+    el.innerHTML = `
+      ${pending.length ? `<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">⏳ Pendientes (${pending.length})</div>` : ''}
+      ${pending.map(w=>`
+      <div class="admin-withdraw-card" style="border-left:3px solid #f59e0b;">
+        <div class="awc-top"><div class="awc-name">${w.owner_name}</div><div class="awc-amt" style="color:#f59e0b;">$${w.amount}</div></div>
+        <div class="awc-info">📧 ${w.email}<br>💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia bancaria'}: <strong>${w.destination}</strong><br>📅 Solicitado: ${new Date(w.created_at).toLocaleString('es-UY')}</div>
+        <div style="background:#fffbeb;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:12px;color:#92400e;">⏱️ Los retiros se acreditan en hasta <strong>24hs hábiles</strong> desde la aprobación.</div>
         <div class="awc-actions">
-          <button class="btn-sm green" onclick="approveWithdraw('${w.id}')">✓ Aprobar (pagado)</button>
+          <button class="btn-sm green" onclick="approveWithdraw('${w.id}')">✓ Confirmar retiro</button>
           <button class="btn-sm red" onclick="rejectWithdraw('${w.id}')">✕ Rechazar</button>
         </div>
-      </div>`).join('');
+      </div>`).join('')}
+      ${done.length ? `<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;">✅ Procesados</div>` : ''}
+      ${done.slice(0,10).map(w=>`
+      <div class="admin-withdraw-card" style="opacity:.7;">
+        <div class="awc-top"><div class="awc-name">${w.owner_name}</div><div class="awc-amt">$${w.amount} <span style="font-size:11px;font-weight:600;color:${w.status==='completed'?'#27ae60':'#e74c3c'};">${w.status==='completed'?'✅ Pagado':'❌ Rechazado'}</span></div></div>
+        <div class="awc-info">💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia'}: ${w.destination}<br>📅 ${w.processed_at ? new Date(w.processed_at).toLocaleString('es-UY') : '—'}</div>
+      </div>`).join('')}
+    `;
   } catch(e) { document.getElementById('admin-withdrawals-list').innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px;">Error: ${e.message}</div>`; }
 }
 
@@ -6453,11 +6465,8 @@ if (user && user.role === 'owner') {
   setTimeout(() => enterOwnerOverlay(), 50);
 } else if (user && user.role === 'admin') {
   renderProfile();
-  loadHomeDynamic();
-  // Verificar si había redirect pendiente al panel admin
-  const adminRedirect = localStorage.getItem('post_login_redirect');
-  if (adminRedirect) { localStorage.removeItem('post_login_redirect'); setTimeout(() => nav(adminRedirect), 100); }
-  else { setTimeout(() => nav('page-admin'), 100); }
+  // Admin va directo al panel, sin cargar home
+  setTimeout(() => nav('page-admin'), 50);
 } else {
   renderProfile();
   loadHomeDynamic();
@@ -6633,15 +6642,14 @@ if (payStatus) {
 const secretPath = window.location.pathname;
 if (secretPath === '/blow-admin-panel') {
   window.history.replaceState({}, '', '/');
-  setTimeout(() => {
-    if (user && user.role === 'admin') {
-      nav('page-admin');
-    } else {
-      // Show login, then redirect to admin after login
+  if (!user || user.role !== 'admin') {
+    // No logueado o no es admin: pedir login
+    setTimeout(() => {
       localStorage.setItem('post_login_redirect', 'page-admin');
       openAuth('Acceso Admin');
-    }
-  }, 300);
+    }, 300);
+  }
+  // Si ya es admin, el INIT de arriba ya lo mandó a page-admin — no hacer nada más
 }
 
 const blowplususerStatus = urlP.get('blowplususer');
