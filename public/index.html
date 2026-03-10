@@ -6485,20 +6485,49 @@ function checkOwnerAutoOpen() {
   }
 }
 
+let _ooRefreshInterval = null;
+
 function enterOwnerOverlay() {
   const el = document.getElementById('owner-overlay');
-  // Ocultar la app de cliente mientras el overlay está abierto
   document.querySelector('.bottom-nav')?.style.setProperty('display','none','important');
   el.classList.add('visible');
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('open')));
   ooLoadData();
   ooTab('home');
   ooInitPush();
+  // Auto-refresh cada 30 segundos
+  if (_ooRefreshInterval) clearInterval(_ooRefreshInterval);
+  _ooRefreshInterval = setInterval(async () => {
+    try {
+      const fresh = await ooFetch('/api/businesses/mine/dashboard');
+      const prevPending = (_ooDashData?.orders||[]).filter(o=>o.status==='pending').length;
+      _ooDashData = fresh;
+      if (fresh.business) _ooBiz = fresh.business;
+      const newPending = (fresh.orders||[]).filter(o=>o.status==='pending').length;
+      // Actualizar KPI
+      const kpiEl = document.getElementById('oo-kpi-pending');
+      if (kpiEl) kpiEl.textContent = newPending;
+      const kpiO = document.getElementById('oo-kpi-orders');
+      if (kpiO) kpiO.textContent = fresh.today?.orders || 0;
+      const kpiR = document.getElementById('oo-kpi-revenue');
+      if (kpiR) kpiR.textContent = '$' + Math.round(fresh.today?.revenue || 0);
+      // Si hay pedidos nuevos, re-renderizar el tab activo
+      if (newPending > prevPending) {
+        ooPlayAlert();
+        const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
+        if (activeTab === 'home') ooRenderHome();
+        else if (activeTab === 'orders') ooRenderOrders();
+      } else {
+        // Igual actualizar la sección de pedidos del home silenciosamente
+        const homeOrdersEl = document.getElementById('oo-home-orders');
+        if (homeOrdersEl) homeOrdersEl.innerHTML = ooRenderHomePedidos();
+      }
+    } catch(_) {}
+  }, 30000);
 }
 
 function exitOwnerOverlay() {
-  // Solo cerrar si el usuario es customer (no owner)
-  // Si es owner, "salir" = cerrar sesión
+  if (_ooRefreshInterval) { clearInterval(_ooRefreshInterval); _ooRefreshInterval = null; }
   if (user && user.role === 'owner') {
     if (!confirm('¿Querés cerrar sesión del portal?')) return;
     doLogout();
@@ -6508,6 +6537,23 @@ function exitOwnerOverlay() {
   el.classList.remove('open');
   document.querySelector('.bottom-nav')?.style.removeProperty('display');
   setTimeout(() => el.classList.remove('visible'), 400);
+}
+
+function ooPlayAlert() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [520, 660, 800].forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      o.type = 'sine';
+      g.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.15);
+      o.start(ctx.currentTime + i * 0.12);
+      o.stop(ctx.currentTime + i * 0.12 + 0.15);
+    });
+  } catch(_) {}
 }
 
 function ooTok() {
@@ -6700,7 +6746,7 @@ function ooRenderHome() {
       <div class="oo-wallet-dot"        onclick="ooWalletGo(2)"></div>
     </div>
 
-    ${ooRenderHomePedidos()}
+    <div id="oo-home-orders">${ooRenderHomePedidos()}</div>
 
     <div class="oo-section-title">Acciones rápidas</div>
     <div class="oo-action-grid">
