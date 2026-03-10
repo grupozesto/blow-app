@@ -850,6 +850,19 @@ body.owner-mode #owner-overlay {
   </div>
   <div class="sc">
     <!-- BANNER -->
+    <!-- Último pedido (si existe) -->
+    <div id="last-order-strip" style="display:none;padding:0 14px;margin-bottom:10px;">
+      <div id="last-order-card" onclick="nav('page-tracking')" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border:1.5px solid #bae6fd;">
+        <div style="font-size:28px;flex-shrink:0;">🔄</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">Tu último pedido</div>
+          <div id="last-order-name" style="font-size:14px;font-weight:800;color:#0c4a6e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+          <div id="last-order-status" style="font-size:12px;color:#0369a1;margin-top:1px;"></div>
+        </div>
+        <div style="color:#0369a1;font-size:20px;">›</div>
+      </div>
+    </div>
+
     <div class="banner-wrap">
       <div class="banner-viewport">
         <div class="banner-track" id="banner-track">
@@ -1173,7 +1186,7 @@ body.owner-mode #owner-overlay {
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 1 8 8c0 5.4-7 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z"/></svg></div>
         <div class="mi-text"><span>Direcciones</span></div><span class="mi-arrow">›</span>
       </div>
-      <div class="menu-item" onclick="showToast('❤️ Próximamente — tus favoritos')">
+      <div class="menu-item" onclick="nav('page-favorites')">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
         <div class="mi-text"><span>Favoritos</span></div><span class="mi-arrow">›</span>
       </div>
@@ -1196,6 +1209,31 @@ body.owner-mode #owner-overlay {
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M2 9a1 1 0 0 1 0-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2a1 1 0 0 1 0 2v2a1 1 0 0 1 0 2v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a1 1 0 0 1 0-2V9z"/></svg></div>
         <div class="mi-text"><span>Mis cupones</span><small style="color:var(--primary);font-weight:700;">Nuevo</small></div><span class="mi-arrow">›</span>
       </div>
+    </div>
+
+    <div style="height:8px;background:#f5f5f5;"></div>
+
+    <!-- Sección Legal -->
+    <div class="menu-list">
+      <div class="menu-sec-title">Legal</div>
+      <div class="menu-item" onclick="nav('page-terms')">
+        <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div class="mi-text"><span>Términos y condiciones</span></div><span class="mi-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="nav('page-privacy')">
+        <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="mi-text"><span>Política de privacidad</span></div><span class="mi-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="nav('page-help')">
+        <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div class="mi-text"><span>Ayuda y soporte</span></div><span class="mi-arrow">›</span>
+      </div>
+    </div>
+
+    <div style="padding:24px 20px;text-align:center;">
+      <div style="font-size:22px;margin-bottom:6px;">⚡</div>
+      <div style="font-size:13px;font-weight:800;color:#94a3b8;">Blow · Uruguay</div>
+      <div style="font-size:11px;color:#cbd5e1;margin-top:2px;">hola@blow.uy</div>
     </div>
 
     <div id="profile-div-3" style="height:8px;background:#f5f5f5;"></div>
@@ -2052,7 +2090,13 @@ body.owner-mode #owner-overlay {
           <select class="form-input" id="r-city" style="appearance:none;cursor:pointer;"></select>
         </div>
         <input type="hidden" id="r-role" value="customer">
-      <button class="primary-btn" onclick="doRegister()">Crear cuenta →</button>
+      <div style="margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;">
+        <input type="checkbox" id="r-terms" style="width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--primary);cursor:pointer;">
+        <label for="r-terms" style="font-size:13px;color:#555;line-height:1.5;cursor:pointer;">
+          Acepto los <span onclick="event.preventDefault();nav('page-terms')" style="color:var(--primary);font-weight:700;text-decoration:underline;">Términos y condiciones</span> y la <span onclick="event.preventDefault();nav('page-privacy')" style="color:var(--primary);font-weight:700;text-decoration:underline;">Política de privacidad</span> de Blow.
+        </label>
+      </div>
+      <button class="primary-btn" onclick="if(!document.getElementById('r-terms')?.checked){showToast('❌ Debés aceptar los términos para continuar');return;}doRegister()">Crear cuenta →</button>
       </div>
       <!-- Step 2: verify code -->
       <div id="reg-step-2" style="display:none;text-align:center;">
@@ -2186,7 +2230,7 @@ body.owner-mode #owner-overlay {
   <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:40px;">
 
     <!-- WhatsApp CTA -->
-    <a href="https://wa.me/59899000000" target="_blank" style="text-decoration:none;display:block;margin-bottom:20px;">
+    <a href="https://wa.me/59891234567" target="_blank" style="text-decoration:none;display:block;margin-bottom:20px;">
       <div style="background:linear-gradient(135deg,#25D366,#1da851);border-radius:20px;padding:18px 20px;display:flex;align-items:center;gap:16px;">
         <div style="width:48px;height:48px;background:rgba(255,255,255,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">💬</div>
         <div style="flex:1;">
@@ -2259,6 +2303,20 @@ body.owner-mode #owner-overlay {
 
     </div>
 
+    <!-- Legal links -->
+    <div style="margin-top:16px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div onclick="nav('page-terms')" style="display:flex;align-items:center;padding:16px;cursor:pointer;border-bottom:1px solid #f0f0f0;">
+        <span style="font-size:18px;margin-right:12px;">📋</span>
+        <span style="font-size:14px;font-weight:600;flex:1;">Términos y condiciones</span>
+        <span style="color:#94a3b8;">›</span>
+      </div>
+      <div onclick="nav('page-privacy')" style="display:flex;align-items:center;padding:16px;cursor:pointer;">
+        <span style="font-size:18px;margin-right:12px;">🔒</span>
+        <span style="font-size:14px;font-weight:600;flex:1;">Política de privacidad</span>
+        <span style="color:#94a3b8;">›</span>
+      </div>
+    </div>
+
     <!-- Mensaje directo -->
     <div style="margin-top:20px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px;">¿No encontraste lo que buscás?</div>
@@ -2268,6 +2326,119 @@ body.owner-mode #owner-overlay {
       <div id="help-result" style="font-size:13px;margin-top:10px;display:none;text-align:center;"></div>
     </div>
 
+  </div>
+</div>
+
+
+<!-- ══ PAGE: FAVORITES ══ -->
+<div class="page" id="page-favorites">
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <h1 style="flex:1;margin:0;font-size:20px;">❤️ Favoritos</h1>
+  </div>
+  <div class="sc" style="background:#f5f5f5;padding:16px;padding-bottom:40px;" id="favorites-body">
+    <div class="loading-state"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: TERMS ══ -->
+<div class="page" id="page-terms">
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <button class="back-btn-inline" onclick="nav('page-help')" style="flex-shrink:0;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <h1 style="flex:1;margin:0;font-size:18px;">Términos y condiciones</h1>
+  </div>
+  <div class="sc" style="padding:20px;padding-bottom:40px;">
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:20px;">Última actualización: enero 2025</div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">1. Servicio</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Blow es una plataforma digital que conecta usuarios con negocios locales para realizar pedidos a domicilio o para retirar en tienda. Blow actúa como intermediario tecnológico y no es responsable directo de la preparación ni la entrega de los productos.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">2. Registro y cuenta</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Para realizar pedidos debés crear una cuenta con datos verídicos. Sos responsable de mantener la confidencialidad de tu contraseña y de todas las actividades realizadas desde tu cuenta.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">3. Pedidos y pagos</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Los pedidos confirmados y pagados no son reembolsables salvo que el negocio no pueda cumplirlos. Los pagos son procesados por MercadoPago. Blow no almacena datos de tarjetas de crédito o débito.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">4. Responsabilidad</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Blow no garantiza disponibilidad continua del servicio. Los tiempos de entrega son estimativos y pueden variar. Los negocios son responsables de la calidad e inocuidad de sus productos.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">5. Uso aceptable</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Queda prohibido el uso de la plataforma para actividades ilegales, fraudulentas o que violen derechos de terceros. Blow puede suspender cuentas que incumplan estas condiciones.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">6. Ley aplicable</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Estos términos se rigen por las leyes de la República Oriental del Uruguay. Ante cualquier controversia, las partes se someten a la jurisdicción de los tribunales competentes de Montevideo.</p>
+    </div>
+
+    <div style="background:#eff6ff;border-radius:16px;padding:16px;text-align:center;">
+      <div style="font-size:13px;color:#1e40af;">¿Tenés dudas? Escribinos a <strong>hola@blow.uy</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: PRIVACY ══ -->
+<div class="page" id="page-privacy">
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <button class="back-btn-inline" onclick="nav('page-help')" style="flex-shrink:0;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <h1 style="flex:1;margin:0;font-size:18px;">Política de privacidad</h1>
+  </div>
+  <div class="sc" style="padding:20px;padding-bottom:40px;">
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:20px;">Última actualización: enero 2025 · Ley 18.331 Uruguay</div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">¿Qué datos recopilamos?</div>
+      <ul style="font-size:14px;color:#444;line-height:1.8;margin:0;padding-left:18px;">
+        <li>Nombre, email y teléfono al registrarte</li>
+        <li>Dirección de entrega para procesar pedidos</li>
+        <li>Historial de pedidos para mejorar tu experiencia</li>
+        <li>Ubicación aproximada para mostrarte negocios cercanos (con tu permiso)</li>
+      </ul>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">¿Para qué usamos tus datos?</div>
+      <ul style="font-size:14px;color:#444;line-height:1.8;margin:0;padding-left:18px;">
+        <li>Procesar y gestionar tus pedidos</li>
+        <li>Enviarte notificaciones sobre el estado de tus pedidos</li>
+        <li>Mejorar la personalización de la app</li>
+        <li>Cumplir obligaciones legales</li>
+      </ul>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">¿Compartimos tus datos?</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Compartimos tu nombre y dirección únicamente con el negocio y/o repartidor que atiende tu pedido. No vendemos ni cedemos tus datos a terceros con fines comerciales.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">Tus derechos (Ley 18.331)</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Tenés derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos personales. Para ejercer estos derechos escribinos a <strong>privacidad@blow.uy</strong>.</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;">Seguridad</div>
+      <p style="font-size:14px;color:#444;line-height:1.6;margin:0;">Utilizamos HTTPS con certificado SSL, tokens JWT para autenticación y no almacenamos datos de tarjetas de pago. Los pagos son procesados directamente por MercadoPago.</p>
+    </div>
+
+    <div style="background:#eff6ff;border-radius:16px;padding:16px;text-align:center;">
+      <div style="font-size:13px;color:#1e40af;">Consultas: <strong>privacidad@blow.uy</strong></div>
+    </div>
   </div>
 </div>
 
@@ -2489,10 +2660,23 @@ function nav(pageId) {
   if (pageId === 'page-profile') loadBlowPlusBanner();
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-help') initHelpPage();
-  if (pageId === 'page-tracking') loadTracking();
+  if (pageId === 'page-favorites') loadFavorites();
+  if (pageId === 'page-terms' || pageId === 'page-privacy') {}
+  if (pageId === 'page-tracking') {
+    loadTracking();
+    clearInterval(window._trackRefresh);
+    window._trackRefresh = setInterval(() => {
+      if (document.getElementById('page-tracking')?.classList.contains('active')) loadTracking();
+      else clearInterval(window._trackRefresh);
+    }, 30000);
+  } else {
+    clearInterval(window._trackRefresh);
+  }
   if (pageId === 'page-profile') renderProfile();
   if (pageId === 'page-owner-dash') loadOwnerDash();
   if (pageId === 'page-cart') loadCartPromos();
+  if (pageId === 'page-checkout') buildCheckout();
+  if (pageId === 'page-home') loadLastOrderStrip();
   if (pageId === 'page-profile') { if (user?.role === 'customer') loadUserBlowPlus(); }
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-delivery') loadDeliveryPanel();
@@ -2779,6 +2963,9 @@ async function loadAppSettings() {
   } catch(e) { console.log('loadAppSettings error:', e.message); }
 }
 
+// Cargar último pedido al inicio
+if (user) { loadLastOrderStrip(); }
+
 async function loadStores() {
   const g = document.getElementById('stores-grid');
   g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
@@ -2828,11 +3015,11 @@ function renderStores(list) {
         <div class="store-logo-chip">${s.logo_url ? `<img src="${s.logo_url}" alt="">` : (s.logo_emoji||'🏪')}</div>
       </div>
       <div class="store-info">
-        <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#ea356b,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
+        <div class="store-name">${s.name}${s.blow_plus ? '&nbsp;<span style="background:linear-gradient(90deg,#ea356b,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}&nbsp;<span style="background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:700;vertical-align:middle;">✓ Verificado</span></div>
         <div class="store-meta">
           <div class="store-rating">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            ${s.rating ? s.rating : '⭐ Nuevo'}
+            ${s.rating ? s.rating + (s.rating_count > 0 ? ' <span style="color:#94a3b8;font-weight:500;">('+s.rating_count+')</span>' : '') : '⭐ Nuevo'}
           </div>
           <div class="store-meta-dot"></div>
           <span>🕐 ${s.delivery_time||'20-35'} min</span>
@@ -3043,7 +3230,7 @@ function renderStoreDetail(s, products) {
   if (nameEl) nameEl.textContent = s.name;
 
   const ratingEl = document.getElementById('sd-rating');
-  if (ratingEl) ratingEl.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> <strong>${s.rating||4.5}</strong> · ${s.delivery_time||'20-35'} min`;
+  if (ratingEl) ratingEl.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> <strong>${s.rating||'Nuevo'}</strong>${s.rating && s.rating_count > 0 ? ' <span style="color:#94a3b8;font-size:12px;">('+s.rating_count+' reseñas)</span>' : ''} · ${s.delivery_time||'20-35'} min`;
 
   const pillsEl = document.getElementById('sd-pills');
   if (pillsEl) {
@@ -3259,7 +3446,7 @@ function renderProductCard(p, s) {
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;
   const discBadge = disc > 0 ? `<div class="prod-discount-badge">${disc}% OFF</div>` : '';
-  const featBadge = p.is_featured ? `<div class="prod-featured-badge">⭐</div>` : '';
+  const featBadge = p.is_featured ? `<div class="prod-featured-badge">🔥 Popular</div>` : '';
   const regKey = `${p.id}_${s?.id||''}`;
   _prodReg[regKey] = {...p, biz_id: s?.id};
   return `<div class="prod-card" onclick="quickAdd('${regKey}')">
@@ -4147,8 +4334,11 @@ async function loadTracking() {
         </div>
         ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
         ${(()=>{const chatClosed=o.status==='delivered'&&o.delivered_at&&((Date.now()-new Date(o.delivered_at).getTime())/36e5>48);const hasUnread=_chatUnread.has(o.id);const safeName=(o.business_name||'').replace(/['"`]/g,'');if(o.status==='cancelled')return '';if(chatClosed)return '<div style="width:100%;margin-top:8px;background:#f8fafc;border-radius:10px;padding:10px;color:#94a3b8;font-size:12px;text-align:center;">🔒 Chat cerrado</div>';return '<button id="chat-btn-'+o.id+'" onclick="openOrderChat('+JSON.stringify(o.id)+','+JSON.stringify(o.business_name||'')+');clearChatBadge('+JSON.stringify(o.id)+')" style="width:100%;margin-top:8px;background:'+(hasUnread?'#2558d4':'#f8fafc')+';border:1.5px solid '+(hasUnread?'#2558d4':'#e2e8f0')+';border-radius:10px;padding:10px;color:'+(hasUnread?'#fff':'#0f172a')+';font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">💬 Chat con el negocio'+(hasUnread?' <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">● nuevo</span>':'')+'</button>';})}
-        ${o.status==='delivered'?`<button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="width:100%;margin-top:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Dejar reseña</button>`:''}
-      </div>`;
+        ${o.status==='delivered'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          <button onclick="repeatOrder('${o.id}','${o.business_id}')" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:10px;color:#0369a1;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Pedir de nuevo</button>
+          <button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Reseñar</button>
+        </div>`:''}
+      </div>\`;
     }).join('');
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
 }
@@ -9192,6 +9382,125 @@ async function ooConfirmarRetiro() {
 
 // Mantener ooShowRetiro como alias para compatibilidad
 function ooShowRetiro() { ooOpenRetiroModal(); }
+
+// ═══════════════════════════════════════════
+// PEDIR DE NUEVO
+// ═══════════════════════════════════════════
+async function repeatOrder(orderId, bizId) {
+  try {
+    showToast('🔄 Cargando tu pedido anterior...');
+    const orders = await api('/api/orders');
+    const order = orders.find(o => o.id === orderId);
+    if (!order || !order.items?.length) { showToast('❌ No se encontraron los items del pedido'); return; }
+    // Open the store
+    await openStore(bizId || order.business_id);
+    // Wait for store to load then add items
+    setTimeout(() => {
+      let added = 0;
+      (order.items || []).forEach(item => {
+        const prod = _prodReg[item.product_id] || { id: item.product_id, name: item.name, price: item.unit_price || item.price || 0 };
+        // Try quick add (no variants)
+        addToCart({ ...prod, qty: item.quantity || 1 });
+        added++;
+      });
+      if (added > 0) {
+        showToast(`✅ ${added} producto${added>1?'s':''} agregado${added>1?'s':''} al carrito`);
+        setTimeout(() => nav('page-cart'), 800);
+      }
+    }, 1500);
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ═══════════════════════════════════════════
+// FAVORITOS
+// ═══════════════════════════════════════════
+async function loadFavorites() {
+  const body = document.getElementById('favorites-body');
+  if (!body) return;
+
+  const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
+  const likedIds = Object.keys(liked).filter(k => liked[k]);
+
+  if (!likedIds.length) {
+    body.innerHTML = `<div style="text-align:center;padding:60px 20px;">
+      <div style="font-size:64px;margin-bottom:16px;">❤️</div>
+      <div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:8px;">Sin favoritos aún</div>
+      <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Tocá el corazón en cualquier producto para guardarlo acá</div>
+      <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;">Explorar negocios</button>
+    </div>`;
+    return;
+  }
+
+  body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+
+  try {
+    // Load all stores to match liked products
+    const stores = await api('/api/businesses?limit=200').catch(() => []);
+    const storeMap = {};
+    (stores || []).forEach(s => { storeMap[s.id] = s; });
+
+    // Try to load product details for liked ids
+    const productCards = likedIds.map(pid => {
+      const p = _prodReg[pid];
+      if (!p) return null;
+      const biz = storeMap[p.business_id] || {};
+      return `<div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,.07);display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="openStore('${p.business_id || ''}')">
+        <div style="width:56px;height:56px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden;">
+          ${p.image_url ? `<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;">` : (p.emoji || '🍽️')}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:2px;">${p.name || 'Producto'}</div>
+          <div style="font-size:12px;color:#94a3b8;">${biz.name || 'Ver negocio'}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);margin-top:4px;">$${p.price || 0}</div>
+        </div>
+        <button onclick="event.stopPropagation();quickAdd('${pid}')" style="background:var(--primary);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
+      </div>`;
+    }).filter(Boolean);
+
+    if (!productCards.length) {
+      body.innerHTML = `<div style="text-align:center;padding:60px 20px;">
+        <div style="font-size:64px;margin-bottom:16px;">❤️</div>
+        <div style="font-size:17px;font-weight:800;margin-bottom:8px;">Tus favoritos</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Explorá negocios para agregar favoritos</div>
+        <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;">Explorar negocios</button>
+      </div>`;
+      return;
+    }
+
+    body.innerHTML = `<div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;">${likedIds.length} producto${likedIds.length!==1?'s':''} guardado${likedIds.length!==1?'s':''}</div>` + productCards.join('');
+  } catch(e) {
+    body.innerHTML = `<div class="loading-state" style="color:#ef4444;">Error al cargar favoritos</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════
+// ÚLTIMO PEDIDO EN HOME
+// ═══════════════════════════════════════════
+let _lastOrderChecked = false;
+async function loadLastOrderStrip() {
+  if (!user) return;
+  try {
+    const orders = await api('/api/orders');
+    if (!orders?.length) return;
+    const last = orders[0];
+    const strip = document.getElementById('last-order-strip');
+    const nameEl = document.getElementById('last-order-name');
+    const statusEl = document.getElementById('last-order-status');
+    if (!strip || !nameEl) return;
+
+    const statusLabel = { pending:'⏳ Confirmando pago', confirmed:'✅ Confirmado', preparing:'👨‍🍳 Preparando', ready:'📦 Listo para despacho', on_way:'🛵 En camino a vos', delivered:'✅ Entregado', cancelled:'❌ Cancelado' };
+    nameEl.textContent = last.business_name || 'Pedido #' + last.id;
+    statusEl.textContent = statusLabel[last.status] || last.status;
+    strip.style.display = 'block';
+
+    // Push local notification if on_way and not notified yet
+    const notifiedKey = 'blow_notified_' + last.id;
+    if (last.status === 'on_way' && !localStorage.getItem(notifiedKey)) {
+      localStorage.setItem(notifiedKey, '1');
+      showToast('🛵 Tu pedido de ' + (last.business_name || 'tu negocio') + ' está en camino');
+    }
+  } catch(e) {}
+}
 </script>
 
 <!-- ══ PWA INSTALL BANNER — Android ══ -->
