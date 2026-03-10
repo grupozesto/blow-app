@@ -160,28 +160,44 @@ select.finp{background:#f8faff;}
   display:none;align-items:flex-start;justify-content:center;
   padding:max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));
 }
-.auth-card{width:100%;max-width:420px;margin:auto;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);border-radius:22px;padding:28px 20px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
-.auth-logo{text-align:center;margin-bottom:24px;}
-.auth-icon{width:70px;height:70px;border-radius:18px;overflow:hidden;margin:0 auto 12px;box-shadow:0 8px 28px rgba(0,0,0,.35);}
+.auth-card{width:100%;max-width:420px;margin:auto;background:#fff;border:none;border-radius:22px;padding:28px 20px;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.auth-logo{text-align:center;margin-bottom:22px;}
+.auth-icon{width:70px;height:70px;border-radius:18px;overflow:hidden;margin:0 auto 12px;box-shadow:0 8px 24px rgba(0,0,0,.2);}
 .auth-icon img{width:100%;height:100%;object-fit:cover;display:block;}
-.auth-title{font-size:21px;font-weight:900;color:#fff;}
-.auth-sub{font-size:12px;color:rgba(255,255,255,.45);margin-top:4px;}
-.auth-field{margin-bottom:12px;}
-.auth-field label{display:block;font-size:10px;font-weight:800;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;}
-.auth-inp{width:100%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.13);border-radius:10px;padding:12px 13px;color:#fff;font-size:14px;outline:none;font-family:inherit;-webkit-appearance:none;}
-.auth-inp:focus{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.14);}
-.auth-inp::placeholder{color:rgba(255,255,255,.28);}
-.auth-sel{width:100%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.13);border-radius:10px;padding:12px 13px;color:#fff;font-size:14px;outline:none;font-family:inherit;-webkit-appearance:none;}
-.auth-sel option{background:#1e3a8a;color:#fff;}
-.auth-sel optgroup{background:#0f1e4a;color:rgba(255,255,255,.5);}
-.auth-btn{width:100%;background:#fff;color:#1e40af;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;margin-top:8px;font-family:inherit;letter-spacing:-.2px;}
-.auth-btn:active{background:#f0f4ff;}
-.auth-err{color:#fca5a5;font-size:12px;text-align:center;margin-top:8px;min-height:16px;font-weight:600;}
-.auth-sw{text-align:center;margin-top:14px;font-size:13px;color:rgba(255,255,255,.4);}
-.auth-sw a{color:#93c5fd;font-weight:700;text-decoration:none;}
-.step-lbl{font-size:10px;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.step-dot{width:20px;height:3px;border-radius:2px;background:rgba(255,255,255,.2);}
-.step-dot.on{background:rgba(255,255,255,.7);}
+.auth-title{font-size:21px;font-weight:900;color:#0f172a;}
+.auth-sub{font-size:12px;color:#94a3b8;margin-top:4px;}
+.auth-field{margin-bottom:11px;}
+.auth-field label{display:block;font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;}
+.auth-inp{width:100%;background:#f8faff;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 13px;color:#0f172a;font-size:14px;outline:none;font-family:inherit;-webkit-appearance:none;}
+.auth-inp:focus{border-color:#1e40af;background:#fff;box-shadow:0 0 0 3px rgba(30,64,175,.08);}
+.auth-inp::placeholder{color:#cbd5e1;}
+.auth-inp[type=number]::-webkit-inner-spin-button,
+.auth-inp[type=number]::-webkit-outer-spin-button{-webkit-appearance:none!important;margin:0;}
+.auth-inp[type=number]{-moz-appearance:textfield!important;appearance:textfield;}
+/* hide number spinners */
+.auth-inp[type=number]::-webkit-inner-spin-button,
+.auth-inp[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+.auth-inp[type=number]{-moz-appearance:textfield;}
+.auth-sel{width:100%;background:#f8faff;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 13px;color:#0f172a;font-size:14px;outline:none;font-family:inherit;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;}
+.auth-sel:focus{border-color:#1e40af;background-color:#fff;box-shadow:0 0 0 3px rgba(30,64,175,.08);}
+.auth-sel option{background:#fff;color:#0f172a;}
+.auth-sel optgroup{background:#f8faff;color:#64748b;font-size:11px;}
+.auth-btn{width:100%;background:#1e40af;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;margin-top:8px;font-family:inherit;letter-spacing:-.2px;}
+.auth-btn:active{background:#1e3a8a;}
+.auth-err{color:#ef4444;font-size:12px;text-align:center;margin-top:8px;min-height:16px;font-weight:600;}
+.auth-sw{text-align:center;margin-top:14px;font-size:13px;color:#94a3b8;}
+.auth-sw a{color:#1e40af;font-weight:700;text-decoration:none;}
+.step-lbl{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.step-dot{width:20px;height:3px;border-radius:2px;background:#e2e8f0;}
+.step-dot.on{background:#1e40af;}
+/* ev-block dark for blue bg */
+#ev-block{background:#f0f4ff!important;border:1px solid #c7d2fe!important;border-radius:12px;padding:14px;margin-bottom:12px;}
+#ev-block div[style*="color:#fff"]{color:#0f172a!important;}
+#ev-block div[style*="color:rgba(255"]{color:#64748b!important;}
+#ev-block span[style*="color:#93c5fd"]{color:#1e40af!important;}
+#ev-st{font-size:11px;margin-top:7px;min-height:14px;}
+#r-code{background:#fff!important;border:1.5px solid #c7d2fe!important;color:#0f172a!important;}
+#r-code::placeholder{color:#94a3b8!important;}
 
 /* ══ HOME REDESIGN ══ */
 .home-status-card{
@@ -364,56 +380,22 @@ select.finp{background:#f8faff;}
       <div class="auth-field">
         <label>Tipo de negocio *</label>
         <select id="r-type" class="auth-sel">
-          <option value="">Seleccioná el tipo</option>
-          <optgroup label="🍽️ Gastronomía">
-            <option value="restaurant">🍽️ Restaurante</option>
-            <option value="pizzeria">🍕 Pizzería</option>
-            <option value="hamburgueseria">🍔 Hamburguesería</option>
-            <option value="sushi">🍣 Sushi / Japonesa</option>
-            <option value="parrilla">🥩 Parrilla / Asados</option>
-            <option value="pasteleria">🥐 Panadería / Pastelería</option>
-            <option value="heladeria">🍦 Heladería</option>
-            <option value="cafeteria">☕ Cafetería</option>
-            <option value="comida_rapida">🌮 Comida rápida</option>
-            <option value="vegetariano">🥗 Vegetariano / Vegano</option>
-          </optgroup>
-          <optgroup label="🛒 Almacenes y Mercados">
-            <option value="supermercado">🛒 Supermercado</option>
-            <option value="almacen">🏪 Almacén / Minimercado</option>
-            <option value="kiosco">🍬 Kiosco / Despensa</option>
-            <option value="verduleria">🥦 Verdulería / Frutería</option>
-            <option value="carniceria">🥩 Carnicería</option>
-            <option value="pescaderia">🐟 Pescadería</option>
-            <option value="lacteos">🧀 Lácteos / Fiambrería</option>
-          </optgroup>
-          <optgroup label="🍺 Bebidas">
-            <option value="bebidas">🍺 Licorería / Bebidas</option>
-            <option value="vinoteca">🍷 Vinoteca</option>
-          </optgroup>
-          <optgroup label="💊 Salud y Bienestar">
-            <option value="farmacia">💊 Farmacia</option>
-            <option value="perfumeria">🧴 Perfumería / Cosmética</option>
-            <option value="optica">👓 Óptica</option>
-            <option value="veterinaria">🐾 Veterinaria / Pet shop</option>
-          </optgroup>
-          <optgroup label="🔧 Ferretería y Hogar">
-            <option value="ferreteria">🔧 Ferretería</option>
-            <option value="bazar">🏠 Bazar / Hogar</option>
-            <option value="electricidad">💡 Electricidad / Iluminación</option>
-            <option value="pintureria">🎨 Pinturería</option>
-          </optgroup>
-          <optgroup label="👗 Ropa y Accesorios">
-            <option value="ropa">👗 Ropa / Indumentaria</option>
-            <option value="calzado">👟 Calzado</option>
-            <option value="deportes">⚽ Deportes</option>
-          </optgroup>
-          <optgroup label="📦 Otros">
-            <option value="libreria">📚 Librería / Papelería</option>
-            <option value="electronica">📱 Electrónica / Tecnología</option>
-            <option value="floristeria">💐 Floristería</option>
-            <option value="lavanderia">👕 Lavandería</option>
-            <option value="otro">📦 Otro</option>
-          </optgroup>
+          <option value="">Seleccioná el tipo de negocio</option>
+          <option value="restaurant">Restaurante</option>
+          <option value="pasteleria">Panadería</option>
+          <option value="heladeria">Heladería</option>
+          <option value="cafeteria">Cafetería</option>
+          <option value="supermercado">Supermercado</option>
+          <option value="kiosco">Kiosko</option>
+          <option value="carniceria">Carnicería</option>
+          <option value="verduleria">Verdulería</option>
+          <option value="congelados">Congelados</option>
+          <option value="bebidas">Bebidas</option>
+          <option value="farmacia">Farmacia</option>
+          <option value="veterinaria">Pet shop</option>
+          <option value="ferreteria">Ferretería</option>
+          <option value="libreria">Librería</option>
+          <option value="electronica">Tecnología</option>
         </select>
       </div>
       <div class="auth-field">
@@ -447,18 +429,18 @@ select.finp{background:#f8faff;}
       </div>
 
       <!-- Verificación email -->
-      <div id="ev-block" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px;margin-bottom:12px;">
-        <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:6px;">📧 Verificá tu email</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:9px;">Código enviado a <span id="ev-addr" style="color:#93c5fd;font-weight:700;"></span></div>
+      <div id="ev-block" id="ev-block" style="display:none;border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;">📧 Verificá tu email</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:9px;">Código enviado a <span id="ev-addr" style="color:#1e40af;font-weight:700;"></span></div>
         <div style="display:flex;gap:7px;">
-          <input id="r-code" type="number" class="auth-inp" placeholder="000000" inputmode="numeric" style="flex:1;font-size:20px;font-weight:800;letter-spacing:6px;">
-          <button onclick="resendCode()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:0 12px;color:rgba(255,255,255,.7);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Reenviar</button>
+          <input id="r-code" type="number" class="auth-inp" placeholder="000000" inputmode="numeric" style="flex:1;font-size:20px;font-weight:800;letter-spacing:6px;-webkit-appearance:none;-moz-appearance:textfield;">
+          <button onclick="resendCode()" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;padding:0 12px;color:#1e40af;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Reenviar</button>
         </div>
         <div id="ev-st" style="font-size:11px;margin-top:7px;min-height:14px;"></div>
       </div>
 
       <div style="display:flex;gap:8px;">
-        <button onclick="regBack()" style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:13px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">← Volver</button>
+        <button onclick="regBack()" style="flex:1;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:13px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">← Volver</button>
         <button class="auth-btn" id="r-btn" onclick="doRegister()" style="flex:2;margin-top:0;">Crear cuenta →</button>
       </div>
     </div>
@@ -573,25 +555,25 @@ window.addEventListener('DOMContentLoaded',()=>{
 // AUTH HELPERS
 // ════════════════════════════════
 const LOCS = {
-  'Montevideo':['Montevideo','Carrasco','Pocitos','Punta Carretas','Palermo','Cordón','Ciudad Vieja','Barrio Sur','Centro','Colón','Jacinto Vera','La Blanqueada','La Teja','Malvín','Maroñas','Paso Molino','Punta Gorda','Sayago','Tres Cruces','Unión','Villa Española','El Cerro','Prado','Reducto','Solymar','Toledo'],
-  'Canelones':['Las Piedras','Canelones','La Paz','Progreso','San Jacinto','Santa Lucía','Pando','Ciudad de la Costa','Atlántida','La Floresta','Salinas','Lagomar','Paso Carrasco','Sauce','Tala','San Bautista','Barros Blancos','El Pinar','Parque del Plata','Villa Aeroparque'],
-  'Maldonado':['Maldonado','Punta del Este','San Carlos','Pan de Azúcar','Piriápolis','Aiguá','Garzón','La Paloma','Manantiales','José Ignacio','La Barra','Playa Hermosa'],
-  'Colonia':['Colonia del Sacramento','Carmelo','Nueva Palmira','Juan Lacaze','Rosario','Tarariras','Cardona','Conchillas','Ombúes de Lavalle','Valdense'],
-  'San José':['San José de Mayo','Ciudad del Plata','Libertad','Ecilda Paullier','Rodríguez','Capurro'],
-  'Salto':['Salto','Belén','Constitución','San Antonio'],
-  'Paysandú':['Paysandú','Guichón','Quebracho','Lorenzo Geyres','Tambores'],
-  'Rivera':['Rivera','Tranqueras','Vichadero','Minas de Corrales'],
-  'Tacuarembó':['Tacuarembó','Paso de los Toros','San Gregorio de Polanco','Curtina'],
-  'Cerro Largo':['Melo','Río Branco','Fraile Muerto','Aceguá'],
-  'Durazno':['Durazno','Sarandí del Yí','La Paloma','Villa del Carmen'],
-  'Florida':['Florida','Sarandí Grande','Casupá','25 de Mayo','Nico Pérez'],
-  'Flores':['Trinidad','Ismael Cortinas','Andresito'],
-  'Lavalleja':['Minas','José Batlle y Ordóñez','Mariscala','José Pedro Varela'],
-  'Rocha':['Rocha','Castillos','La Paloma','Lascano','Chuy','La Pedrera','La Coronilla'],
-  'Treinta y Tres':['Treinta y Tres','Vergara','Santa Clara de Olimar','Cerro Chato'],
-  'Artigas':['Artigas','Bella Unión','Tomás Gomensoro','Baltasar Brum'],
-  'Río Negro':['Fray Bentos','Young','Algorta','Nuevo Berlín','San Javier'],
-  'Soriano':['Mercedes','Dolores','Cardona','José Enrique Rodó','Palmitas'],
+  'Montevideo':['Montevideo Centro','Aguada','Barrio Sur','Brazo Oriental','Buceo','Capurro','Carrasco','Carrasco Norte','Ciudad Vieja','Colón Centro','Colón Noroeste','Conciliación','Cordón','El Cerro','Figurita','Flor de Maroñas','Goes','Jacinto Vera','Jardines del Hipódromo','La Blanqueada','La Comercial','La Paloma','La Teja','Las Acacias','Lezica','Malvín','Malvín Norte','Manga','Maroñas','Nuevo París','Palermo','Parque Batlle','Paso Molino','Peñarol','Piedras Blancas','Pocitos','Prado','Punta Carretas','Punta Gorda','Reducto','Rincón de Milberg','Sayago','Solymar','Toledo','Tres Cruces','Unión','Villa Dolores','Villa Española','Villa García','Villa Muñoz'],
+  'Canelones':['Aeropuerto','Aguas Corrientes','Atlántida','Barros Blancos','Canelones','Castellanos','Ciudad de la Costa','El Pinar','Empalme Olmos','Estación Atlántida','Juanicó','La Floresta','La Paz','Lagomar','Las Piedras','Migues','Montes','Pando','Parque del Plata','Paso Carrasco','Progreso','Salinas','San Bautista','San Jacinto','San Luis','Santa Lucía','Santa Rosa','Sauce','Soca','Tala','Toledo','Villa Aeroparque','Villa del Rosario'],
+  'Maldonado':['Aiguá','Balneario Buenos Aires','El Tesoro','Garzón','José Ignacio','La Barra','La Paloma','Maldonado','Manantiales','Pan de Azúcar','Piriápolis','Playa Grande','Playa Hermosa','Playa Verde','Pueblo Edén','Punta Ballena','Punta del Este','San Carlos','Sauce de Portezuelo','Solís Grande','Villa Argentina'],
+  'Colonia':['Arroyo de la Virgen','Artilleros','Blancarena','Carmelo','Cardona','Colonia del Sacramento','Conchillas','Cufre','Estanzuela','Florencio Sánchez','Juan Lacaze','La Paz','Los Pinos','Miguelete','Minuano','Nueva Helvecia','Nueva Palmira','Ombúes de Lavalle','Real de San Carlos','Rosario','Tarariras','Valdense','Villa Soriano'],
+  'San José':['Aeropuerto de Carrasco','Capurro','Cardal','Ciudad del Plata','Delta del Tigre','Ecilda Paullier','El Colorado','Juan Soler','Kiyú','Libertad','Mal Abrigo','Playa Pascual','Rafael Perazza','Rodríguez','Rincón de la Bolsa','San José de Mayo','Santa Mónica'],
+  'Salto':['Belén','Constitución','Colonia Lavalleja','San Antonio','Salto','Pueblo Fernández','Quintana','Rincón de Valentín','Sarandi de Arapey'],
+  'Paysandú':['Algorta','Casablanca','Chapicuy','Guichón','Lorenzo Geyres','Piedras Coloradas','Porvenir','Paysandú','Quebracho','San Félix','Tambores','Villa María'],
+  'Rivera':['Tranqueras','Lapuente','Minas de Corrales','Rivera','Vichadero','Lago del Norte'],
+  'Tacuarembó':['Achar','Ansina','Curtina','Paso de los Toros','Peralta','Pueblo del Barro','San Gregorio de Polanco','Tacuarembó'],
+  'Cerro Largo':['Aceguá','Fraile Muerto','Isidoro Noblía','Lago Merín','Melo','Río Branco','Tupambaé'],
+  'Durazno':['Blanquillo','Carlos Reyles','Centenario','Durazno','La Charqueada','La Paloma','Sarandí del Yí','Villa del Carmen'],
+  'Florida':['25 de Mayo','Cardal','Casupá','Florida','Fray Marcos','Independencia','La Cruz','Mansavillagra','Mendoza Grande','Mendoza Chico','Nico Pérez','Pintado','Polanco del Yí','Sarandí Grande'],
+  'Flores':['Andresito','Ismael Cortinas','Trinidad'],
+  'Lavalleja':['José Batlle y Ordóñez','José Pedro Varela','Mariscala','Minas','Pirarajá','Solís de Mataojo','Villa Serrana','Zapicán'],
+  'Rocha':['19 de Abril','Aguas Dulces','Barra del Chuy','Castillos','Cebollatí','Chuy','Cuchilla Alta','La Coronilla','La Paloma','La Pedrera','Lascano','Punta del Diablo','Punta Rubia','Rocha','Santa Teresa','Velázquez'],
+  'Treinta y Tres':['Cerro Chato','María Isabel','Melo','Santa Clara de Olimar','Treinta y Tres','Valentines','Vergara','Villa Sara'],
+  'Artigas':['Artigas','Baltasar Brum','Bella Unión','Tomás Gomensoro'],
+  'Río Negro':['Algorta','Fray Bentos','Greco','Los Arrayanes','Nuevo Berlín','Paso de los Mellizos','San Javier','Villa María','Young'],
+  'Soriano':['Agraciada','Cardona','Dolores','José Enrique Rodó','Mercedes','Palmitas','Risso','Villa Soriano'],
 };
 
 function loadLocs(){
@@ -652,9 +634,9 @@ async function sendVerifEmail(email){
   const st=document.getElementById('ev-st');
   try{
     await fetch('/api/auth/send-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code:_verifCode})});
-    if(st){st.style.color='#4ade80';st.textContent='✓ Código enviado — revisá tu correo';}
+    if(st){st.style.color='#16a34a';st.textContent='✓ Código enviado — revisá tu correo';}
   }catch(e){
-    if(st){st.style.color='rgba(255,255,255,.35)';st.textContent='No se pudo enviar — podés continuar igual';}
+    if(st){st.style.color='#94a3b8';st.textContent='No se pudo enviar — podés continuar igual';}
     _emailOk=true;
   }
 }
@@ -662,8 +644,8 @@ function resendCode(){const e=document.getElementById('r-email')?.value?.trim();
 function verifCode(){
   const inp=document.getElementById('r-code')?.value?.trim();
   const st=document.getElementById('ev-st');
-  if(inp===_verifCode){_emailOk=true;if(st){st.style.color='#4ade80';st.textContent='✅ Email verificado';}return true;}
-  if(st){st.style.color='#fca5a5';st.textContent='Código incorrecto';}
+  if(inp===_verifCode){_emailOk=true;if(st){st.style.color='#16a34a';st.textContent='✅ Email verificado';}return true;}
+  if(st){st.style.color='#ef4444';st.textContent='Código incorrecto';}
   return false;
 }
 function showLogin(){
