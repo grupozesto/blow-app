@@ -1944,7 +1944,7 @@ body.owner-mode #owner-overlay {
       <div id="reg-step-1">
         <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="r-name" type="text" placeholder="Juan García"></div>
         <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
-        <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX"></div>
+        <div class="form-group"><label class="form-label">Teléfono <span style="color:var(--primary)">*</span></label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX" required></div>
         <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
         <div class="form-group"><label class="form-label">Departamento</label>
           <select class="form-input" id="r-dept" style="appearance:none;cursor:pointer;"></select>
@@ -2733,7 +2733,7 @@ function renderStores(list) {
         <div class="store-meta">
           <div class="store-rating">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            ${s.rating||'4.5'}
+            ${s.rating ? s.rating : '⭐ Nuevo'}
           </div>
           <div class="store-meta-dot"></div>
           <span>🕐 ${s.delivery_time||'20-35'} min</span>
@@ -3399,10 +3399,36 @@ function openCheckoutPage() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
   if (!cart.length) return;
+  // Verificar si el negocio está abierto
+  const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
+  if (store && store.is_open === false || store?.is_open === 0) {
+    showToast('🔴 Este negocio está cerrado ahora');
+    // Mostrar modal de negocio cerrado
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `<div style="background:#fff;border-radius:20px;padding:28px;max-width:340px;width:100%;text-align:center;">
+      <div style="font-size:56px;margin-bottom:12px;">🔴</div>
+      <div style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:8px;">${store.name} está cerrado</div>
+      <div style="font-size:14px;color:#64748b;margin-bottom:20px;">No está recibiendo pedidos en este momento. Podés intentar más tarde.</div>
+      <button onclick="this.closest('div[style]').remove()" style="width:100%;background:#0f172a;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>
+    </div>`;
+    document.body.appendChild(overlay);
+    return;
+  }
   _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkFulfillment = null;
   _chkAddress = ''; _chkAltAddress = ''; _chkShowAltAddr = false;
   nav('page-checkout');
   renderCheckoutPage();
+}
+
+function calcCheckoutTotal() {
+  const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
+  const isDelivery = (_chkFulfillment || 'delivery') === 'delivery';
+  const fee = isDelivery ? (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0) : 0;
+  const priorityFee = (_chkPriority && isDelivery) ? Math.round(fee * (store?.priority_percent||50) / 100) : 0;
+  const sub = cart.reduce((a,b) => a + b.price * b.qty, 0);
+  const promoDisc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
+  return Math.max(0, sub + fee + priorityFee + (_chkTip||0) - promoDisc);
 }
 
 function renderCheckoutPage() {
@@ -3677,6 +3703,14 @@ async function doCheckout() {
   const fulfillmentType = _chkFulfillment || 'delivery';
   const tipAmt        = fulfillmentType === 'pickup' ? 0 : _chkTip;
   const addrToSend    = fulfillmentType === 'pickup' ? '' : (_chkAddress || user?.address || '');
+
+  // Validar dirección para delivery
+  if (fulfillmentType === 'delivery' && !addrToSend.trim()) {
+    showToast('📍 Ingresá tu dirección de entrega');
+    btn.disabled = false;
+    btn.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar · $' + calcCheckoutTotal() : '💳 Ir a pagar · $' + calcCheckoutTotal();
+    return;
+  }
 
   try {
     const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null }));
@@ -4011,8 +4045,9 @@ async function doRegister() {
   if (pass.length<6) return showAuthErr('La contraseña debe tener al menos 6 caracteres');
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return showAuthErr('El email no es válido');
-  if (phone && phone.length < 8) return showAuthErr('El teléfono debe tener al menos 8 dígitos');
-  if (phone && !/^[\d\s\+\-\(\)]+$/.test(phone)) return showAuthErr('El teléfono solo puede contener números');
+  if (!phone) return showAuthErr('El teléfono es obligatorio');
+  if (phone.length < 8) return showAuthErr('El teléfono debe tener al menos 8 dígitos');
+  if (!/^[\d\s\+\-\(\)]+$/.test(phone)) return showAuthErr('El teléfono solo puede contener números');
   try {
     const dept = document.getElementById('r-dept')?.value || '';
   const city = document.getElementById('r-city')?.value || '';
@@ -6485,13 +6520,17 @@ if (payStatus) {
     showToast('✅ Pago confirmado — cargando tu pedido...');
 
     if (returnOrderId) {
-      // Esperar hasta 8s a que el webhook confirme el pedido, luego navegar al tracking
+      // Esperar hasta 10s a que el webhook confirme el pedido
       (async () => {
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 10; i++) {
           await new Promise(r => setTimeout(r, 1000));
           try {
             const order = await api(`/api/orders/${returnOrderId}`);
             if (order && order.status !== 'pending') break;
+            // En el último intento forzar verificación manual
+            if (i === 8) {
+              try { await api(`/api/orders/${returnOrderId}/verify-payment`, { method: 'POST' }); } catch(_) {}
+            }
           } catch(e) { break; }
         }
         nav('page-tracking');
@@ -7489,6 +7528,11 @@ function ooRenderSettings() {
     </div>
     <div class="oo-section-title">Configuración</div>
     <div class="oo-action-grid">
+      <button class="oo-action-btn" onclick="ooEditInfo()">
+        <span class="oo-action-icon">✏️</span>
+        <span class="oo-action-title">Datos</span>
+        <span class="oo-action-sub">Nombre, dirección</span>
+      </button>
       <button class="oo-action-btn" onclick="ooEditHours()">
         <span class="oo-action-icon">🕐</span>
         <span class="oo-action-title">Horarios</span>
@@ -7712,6 +7756,60 @@ async function ooSavePriorityPercent() {
 }
 
 // ── HORARIOS ────────────────────────────────────────────────────
+function ooEditInfo() {
+  const b = _ooBiz || {};
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:flex-end;justify-content:center;';
+  overlay.innerHTML = `<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:24px;max-height:85vh;overflow-y:auto;">
+    <div style="width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 20px;"></div>
+    <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:16px;">✏️ Datos del negocio</div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Nombre del negocio</label>
+      <input id="ei-name" value="${b.name||''}" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Descripción</label>
+      <textarea id="ei-desc" rows="2" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;resize:none;">${b.description||''}</textarea>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Dirección</label>
+      <input id="ei-address" value="${b.address||''}" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Teléfono</label>
+      <input id="ei-phone" type="tel" value="${b.phone||''}" placeholder="09X XXX XXX" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Emoji del negocio</label>
+      <input id="ei-emoji" value="${b.logo_emoji||'🏪'}" maxlength="4" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px;font-size:24px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="this.closest('div[style]').remove()" style="flex:1;background:#f1f5f9;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar</button>
+      <button onclick="ooSaveInfo()" style="flex:2;background:#0f172a;border:none;border-radius:12px;padding:13px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Guardar cambios</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+async function ooSaveInfo() {
+  const name = document.getElementById('ei-name')?.value.trim();
+  const desc = document.getElementById('ei-desc')?.value.trim();
+  const address = document.getElementById('ei-address')?.value.trim();
+  const phone = document.getElementById('ei-phone')?.value.trim();
+  const emoji = document.getElementById('ei-emoji')?.value.trim();
+  if (!name) { showToast('❌ El nombre es obligatorio'); return; }
+  try {
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ name, description: desc, address, phone, logo_emoji: emoji }) });
+    if (_ooBiz) { _ooBiz.name = name; _ooBiz.description = desc; _ooBiz.address = address; _ooBiz.phone = phone; _ooBiz.logo_emoji = emoji; }
+    document.querySelector('.oo-header div[style]')?.remove();
+    document.getElementById('oo-store-name').textContent = name;
+    document.body.querySelector('div[style*="inset:0"]')?.remove();
+    showToast('✅ Datos actualizados');
+    ooRenderSettings();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
 function ooEditHours() {
   const el = document.getElementById('oo-body');
   const days = [
