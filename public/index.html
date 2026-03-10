@@ -255,6 +255,7 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .step-dot.done{background:var(--success);color:#fff;}
 .step-dot.cur{background:var(--primary);color:#fff;animation:pulse 1.5s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,0,45,.4)}50%{box-shadow:0 0 0 8px rgba(232,0,45,0)}}
+@keyframes pulseYellow{0%,100%{opacity:1}50%{opacity:.4}}
 .step-info{padding:6px 0 18px;}
 .step-label{font-weight:600;font-size:14px;color:var(--muted);}
 .step-label.done,.step-label.cur{color:var(--text);}
@@ -6565,6 +6566,92 @@ function ooTab(tab) {
   if (tab === 'wallet')   ooShowWallet();
 }
 
+const STATUS_LABELS_OO = {
+  pending:   { label:'Nuevo',       color:'#f59e0b', bg:'#fffbeb', dot:'🟡' },
+  confirmed: { label:'Confirmado',  color:'#2558d4', bg:'#eff6ff', dot:'🔵' },
+  preparing: { label:'Preparando',  color:'#8b5cf6', bg:'#f5f3ff', dot:'🟣' },
+  ready:     { label:'Listo',       color:'#059669', bg:'#ecfdf5', dot:'🟢' },
+  on_way:    { label:'En camino',   color:'#0ea5e9', bg:'#f0f9ff', dot:'🔵' },
+  delivered: { label:'Entregado',   color:'#64748b', bg:'#f8fafc', dot:'⚪' },
+  cancelled: { label:'Cancelado',   color:'#ef4444', bg:'#fef2f2', dot:'🔴' },
+};
+const OO_NEXT_STATUS = {
+  pending:   { label:'✅ Aceptar',   next:'confirmed' },
+  confirmed: { label:'👨‍🍳 Preparar', next:'preparing' },
+  preparing: { label:'📦 Listo',     next:'ready'     },
+  ready:     { label:'🛵 En camino', next:'on_way'    },
+  on_way:    { label:'✅ Entregado', next:'delivered' },
+};
+
+function ooRenderHomePedidos() {
+  const orders = (_ooDashData?.orders || []).slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
+  const recent = orders.filter(o => ['delivered','cancelled'].includes(o.status)).slice(0, 5);
+
+  if (!orders.length) return `
+    <div style="margin:16px 0;padding:20px;background:#f8fafc;border-radius:14px;text-align:center;color:#94a3b8;font-size:13px;">
+      Sin pedidos aún hoy
+    </div>`;
+
+  const renderCard = (o, compact=false) => {
+    const st = STATUS_LABELS_OO[o.status] || { label:o.status, color:'#64748b', bg:'#f8fafc', dot:'⚪' };
+    const next = OO_NEXT_STATUS[o.status];
+    const time = new Date(o.created_at).toLocaleTimeString('es-UY', {hour:'2-digit',minute:'2-digit'});
+    const items = (o.items||[]).map(i => `${i.quantity}× ${i.name}`).join(', ') || '—';
+    const pay = o.payment_method === 'cash' ? '💵 Efectivo' : '💳 Online';
+    const fulfill = o.fulfillment_type === 'pickup' ? '🏪 Retira' : '🛵 Delivery';
+    return `
+    <div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid #f1f5f9;border-left:4px solid ${st.color};">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:13px;font-weight:900;color:#0f172a;">#${o.id.slice(-6).toUpperCase()}</span>
+          <span style="font-size:11px;color:#94a3b8;">${time}</span>
+          <span style="background:${st.bg};color:${st.color};font-size:10px;font-weight:800;border-radius:20px;padding:2px 8px;">${st.dot} ${st.label}</span>
+        </div>
+        <span style="font-size:15px;font-weight:900;color:#0f172a;">$${Math.round(o.total||0)}</span>
+      </div>
+      ${!compact ? `
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.5;">
+        <span style="font-weight:600;color:#0f172a;">${o.customer_name||'Cliente'}</span> · ${fulfill} · ${pay}
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:${next?'10px':'0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${items}</div>
+      ` : ''}
+      ${next ? `
+      <div style="display:flex;gap:8px;">
+        <button onclick="ooUpdateOrder('${o.id}','${next.next}')"
+          style="flex:1;background:#0f172a;border:none;border-radius:10px;padding:9px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          ${next.label}
+        </button>
+        <button onclick="ooUpdateOrder('${o.id}','cancelled')"
+          style="background:#fef2f2;border:none;border-radius:10px;padding:9px 12px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          ✕
+        </button>
+      </div>` : ''}
+    </div>`;
+  };
+
+  let html = `<div style="margin:16px 0;">`;
+
+  if (active.length) {
+    html += `<div style="font-size:12px;font-weight:800;color:#0f172a;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+      <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;animation:pulse 1.5s infinite;"></span>
+      EN CURSO (${active.length})
+    </div>`;
+    html += active.map(o => renderCard(o, false)).join('');
+  }
+
+  if (recent.length) {
+    html += `<div style="font-size:12px;font-weight:800;color:#64748b;letter-spacing:.5px;margin:${active.length?'16px':0} 0 10px;display:flex;align-items:center;justify-content:space-between;">
+      <span>RECIENTES</span>
+      <button onclick="ooTab('orders')" style="background:none;border:none;color:#2558d4;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Ver todos →</button>
+    </div>`;
+    html += recent.map(o => renderCard(o, true)).join('');
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 function ooRenderHome() {
   const el = document.getElementById('oo-body');
   if (!el) return;
@@ -6612,6 +6699,8 @@ function ooRenderHome() {
       <div class="oo-wallet-dot"        onclick="ooWalletGo(1)"></div>
       <div class="oo-wallet-dot"        onclick="ooWalletGo(2)"></div>
     </div>
+
+    ${ooRenderHomePedidos()}
 
     <div class="oo-section-title">Acciones rápidas</div>
     <div class="oo-action-grid">
@@ -6776,17 +6865,19 @@ async function ooUpdateOrder(id, status) {
       await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify({status}) });
     }
     showToast(status === 'cancelled' ? '✅ Pedido cancelado' : '✅ Estado actualizado');
-    // Refrescar solo los pedidos sin cambiar de tab ni recargar todo
+    // Refrescar datos silenciosamente
     try {
       const fresh = await ooFetch('/api/businesses/mine/dashboard');
       _ooDashData = fresh;
       if (fresh.business) _ooBiz = fresh.business;
-      // Actualizar KPI pendientes sin redirigir
       const pending = (fresh.orders||[]).filter(o => o.status === 'pending').length;
-      const el = document.getElementById('oo-kpi-pending');
-      if (el) el.textContent = pending;
+      const kpiEl = document.getElementById('oo-kpi-pending');
+      if (kpiEl) kpiEl.textContent = pending;
     } catch(_) {}
-    ooRenderOrders(); // quedarse en la lista de pedidos
+    // Re-renderizar el tab activo sin cambiar de sección
+    const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
+    if (activeTab === 'home') ooRenderHome();
+    else ooRenderOrders();
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
