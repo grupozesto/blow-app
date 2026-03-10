@@ -2015,8 +2015,23 @@ app.get('/api/admin/orders', auth, role('admin'), async (req, res) => {
 app.get('/api/admin/withdrawals', auth, role('admin'), async (req, res) =>
   res.json(await qa('SELECT * FROM withdrawals ORDER BY created_at DESC',[])));
 app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, res) => {
-  await q("UPDATE withdrawals SET status='completed',processed_at=NOW() WHERE id=$1",[req.params.id]);
-  res.json({ success:true });
+  const w = await q1('SELECT * FROM withdrawals WHERE id=$1', [req.params.id]);
+  if (!w) return res.status(404).json({ error: 'No encontrado' });
+  if (w.status !== 'pending') return res.status(400).json({ error: 'Este retiro ya fue procesado' });
+  await q("UPDATE withdrawals SET status='completed', processed_at=NOW() WHERE id=$1", [req.params.id]);
+  // Notificar al dueño
+  notify(w.owner_id, {
+    type: 'withdrawal_approved',
+    message: `✅ Tu retiro de $${w.amount} fue confirmado. El dinero se acredita en hasta 24hs hábiles.`
+  });
+  // Push notification si tiene suscripción
+  sendPushToOwner(w.owner_id, {
+    title: '💸 Retiro confirmado',
+    body: `$${w.amount} — acreditado en hasta 24hs hábiles`,
+    tag: 'withdrawal',
+    url: '/'
+  });
+  res.json({ success: true });
 });
 app.post('/api/admin/withdrawals/:id/reject', auth, role('admin'), async (req, res) => {
   const w=await q1('SELECT * FROM withdrawals WHERE id=$1',[req.params.id]);
