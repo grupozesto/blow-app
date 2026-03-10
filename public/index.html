@@ -658,6 +658,19 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 }
 #owner-overlay.visible { display: flex; }
 #owner-overlay.open    { transform: translateY(0); }
+
+/* Cuando es owner real: ocultar toda la interfaz cliente sin animación */
+body.owner-mode .page,
+body.owner-mode .bottom-nav,
+body.owner-mode .sidebar,
+body.owner-mode #toast-container {
+  display: none !important;
+}
+body.owner-mode #owner-overlay {
+  display: flex !important;
+  transform: translateY(0) !important;
+  transition: none;
+}
 .oo-header {
   background: linear-gradient(135deg,#06112a 0%,#1e4fd4 100%);
   padding: calc(env(safe-area-inset-top,0px) + 14px) 16px 14px;
@@ -4059,6 +4072,12 @@ function doLogout() {
   localStorage.removeItem('da_token');
   localStorage.removeItem('da_user');
   if (ws) { ws.close(); ws=null; }
+  // Clean up owner overlay
+  document.body.classList.remove('owner-mode');
+  const ooEl = document.getElementById('owner-overlay');
+  if (ooEl) { ooEl.classList.remove('open','visible'); }
+  document.querySelector('.bottom-nav')?.style.removeProperty('display');
+  if (_ooRefreshInterval) { clearInterval(_ooRefreshInterval); _ooRefreshInterval = null; }
   renderProfile(); nav('page-home');
   showToast('👋 Sesión cerrada');
 }
@@ -6640,8 +6659,13 @@ let _ooRefreshInterval = null;
 function enterOwnerOverlay() {
   const el = document.getElementById('owner-overlay');
   document.querySelector('.bottom-nav')?.style.setProperty('display','none','important');
-  el.classList.add('visible');
-  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('open')));
+  // Si es owner real: modo dedicado (sin interfaz cliente)
+  if (user && user.role === 'owner') {
+    document.body.classList.add('owner-mode');
+  } else {
+    el.classList.add('visible');
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('open')));
+  }
   ooLoadData();
   ooTab('home');
   ooInitPush();
@@ -6683,9 +6707,13 @@ function exitOwnerOverlay() {
     doLogout();
     return;
   }
+  // Admin/customer que visitó el portal: volver con transición
   const el = document.getElementById('owner-overlay');
+  // Restaurar transición antes del slide-down
+  el.style.transition = 'transform 0.4s cubic-bezier(0.4,0,0.2,1)';
   el.classList.remove('open');
   document.querySelector('.bottom-nav')?.style.removeProperty('display');
+  document.body.classList.remove('owner-mode');
   setTimeout(() => el.classList.remove('visible'), 400);
 }
 
@@ -6740,6 +6768,9 @@ async function ooFetch(path, opts) {
 async function ooLoadData() {
   const el = document.getElementById('oo-body');
   if (el) el.innerHTML = '<div style="text-align:center;padding:50px 0;color:#94a3b8;font-size:14px;">Cargando...</div>';
+  // Set exit button label
+  const exitLabel = document.getElementById('oo-exit-label');
+  if (exitLabel) exitLabel.textContent = (user && user.role === 'owner') ? 'Cerrar sesión' : 'Volver a Blow';
   try {
     const d = await ooFetch('/api/businesses/mine/dashboard');
     _ooBiz = d.business || {};
@@ -8715,7 +8746,7 @@ function ooShowRetiro() { ooOpenRetiroModal(); }
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="oo-exit-btn" onclick="exitOwnerOverlay()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Salir
+        <span id="oo-exit-label">Salir</span>
       </button>
     </div>
   </div>
