@@ -256,6 +256,10 @@ async function initDB() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_from TIME DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS available_until TIME DEFAULT NULL;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS ingredients TEXT DEFAULT '';
+    ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS is_required BOOLEAN DEFAULT FALSE;
+    ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS is_multi BOOLEAN DEFAULT FALSE;
+    ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS max_selections INTEGER DEFAULT 1;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS platform_fee REAL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_payment_id TEXT DEFAULT NULL;
@@ -995,17 +999,19 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
   if (!sub || sub.status !== 'active')
     return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
-  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', stock=null, is_featured=false } = req.body;
+  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', ingredients='', stock=null, is_featured=false } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
   const id = uuid();
-  await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
-    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',stock?parseInt(stock):null]);
+  await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',ingredients||'',stock?parseInt(stock):null]);
   for (let i=0;i<Math.min(photos.length,4);i++) {
     try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
     catch(e) { console.error('Photo error:',e.message); }
   }
   for (let i=0;i<variants.length;i++) {
-    const v=variants[i]; await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',[uuid(),id,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i]);
+    const v=variants[i];
+    await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [uuid(),id,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i,Boolean(v.is_required),Boolean(v.is_multi),parseInt(v.max_selections)||1]);
   }
   res.status(201).json(await getProductFull(id));
 });
@@ -1028,8 +1034,14 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
   if (Array.isArray(variants)) {
     await q('DELETE FROM product_variants WHERE product_id=$1',[req.params.pid]);
     for (let i=0;i<variants.length;i++) {
-      const v=variants[i]; await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',[uuid(),req.params.pid,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i]);
+      const v=variants[i];
+      await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [uuid(),req.params.pid,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i,Boolean(v.is_required),Boolean(v.is_multi),parseInt(v.max_selections)||1]);
     }
+  }
+  // Update ingredients if provided
+  if (req.body.ingredients !== undefined) {
+    await q('UPDATE products SET ingredients=$1 WHERE id=$2',[req.body.ingredients||'',req.params.pid]);
   }
   res.json(await getProductFull(req.params.pid));
 });
