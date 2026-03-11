@@ -2343,7 +2343,7 @@ body.owner-mode #owner-overlay {
 <!-- ══ PAGE: TERMS ══ -->
 <div class="page page-wrap" id="page-terms">
   <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
-    <button class="back-btn-inline" onclick="nav('page-help')" style="flex-shrink:0;">
+    <button class="back-btn-inline" onclick="navBack()" style="flex-shrink:0;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
     <h1 style="flex:1;margin:0;font-size:18px;">Términos y condiciones</h1>
@@ -2390,7 +2390,7 @@ body.owner-mode #owner-overlay {
 <!-- ══ PAGE: PRIVACY ══ -->
 <div class="page page-wrap" id="page-privacy">
   <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
-    <button class="back-btn-inline" onclick="nav('page-help')" style="flex-shrink:0;">
+    <button class="back-btn-inline" onclick="navBack()" style="flex-shrink:0;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg>
     </button>
     <h1 style="flex:1;margin:0;font-size:18px;">Política de privacidad</h1>
@@ -2643,7 +2643,24 @@ function connectWS() {
 // ═══════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════
+// Historial de navegación
+if (!window._navHistory) window._navHistory = [];
+function navBack() {
+  if (window._navHistory.length > 1) {
+    window._navHistory.pop(); // sacar página actual
+    const prev = window._navHistory.pop(); // sacar anterior (nav lo vuelve a pushear)
+    nav(prev);
+  } else {
+    nav('page-profile');
+  }
+}
 function nav(pageId) {
+  // Guardar historial (no guardar duplicados consecutivos)
+  if (!window._navHistory) window._navHistory = [];
+  const last = window._navHistory[window._navHistory.length - 1];
+  if (last !== pageId) window._navHistory.push(pageId);
+  if (window._navHistory.length > 20) window._navHistory.shift();
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(pageId)?.classList.add('active');
 
