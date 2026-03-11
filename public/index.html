@@ -169,26 +169,26 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .chip:hover{border-color:#999;}
 .chip.active{background:var(--text);border-color:var(--text);color:#fff;}
 
-/* ── STORE CARDS — PedidosYa style ── */
-.stores-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 14px;overflow:visible;}
-@media(min-width:600px){.stores-grid{grid-template-columns:repeat(3,1fr);gap:12px;padding:0 4px;}}
+/* ── STORE CARDS — Rappi style ── */
+.stores-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 14px 14px;overflow:visible;}
+@media(min-width:600px){.stores-grid{grid-template-columns:repeat(3,1fr);gap:14px;padding:0 4px;}}
 @media(min-width:1000px){.stores-grid{grid-template-columns:repeat(4,1fr);}}
-.store-card{background:#fff;cursor:pointer;transition:box-shadow .15s;border:none;border-radius:16px;overflow:visible;box-shadow:0 1px 6px rgba(0,0,0,.07);position:relative;}
-.store-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);}
-.store-cover{width:100%;height:110px;position:relative;overflow:hidden;border-radius:16px 16px 0 0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;}
+.store-card{background:#fff;cursor:pointer;transition:box-shadow .15s;border:none;border-radius:20px;overflow:visible;box-shadow:0 2px 12px rgba(0,0,0,.09);position:relative;}
+.store-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.14);}
+.store-cover{width:100%;height:130px;position:relative;overflow:hidden;border-radius:20px 20px 0 0;background:#f0f0f0;display:flex;align-items:center;justify-content:center;}
 .store-cover img{width:100%;height:100%;object-fit:cover;}
-.store-cover-emoji{font-size:50px;line-height:1;}
-.store-cover-closed{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;border-radius:16px 16px 0 0;}
-.store-cover-closed span{background:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:800;color:#1a1a1a;}
-.store-logo-chip{position:absolute;bottom:-28px;left:12px;width:62px;height:62px;border-radius:16px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;border:3px solid #fff;z-index:10;}
+.store-cover-emoji{font-size:60px;line-height:1;}
+.store-cover-closed{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;border-radius:20px 20px 0 0;}
+.store-cover-closed span{background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:800;color:#1a1a1a;}
+.store-logo-chip{position:absolute;bottom:-22px;left:14px;width:64px;height:64px;border-radius:16px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden;border:3px solid #fff;z-index:10;}
 .store-logo-chip img{width:100%;height:100%;object-fit:cover;}
-.store-info{padding:36px 12px 12px 84px;border-radius:0 0 16px 16px;min-height:68px;display:flex;flex-direction:column;justify-content:center;}
-.store-name{font-size:13px;font-weight:800;margin-bottom:4px;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;}
-.store-name > span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.store-meta{display:flex;align-items:center;gap:4px;font-size:11px;color:#888;flex-wrap:wrap;}
-.store-meta-dot{width:3px;height:3px;border-radius:50%;background:#d1d5db;flex-shrink:0;}
-.store-rating{display:flex;align-items:center;gap:2px;font-weight:700;color:#1a1a1a;font-size:11px;}
-.store-rating svg{width:11px;height:11px;fill:#FFB800;color:#FFB800;}
+.store-info{padding:28px 14px 14px 14px;border-radius:0 0 20px 20px;}
+.store-info-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.store-name{font-size:15px;font-weight:800;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px;}
+.store-rating{display:flex;align-items:center;gap:3px;font-weight:700;color:#1a1a1a;font-size:13px;flex-shrink:0;}
+.store-rating svg{width:13px;height:13px;fill:#FFB800;}
+.store-detail-row{display:flex;align-items:center;gap:5px;font-size:12px;color:#888;margin-top:3px;}
+.store-detail-row svg{width:13px;height:13px;flex-shrink:0;}
 .tag{display:inline-block;background:#fff3f3;color:var(--primary);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;}
 .tag.free{background:#e8f8f0;color:var(--success);}
 .tag.new-badge{background:#e8f0ff;color:#3b5bdb;}
@@ -3014,6 +3014,10 @@ function renderStores(list) {
     const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
     const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
     const isOpen = s.is_open !== false && s.is_open !== 0;
+    const deliveryCost = s.offers_delivery !== false
+      ? (s.delivery_cost === 0 ? 'Envío gratis' : `$ ${s.delivery_cost}`)
+      : (s.offers_pickup ? 'Retiro en tienda' : '');
+    const deliveryCostColor = s.delivery_cost === 0 ? '#00a651' : '#888';
     return `
     <div class="store-card" onclick="openStore('${s.id}')">
       <div class="store-cover" style="background:${bg};">
@@ -3024,21 +3028,18 @@ function renderStores(list) {
         <div class="store-logo-chip">${s.logo_url ? `<img src="${s.logo_url}" alt="">` : (s.logo_emoji||'🏪')}</div>
       </div>
       <div class="store-info">
-        <div class="store-name">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}</span>
-          ${s.blow_plus ? '<span style="background:linear-gradient(90deg,#ea356b,#ff6b6b);color:#fff;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:800;flex-shrink:0;">⚡</span>' : ''}
-          <span style="background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:1px 5px;font-size:9px;font-weight:700;flex-shrink:0;">✓</span>
+        <div class="store-info-row">
+          <div class="store-name">${s.name}${s.blow_plus ? '&thinsp;<span style="background:linear-gradient(90deg,#ea356b,#ff6b6b);color:#fff;border-radius:4px;padding:1px 4px;font-size:8px;font-weight:800;vertical-align:middle;">⚡</span>' : ''}</div>
+          ${s.rating ? `<div class="store-rating"><svg viewBox="0 0 24 24" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>${s.rating}</div>` : ''}
         </div>
-        <div class="store-meta">
-          <div class="store-rating">
-            <svg viewBox="0 0 24 24" width="11" height="11" fill="#FFB800"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            ${s.rating ? `<span>${s.rating}</span>${s.rating_count > 0 ? `<span style="color:#94a3b8;font-weight:400;">(${s.rating_count})</span>` : ''}` : '<span style="color:#94a3b8;">Nuevo</span>'}
-          </div>
-          <div class="store-meta-dot"></div>
+        <div class="store-detail-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>${s.delivery_time||'20-35'} min</span>
-          <div class="store-meta-dot"></div>
-          ${s.offers_delivery !== false ? deliveryTag : pickupTag}
         </div>
+        ${deliveryCost ? `<div class="store-detail-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <span style="color:${deliveryCostColor};font-weight:${s.delivery_cost===0?'700':'400'};">${deliveryCost}</span>
+        </div>` : ''}
       </div>
     </div>`;
   }).join('');
