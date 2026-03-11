@@ -35,7 +35,7 @@
   --r:16px;--r-sm:12px;--nav:56px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;overflow-x:hidden;}
+html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;min-height:-webkit-fill-available;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
 .app-header{padding-top:calc(env(safe-area-inset-top,0px) + 14px);}
 
