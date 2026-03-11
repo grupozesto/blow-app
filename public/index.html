@@ -122,6 +122,29 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .bdot{width:7px;height:7px;border-radius:50%;background:#ddd;cursor:pointer;transition:all .2s;}
 .bdot.active{background:var(--primary);width:18px;border-radius:4px;}
 
+/* ── PROMO CAROUSEL ── */
+.pcarousel-wrap{padding:0 16px;margin:16px 0 0;position:relative;}
+.pcarousel-viewport{border-radius:20px;overflow:hidden;position:relative;box-shadow:0 4px 20px rgba(234,53,107,.18);}
+.pcarousel-track{display:flex;transition:transform .42s cubic-bezier(.4,0,.2,1);will-change:transform;}
+.pcarousel-slide{flex-shrink:0;width:100%;min-height:130px;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden;cursor:pointer;box-sizing:border-box;}
+.pcs-img{position:absolute;right:0;top:0;bottom:0;width:45%;object-fit:cover;pointer-events:none;}
+.pcs-emoji{font-size:90px;line-height:1;margin-right:-6px;filter:drop-shadow(0 4px 18px rgba(0,0,0,.22));flex-shrink:0;pointer-events:none;align-self:center;}
+.pcs-text{z-index:1;max-width:58%;}
+.pcs-title{font-size:18px;font-weight:800;color:#fff;line-height:1.25;margin-bottom:4px;}
+.pcs-sub{font-size:12px;color:rgba(255,255,255,.82);line-height:1.35;margin-bottom:6px;}
+.pcs-hl-label{font-size:12px;font-weight:700;color:#FFE566;margin-bottom:2px;}
+.pcs-hl{font-size:30px;font-weight:900;color:#FFE566;line-height:1;}
+.pcarousel-dots{display:flex;justify-content:center;gap:6px;padding:8px 0 2px;}
+.pcdot{width:7px;height:7px;border-radius:50%;background:rgba(0,0,0,.15);cursor:pointer;transition:all .2s;border:none;padding:0;}
+.pcdot.on{background:var(--primary);width:18px;border-radius:4px;}
+/* ADMIN banner cards */
+.abn-card{background:#fff;border-radius:14px;border:1.5px solid var(--border);margin-bottom:10px;overflow:hidden;}
+.abn-preview{min-height:80px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden;}
+.abn-preview-emoji{font-size:52px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));}
+.abn-body{padding:12px 16px;border-top:1px solid var(--border);}
+.abn-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+.abn-inp{flex:1;min-width:80px;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;font-family:inherit;outline:none;}
+.abn-inp:focus{border-color:var(--primary);}
 /* ── SECTION ── */
 .section{padding:22px 16px 0;}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
@@ -931,16 +954,9 @@ body.owner-mode #owner-overlay {
       </div>
     </div>
 
-    <!-- BANNER PROMO DINÁMICO -->
-    <div style="padding:0 16px;margin:16px 0 0;" id="promo-banners-wrap">
-      <div style="background:linear-gradient(120deg,#ea356b 60%,#ff4d8d);border-radius:20px;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;overflow:hidden;position:relative;min-height:120px;">
-        <div style="z-index:1;">
-          <div style="color:#fff;font-size:18px;font-weight:700;line-height:1.3;margin-bottom:4px;">Volvé a pedir<br>y disfrutá</div>
-          <div style="color:#FFE566;font-size:13px;font-weight:600;">Hasta</div>
-          <div style="color:#FFE566;font-size:32px;font-weight:900;line-height:1;">50% OFF</div>
-        </div>
-        <div style="font-size:90px;line-height:1;margin-right:-8px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.2));">🍔</div>
-      </div>
+    <!-- PROMO CAROUSEL DINÁMICO -->
+    <div id="promo-banners-wrap">
+      <!-- se llena por loadPromoBanners() -->
     </div>
 
     <!-- NEGOCIOS DESTACADOS DINÁMICOS -->
@@ -1603,6 +1619,7 @@ body.owner-mode #owner-overlay {
         <!-- Admin Tabs -->
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:12px;">
           <button onclick="adminTab('stats')" id="atab-stats" class="atab-btn active" style="padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">📊 Stats</button>
+          <button onclick="adminTab('banners')" id="atab-banners" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🖼️ Banners</button>
           <button onclick="adminTab('users')" id="atab-users" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">👥 Usuarios</button>
           <button onclick="adminTab('businesses')" id="atab-businesses" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🏪 Negocios</button>
           <button onclick="adminTab('orders')" id="atab-orders" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📦 Pedidos</button>
@@ -1702,19 +1719,24 @@ body.owner-mode #owner-overlay {
 
         <!-- BANNERS TAB -->
         <div id="admin-tab-banners" style="display:none;">
-          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners promocionales</div>
-          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Crear nuevo banner</div>
-            <div class="form-group"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Volvé a pedir y disfrutá"></div>
-            <div class="form-group"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-subtitle" placeholder="Línea 2 del título"></div>
-            <div class="form-group"><label class="form-label">Destacado (ej: 50% OFF)</label><input class="form-input" id="bn-highlight" placeholder="50% OFF"></div>
-            <div style="display:flex;gap:12px;">
-              <div class="form-group" style="flex:1;"><label class="form-label">Emoji</label><input class="form-input" id="bn-emoji" placeholder="🍔" value="🍔"></div>
-              <div class="form-group" style="flex:1;"><label class="form-label">Color de fondo</label><input type="color" id="bn-color" value="#ea356b" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--border);cursor:pointer;"></div>
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners del carrusel</div>
+
+          <!-- CREAR NUEVO -->
+          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:20px;border:1.5px dashed var(--border);">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--muted);">NUEVO BANNER</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Volvé a pedir y disfrutá"></div>
+              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-subtitle" placeholder="Ej: con envío gratis"></div>
+              <div class="form-group"><label class="form-label">Texto destacado</label><input class="form-input" id="bn-highlight" placeholder="50% OFF"></div>
+              <div class="form-group"><label class="form-label">Etiqueta previa</label><input class="form-input" id="bn-hl-label" placeholder="Hasta"></div>
+              <div class="form-group"><label class="form-label">Emoji</label><input class="form-input" id="bn-emoji" placeholder="🍔" value="🍔" maxlength="4"></div>
+              <div class="form-group"><label class="form-label">Color de fondo</label><input type="color" id="bn-color" value="#ea356b" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--border);cursor:pointer;"></div>
             </div>
-            <button class="primary-btn" onclick="createAdminBanner()">+ Crear banner</button>
+            <button class="primary-btn" onclick="createAdminBanner()" style="width:100%;margin-top:4px;">+ Crear banner</button>
           </div>
-          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Banners activos</div>
+
+          <!-- LISTA -->
+          <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px;">BANNERS ACTIVOS</div>
           <div id="admin-banners-list"><div class="loading-state"><div class="spinner"></div></div></div>
         </div>
 
@@ -2729,6 +2751,87 @@ function goBanner(i) {
   document.querySelectorAll('.bdot').forEach((d,j) => d.classList.toggle('active', j===i));
 }
 setInterval(() => goBanner((bIdx+1)%3), 4000);
+
+// ═══════════════════════════════════════════════
+//  PROMO CAROUSEL
+// ═══════════════════════════════════════════════
+let pcIdx = 0, pcTotal = 0, pcTimer = null;
+
+const FALLBACK_BANNERS = [
+  { id:'f1', title:'Volvé a pedir\ny disfrutá', subtitle:'Las mejores ofertas del día', highlight:'50% OFF', highlight_label:'Hasta', emoji:'🍔', bg_color:'#ea356b', active:true },
+  { id:'f2', title:'Pedí y recibí\nen minutos', subtitle:'Envío express a tu puerta', highlight:'GRATIS', highlight_label:'Envío', emoji:'🛵', bg_color:'#7c3aed', active:true },
+  { id:'f3', title:'Todo lo que\nnecesitás', subtitle:'Mercados y farmacias abiertas', highlight:'24 hs', highlight_label:'Abierto', emoji:'🛒', bg_color:'#0284c7', active:true },
+];
+
+function buildPromoSlide(b, idx) {
+  const bg = b.image_url
+    ? `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 45%, transparent 100%), url('${b.image_url}') right center/cover no-repeat;`
+    : `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 60%,${shadeColor(b.bg_color||'#ea356b', 25)} 100%);`;
+  const media = b.image_url
+    ? `<img src="${b.image_url}" class="pcs-img" alt="">`
+    : `<span class="pcs-emoji">${b.emoji||'🍔'}</span>`;
+  const hlBlock = b.highlight
+    ? `${b.highlight_label ? `<div class="pcs-hl-label">${b.highlight_label}</div>` : ''}
+       <div class="pcs-hl">${b.highlight}</div>` : '';
+  return `<div class="pcarousel-slide" style="${bg}" data-idx="${idx}">
+    <div class="pcs-text">
+      <div class="pcs-title">${(b.title||'').replace(/\n/g,'<br>')}</div>
+      ${b.subtitle ? `<div class="pcs-sub">${b.subtitle}</div>` : ''}
+      ${hlBlock}
+    </div>
+    ${media}
+  </div>`;
+}
+
+function shadeColor(hex, pct) {
+  try {
+    let n = parseInt(hex.replace('#',''), 16);
+    const r = Math.min(255, (n >> 16) + pct), g = Math.min(255, ((n >> 8) & 0xff) + pct), b = Math.min(255, (n & 0xff) + pct);
+    return '#' + [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  } catch { return hex; }
+}
+
+function renderPromoCarousel(banners) {
+  const wrap = document.getElementById('promo-banners-wrap');
+  if (!wrap) return;
+  if (!banners || !banners.length) { wrap.innerHTML=''; return; }
+  pcTotal = banners.length;
+  pcIdx = 0;
+  const slides = banners.map((b, i) => buildPromoSlide(b, i)).join('');
+  const dots = banners.length > 1
+    ? `<div class="pcarousel-dots" id="pcarousel-dots">${banners.map((_,i)=>`<button class="pcdot${i===0?' on':''}" onclick="goPC(${i})"></button>`).join('')}</div>`
+    : '';
+  wrap.innerHTML = `<div class="pcarousel-wrap">
+    <div class="pcarousel-viewport">
+      <div class="pcarousel-track" id="pcarousel-track" style="width:${banners.length*100}%;">
+        ${slides}
+      </div>
+    </div>
+    ${dots}
+  </div>`;
+  // restart autoplay
+  if (pcTimer) clearInterval(pcTimer);
+  if (banners.length > 1) pcTimer = setInterval(() => goPC((pcIdx+1) % pcTotal), 4500);
+}
+
+function goPC(i) {
+  pcIdx = i;
+  const track = document.getElementById('pcarousel-track');
+  if (track) track.style.transform = `translateX(-${(i * 100) / pcTotal}%)`;
+  document.querySelectorAll('#pcarousel-dots .pcdot').forEach((d,j) => d.classList.toggle('on', j===i));
+}
+
+async function loadPromoBanners() {
+  try {
+    const res = await fetch('/api/admin/banners');
+    if (!res.ok) throw new Error();
+    const all = await res.json();
+    const active = all.filter(b => b.active !== false);
+    renderPromoCarousel(active.length ? active : FALLBACK_BANNERS);
+  } catch {
+    renderPromoCarousel(FALLBACK_BANNERS);
+  }
+}
 
 // ═══════════════════════════════════════════════
 //  STORES
@@ -6208,6 +6311,8 @@ function adminTab(tab) {
   else if (tab==='settings') loadAdminSettings();
   else if (tab==='coupons') loadAdminCoupons();
   else if (tab==='helpmsg') loadAdminHelp();
+  else if (tab==='banners') loadAdminBanners();
+  else if (tab==='featured') loadAdminFeatured();
 }
 
 async function loadAdminStats() {
@@ -6773,56 +6878,122 @@ async function loadHomeDynamic() {
 }
 
 // ── ADMIN BANNERS ──
+// ── ADMIN BANNERS ──
+function _abnCard(b) {
+  const bg = b.image_url
+    ? `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 45%,rgba(0,0,0,.15)),url('${b.image_url}') right center/cover no-repeat;`
+    : `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 60%,${shadeColor(b.bg_color||'#ea356b',25)} 100%);`;
+  const media = b.image_url
+    ? `<img src="${b.image_url}" style="position:absolute;right:0;top:0;bottom:0;width:40%;object-fit:cover;pointer-events:none;">`
+    : `<span style="font-size:44px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.2));">${b.emoji||'🍔'}</span>`;
+  const paused = b.active===false;
+  return `<div class="abn-card" id="abn-${b.id}" style="${paused?'opacity:.55':''}">
+    <!-- PREVIEW -->
+    <div class="abn-preview" style="${bg}">
+      <div style="z-index:1;max-width:60%;">
+        <div style="font-size:15px;font-weight:800;color:#fff;line-height:1.2;">${b.title||''}</div>
+        ${b.subtitle?`<div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:2px;">${b.subtitle}</div>`:''}
+        ${b.highlight?`<div style="font-size:20px;font-weight:900;color:#FFE566;margin-top:4px;">${b.highlight}</div>`:''}
+      </div>
+      ${media}
+      ${paused?'<div style="position:absolute;top:6px;right:8px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PAUSADO</div>':''}
+    </div>
+    <!-- EDIT BODY -->
+    <div class="abn-body">
+      <div class="abn-row">
+        <input class="abn-inp" id="abn-title-${b.id}" value="${(b.title||'').replace(/"/g,'&quot;')}" placeholder="Título">
+        <input class="abn-inp" id="abn-sub-${b.id}" value="${(b.subtitle||'').replace(/"/g,'&quot;')}" placeholder="Subtítulo" style="flex:0.8;">
+      </div>
+      <div class="abn-row">
+        <input class="abn-inp" id="abn-hl-${b.id}" value="${(b.highlight||'').replace(/"/g,'&quot;')}" placeholder="Destacado (50% OFF)" style="flex:0.7;">
+        <input class="abn-inp" id="abn-hll-${b.id}" value="${(b.highlight_label||'').replace(/"/g,'&quot;')}" placeholder="Etiq. (Hasta)" style="flex:0.5;">
+        <input class="abn-inp" id="abn-em-${b.id}" value="${b.emoji||'🍔'}" placeholder="Emoji" style="flex:0;width:52px;text-align:center;font-size:18px;" maxlength="4">
+        <input type="color" id="abn-col-${b.id}" value="${b.bg_color||'#ea356b'}" title="Color" style="width:42px;height:36px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;padding:2px;">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="primary-btn" style="padding:8px 14px;font-size:12px;" onclick="saveAdminBanner('${b.id}')">💾 Guardar</button>
+        <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#f9f9f9;">
+          🖼️ ${b.image_url?'Cambiar foto':'Subir foto'}
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadBannerImage('${b.id}',this)">
+        </label>
+        ${b.image_url?`<button style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#f9f9f9;" onclick="removeBannerImage('${b.id}')">🗑️ Quitar foto</button>`:''}
+        <button style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#f9f9f9;margin-left:auto;" onclick="toggleAdminBanner('${b.id}',${paused})">${paused?'▶️ Activar':'⏸️ Pausar'}</button>
+        <button style="padding:8px 12px;border-radius:10px;border:1.5px solid #fee2e2;font-size:12px;font-weight:600;cursor:pointer;background:#fff5f5;color:#dc2626;" onclick="deleteAdminBanner('${b.id}')">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function loadAdminBanners() {
+  const el = document.getElementById('admin-banners-list');
+  if (!el) return;
   try {
     const res = await fetch('/api/admin/banners', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
     const banners = await res.json();
-    document.getElementById('admin-banners-list').innerHTML = banners.length
-      ? banners.map(b=>`<div class="admin-row">
-          <div style="flex:1;">
-            <strong>${b.title}</strong> ${b.highlight?`<span style="color:#ea356b">${b.highlight}</span>`:''}
-            <div style="font-size:12px;color:#888;">${b.subtitle||''}</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="file" accept="image/*" onchange="uploadBannerImage('${b.id}',this)" style="font-size:11px;width:120px;">
-            <button class="btn-sm" onclick="toggleAdminBanner('${b.id}',${!b.active})">${b.active?'Pausar':'Activar'}</button>
-            <button class="btn-sm btn-danger" onclick="deleteAdminBanner('${b.id}')">✕</button>
-          </div>
-        </div>`).join('')
-      : '<div style="text-align:center;color:#aaa;padding:20px;">No hay banners</div>';
-  } catch(e){}
+    el.innerHTML = banners.length
+      ? banners.map(b => _abnCard(b)).join('')
+      : '<div style="text-align:center;color:#aaa;padding:30px 0;font-size:14px;">No hay banners aún.<br>Creá el primero 👆</div>';
+  } catch(e){ el.innerHTML='<div style="color:#dc2626;padding:12px;">Error al cargar banners</div>'; }
+}
+
+async function saveAdminBanner(id) {
+  const title = document.getElementById(`abn-title-${id}`)?.value?.trim();
+  const subtitle = document.getElementById(`abn-sub-${id}`)?.value?.trim();
+  const highlight = document.getElementById(`abn-hl-${id}`)?.value?.trim();
+  const highlight_label = document.getElementById(`abn-hll-${id}`)?.value?.trim();
+  const emoji = document.getElementById(`abn-em-${id}`)?.value?.trim() || '🍔';
+  const bg_color = document.getElementById(`abn-col-${id}`)?.value || '#ea356b';
+  if (!title) return showToast('El título es obligatorio');
+  const res = await fetch(`/api/admin/banners/${id}`, {method:'PATCH', headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'}, body:JSON.stringify({title,subtitle,highlight,highlight_label,emoji,bg_color})});
+  const d = await res.json();
+  if (d.ok) { showToast('✅ Banner guardado'); loadAdminBanners(); loadPromoBanners(); }
+  else showToast('Error: '+(d.error||''));
 }
 
 async function createAdminBanner() {
   const title = document.getElementById('bn-title')?.value?.trim();
   const subtitle = document.getElementById('bn-subtitle')?.value?.trim();
   const highlight = document.getElementById('bn-highlight')?.value?.trim();
+  const highlight_label = document.getElementById('bn-hl-label')?.value?.trim();
   const emoji = document.getElementById('bn-emoji')?.value?.trim() || '🍔';
   const bg_color = document.getElementById('bn-color')?.value || '#ea356b';
   if (!title) return showToast('Ingresá un título');
-  const res = await fetch('/api/admin/banners',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({title,subtitle,highlight,emoji,bg_color})});
+  const res = await fetch('/api/admin/banners',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({title,subtitle,highlight,highlight_label,emoji,bg_color})});
   const d = await res.json();
-  if(d.ok){ showToast('✅ Banner creado'); loadAdminBanners(); document.getElementById('bn-title').value=''; document.getElementById('bn-subtitle').value=''; document.getElementById('bn-highlight').value=''; }
-  else showToast('Error: '+d.error);
+  if (d.ok) {
+    showToast('✅ Banner creado');
+    loadAdminBanners(); loadPromoBanners();
+    ['bn-title','bn-subtitle','bn-highlight','bn-hl-label'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('bn-emoji').value='🍔';
+    document.getElementById('bn-color').value='#ea356b';
+  } else showToast('Error: '+d.error);
 }
 
 async function uploadBannerImage(id, input) {
-  const file = input.files[0]; if(!file) return;
-  const fd = new FormData(); fd.append('image',file);
+  const file = input.files[0]; if (!file) return;
+  showToast('⏳ Subiendo imagen...');
+  const fd = new FormData(); fd.append('image', file);
   const res = await fetch(`/api/admin/banners/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
   const d = await res.json();
-  if(d.ok){ showToast('✅ Imagen subida'); loadAdminBanners(); loadPromoBanners(); }
-  else showToast('Error al subir');
+  if (d.ok) { showToast('✅ Imagen subida'); loadAdminBanners(); loadPromoBanners(); }
+  else showToast('Error al subir imagen');
 }
 
-async function toggleAdminBanner(id, active) {
-  await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({active})});
+async function removeBannerImage(id) {
+  const res = await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({image_url:null})});
+  const d = await res.json();
+  if (d.ok) { showToast('✅ Foto eliminada'); loadAdminBanners(); loadPromoBanners(); }
+}
+
+async function toggleAdminBanner(id, makeActive) {
+  await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({active:makeActive})});
   loadAdminBanners(); loadPromoBanners();
 }
 
 async function deleteAdminBanner(id) {
-  if(!confirm('¿Eliminar banner?')) return;
+  if (!confirm('¿Eliminar este banner? Esta acción no se puede deshacer.')) return;
   await fetch(`/api/admin/banners/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
+  showToast('🗑️ Banner eliminado');
   loadAdminBanners(); loadPromoBanners();
 }
 
