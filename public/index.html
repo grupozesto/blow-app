@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Blow</title>
 
 <!-- PWA -->
@@ -406,14 +406,14 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .awc-actions{display:flex;gap:8px;}
 
 /* ── FORMS ── */
-.tab-sw{display:flex;background:var(--bg);border-radius:12px;padding:4px;}
-.tab-btn{flex:1;padding:10px;border:none;border-radius:9px;background:none;color:var(--muted);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;}
-.tab-btn.active{background:#fff;color:var(--primary);box-shadow:var(--shadow);}
-.form-group{width:100%;margin-bottom:14px;}
-.form-label{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.5px;}
-.form-input{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:15px;outline:none;transition:border-color .2s;}
+.tab-sw{display:flex;background:#f1f5f9;border-radius:12px;padding:3px;}
+.tab-btn{flex:1;padding:9px;border:none;border-radius:9px;background:none;color:#94a3b8;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+.tab-btn.active{background:#fff;color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.1);}
+.form-group{width:100%;margin-bottom:10px;}
+.form-label{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;display:block;text-transform:uppercase;letter-spacing:.5px;}
+.form-input{width:100%;background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'Inter',sans-serif;font-size:15px;outline:none;transition:border-color .2s;box-sizing:border-box;}
 .form-input:focus{border-color:var(--primary);}
-.primary-btn{width:100%;background:var(--primary);border:none;border-radius:var(--r);padding:15px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;cursor:pointer;margin-top:6px;}
+.primary-btn{width:100%;background:var(--primary);border:none;border-radius:14px;padding:14px;color:#fff;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;cursor:pointer;margin-top:8px;}
 .primary-btn:disabled{opacity:.6;cursor:not-allowed;}
 .secondary-btn{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:14px;color:var(--text2);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
 
@@ -436,11 +436,12 @@ html,body{margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:#ff
 .modal-add-btn{width:100%;background:var(--primary);border:none;border-radius:var(--r);padding:16px;color:#fff;font-family:'Inter',sans-serif;font-size:16px;font-weight:800;cursor:pointer;}
 
 /* ── AUTH MODAL ── */
-.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;}
-.auth-box{background:#fff;border-radius:20px;padding:28px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;}
-.auth-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
-.auth-title{font-size:20px;font-weight:900;}
-.auth-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);}
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:none;align-items:flex-end;justify-content:center;padding:0;}
+.auth-box{background:#fff;border-radius:24px 24px 0 0;padding:20px 20px 32px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;}
+.auth-handle{width:36px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 16px;}
+.auth-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.auth-title{font-size:18px;font-weight:900;}
+.auth-close{background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1;padding:4px;}
 .auth-error{color:var(--primary);font-size:13px;margin-top:10px;text-align:center;display:none;}
 
 /* ── WITHDRAW MODAL ── */
@@ -2067,8 +2068,9 @@ body.owner-mode #owner-overlay {
 <!-- ══ AUTH MODAL ══ -->
 <div class="auth-overlay" id="auth-modal">
   <div class="auth-box">
+    <div class="auth-handle"></div>
     <div class="auth-header"><div class="auth-title" id="auth-modal-title">Iniciar sesión</div><button class="auth-close" onclick="closeAuth()">×</button></div>
-    <div class="tab-sw" style="margin-bottom:20px;">
+    <div class="tab-sw" style="margin-bottom:16px;">
       <button class="tab-btn active" id="at-login" onclick="switchAuthTab('login')">Ingresar</button>
       <button class="tab-btn" id="at-reg" onclick="switchAuthTab('register')">Registrarme</button>
     </div>
@@ -2091,10 +2093,10 @@ body.owner-mode #owner-overlay {
           <select class="form-input" id="r-city" style="appearance:none;cursor:pointer;"></select>
         </div>
         <input type="hidden" id="r-role" value="customer">
-      <div style="margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;">
-        <input type="checkbox" id="r-terms" style="width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:var(--primary);cursor:pointer;">
-        <label for="r-terms" style="font-size:13px;color:#555;line-height:1.5;cursor:pointer;">
-          Acepto los <span onclick="event.preventDefault();nav('page-terms')" style="color:var(--primary);font-weight:700;text-decoration:underline;">Términos y condiciones</span> y la <span onclick="event.preventDefault();nav('page-privacy')" style="color:var(--primary);font-weight:700;text-decoration:underline;">Política de privacidad</span> de Blow.
+      <div style="margin:12px 0;display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:10px 12px;">
+        <input type="checkbox" id="r-terms" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--primary);cursor:pointer;">
+        <label for="r-terms" style="font-size:12px;color:#64748b;line-height:1.4;cursor:pointer;">
+          Acepto los <span onclick="event.preventDefault();closeAuth();nav('page-terms')" style="color:var(--primary);font-weight:700;">Términos</span> y la <span onclick="event.preventDefault();closeAuth();nav('page-privacy')" style="color:var(--primary);font-weight:700;">Privacidad</span>
         </label>
       </div>
       <button class="primary-btn" onclick="if(!document.getElementById('r-terms')?.checked){showToast('❌ Debés aceptar los términos para continuar');return;}doRegister()">Crear cuenta →</button>
