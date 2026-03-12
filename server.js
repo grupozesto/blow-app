@@ -295,6 +295,22 @@ async function initDB() {
       UNIQUE(order_id)
     );
     CREATE INDEX IF NOT EXISTS idx_reviews_business ON reviews(business_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_customer   ON orders(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_business   ON orders(business_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status     ON orders(status);
+    CREATE INDEX IF NOT EXISTS idx_orders_created    ON orders(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_products_business ON products(business_id);
+    CREATE INDEX IF NOT EXISTS idx_products_avail    ON products(business_id, is_available);
+    CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+    CREATE INDEX IF NOT EXISTS idx_businesses_city   ON businesses(city);
+    CREATE INDEX IF NOT EXISTS idx_subs_status       ON subscriptions(status);
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS highlight_label TEXT DEFAULT '';
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -708,6 +724,50 @@ app.get('/api/debug/cloudinary', auth, (req, res) => {
   });
 });
 
+// ── Olvidé mi contraseña — paso 1: enviar código ──────────────
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+    const emailLow = email.toLowerCase().trim();
+    const u = await q1('SELECT id, name FROM users WHERE email=$1', [emailLow]);
+    // Siempre responder ok para no revelar si el email existe
+    if (!u) return res.json({ ok: true });
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
+    await q('INSERT INTO email_verifications (id,email,code,data) VALUES ($1,$2,$3,$4)',
+      [uuid(), emailLow, code, JSON.stringify({ reset: true, user_id: u.id })]);
+    await sendEmail(emailLow, 'Recuperá tu contraseña — Blow',
+      `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px;">
+        <h2 style="color:#FA0050;">⚡ Blow</h2>
+        <p>Hola <strong>${u.name}</strong>, recibimos una solicitud para restablecer tu contraseña.</p>
+        <div style="font-size:40px;font-weight:900;letter-spacing:8px;color:#FA0050;text-align:center;padding:24px;background:#fff5f7;border-radius:12px;margin:20px 0;">${code}</div>
+        <p style="color:#888;font-size:13px;">Válido por 15 minutos. Si no solicitaste esto, ignorá este mensaje.</p>
+      </div>`);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Olvidé mi contraseña — paso 2: verificar código + nueva contraseña ──
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, code, new_password } = req.body;
+    if (!email || !code || !new_password) return res.status(400).json({ error: 'Faltan campos' });
+    if (new_password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    const emailLow = email.toLowerCase().trim();
+    const row = await q1('SELECT * FROM email_verifications WHERE email=$1 AND expires_at > NOW()', [emailLow]);
+    if (!row) return res.status(400).json({ error: 'Código expirado o no encontrado. Pedí uno nuevo.' });
+    if (row.code !== code.trim()) return res.status(400).json({ error: 'Código incorrecto' });
+    const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    if (!data.reset) return res.status(400).json({ error: 'Código inválido' });
+    const hashed = await bcrypt.hash(new_password, 10);
+    await q('UPDATE users SET password=$1 WHERE id=$2', [hashed, data.user_id]);
+    await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
+    const u = await q1('SELECT id,name,email,role FROM users WHERE id=$1', [data.user_id]);
+    res.json({ ok: true, token: sign(u), user: { id:u.id, name:u.name, email:u.email, role:u.role } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/auth/me', auth, async (req, res) => {
   const u = await q1('SELECT id,name,email,phone,role,address,city,department FROM users WHERE id=$1', [req.user.id]);
   if (!u) return res.json({ error:'No encontrado' });
@@ -768,26 +828,28 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 // ════════════════════════════════════════════════
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
-  let sql = `SELECT b.* FROM businesses b
+  let sql = `SELECT b.*,
+    ROUND(AVG(r.rating)::numeric,1) as rating,
+    COUNT(DISTINCT r.id)::int as rating_count,
+    COUNT(DISTINCT p.id) FILTER (WHERE p.is_available=TRUE)::int as product_count
+    FROM businesses b
     JOIN subscriptions s ON s.business_id = b.id
+    LEFT JOIN reviews r ON r.business_id = b.id
+    LEFT JOIN products p ON p.business_id = b.id
     WHERE s.status = 'active'`;
   const params = [];
   let i = 1;
   if (category)   { sql += ` AND b.category=$${i++}`;               params.push(category); }
   if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;    params.push(city); }
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
-  sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+  sql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   const rows = await qa(sql, params);
-  const result = await Promise.all(rows.map(async b => {
-    const ratingRow = await q1('SELECT ROUND(AVG(rating)::numeric,1) as avg, COUNT(*) as total FROM reviews WHERE business_id=$1',[b.id]);
-    return {
-      ...b,
-      rating: ratingRow?.avg ? parseFloat(ratingRow.avg) : null,
-      rating_count: parseInt(ratingRow?.total||0),
-      product_count: parseInt((await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id])).c),
-    };
-  }));
-  res.json(result);
+  res.json(rows.map(b => ({
+    ...b,
+    rating: b.rating ? parseFloat(b.rating) : null,
+    rating_count: parseInt(b.rating_count || 0),
+    product_count: parseInt(b.product_count || 0),
+  })));
 });
 
 // ── Búsqueda global: negocios + productos ────
@@ -893,7 +955,8 @@ app.delete('/api/admin/subscription-plans/:id', auth, role('admin'), async (req,
 app.get('/api/businesses/mine/stats', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error:'No business' });
-  const days = Math.min(parseInt(req.query.days) || 30, 90);
+  const daysRaw = parseInt(req.query.days);
+  const days = (!isNaN(daysRaw) && daysRaw > 0) ? Math.min(daysRaw, 90) : 30;
   const rows = await qa(`
     SELECT
       DATE(created_at AT TIME ZONE 'America/Montevideo') as day,
@@ -902,10 +965,10 @@ app.get('/api/businesses/mine/stats', auth, role('owner'), async (req, res) => {
       COUNT(*) FILTER (WHERE status='cancelled') as cancelled
     FROM orders
     WHERE business_id=$1
-      AND created_at >= NOW() - INTERVAL '${days} days'
+      AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
     GROUP BY day
     ORDER BY day ASC
-  `, [b.id]);
+  `, [b.id, days]);
   // Top productos
   const topProducts = await qa(`
     SELECT oi.name, oi.emoji, SUM(oi.quantity) as qty, SUM(oi.price*oi.quantity) as revenue
@@ -913,11 +976,11 @@ app.get('/api/businesses/mine/stats', auth, role('owner'), async (req, res) => {
     JOIN orders o ON o.id=oi.order_id
     WHERE o.business_id=$1
       AND o.status NOT IN ('cancelled','pending')
-      AND o.created_at >= NOW() - INTERVAL '${days} days'
+      AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')
     GROUP BY oi.name, oi.emoji
     ORDER BY qty DESC
     LIMIT 5
-  `, [b.id]);
+  `, [b.id, days]);
   res.json({ days: rows, topProducts });
 });
 
@@ -1335,11 +1398,15 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
 app.get('/api/orders', auth, async (req, res) => {
   let orders;
-  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji,b.delivery_time as business_delivery_time FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
+  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji,b.logo_url,b.delivery_time as business_delivery_time FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
   else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
-  const result=await Promise.all(orders.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])})));
-  res.json(result);
+  if (!orders.length) return res.json([]);
+  const ids = orders.map(o=>o.id);
+  const allItems = await qa('SELECT * FROM order_items WHERE order_id = ANY($1)', [ids]);
+  const byOrder = {};
+  for (const it of allItems) { if (!byOrder[it.order_id]) byOrder[it.order_id]=[]; byOrder[it.order_id].push(it); }
+  res.json(orders.map(o=>({...o, items: byOrder[o.id]||[]})));
 });
 
 app.get('/api/orders/:id', auth, async (req, res) => {
@@ -2025,7 +2092,12 @@ app.get('/api/admin/orders', auth, role('admin'), async (req, res) => {
   if (status) { sql+=` AND o.status=$${i++}`;params.push(status); }
   if (search) { sql+=` AND (u.name ILIKE $${i} OR b.name ILIKE $${i++})`;params.push(`%${search}%`); }
   const rows=await qa(sql+' ORDER BY o.created_at DESC LIMIT 200',params);
-  res.json(await Promise.all(rows.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])}))));
+  if (!rows.length) return res.json([]);
+  const adminOrderIds = rows.map(o=>o.id);
+  const adminAllItems = await qa('SELECT * FROM order_items WHERE order_id = ANY($1)',[adminOrderIds]);
+  const adminByOrder = {};
+  for (const it of adminAllItems) { if (!adminByOrder[it.order_id]) adminByOrder[it.order_id]=[]; adminByOrder[it.order_id].push(it); }
+  res.json(rows.map(o=>({...o, items: adminByOrder[o.id]||[]})));
 });
 app.get('/api/admin/withdrawals', auth, role('admin'), async (req, res) =>
   res.json(await qa('SELECT * FROM withdrawals ORDER BY created_at DESC',[])));
@@ -2703,7 +2775,7 @@ app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async 
       imageUrl = result.secure_url;
     } else { imageUrl = req.file.path || req.file.secure_url; }
     await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[imageUrl,req.params.id]);
-    res.json({ok:true,url:result.secure_url});
+    res.json({ok:true,url:imageUrl});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -2738,7 +2810,7 @@ app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async
       imageUrl = result.secure_url;
     } else { imageUrl = req.file.path || req.file.secure_url; }
     await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[imageUrl,req.params.id]);
-    res.json({ok:true,url:result.secure_url});
+    res.json({ok:true,url:imageUrl});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 app.patch('/api/admin/featured/:id', auth, async (req,res)=>{
