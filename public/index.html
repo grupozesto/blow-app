@@ -86,7 +86,7 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .page.active{display:flex;}
 
 /* ── HEADER — Red PedidosYa style ── */
-.app-header{background:var(--primary);padding:14px 16px 14px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);position:sticky;top:0;z-index:100;}
+.app-header{background:var(--primary);padding:14px 16px 14px;padding-top:calc(env(safe-area-inset-top,0px) + 14px);position:sticky;top:0;z-index:100;overflow:visible;}
 .hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .hloc{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;}
 .hloc svg{width:14px;height:14px;fill:#fff;flex-shrink:0;}
@@ -203,6 +203,7 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .store-cover-emoji{font-size:60px;line-height:1;}
 .store-cover-closed{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;}
 .store-cover-closed span{background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:800;color:#1a1a1a;}
+.store-card.closed{opacity:.7;}
 .store-logo-chip{flex-shrink:0;width:56px;height:56px;border-radius:14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;border:2px solid #fff;}
 .store-logo-chip img{width:100%;height:100%;object-fit:cover;}
 .store-info{padding:14px;display:flex;align-items:flex-start;gap:12px;}
@@ -568,6 +569,7 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 /* ── LOADING ── */
 .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin:30px auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes skeleton-shine{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .loading-state{text-align:center;padding:40px 20px;color:var(--muted);}
 
 /* ════════════════════════════════════════
@@ -889,9 +891,10 @@ body.owner-mode #owner-overlay {
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)" onkeydown="if(event.key==='Enter'){doServerSearch(this.value);this.blur();}">
-      <button class="sbtn" onclick="doServerSearch(document.getElementById('search-input').value)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)" onfocus="showRecentSearches()" onblur="setTimeout(hideRecentSearches,200)" onkeydown="if(event.key==='Enter'){saveRecentSearch(this.value);doServerSearch(this.value);this.blur();}">
+      <button class="sbtn" onclick="const v=document.getElementById('search-input').value;saveRecentSearch(v);doServerSearch(v)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
+    <div id="recent-searches-panel" style="display:none;position:absolute;left:14px;right:14px;top:calc(100% - 8px);background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:200;overflow:hidden;"></div>
   </div>
   <div class="sc">
     <!-- BANNER -->
@@ -2101,6 +2104,32 @@ body.owner-mode #owner-overlay {
       <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" type="email" placeholder="tu@email.com"></div>
       <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="a-pass" type="password" placeholder="••••••••"></div>
       <button class="primary-btn" onclick="doLogin()">Ingresar →</button>
+      <div style="text-align:center;margin-top:14px;">
+        <button style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;" onclick="showForgotPassword()">¿Olvidaste tu contraseña?</button>
+      </div>
+    </div>
+    <!-- Forgot password: step 1 -->
+    <div id="auth-forgot-form" style="display:none;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🔐</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:4px;">Recuperar contraseña</div>
+        <div style="font-size:13px;color:var(--muted);">Te enviamos un código a tu email.</div>
+      </div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="fp-email" type="email" placeholder="tu@email.com"></div>
+      <button class="primary-btn" onclick="doForgotPassword()">Enviar código →</button>
+      <div style="text-align:center;margin-top:12px;"><button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline;" onclick="switchAuthTab('login')">← Volver al login</button></div>
+    </div>
+    <!-- Forgot password: step 2 - enter code + new password -->
+    <div id="auth-reset-form" style="display:none;">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:36px;margin-bottom:8px;">📧</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:4px;">Revisá tu email</div>
+        <div style="font-size:13px;color:var(--muted);" id="fp-email-hint">Ingresá el código y tu nueva contraseña.</div>
+      </div>
+      <div class="form-group"><label class="form-label">Código de 6 dígitos</label><input class="form-input" id="fp-code" type="number" placeholder="123456" style="text-align:center;font-size:22px;font-weight:800;letter-spacing:4px;" maxlength="6"></div>
+      <div class="form-group"><label class="form-label">Nueva contraseña</label><input class="form-input" id="fp-newpass" type="password" placeholder="Mínimo 6 caracteres"></div>
+      <button class="primary-btn" onclick="doResetPassword()">Cambiar contraseña →</button>
+      <div style="text-align:center;margin-top:12px;"><button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('auth-forgot-form').style.display='block';document.getElementById('auth-reset-form').style.display='none';">← Reenviar código</button></div>
     </div>
     <div id="auth-reg-form" style="display:none;">
       <!-- Step 1: datos -->
@@ -2614,6 +2643,19 @@ async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+  // Token expirado o inválido → cerrar sesión automáticamente
+  if (res.status === 401) {
+    const isAuthCall = path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register') || path.startsWith('/api/auth/verify') || path.startsWith('/api/auth/reset') || path.startsWith('/api/auth/forgot');
+    if (!isAuthCall && token) {
+      token = null;
+      localStorage.removeItem('da_token');
+      localStorage.removeItem('da_user');
+      user = null;
+      showToast('⚠️ Tu sesión expiró. Ingresá de nuevo.');
+      setTimeout(() => openAuth('login'), 800);
+      throw new Error('Sesión expirada');
+    }
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
   return data;
@@ -2636,7 +2678,17 @@ function connectWS() {
         if (document.getElementById('page-owner-dash').classList.contains('active')) loadOwnerDash();
         if (document.getElementById('page-delivery').classList.contains('active')) loadDeliveryOrders();
       }
-      if (msg.type === 'status_change') showToast(msg.message);
+      if (msg.type === 'status_change') {
+        showToast(msg.message);
+        // Si la pantalla de tracking está activa, recargar en tiempo real
+        if (document.getElementById('page-tracking')?.classList.contains('active')) {
+          loadTracking();
+        }
+        // Si se entregó, mostrar prompt de reseña
+        if (msg.status === 'delivered' && msg.order_id) {
+          setTimeout(() => promptReview(msg.order_id), 2000);
+        }
+      }
       if (msg.type === 'order_delivered') showToast(msg.message);
       if (msg.type === 'chat_message') {
         // Si el chat de ese pedido está abierto, recargar mensajes
@@ -3100,7 +3152,15 @@ async function loadAppSettings() {
 
 async function loadStores() {
   const g = document.getElementById('stores-grid');
-  g.innerHTML = '<div class="loading-state"><div class="spinner"></div>Buscando negocios...</div>';
+  // Skeleton loaders inmediatos
+  g.innerHTML = Array(6).fill(0).map(() => `
+    <div class="store-card" style="pointer-events:none;">
+      <div class="store-cover" style="background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:skeleton-shine 1.4s infinite;"></div>
+      <div class="store-info" style="padding:10px 12px;">
+        <div style="height:14px;background:#f0f0f0;border-radius:6px;margin-bottom:8px;animation:skeleton-shine 1.4s infinite;"></div>
+        <div style="height:11px;background:#f0f0f0;border-radius:6px;width:70%;animation:skeleton-shine 1.4s infinite;"></div>
+      </div>
+    </div>`).join('');
   try {
     let url = '/api/businesses';
     if (activeCity) url += `?city=${encodeURIComponent(activeCity)}`;
@@ -3146,7 +3206,7 @@ function renderStores(list) {
       : (s.offers_pickup ? 'Retiro en tienda' : '');
     const deliveryCostColor = s.delivery_cost === 0 ? '#00a651' : '#888';
     return `
-    <div class="store-card" onclick="openStore('${s.id}')">
+    <div class="store-card${!isOpen ? ' closed' : ''}" onclick="openStore('${s.id}')">
       <div class="store-cover" style="background:${bg};">
         ${s.cover_url
           ? `<img src="${s.cover_url}" alt="${s.name}">`
@@ -3255,6 +3315,39 @@ function chipFilter(el, cat) {
 }
 
 let _searchTimer = null;
+// ── Búsquedas recientes ─────────────────────────
+function getRecentSearches() {
+  try { return JSON.parse(localStorage.getItem('blow_recent_searches') || '[]'); } catch { return []; }
+}
+function saveRecentSearch(q) {
+  if (!q?.trim() || q.trim().length < 2) return;
+  const searches = getRecentSearches().filter(s => s.toLowerCase() !== q.trim().toLowerCase());
+  searches.unshift(q.trim());
+  localStorage.setItem('blow_recent_searches', JSON.stringify(searches.slice(0, 6)));
+}
+function showRecentSearches() {
+  const panel = document.getElementById('recent-searches-panel');
+  if (!panel) return;
+  const searches = getRecentSearches();
+  if (!searches.length) return;
+  panel.innerHTML = `
+    <div style="padding:12px 16px 6px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Búsquedas recientes</span>
+      <button onclick="localStorage.removeItem('blow_recent_searches');hideRecentSearches();" style="background:none;border:none;font-size:12px;color:#94a3b8;cursor:pointer;">Borrar</button>
+    </div>
+    ${searches.map(s => `
+      <div onclick="document.getElementById('search-input').value='${s.replace(/'/g,"\\'")}';saveRecentSearch('${s.replace(/'/g,"\\'")}');doServerSearch('${s.replace(/'/g,"\\'")}');" style="padding:11px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;border-top:1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span style="font-size:14px;color:#0f172a;">${s}</span>
+      </div>`).join('')}
+    <div style="height:6px;"></div>`;
+  panel.style.display = 'block';
+}
+function hideRecentSearches() {
+  const panel = document.getElementById('recent-searches-panel');
+  if (panel) panel.style.display = 'none';
+}
+
 function searchStores(q) {
   clearTimeout(_searchTimer);
   if (!q.trim()) {
@@ -3276,6 +3369,8 @@ function searchStores(q) {
 
 async function doServerSearch(q) {
   if (q.trim().length < 2) return;
+  saveRecentSearch(q);
+  hideRecentSearches();
   try {
     const params = new URLSearchParams({ q });
     if (activeCity)  params.set('city', activeCity);
@@ -3334,6 +3429,17 @@ function showSearchProductPanel(q, products) {
   grid?.parentNode.insertBefore(panel, grid);
 }
 
+function shareStore(id, name, e) {
+  if (e) e.stopPropagation();
+  const url = `${location.origin}/?biz=${id}`;
+  if (navigator.share) {
+    navigator.share({ title: name, text: `Pedí en ${name} por Blow 🛵`, url }).catch(() => {});
+  } else {
+    // Fallback: copiar al portapapeles
+    navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copiado al portapapeles'));
+  }
+}
+
 async function openStore(id) {
   if (isDemoMode || id.startsWith('demo-')) {
     // Demo store
@@ -3359,12 +3465,12 @@ function renderStoreDetail(s, products) {
   const coverEl = document.getElementById('sd-cover');
   if (coverEl) {
     if (s.cover_url) {
-      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><img src="${s.cover_url}" alt="portada">`;
+      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><button onclick="shareStore('${s.id}','${(s.name||'').replace(/'/g,"\\'")}',event)" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><img src="${s.cover_url}" alt="portada">`;
     } else {
       const catColors = { food:'linear-gradient(135deg,#ea356b,#ff6b6b)', market:'linear-gradient(135deg,#27ae60,#2ecc71)', pharmacy:'linear-gradient(135deg,#2980b9,#3498db)', drinks:'linear-gradient(135deg,#e67e22,#f39c12)', desserts:'linear-gradient(135deg,#8e44ad,#9b59b6)', cafe:'linear-gradient(135deg,#795548,#a1887f)' };
       const bg = catColors[s.category] || 'linear-gradient(135deg,#ea356b,#6b00cc)';
       coverEl.style.background = bg;
-      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:90px;opacity:.4;">${s.logo_emoji||'🏪'}</div>`;
+      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><button onclick="shareStore('${s.id}','${(s.name||'').replace(/'/g,"\\'")}',event)" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:90px;opacity:.4;">${s.logo_emoji||'🏪'}</div>`;
     }
   }
 
@@ -4019,6 +4125,15 @@ function quickAdd(p) {
 //  CART
 // ═══════════════════════════════════════════════
 function addToCart(item) {
+  // Advertir si el carrito tiene productos de otro negocio
+  if (cart.length > 0 && cart[0].biz_id && item.biz_id && cart[0].biz_id !== item.biz_id) {
+    const otherStore = allStores.find(s => s.id === cart[0].biz_id);
+    const storeName = otherStore?.name || 'otro negocio';
+    if (!confirm(`Ya tenés productos de "${storeName}" en el carrito.\n\n¿Vaciar el carrito y agregar de este negocio?`)) return;
+    cart = [];
+    saveCart();
+    updateCartBadge();
+  }
   const key = item.cart_key || item.id;
   const ex = cart.find(x => (x.cart_key||x.id) === key);
   if (ex) ex.qty++;
@@ -4518,6 +4633,19 @@ function clearChatBadge(orderId) {
 let _reviewOrderId = null;
 let _reviewStar = 0;
 
+// Prompt automático de reseña al recibir entrega via WS
+async function promptReview(orderId) {
+  try {
+    const order = await api(`/api/orders/${orderId}`);
+    if (order.status !== 'delivered') return;
+    // No promover si ya se reseñó (el modal cerrado implica que ya lo hicieron o lo ignoraron)
+    const alreadyPrompted = sessionStorage.getItem('review_prompted_' + orderId);
+    if (alreadyPrompted) return;
+    sessionStorage.setItem('review_prompted_' + orderId, '1');
+    openReviewModal(orderId, order.business_name || '');
+  } catch(e) {}
+}
+
 function openReviewModal(orderId, bizName) {
   _reviewOrderId = orderId;
   _reviewStar = 0;
@@ -4732,8 +4860,42 @@ function switchAuthTab(tab) {
   document.getElementById('at-reg').classList.toggle('active', tab==='register');
   document.getElementById('auth-login-form').style.display = tab==='login'?'block':'none';
   document.getElementById('auth-reg-form').style.display = tab==='register'?'block':'none';
+  document.getElementById('auth-forgot-form').style.display = 'none';
+  document.getElementById('auth-reset-form').style.display = 'none';
   if (tab==='register') populateDeptSelect('r-dept','r-city');
   document.getElementById('auth-error').style.display = 'none';
+}
+function showForgotPassword() {
+  document.getElementById('auth-login-form').style.display = 'none';
+  document.getElementById('auth-forgot-form').style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+  const emailVal = document.getElementById('a-email').value.trim();
+  if (emailVal) document.getElementById('fp-email').value = emailVal;
+}
+async function doForgotPassword() {
+  const email = document.getElementById('fp-email').value.trim();
+  if (!email) return showAuthErr('Ingresá tu email');
+  try {
+    await api('/api/auth/forgot-password', {method:'POST', body:JSON.stringify({email})});
+    document.getElementById('fp-email-hint').textContent = `Código enviado a ${email}. Revisá también el spam.`;
+    document.getElementById('auth-forgot-form').style.display = 'none';
+    document.getElementById('auth-reset-form').style.display = 'block';
+    document.getElementById('auth-error').style.display = 'none';
+  } catch(e) { showAuthErr(e.message); }
+}
+async function doResetPassword() {
+  const email = document.getElementById('fp-email').value.trim();
+  const code = document.getElementById('fp-code').value.trim();
+  const newPass = document.getElementById('fp-newpass').value;
+  if (!code || !newPass) return showAuthErr('Completá todos los campos');
+  if (newPass.length < 6) return showAuthErr('La contraseña debe tener al menos 6 caracteres');
+  try {
+    const data = await api('/api/auth/reset-password', {method:'POST', body:JSON.stringify({email, code, new_password:newPass})});
+    saveSession(data.token, data.user);
+    closeAuth();
+    showToast('✅ Contraseña actualizada. ¡Ya ingresaste!');
+    renderProfile(); updateCartBadge();
+  } catch(e) { showAuthErr(e.message); }
 }
 function showAuthErr(msg) { const el=document.getElementById('auth-error'); el.textContent=msg; el.style.display='block'; }
 
