@@ -2006,6 +2006,12 @@ app.post('/api/businesses', auth, role('owner'), async (req, res) => {
     [id, req.user.id, name.trim(), category, address, phone, logo_emoji, delivery_cost, delivery_time, city.trim(), department]);
   res.status(201).json(await q1('SELECT * FROM businesses WHERE id=$1',[id]));
 });
+app.get('/api/products/:id', async (req, res) => {
+  const p = await getProductFull(req.params.id);
+  if (!p || !p.is_available) return res.status(404).json({ error:'Producto no encontrado' });
+  res.json(p);
+});
+
 app.get('/api/businesses/:id', async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
