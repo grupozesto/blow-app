@@ -4053,7 +4053,8 @@ function openProduct(p) {
   // ── Variantes / Extras por grupo ──
   const variantsEl = document.getElementById('pp-variants');
   const groups = {};
-  (p.variants || []).forEach(v => {
+  (Array.isArray(p.variants) ? p.variants : []).forEach(v => {
+    if (!v || !v.group_name) return; // skip malformed variants
     if (!groups[v.group_name]) groups[v.group_name] = {
       opts: [], is_required: Boolean(v.is_required), is_multi: Boolean(v.is_multi), max_selections: v.max_selections || 1
     };
@@ -4070,7 +4071,7 @@ function openProduct(p) {
         : `<span style="background:#f1f5f9;color:#64748b;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;">Opcional</span>`;
       const subLabel = g.is_multi
         ? `<div style="font-size:12px;color:#94a3b8;margin-top:1px;">Elegí hasta ${g.max_selections}</div>` : '';
-      const opts = g.opts.map(v => {
+      const opts = (g.opts || []).map(v => {
         const dNum = parseFloat(v.price_delta)||0;
         const dStr = dNum > 0 ? `<span style="font-size:12px;color:#1e40af;font-weight:700;">+$${dNum}</span>`
                    : dNum < 0 ? `<span style="font-size:12px;color:#16a34a;font-weight:700;">-$${Math.abs(dNum)}</span>` : '';
@@ -4279,7 +4280,7 @@ function closeProdPage() {
   setTimeout(() => { page.style.display = 'none'; }, 260);
 }
 
-function quickAdd(p) {
+async function quickAdd(p) {
   // Si es string, buscar en el registro
   if (typeof p === 'string') {
     if (_prodReg[p]) {
@@ -4288,8 +4289,15 @@ function quickAdd(p) {
       try { p = JSON.parse(p); } catch { return; }
     }
   }
+  // Si variants no es array (puede venir de búsqueda sin variants), fetch completo
+  if (!Array.isArray(p.variants) && p.id) {
+    try {
+      const full = await api(`/api/products/${p.id}`).catch(() => null);
+      if (full) p = {...p, ...full, biz_id: p.biz_id || currentBizId};
+    } catch {}
+  }
   // Si tiene variantes → página del producto; si no → agregar directo
-  if (p.variants && p.variants.length > 0) {
+  if (Array.isArray(p.variants) && p.variants.length > 0) {
     openProduct({...p, biz_id: p.biz_id || currentBizId});
   } else {
     addToCart({...p, biz_id: p.biz_id || currentBizId, cart_key: `${p.id}_base`});
