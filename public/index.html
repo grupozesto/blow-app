@@ -34,6 +34,16 @@
   --shadow:0 1px 6px rgba(0,0,0,.06);--shadow-md:0 4px 16px rgba(0,0,0,.1);--shadow-lg:0 8px 32px rgba(0,0,0,.14);
   --r:16px;--r-sm:12px;--nav:56px;
 }
+[data-theme="dark"]{
+  --bg:#0f0f0f;--surface:#1a1a1a;--text:#f0f0f0;--text2:#c0c0c0;--muted:#666;
+  --border:#2a2a2a;--shadow:0 1px 6px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--shadow-lg:0 8px 32px rgba(0,0,0,.5);
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f0f0f;--surface:#1a1a1a;--text:#f0f0f0;--text2:#c0c0c0;--muted:#666;
+    --border:#2a2a2a;--shadow:0 1px 6px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--shadow-lg:0 8px 32px rgba(0,0,0,.5);
+  }
+}
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;min-height:-webkit-fill-available;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
@@ -818,6 +828,63 @@ body.owner-mode #owner-overlay {
 }
 @keyframes oat-pop  { to { transform:scale(1); } }
 @keyframes oat-fade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+/* ── Dark mode overrides ── */
+[data-theme="dark"] body { background:var(--bg); color:var(--text); }
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) body { background:var(--bg); color:var(--text); }
+  :root:not([data-theme="light"]) .page,
+  :root:not([data-theme="light"]) .nav-bar { background:var(--bg); }
+  :root:not([data-theme="light"]) .store-card,
+  :root:not([data-theme="light"]) .prod-card,
+  :root:not([data-theme="light"]) .order-card,
+  :root:not([data-theme="light"]) .mpc,
+  :root:not([data-theme="light"]) .menu-list,
+  :root:not([data-theme="light"]) .menu-item { background:var(--surface); border-color:var(--border); }
+  :root:not([data-theme="light"]) input,
+  :root:not([data-theme="light"]) textarea,
+  :root:not([data-theme="light"]) select { background:var(--surface); color:var(--text); border-color:var(--border); }
+}
+
+[data-theme="dark"] .page,
+[data-theme="dark"] .nav-bar,
+[data-theme="dark"] .page-hdr {
+  background:var(--bg);
+  border-color:var(--border);
+}
+[data-theme="dark"] .store-card,
+[data-theme="dark"] .prod-card,
+[data-theme="dark"] .order-card,
+[data-theme="dark"] .mpc,
+[data-theme="dark"] .menu-list,
+[data-theme="dark"] .menu-item,
+[data-theme="dark"] .owner-order-card {
+  background:var(--surface);
+  border-color:var(--border);
+}
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background:var(--surface);
+  color:var(--text);
+  border-color:var(--border);
+}
+[data-theme="dark"] .si,
+[data-theme="dark"] .nb {
+  color:var(--muted);
+}
+[data-theme="dark"] .si.active,
+[data-theme="dark"] .nb.active {
+  color:var(--primary);
+}
+
+/* ── Admin tabs ── */
+.atab-btn{padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text);white-space:nowrap;transition:all .15s;}
+.atab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.period-btn{padding:5px 12px;border-radius:16px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--muted);transition:all .15s;}
+.period-btn.active-period{background:var(--primary);color:#fff;border-color:var(--primary);}
+#admin-tabs{scrollbar-width:none;}
+#admin-tabs::-webkit-scrollbar{display:none;}
 </style>
 </head>
 <body>
@@ -1310,6 +1377,18 @@ body.owner-mode #owner-overlay {
 
     <div style="height:8px;background:#f5f5f5;"></div>
 
+    <!-- Sección Apariencia -->
+    <div class="menu-list">
+      <div class="menu-sec-title">Apariencia</div>
+      <div class="menu-item" onclick="cycleDarkMode()" style="cursor:pointer;">
+        <div class="mi-icon" id="dark-mode-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
+        <div class="mi-text"><span>Modo oscuro</span><small id="dark-mode-label" style="color:var(--muted);">Auto</small></div>
+        <span id="dark-mode-chip" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#64748b;">Auto</span>
+      </div>
+    </div>
+
+    <div style="height:8px;background:#f5f5f5;"></div>
+
     <!-- Sección Legal -->
     <div class="menu-list">
       <div class="menu-sec-title">Legal</div>
@@ -1673,11 +1752,14 @@ body.owner-mode #owner-overlay {
 
 <!-- ══ PAGE: ADMIN ══ -->
 <div class="page page-wrap" id="page-admin">
-  <div class="page-hdr">
-    <h1>🔧 Admin</h1>
+  <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
+    <h1 style="flex:1;">🔧 Admin</h1>
+    <span id="admin-user-chip" style="font-size:12px;background:rgba(234,53,107,.12);color:var(--primary);padding:4px 10px;border-radius:20px;font-weight:700;display:none;"></span>
   </div>
   <div class="sc">
     <div class="admin-wrap">
+
+      <!-- SETUP -->
       <div id="admin-setup-section" style="display:none;">
         <div style="font-size:18px;font-weight:800;margin-bottom:16px;">Crear cuenta Admin</div>
         <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="admin-name" placeholder="Administrador"></div>
@@ -1685,43 +1767,113 @@ body.owner-mode #owner-overlay {
         <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="admin-pass" type="password"></div>
         <button class="primary-btn" onclick="setupAdmin()">Crear Admin</button>
       </div>
+
+      <!-- DASHBOARD -->
       <div id="admin-dashboard" style="display:none;">
 
-        <!-- Admin Tabs -->
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:12px;">
-          <button onclick="adminTab('stats')" id="atab-stats" class="atab-btn active" style="padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">📊 Stats</button>
-          <button onclick="adminTab('banners')" id="atab-banners" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🖼️ Banners</button>
-          <button onclick="adminTab('users')" id="atab-users" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">👥 Usuarios</button>
-          <button onclick="adminTab('businesses')" id="atab-businesses" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">🏪 Negocios</button>
-          <button onclick="adminTab('orders')" id="atab-orders" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📦 Pedidos</button>
-          <button onclick="adminTab('withdrawals')" id="atab-withdrawals" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">💸 Retiros</button>
-          <button onclick="adminTab('subscriptions')" id="atab-subscriptions" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">📋 Suscripciones</button>
-          <button onclick="adminTab('settings')" id="atab-settings" class="atab-btn" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;background:transparent;">⚙️ Config</button>
+        <!-- TABS -->
+        <div id="admin-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--border);overflow-x:auto;">
+          <button onclick="adminTab('stats')"     id="atab-stats"     class="atab-btn active">📊 Stats</button>
+          <button onclick="adminTab('reports')"   id="atab-reports"   class="atab-btn">📈 Reportes</button>
+          <button onclick="adminTab('users')"     id="atab-users"     class="atab-btn">👥 Usuarios</button>
+          <button onclick="adminTab('businesses')" id="atab-businesses" class="atab-btn">🏪 Negocios</button>
+          <button onclick="adminTab('orders')"    id="atab-orders"    class="atab-btn">📦 Pedidos</button>
+          <button onclick="adminTab('withdrawals')" id="atab-withdrawals" class="atab-btn">💸 Retiros</button>
+          <button onclick="adminTab('subscriptions')" id="atab-subscriptions" class="atab-btn">📋 Subs</button>
+          <button onclick="adminTab('banners')"   id="atab-banners"   class="atab-btn">🖼️ Banners</button>
+          <button onclick="adminTab('coupons')"   id="atab-coupons"   class="atab-btn">🎫 Cupones</button>
+          <button onclick="adminTab('settings')"  id="atab-settings"  class="atab-btn">⚙️ Config</button>
         </div>
 
         <!-- STATS -->
         <div id="admin-tab-stats">
-          <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:24px;"></div>
+          <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:16px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+            <span style="font-size:13px;font-weight:700;color:var(--muted);">Período:</span>
+            <button onclick="setStatsPeriod(7)"  id="speriod-7"  class="period-btn active-period">7 días</button>
+            <button onclick="setStatsPeriod(30)" id="speriod-30" class="period-btn">30 días</button>
+            <button onclick="setStatsPeriod(90)" id="speriod-90" class="period-btn">90 días</button>
+          </div>
+          <div id="admin-stats-extra" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px;"></div>
+          <div id="admin-revenue-chart-wrap" style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border);margin-bottom:16px;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px;">💰 Revenue diario</div>
+            <div id="admin-revenue-chart" style="height:120px;display:flex;align-items:flex-end;gap:4px;"></div>
+            <div id="admin-revenue-labels" style="display:flex;gap:4px;margin-top:6px;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div id="admin-top-biz-wrap" style="background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🏆 Top negocios</div>
+              <div id="admin-top-biz"></div>
+            </div>
+            <div id="admin-top-cust-wrap" style="background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;">👑 Top clientes</div>
+              <div id="admin-top-cust"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPORTS -->
+        <div id="admin-tab-reports" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+            <div class="form-group" style="margin:0;flex:1;min-width:120px;">
+              <input type="date" class="form-input" id="rep-from" style="font-size:13px;">
+            </div>
+            <span style="color:var(--muted);font-size:13px;">a</span>
+            <div class="form-group" style="margin:0;flex:1;min-width:120px;">
+              <input type="date" class="form-input" id="rep-to" style="font-size:13px;">
+            </div>
+            <button onclick="loadAdminReports()" class="primary-btn" style="padding:10px 16px;white-space:nowrap;">🔍 Ver</button>
+          </div>
+          <div id="admin-reports-content"><div style="text-align:center;color:var(--muted);padding:40px;">Seleccioná un período y hacé clic en Ver</div></div>
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="exportCSV('users')"     style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-size:13px;cursor:pointer;">⬇️ CSV Usuarios</button>
+            <button onclick="exportCSV('businesses')" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-size:13px;cursor:pointer;">⬇️ CSV Negocios</button>
+            <button onclick="exportCSV('orders')"    style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-size:13px;cursor:pointer;">⬇️ CSV Pedidos</button>
+          </div>
         </div>
 
         <!-- USERS -->
         <div id="admin-tab-users" style="display:none;">
-          <div style="display:flex;gap:8px;margin-bottom:14px;">
-            <input id="admin-user-search" class="form-input" placeholder="Buscar por nombre o email..." style="flex:1;" oninput="filterAdminUsers()">
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <input id="admin-user-search" class="form-input" placeholder="Buscar por nombre o email..." style="flex:1;min-width:160px;" oninput="filterAdminUsers()">
+            <select id="admin-user-role-filter" class="form-input" style="flex:0 0 130px;" onchange="filterAdminUsers()">
+              <option value="">Todos los roles</option>
+              <option value="customer">Clientes</option>
+              <option value="owner">Dueños</option>
+              <option value="delivery">Delivery</option>
+            </select>
           </div>
           <div id="admin-users-list"></div>
         </div>
 
         <!-- BUSINESSES -->
         <div id="admin-tab-businesses" style="display:none;">
-          <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
             <input id="admin-biz-search" class="form-input" placeholder="Buscar negocio..." style="flex:1;" oninput="filterAdminBiz()">
+            <select id="admin-biz-status-filter" class="form-input" style="flex:0 0 130px;" onchange="filterAdminBiz()">
+              <option value="">Todos</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
           </div>
           <div id="admin-biz-list"></div>
         </div>
 
         <!-- ORDERS -->
         <div id="admin-tab-orders" style="display:none;">
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <input id="admin-orders-search" class="form-input" placeholder="Buscar cliente o negocio..." style="flex:1;min-width:160px;" oninput="filterAdminOrders()">
+            <select id="admin-orders-status-filter" class="form-input" style="flex:0 0 130px;" onchange="filterAdminOrders()">
+              <option value="">Todos</option>
+              <option value="pending">Pendiente</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="preparing">Preparando</option>
+              <option value="ready">Listo</option>
+              <option value="on_way">En camino</option>
+              <option value="delivered">Entregado</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
           <div id="admin-orders-list"></div>
         </div>
 
@@ -1735,14 +1887,59 @@ body.owner-mode #owner-overlay {
           <div id="admin-subs-list"></div>
         </div>
 
+        <!-- BANNERS -->
+        <div id="admin-tab-banners" style="display:none;">
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners del carrusel</div>
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:20px;border:1.5px dashed var(--border);">
+            <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--muted);">NUEVO BANNER</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Oferta especial hoy"></div>
+              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-sub" placeholder="Hasta 30% en restaurantes seleccionados"></div>
+              <div class="form-group"><label class="form-label">Color fondo</label><input class="form-input" id="bn-color" type="color" value="#ea356b"></div>
+              <div class="form-group"><label class="form-label">Label badge</label><input class="form-input" id="bn-label" placeholder="ej: 🔥 PROMO"></div>
+              <div class="form-group"><label class="form-label">URL destino</label><input class="form-input" id="bn-link" placeholder="https://..." type="url"></div>
+              <div class="form-group"><label class="form-label">Orden</label><input class="form-input" id="bn-order" type="number" value="0"></div>
+            </div>
+            <button class="primary-btn" onclick="createAdminBanner()" style="margin-top:8px;">➕ Crear banner</button>
+          </div>
+          <div id="admin-banners-list"></div>
+        </div>
+
+        <!-- COUPONS -->
+        <div id="admin-tab-coupons" style="display:none;">
+          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🎫 Cupones</div>
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:20px;border:1.5px dashed var(--border);">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="new-coupon-code" type="text" placeholder="PROMO20" style="text-transform:uppercase;letter-spacing:1px;"></div>
+              <div class="form-group"><label class="form-label">Tipo</label>
+                <select class="form-input" id="new-coupon-type"><option value="percent">% Porcentaje</option><option value="fixed">$ Fijo</option></select>
+              </div>
+              <div class="form-group"><label class="form-label">Valor *</label><input class="form-input" id="new-coupon-value" type="number" placeholder="10"></div>
+              <div class="form-group"><label class="form-label">Pedido mínimo ($)</label><input class="form-input" id="new-coupon-min" type="number" placeholder="0"></div>
+              <div class="form-group"><label class="form-label">Usos máximos</label><input class="form-input" id="new-coupon-maxuses" type="number" placeholder="Sin límite"></div>
+              <div class="form-group"><label class="form-label">Vencimiento</label><input class="form-input" id="new-coupon-expires" type="date"></div>
+            </div>
+            <div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="new-coupon-desc" type="text" placeholder="Ej: Descuento de bienvenida"></div>
+            <button class="primary-btn" onclick="createAdminCoupon()">Crear cupón →</button>
+          </div>
+          <div id="admin-coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
+        </div>
+
         <!-- SETTINGS -->
         <div id="admin-tab-settings" style="display:none;">
           <div style="max-width:500px;">
+            <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px;">⚙️ PLATAFORMA</div>
             <div class="form-group"><label class="form-label">Comisión plataforma (%)</label><input class="form-input" id="cfg-fee" type="number" min="0" max="100" step="0.1"></div>
             <div class="form-group"><label class="form-label">Costo envío base ($)</label><input class="form-input" id="cfg-delivery" type="number" min="0"></div>
             <div class="form-group"><label class="form-label">Precio plan mensual negocios ($)</label><input class="form-input" id="cfg-plan-price" type="number" min="0"></div>
-            <div class="form-group"><label class="form-label">Ciudad por defecto</label><input class="form-input" id="cfg-city" type="text" placeholder="ej: Montevideo"></div>
             <div class="form-group"><label class="form-label">Precio registro negocio ($UYU)</label><input class="form-input" id="cfg-reg-price" type="number" placeholder="2990"></div>
+            <div class="form-group"><label class="form-label">Ciudad por defecto</label><input class="form-input" id="cfg-city" type="text" placeholder="ej: Montevideo"></div>
+            <div class="form-group"><label class="form-label">Registro de negocios</label>
+              <select class="form-input" id="cfg-reg-open"><option value="1">Abierto (cualquiera puede registrarse)</option><option value="0">Cerrado (solo por invitación)</option></select>
+            </div>
+            <div class="form-group"><label class="form-label">Modo mantenimiento</label>
+              <select class="form-input" id="cfg-maintenance"><option value="0">No — app disponible</option><option value="1">Sí — mostrar aviso de mantenimiento</option></select>
+            </div>
             <div style="border-top:1px solid var(--border);margin:20px 0 16px;font-size:13px;font-weight:700;color:var(--muted);">🏦 BANNER PROMOCIÓN BANCARIA</div>
             <div class="form-group"><label class="form-label">Mostrar banner</label>
               <select class="form-input" id="cfg-bank-visible"><option value="1">Sí, mostrar</option><option value="0">No, ocultar</option></select>
@@ -1755,84 +1952,19 @@ body.owner-mode #owner-overlay {
           </div>
         </div>
 
-        <!-- COUPONS TAB -->
-        <div id="admin-tab-coupons" style="display:none;">
-          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">Crear cupón</div>
-          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:20px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="new-coupon-code" type="text" placeholder="PROMO20" style="text-transform:uppercase;letter-spacing:1px;"></div>
-              <div class="form-group"><label class="form-label">Tipo</label>
-                <select class="form-input" id="new-coupon-type">
-                  <option value="percent">% Porcentaje</option>
-                  <option value="fixed">$ Fijo</option>
-                </select>
-              </div>
-              <div class="form-group"><label class="form-label">Valor *</label><input class="form-input" id="new-coupon-value" type="number" placeholder="10"></div>
-              <div class="form-group"><label class="form-label">Pedido mínimo ($)</label><input class="form-input" id="new-coupon-min" type="number" placeholder="0"></div>
-              <div class="form-group"><label class="form-label">Usos máximos</label><input class="form-input" id="new-coupon-maxuses" type="number" placeholder="Sin límite"></div>
-              <div class="form-group"><label class="form-label">Vencimiento</label><input class="form-input" id="new-coupon-expires" type="date"></div>
-            </div>
-            <div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="new-coupon-desc" type="text" placeholder="Ej: Descuento de bienvenida"></div>
-            <button class="primary-btn" onclick="createAdminCoupon()">Crear cupón →</button>
-          </div>
-          <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--muted);">CUPONES EXISTENTES</div>
-          <div id="admin-coupons-list"><div class="loading-state"><div class="spinner"></div></div></div>
+      </div><!-- /admin-dashboard -->
+
+      <!-- LOGIN -->
+      <div id="admin-login-section" style="display:none;">
+        <div style="max-width:360px;margin:40px auto;">
+          <div style="text-align:center;font-size:32px;margin-bottom:8px;">🔧</div>
+          <div style="text-align:center;font-size:20px;font-weight:800;margin-bottom:24px;">Acceso Admin</div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="admin-login-email" type="email" placeholder="admin@blow.uy"></div>
+          <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="admin-login-pass" type="password" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+          <button class="primary-btn" style="width:100%;" onclick="adminLogin()">Ingresar</button>
         </div>
-
-        <!-- HELP/SUPPORT TAB -->
-        <div id="admin-tab-helpmsg" style="display:none;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div style="font-size:16px;font-weight:800;">Mensajes de soporte</div>
-            <button onclick="loadAdminHelp()" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;">🔄 Actualizar</button>
-          </div>
-          <div id="admin-help-list"><div class="loading-state"><div class="spinner"></div></div></div>
-        </div>
-
-        <!-- BANNERS TAB -->
-        <div id="admin-tab-banners" style="display:none;">
-          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners del carrusel</div>
-
-          <!-- CREAR NUEVO -->
-          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:20px;border:1.5px dashed var(--border);">
-            <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--muted);">NUEVO BANNER</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Volvé a pedir y disfrutá"></div>
-              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-subtitle" placeholder="Ej: con envío gratis"></div>
-              <div class="form-group"><label class="form-label">Texto destacado</label><input class="form-input" id="bn-highlight" placeholder="50% OFF"></div>
-              <div class="form-group"><label class="form-label">Etiqueta previa</label><input class="form-input" id="bn-hl-label" placeholder="Hasta"></div>
-              <div class="form-group"><label class="form-label">Emoji</label><input class="form-input" id="bn-emoji" placeholder="🍔" value="🍔" maxlength="4"></div>
-              <div class="form-group"><label class="form-label">Color de fondo</label><input type="color" id="bn-color" value="#ea356b" style="width:100%;height:42px;border-radius:8px;border:1px solid var(--border);cursor:pointer;"></div>
-            </div>
-            <button class="primary-btn" onclick="createAdminBanner()" style="width:100%;margin-top:4px;">+ Crear banner</button>
-          </div>
-
-          <!-- LISTA -->
-          <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px;">BANNERS ACTIVOS</div>
-          <div id="admin-banners-list"><div class="loading-state"><div class="spinner"></div></div></div>
-        </div>
-
-        <!-- FEATURED TAB -->
-        <div id="admin-tab-featured" style="display:none;">
-          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">⭐ Negocios destacados (Blow+)</div>
-          <div style="background:#f9f9f9;border-radius:14px;padding:16px;margin-bottom:16px;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Agregar negocio destacado</div>
-            <div class="form-group"><label class="form-label">Negocio *</label>
-              <select class="form-input" id="feat-biz-select"><option value="">Cargando...</option></select>
-            </div>
-            <div class="form-group"><label class="form-label">Título personalizado (opcional)</label><input class="form-input" id="feat-title" placeholder="Ej: La mejor pizza de la ciudad"></div>
-            <button class="primary-btn" onclick="createAdminFeatured()">+ Agregar destacado</button>
-          </div>
-          <div style="font-size:13px;color:#888;margin-bottom:12px;">💡 Podés subir una foto personalizada a cada negocio destacado después de crearlo.</div>
-          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Destacados actuales</div>
-          <div id="admin-featured-list"><div class="loading-state"><div class="spinner"></div></div></div>
-        </div>
-
       </div>
-      <div id="admin-login-section">
-        <div class="form-group"><label class="form-label">Email Admin</label><input class="form-input" id="admin-login-email" type="email"></div>
-        <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="admin-login-pass" type="password"></div>
-        <button class="primary-btn" onclick="adminLogin()">Ingresar</button>
-      </div>
+
     </div>
   </div>
 </div>
@@ -2792,6 +2924,30 @@ function connectWS() {
 // ═══════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════
+// Dark mode
+// ═══════════════════════════════════════════════
+function initDarkMode() {
+  const saved = localStorage.getItem('blow_theme') || 'auto'; // auto | light | dark
+  applyDarkMode(saved);
+}
+function applyDarkMode(mode) {
+  const html = document.documentElement;
+  if (mode === 'dark')  { html.setAttribute('data-theme','dark'); }
+  else if (mode === 'light') { html.setAttribute('data-theme','light'); }
+  else { html.removeAttribute('data-theme'); } // auto = respects OS
+  localStorage.setItem('blow_theme', mode);
+  // Update chip in profile
+  const chip = document.getElementById('dark-mode-chip');
+  const labels = { auto:'Auto', light:'☀️ Claro', dark:'🌙 Oscuro' };
+  if (chip) chip.textContent = labels[mode] || 'Auto';
+}
+function cycleDarkMode() {
+  const current = localStorage.getItem('blow_theme') || 'auto';
+  const next = { auto:'dark', dark:'light', light:'auto' }[current] || 'auto';
+  applyDarkMode(next);
+}
+
+// ═══════════════════════════════════════════════
 // Historial de navegación
 if (!window._navHistory) window._navHistory = [];
 function navBack() {
@@ -3161,6 +3317,9 @@ document.getElementById('loc-modal').addEventListener('click', function(e) {
 //  STORES (location-aware)
 // ═══════════════════════════════════════════════
 async function loadAppSettings() {
+  // Dark mode init (before any other rendering)
+  initDarkMode();
+
   try {
     const s = await fetch('/api/public-settings').then(r => r.json()).catch(() => ({}));
 
@@ -5618,20 +5777,30 @@ function renderOwnerOrders(orders) {
     <div class="owner-order-card ${o.status}">
       <div class="ooc-top"><div class="ooc-id">Pedido #${o.id.slice(-6).toUpperCase()}</div><div class="ooc-time">🕐 ${new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div></div>
       <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px;">👤 ${o.customer_name||''}</div>
+      ${o.cancel_reason?`<div style="font-size:11px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;padding:4px 8px;border-radius:0 6px 6px 0;margin-bottom:4px;color:#ef4444;">❌ ${o.cancel_reason}</div>`:''}
       <div class="ooc-items">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
       <div class="ooc-total">$${o.total}</div>
       <div class="ooc-actions">
         ${o.status==='pending'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','confirmed')">✓ Aceptar</button><button class="btn-sm red" onclick="cancelOrder('${o.id}')">✕ Rechazar</button>`:''}
         ${o.status==='confirmed'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','preparing')">👨‍🍳 Preparando</button>`:''}
-        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">🍳 Listo para retiro</button>`:''}
-        ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')" style="background:#8b5cf6;">🛵 Salió para entrega</button>`:''}\n        ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Marcar entregado</button>`:''}\n      </div>
-        ${o.status==='ready'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Entregado</button>`:''}\
+        ${o.status==='preparing'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','ready')">🍳 Listo</button>`:''}
+        ${o.status==='ready'?`<button class="btn-sm blue" onclick="changeOrderStatus('${o.id}','on_way')" style="background:#8b5cf6;">🛵 En camino</button><button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Entregado</button>`:''}
+        ${o.status==='on_way'?`<button class="btn-sm green" onclick="changeOrderStatus('${o.id}','delivered')">✅ Entregado</button>`:''}
+      </div>
     </div>`).join('');
 }
 
 async function changeOrderStatus(id, status) {
+  let body = { status };
+  // Al confirmar, preguntar tiempo estimado
+  if (status === 'confirmed') {
+    const mins = prompt('⏱️ ¿En cuántos minutos estará listo? (dejá en blanco para omitir)');
+    if (mins === null) return; // canceló
+    const n = parseInt(mins);
+    if (n > 0) body.estimated_minutes = n;
+  }
   try {
-    await api(`/api/orders/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});
+    await api(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify(body) });
     showToast(`✅ Pedido ${STATUS_LABELS[status]}`);
     loadOwnerDash();
   } catch(e) { showToast(`❌ ${e.message}`); }
@@ -6727,62 +6896,226 @@ function populatePhotoSettings() {
 let adminUsersCache = [];
 let adminBizCache = [];
 
+
+// ════════════════════════════════════════════════════
+//  ADMIN PANEL — funciones completas
+// ════════════════════════════════════════════════════
+let adminUsersCache    = [];
+let adminBizCache      = [];
+let adminOrdersCache   = [];
+let _adminStatsPeriod  = 7;
+
 async function loadAdminPanel() {
-  if (!user || user.role!=='admin') {
-    document.getElementById('admin-login-section').style.display='block';
-    document.getElementById('admin-dashboard').style.display='none';
+  if (!user || user.role !== 'admin') {
+    const el = document.getElementById('admin-login-section');
+    document.getElementById('admin-setup-section').style.display  = 'none';
+    document.getElementById('admin-dashboard').style.display       = 'none';
+    if (el) el.style.display = 'block';
+    try {
+      const check = await fetch('/api/admin/stats', { headers:{ Authorization:'Bearer '+localStorage.getItem('da_token') } });
+      if (check.status === 404) {
+        el && (el.style.display='none');
+        document.getElementById('admin-setup-section').style.display='block';
+      }
+    } catch(e) {}
     return;
   }
-  document.getElementById('admin-login-section').style.display='none';
+  document.getElementById('admin-login-section') && (document.getElementById('admin-login-section').style.display='none');
   document.getElementById('admin-setup-section').style.display='none';
   document.getElementById('admin-dashboard').style.display='block';
+  const chip = document.getElementById('admin-user-chip');
+  if (chip) { chip.textContent = '👤 '+user.name; chip.style.display='inline-block'; }
   adminTab('stats');
 }
 
 function adminTab(tab) {
-  ['stats','users','businesses','orders','withdrawals','subscriptions','settings','coupons','helpmsg','banners','featured'].forEach(t => {
-    const el = document.getElementById('admin-tab-'+t);
-    const btn = document.getElementById('atab-'+t);
-    if (el) el.style.display = t===tab ? 'block' : 'none';
-    if (btn) {
-      btn.style.background = t===tab ? 'var(--primary)' : 'transparent';
-      btn.style.color = t===tab ? '#fff' : '';
-      btn.style.border = t===tab ? 'none' : '1px solid var(--border)';
-    }
-  });
-  if (tab==='stats') loadAdminStats();
-  else if (tab==='users') loadAdminUsers();
+  document.querySelectorAll('.atab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('[id^="admin-tab-"]').forEach(d => d.style.display='none');
+  const btn = document.getElementById('atab-'+tab);
+  if (btn) btn.classList.add('active');
+  const panel = document.getElementById('admin-tab-'+tab);
+  if (panel) panel.style.display = '';
+  if (tab==='stats')        loadAdminStats();
+  else if (tab==='reports') initAdminReports();
+  else if (tab==='users')   loadAdminUsers();
   else if (tab==='businesses') loadAdminBusinesses();
-  else if (tab==='orders') loadAdminOrders();
+  else if (tab==='orders')  loadAdminOrders();
   else if (tab==='withdrawals') loadAdminWithdrawals();
   else if (tab==='subscriptions') loadAdminSubs();
   else if (tab==='settings') loadAdminSettings();
   else if (tab==='coupons') loadAdminCoupons();
-  else if (tab==='helpmsg') loadAdminHelp();
   else if (tab==='banners') loadAdminBanners();
-  else if (tab==='featured') loadAdminFeatured();
+}
+
+// ── STATS ──────────────────────────────────────────
+function setStatsPeriod(days) {
+  _adminStatsPeriod = days;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active-period'));
+  const btn = document.getElementById('speriod-'+days);
+  if (btn) btn.classList.add('active-period');
+  loadAdminStats();
 }
 
 async function loadAdminStats() {
   try {
-    const s = await api('/api/admin/stats');
+    const days = _adminStatsPeriod || 7;
+    const from = new Date(Date.now() - days*24*60*60*1000).toISOString().split('T')[0];
+    const to   = new Date().toISOString().split('T')[0];
+    const [basic, adv] = await Promise.all([
+      api('/api/admin/stats'),
+      api(`/api/admin/stats/advanced?from=${from}&to=${to}`)
+    ]);
+    // Top KPI cards
+    const users = basic.userStats || [];
+    const customers = users.find(r=>r.role==='customer')?.c || 0;
+    const owners    = users.find(r=>r.role==='owner')?.c || 0;
     const g = document.getElementById('admin-stats-grid');
     g.innerHTML = [
-      ['👥','Usuarios',s.users],
-      ['🏪','Negocios',s.businesses],
-      ['📦','Pedidos',s.orders],
-      ['✅','Completados',s.completed_orders],
-      ['💰','Revenue total','$'+Math.round(s.total_revenue||0)],
-      ['📋','Suscripciones activas',s.active_subscriptions],
-    ].map(([ico,lbl,val])=>`
-      <div style="background:var(--surface);border-radius:12px;padding:16px;text-align:center;border:1px solid var(--border);">
-        <div style="font-size:24px;">${ico}</div>
-        <div style="font-size:22px;font-weight:800;margin:4px 0;">${val??0}</div>
-        <div style="font-size:12px;color:var(--muted);">${lbl}</div>
+      ['👥','Usuarios totales', users.reduce((a,r)=>a+parseInt(r.c),0)],
+      ['🛒','Clientes',         customers],
+      ['🏪','Negocios activos', basic.businesses],
+      ['📦','Pedidos (período)',adv.totals?.total_orders || 0],
+      ['💰','Revenue (período)','$'+Math.round(adv.totals?.gmv || 0).toLocaleString('es-UY')],
+      ['💸','Fee plataforma',   '$'+Math.round(adv.totals?.platform_revenue || 0).toLocaleString('es-UY')],
+      ['🎯','Ticket promedio',  '$'+Math.round(adv.totals?.avg_order_value || 0)],
+      ['📋','Subs activas',     adv.subscriptionStats?.active || 0],
+      ['⏳','Retiros pendientes', basic.pendingWithdrawals || 0],
+      ['❌','Cancelados',       adv.totals?.cancelled_orders || 0],
+    ].map(([ico,lbl,val]) => `
+      <div style="background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1px solid var(--border);">
+        <div style="font-size:22px;">${ico}</div>
+        <div style="font-size:20px;font-weight:800;margin:4px 0;">${val??0}</div>
+        <div style="font-size:11px;color:var(--muted);">${lbl}</div>
       </div>`).join('');
+
+    // Revenue chart
+    const daily = adv.dailyRevenue || [];
+    renderAdminChart(daily);
+
+    // Top negocios
+    const topBiz = document.getElementById('admin-top-biz');
+    if (topBiz) topBiz.innerHTML = (adv.topBusinesses||[]).slice(0,5).map((b,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:18px;width:24px;text-align:center;">${b.logo_emoji||'🏪'}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</div><div style="font-size:11px;color:var(--muted);">${b.orders||0} pedidos</div></div>
+        <div style="font-size:13px;font-weight:700;">$${Math.round(b.revenue||0).toLocaleString('es-UY')}</div>
+      </div>`).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0;">Sin datos</div>';
+
+    // Top clientes
+    const topCust = document.getElementById('admin-top-cust');
+    if (topCust) topCust.innerHTML = (adv.topCustomers||[]).slice(0,5).map((c)=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0;">${(c.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div><div style="font-size:11px;color:var(--muted);">${c.orders} pedidos</div></div>
+        <div style="font-size:13px;font-weight:700;">$${Math.round(c.spent||0).toLocaleString('es-UY')}</div>
+      </div>`).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0;">Sin datos</div>';
+
   } catch(e) { showToast('❌ '+e.message); }
 }
 
+function renderAdminChart(daily) {
+  const wrap  = document.getElementById('admin-revenue-chart');
+  const lblEl = document.getElementById('admin-revenue-labels');
+  if (!wrap || !daily.length) return;
+  const maxRev = Math.max(...daily.map(d=>parseFloat(d.revenue)||0), 1);
+  wrap.innerHTML = daily.map(d => {
+    const h = Math.max(4, Math.round(((parseFloat(d.revenue)||0) / maxRev) * 110));
+    const day = new Date(d.day+'T12:00:00').toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit'});
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;" title="${day}: $${Math.round(d.revenue||0).toLocaleString('es-UY')}">
+      <div style="font-size:9px;color:var(--muted);">${d.revenue>0?'$'+Math.round(d.revenue/1000)+'k':''}</div>
+      <div style="width:100%;background:var(--primary);border-radius:4px 4px 0 0;height:${h}px;opacity:.85;transition:height .3s;cursor:pointer;" onclick="showToast('${day}: $${Math.round(d.revenue||0).toLocaleString('es-UY')}')"></div>
+    </div>`;
+  }).join('');
+  if (lblEl) lblEl.innerHTML = daily.filter((_,i)=>i%Math.ceil(daily.length/7)===0).map(d =>
+    `<div style="flex:1;font-size:9px;color:var(--muted);text-align:center;">${new Date(d.day+'T12:00:00').toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit'})}</div>`
+  ).join('');
+}
+
+// ── REPORTS ────────────────────────────────────────
+function initAdminReports() {
+  const now   = new Date();
+  const from  = new Date(now - 30*24*60*60*1000).toISOString().split('T')[0];
+  const to    = now.toISOString().split('T')[0];
+  const fEl   = document.getElementById('rep-from');
+  const tEl   = document.getElementById('rep-to');
+  if (fEl && !fEl.value) fEl.value = from;
+  if (tEl && !tEl.value) tEl.value = to;
+}
+
+async function loadAdminReports() {
+  const from = document.getElementById('rep-from').value;
+  const to   = document.getElementById('rep-to').value;
+  if (!from || !to) return showToast('Seleccioná un rango de fechas');
+  const el = document.getElementById('admin-reports-content');
+  el.innerHTML = '<div style="text-align:center;padding:30px;"><div class="spinner"></div></div>';
+  try {
+    const adv = await api(`/api/admin/stats/advanced?from=${from}&to=${to}`);
+    const t   = adv.totals || {};
+    const cancRate = t.total_orders > 0 ? Math.round((t.cancelled_orders / (parseInt(t.total_orders)+parseInt(t.cancelled_orders||0))) * 100) : 0;
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
+        ${[
+          ['📦','Pedidos completados', t.total_orders||0],
+          ['💰','Revenue total','$'+(Math.round(t.gmv||0)).toLocaleString('es-UY')],
+          ['💸','Fee plataforma','$'+(Math.round(t.platform_revenue||0)).toLocaleString('es-UY')],
+          ['👥','Clientes activos', t.active_customers||0],
+          ['🎯','Ticket promedio','$'+Math.round(t.avg_order_value||0)],
+          ['❌','Tasa cancelación',cancRate+'%'],
+        ].map(([ico,lbl,val])=>`
+          <div style="background:var(--surface);border-radius:12px;padding:12px;text-align:center;border:1px solid var(--border);">
+            <div style="font-size:20px;">${ico}</div>
+            <div style="font-size:18px;font-weight:800;margin:4px 0;">${val}</div>
+            <div style="font-size:11px;color:var(--muted);">${lbl}</div>
+          </div>`).join('')}
+      </div>
+      <div style="background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📊 Revenue diario</div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:100px;">
+          ${(adv.dailyRevenue||[]).map(d=>{
+            const maxRev=Math.max(...(adv.dailyRevenue||[]).map(x=>parseFloat(x.revenue)||0),1);
+            const h=Math.max(3,Math.round(((parseFloat(d.revenue)||0)/maxRev)*90));
+            return `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${h}px;opacity:.8;cursor:pointer;" title="${new Date(d.day+'T12:00').toLocaleDateString('es-UY')}: $${Math.round(d.revenue||0)}"></div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🏆 Top negocios</div>
+          ${(adv.topBusinesses||[]).slice(0,8).map(b=>`
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${b.logo_emoji||'🏪'} ${b.name}</span>
+              <span style="font-weight:700;color:var(--primary);">$${Math.round(b.revenue||0).toLocaleString('es-UY')}</span>
+            </div>`).join('')}
+        </div>
+        <div style="background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;">👑 Top clientes</div>
+          ${(adv.topCustomers||[]).slice(0,8).map(c=>`
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${c.name}</span>
+              <span style="font-weight:700;color:var(--primary);">$${Math.round(c.spent||0).toLocaleString('es-UY')}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch(e) { el.innerHTML = `<div style="color:var(--muted);padding:20px;">Error: ${e.message}</div>`; }
+}
+
+function exportCSV(type) {
+  const from = document.getElementById('rep-from')?.value || '';
+  const to   = document.getElementById('rep-to')?.value   || '';
+  const tok  = localStorage.getItem('da_token') || '';
+  let url = `/api/admin/export/${type}`;
+  if (type==='orders' && from && to) url += `?from=${from}&to=${to}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download','');
+  // We need auth header — use fetch + blob
+  fetch(url, { headers:{ Authorization:'Bearer '+tok } })
+    .then(r=>r.blob())
+    .then(blob=>{ const u=URL.createObjectURL(blob); a.href=u; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); })
+    .catch(e=>showToast('❌ '+e.message));
+}
+
+// ── USERS ──────────────────────────────────────────
 async function loadAdminUsers() {
   try {
     adminUsersCache = await api('/api/admin/users');
@@ -6790,23 +7123,34 @@ async function loadAdminUsers() {
   } catch(e) { showToast('❌ '+e.message); }
 }
 function filterAdminUsers() {
-  const q = document.getElementById('admin-user-search').value.toLowerCase();
-  renderAdminUsers(adminUsersCache.filter(u => (u.name+u.email).toLowerCase().includes(q)));
+  const q    = document.getElementById('admin-user-search').value.toLowerCase();
+  const role = document.getElementById('admin-user-role-filter')?.value || '';
+  renderAdminUsers(adminUsersCache.filter(u =>
+    (!q || (u.name+u.email).toLowerCase().includes(q)) &&
+    (!role || u.role === role)
+  ));
 }
 function renderAdminUsers(users) {
   const el = document.getElementById('admin-users-list');
-  if (!users.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay usuarios</div>'; return; }
+  if (!users.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin resultados</div>'; return; }
   el.innerHTML = users.map(u=>`
-    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-      <div style="width:40px;height:40px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;">${u.name[0].toUpperCase()}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;">${u.name}</div>
-        <div style="font-size:12px;color:var(--muted);">${u.email} · ${u.role}</div>
-        ${u.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ cliente</div>':''}
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);${u.banned?'border-left:3px solid #ef4444;opacity:.75;':''}">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;">${(u.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;display:flex;align-items:center;gap:6px;">${u.name} ${u.banned?'<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:8px;">BANEADO</span>':''}</div>
+          <div style="font-size:12px;color:var(--muted);">${u.email} · <b>${u.role}</b> · ${u.order_count||0} pedidos</div>
+          <div style="font-size:11px;color:var(--muted);">Registro: ${new Date(u.created_at).toLocaleDateString('es-UY')}</div>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button onclick="adminResetPw('${u.id}','${u.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;">🔑</button>
-        <button onclick="adminDeleteUser('${u.id}','${u.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <button onclick="adminResetPw('${u.id}','${(u.name||'').replace(/'/g,'')}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;" title="Cambiar contraseña">🔑 Password</button>
+        <button onclick="adminChangeRole('${u.id}','${u.role}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">👤 Rol</button>
+        <button onclick="adminImpersonate('${u.id}','${(u.name||'').replace(/'/g,'')}','${u.role}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;" title="Ver app como este usuario">👁 Ver como</button>
+        ${u.banned
+          ? `<button onclick="adminBanUser('${u.id}',false)" style="padding:5px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:11px;">✅ Desbanear</button>`
+          : `<button onclick="adminBanUser('${u.id}',true)" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🚫 Banear</button>`}
+        <button onclick="adminDeleteUser('${u.id}','${(u.name||'').replace(/'/g,'')}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Eliminar</button>
       </div>
     </div>`).join('');
 }
@@ -6816,12 +7160,39 @@ async function adminResetPw(id, name) {
   try { await api('/api/admin/users/'+id+'/reset-password',{method:'POST',body:JSON.stringify({password:newPw})}); showToast('✅ Contraseña actualizada'); }
   catch(e) { showToast('❌ '+e.message); }
 }
+async function adminChangeRole(id, currentRole) {
+  const roles = ['customer','owner','delivery','admin'];
+  const next  = prompt('Rol actual: '+currentRole+'\nNuevo rol (customer/owner/delivery/admin):');
+  if (!next || !roles.includes(next) || next === currentRole) return;
+  if (next === 'admin' && !confirm('⚠️ ¿Seguro que querés darle rol admin a este usuario?')) return;
+  try { await api('/api/admin/users/'+id,{method:'PATCH',body:JSON.stringify({role:next})}); showToast('✅ Rol actualizado a '+next); loadAdminUsers(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminImpersonate(id, name, role) {
+  if (!confirm('Vas a ver la app como '+name+' ('+role+'). Se abrirá en una nueva pestaña.')) return;
+  try {
+    const data = await api('/api/admin/impersonate/'+id, {method:'POST'});
+    const url  = window.location.origin + '/?impersonate='+data.token+'&role='+data.user.role;
+    window.open(url, '_blank');
+    showToast('👁 Abriendo sesión como '+name);
+  } catch(e) { showToast('❌ '+e.message); }
+}
+async function adminBanUser(id, ban) {
+  const reason = ban ? (prompt('Motivo del ban (opcional):') || '') : '';
+  if (ban && reason === null) return; // canceló
+  try {
+    await api('/api/admin/users/'+id+'/ban',{method:'POST',body:JSON.stringify({banned:ban,reason})});
+    showToast(ban ? '🚫 Usuario baneado' : '✅ Ban removido');
+    loadAdminUsers();
+  } catch(e) { showToast('❌ '+e.message); }
+}
 async function adminDeleteUser(id, name) {
   if (!confirm('¿Eliminar al usuario '+name+'? Esta acción no se puede deshacer.')) return;
   try { await api('/api/admin/users/'+id,{method:'DELETE'}); showToast('✅ Usuario eliminado'); loadAdminUsers(); }
   catch(e) { showToast('❌ '+e.message); }
 }
 
+// ── BUSINESSES ─────────────────────────────────────
 async function loadAdminBusinesses() {
   try {
     adminBizCache = await api('/api/admin/businesses');
@@ -6829,25 +7200,36 @@ async function loadAdminBusinesses() {
   } catch(e) { showToast('❌ '+e.message); }
 }
 function filterAdminBiz() {
-  const q = document.getElementById('admin-biz-search').value.toLowerCase();
-  renderAdminBiz(adminBizCache.filter(b => b.name.toLowerCase().includes(q)));
+  const q      = document.getElementById('admin-biz-search').value.toLowerCase();
+  const status = document.getElementById('admin-biz-status-filter')?.value || '';
+  renderAdminBiz(adminBizCache.filter(b =>
+    (!q || b.name.toLowerCase().includes(q) || (b.owner_name||'').toLowerCase().includes(q)) &&
+    (!status || (status==='active' ? b.is_active : !b.is_active))
+  ));
 }
 function renderAdminBiz(bizs) {
   const el = document.getElementById('admin-biz-list');
-  if (!bizs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay negocios</div>'; return; }
+  if (!bizs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin resultados</div>'; return; }
   el.innerHTML = bizs.map(b=>`
     <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div style="font-size:28px;">${b.emoji||'🏪'}</div>
-        <div style="flex:1;">
-          <div style="font-weight:700;">${b.name}</div>
-          <div style="font-size:12px;color:var(--muted);">${b.city||''} · ${b.is_active?'✅ Activo':'⏸️ Inactivo'}</div>
-          ${b.blow_plus?'<div style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Blow+ negocio</div>':''}
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="font-size:28px;line-height:1;flex-shrink:0;">${b.logo_emoji||'🏪'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;">${b.name} ${b.blow_plus?'<span style="font-size:10px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:8px;">⚡ Blow+</span>':''}</div>
+          <div style="font-size:12px;color:var(--muted);">${b.city||''} · ${b.category||''} · <b>${b.is_active?'✅ Activo':'⏸️ Inactivo'}</b></div>
+          <div style="font-size:12px;color:var(--muted);">👤 ${b.owner_name||''} · ${b.owner_email||''}</div>
+          <div style="font-size:12px;margin-top:4px;">
+            <span style="color:var(--success);font-weight:700;">$${Math.round(b.total_revenue||0).toLocaleString('es-UY')}</span>
+            <span style="color:var(--muted);"> revenue · ${b.completed_orders||0} pedidos completados</span>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button onclick="adminToggleBiz('${b.id}',${b.is_active})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px;">${b.is_active?'⏸️':'▶️'}</button>
-          <button onclick="adminDeleteBiz('${b.id}','${b.name.replace(/'/g,'')}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
-        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <button onclick="adminToggleBiz('${b.id}',${b.is_active})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">${b.is_active?'⏸️ Desactivar':'▶️ Activar'}</button>
+        <button onclick="adminToggleOpen('${b.id}',${b.is_open})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">${b.is_open?'🔒 Cerrar':'🔓 Abrir'}</button>
+        <button onclick="adminEditBiz('${b.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">✏️ Editar</button>
+        <button onclick="adminToggleBlowPlus('${b.id}',${!!b.blow_plus},'biz')" style="padding:5px 10px;border-radius:8px;border:none;background:${b.blow_plus?'#ede9fe':'#f5f3ff'};color:#7c3aed;cursor:pointer;font-size:11px;">⚡ ${b.blow_plus?'Quitar':'Dar'} Blow+</button>
+        <button onclick="adminDeleteBiz('${b.id}','${(b.name||'').replace(/'/g,'')}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Eliminar</button>
       </div>
     </div>`).join('');
 }
@@ -6855,49 +7237,115 @@ async function adminToggleBiz(id, isActive) {
   try { await api('/api/admin/businesses/'+id,{method:'PATCH',body:JSON.stringify({is_active:!isActive})}); showToast('✅ Actualizado'); loadAdminBusinesses(); }
   catch(e) { showToast('❌ '+e.message); }
 }
+async function adminToggleOpen(id, isOpen) {
+  try { await api('/api/admin/businesses/'+id+'/toggle-open',{method:'POST'}); showToast('✅ Actualizado'); loadAdminBusinesses(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminEditBiz(id) {
+  const biz = adminBizCache.find(b=>b.id===id);
+  if (!biz) return;
+  const name = prompt('Nombre:', biz.name);
+  if (name === null) return;
+  const city = prompt('Ciudad:', biz.city||'');
+  if (city === null) return;
+  const phone = prompt('Teléfono:', biz.phone||'');
+  if (phone === null) return;
+  try { await api('/api/admin/businesses/'+id,{method:'PATCH',body:JSON.stringify({name,city,phone})}); showToast('✅ Guardado'); loadAdminBusinesses(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminToggleBlowPlus(id, current, type) {
+  const action = current ? 'quitar' : 'activar';
+  if (!confirm(`¿${action.charAt(0).toUpperCase()+action.slice(1)} Blow+ a este ${type==='biz'?'negocio':'usuario'}?`)) return;
+  try {
+    if (type==='biz') await api('/api/admin/businesses/'+id+'/blow-plus',{method:'PATCH',body:JSON.stringify({blow_plus:!current})});
+    else              await api('/api/admin/users/'+id+'/blow-plus',{method:'PATCH',body:JSON.stringify({blow_plus:!current})});
+    showToast('✅ Blow+ '+(current?'removido':'activado')); loadAdminBusinesses();
+  } catch(e) { showToast('❌ '+e.message); }
+}
 async function adminDeleteBiz(id, name) {
-  if (!confirm('¿Eliminar el negocio '+name+'?')) return;
+  if (!confirm('¿Eliminar el negocio "'+name+'"? Esta acción es irreversible.')) return;
   try { await api('/api/admin/businesses/'+id,{method:'DELETE'}); showToast('✅ Negocio eliminado'); loadAdminBusinesses(); }
   catch(e) { showToast('❌ '+e.message); }
 }
 
+// ── ORDERS ─────────────────────────────────────────
 async function loadAdminOrders() {
   try {
-    const orders = await api('/api/admin/orders');
-    const el = document.getElementById('admin-orders-list');
-    if (!orders.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay pedidos</div>'; return; }
-    el.innerHTML = orders.map(o=>`
-      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-weight:700;">${o.customer_name||'Cliente'} → ${o.business_name||'Negocio'}</div>
-            <div style="font-size:12px;color:var(--muted);">${new Date(o.created_at).toLocaleString('es-UY')}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-weight:800;">$${o.total}</div>
-            <div style="font-size:12px;padding:2px 8px;border-radius:10px;background:${o.status==='completed'?'#dcfce7':o.status==='cancelled'?'#fee2e2':'#fef9c3'};color:${o.status==='completed'?'#166534':o.status==='cancelled'?'#dc2626':'#854d0e'};">${o.status}</div>
-          </div>
-        </div>
-      </div>`).join('');
+    adminOrdersCache = await api('/api/admin/orders');
+    renderAdminOrders(adminOrdersCache);
   } catch(e) { showToast('❌ '+e.message); }
 }
+function filterAdminOrders() {
+  const q      = document.getElementById('admin-orders-search').value.toLowerCase();
+  const status = document.getElementById('admin-orders-status-filter')?.value || '';
+  renderAdminOrders(adminOrdersCache.filter(o =>
+    (!q || (o.customer_name+o.business_name).toLowerCase().includes(q)) &&
+    (!status || o.status === status)
+  ));
+}
+const ADMIN_STATUS_LABELS = {pending:'⏳ Pendiente',confirmed:'✅ Confirmado',preparing:'👨‍🍳 Preparando',ready:'🍳 Listo',on_way:'🛵 En camino',delivered:'✅ Entregado',cancelled:'❌ Cancelado'};
+function renderAdminOrders(orders) {
+  const el = document.getElementById('admin-orders-list');
+  if (!orders.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin pedidos</div>'; return; }
+  el.innerHTML = orders.slice(0,100).map(o=>`
+    <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;">${o.customer_name||'Cliente'} → ${o.business_name||'Negocio'}</div>
+          <div style="font-size:11px;color:var(--muted);">#${(o.id||'').slice(-8).toUpperCase()} · ${new Date(o.created_at).toLocaleString('es-UY')}</div>
+          <div style="font-size:12px;margin-top:4px;">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
+          ${o.cancel_reason?`<div style="font-size:11px;color:#ef4444;margin-top:4px;">❌ ${o.cancel_reason}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-weight:800;font-size:16px;">$${o.total}</div>
+          <div style="font-size:11px;padding:2px 8px;border-radius:10px;margin-top:4px;background:${o.status==='delivered'?'#dcfce7':o.status==='cancelled'?'#fee2e2':'#fef9c3'};color:${o.status==='delivered'?'#166534':o.status==='cancelled'?'#dc2626':'#854d0e'};">${ADMIN_STATUS_LABELS[o.status]||o.status}</div>
+        </div>
+      </div>
+      ${!['delivered','cancelled'].includes(o.status)?`
+      <div style="margin-top:8px;">
+        <button onclick="adminCancelOrder('${o.id}')" style="padding:5px 12px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;font-weight:600;">❌ Cancelar pedido</button>
+      </div>`:''}
+    </div>`).join('');
+}
+async function adminCancelOrder(id) {
+  const reason = prompt('Motivo de la cancelación (se notifica al cliente):');
+  if (reason === null) return;
+  try { await api('/api/admin/orders/'+id+'/cancel',{method:'POST',body:JSON.stringify({reason})}); showToast('✅ Pedido cancelado'); loadAdminOrders(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
 
+// ── SUBSCRIPTIONS ──────────────────────────────────
 async function loadAdminSubs() {
   try {
-    const subs = await api('/api/admin/subscriptions');
+    const subs = await api('/api/admin/subscriptions/detail');
     const el = document.getElementById('admin-subs-list');
     if (!subs.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">No hay suscripciones</div>'; return; }
-    el.innerHTML = subs.map(s=>`
-      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-        <div style="flex:1;">
-          <div style="font-weight:700;">${s.business_name||s.id}</div>
-          <div style="font-size:12px;color:var(--muted);">Estado: ${s.status} · Vence: ${s.expires_at?new Date(s.expires_at).toLocaleDateString('es-UY'):'N/A'}</div>
+    const now = Date.now();
+    el.innerHTML = subs.map(s=>{
+      const exp    = s.current_period_end ? new Date(s.current_period_end) : null;
+      const expStr = exp ? exp.toLocaleDateString('es-UY') : 'N/A';
+      const expiring = exp && (exp.getTime() - now) < 7*24*60*60*1000 && s.status==='active';
+      return `
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);${expiring?'border-left:3px solid #f59e0b;':''}">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="font-size:24px;">${s.logo_emoji||'🏪'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;">${s.business_name||s.id}</div>
+            <div style="font-size:12px;color:var(--muted);">${s.owner_name} · ${s.owner_email}</div>
+            <div style="font-size:12px;margin-top:3px;">
+              <span style="font-weight:600;color:${s.status==='active'?'var(--success)':'#ef4444'};">${s.status==='active'?'✅ Activa':'⏸️ '+s.status}</span>
+              ${expiring?'<span style="color:#f59e0b;font-weight:700;"> · ⚠️ Vence pronto</span>':''}
+              <span style="color:var(--muted);"> · Vence: ${expStr}</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);">${s.total_orders||0} pedidos · $${Math.round(s.total_revenue||0).toLocaleString('es-UY')} revenue</div>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;">
-          ${s.status!=='active'?`<button onclick="adminActivateSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:12px;">✅ Activar</button>`:''}
-          ${s.status==='active'?`<button onclick="adminSuspendSub('${s.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">⏸️ Suspender</button>`:''}
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+          ${s.status!=='active'?`<button onclick="adminActivateSub('${s.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:11px;">✅ Activar</button>`:''}
+          ${s.status==='active'?`<button onclick="adminSuspendSub('${s.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">⏸️ Suspender</button>`:''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch(e) { showToast('❌ '+e.message); }
 }
 async function adminActivateSub(id) {
@@ -6909,592 +7357,198 @@ async function adminSuspendSub(id) {
   catch(e) { showToast('❌ '+e.message); }
 }
 
+// ── SETTINGS ───────────────────────────────────────
 async function loadAdminSettings() {
   try {
     const s = await api('/api/admin/settings');
-    document.getElementById('cfg-fee').value = s.platform_fee_percent||0;
-    document.getElementById('cfg-delivery').value = s.delivery_base_fee||50;
-    document.getElementById('cfg-plan-price').value = (s.plan_price != null && s.plan_price !== '') ? s.plan_price : 2990;
-    document.getElementById('cfg-city').value = s.default_city||'Montevideo';
-    document.getElementById('cfg-reg-price').value = (s.registration_fee != null && s.registration_fee !== '') ? s.registration_fee : 2990;
-    document.getElementById('cfg-bank-visible').value = s.bank_promo_visible==false ? '0' : '1';
-    document.getElementById('cfg-bank-icon').value = s.bank_promo_icon||'🏦';
-    document.getElementById('cfg-bank-title').value = s.bank_promo_title||'Con Débito Santander';
-    document.getElementById('cfg-bank-sub').value = s.bank_promo_sub||'Lunes a Jueves · T&C aplican';
-    document.getElementById('cfg-bank-badge').value = s.bank_promo_badge||'+10% OFF';
+    document.getElementById('cfg-fee').value          = s.platform_fee_percent||0;
+    document.getElementById('cfg-delivery').value     = s.delivery_base_fee||50;
+    document.getElementById('cfg-plan-price').value   = s.plan_price!=null ? s.plan_price : 2990;
+    document.getElementById('cfg-city').value         = s.default_city||'Montevideo';
+    document.getElementById('cfg-reg-price').value    = s.registration_fee!=null ? s.registration_fee : 2990;
+    document.getElementById('cfg-bank-visible').value = s.bank_promo_visible===false ? '0' : '1';
+    document.getElementById('cfg-bank-icon').value    = s.bank_promo_icon||'🏦';
+    document.getElementById('cfg-bank-title').value   = s.bank_promo_title||'Con Débito Santander';
+    document.getElementById('cfg-bank-sub').value     = s.bank_promo_sub||'Lunes a Jueves · T&C aplican';
+    document.getElementById('cfg-bank-badge').value   = s.bank_promo_badge||'+10% OFF';
+    const regOpen = document.getElementById('cfg-reg-open');
+    if (regOpen) regOpen.value = s.registration_open===false ? '0' : '1';
+    const maint = document.getElementById('cfg-maintenance');
+    if (maint) maint.value = s.maintenance_mode ? '1' : '0';
   } catch(e) {}
 }
 async function saveAdminSettings() {
+  const _pf = (id, def) => { const v=parseFloat(document.getElementById(id)?.value); return isNaN(v)?def:v; };
+  const _str = (id) => document.getElementById(id)?.value?.trim() || '';
   try {
-    const _pf = (id, def) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? def : v; };
     await api('/api/admin/settings',{method:'POST',body:JSON.stringify({
-      platform_fee_percent: _pf('cfg-fee', 0),
-      registration_fee: _pf('cfg-reg-price', 2990),
-      delivery_base_fee: _pf('cfg-delivery', 50),
-      plan_price: _pf('cfg-plan-price', 2990),
-      default_city: document.getElementById('cfg-city').value.trim()||'Montevideo',
-      bank_promo_visible: document.getElementById('cfg-bank-visible').value === '1',
-      bank_promo_icon: document.getElementById('cfg-bank-icon').value.trim()||'🏦',
-      bank_promo_title: document.getElementById('cfg-bank-title').value.trim()||'Con Débito Santander',
-      bank_promo_sub: document.getElementById('cfg-bank-sub').value.trim()||'Lunes a Jueves · T&C aplican',
-      bank_promo_badge: document.getElementById('cfg-bank-badge').value.trim()||'+10% OFF',
+      platform_fee_percent:  _pf('cfg-fee',0),
+      registration_fee:      _pf('cfg-reg-price',2990),
+      delivery_base_fee:     _pf('cfg-delivery',50),
+      plan_price:            _pf('cfg-plan-price',2990),
+      default_city:          _str('cfg-city') || 'Montevideo',
+      bank_promo_visible:    document.getElementById('cfg-bank-visible')?.value === '1',
+      bank_promo_icon:       _str('cfg-bank-icon') || '🏦',
+      bank_promo_title:      _str('cfg-bank-title') || 'Con Débito Santander',
+      bank_promo_sub:        _str('cfg-bank-sub')   || 'Lunes a Jueves · T&C aplican',
+      bank_promo_badge:      _str('cfg-bank-badge') || '+10% OFF',
+      registration_open:     document.getElementById('cfg-reg-open')?.value !== '0',
+      maintenance_mode:      document.getElementById('cfg-maintenance')?.value === '1',
     })});
     showToast('✅ Configuración guardada');
   } catch(e) { showToast('❌ '+e.message); }
 }
 
+// ── LOGIN / SETUP ──────────────────────────────────
 async function adminLogin() {
-  const email=document.getElementById('admin-login-email').value.trim();
-  const pass=document.getElementById('admin-login-pass').value;
+  const email = document.getElementById('admin-login-email').value.trim();
+  const pass  = document.getElementById('admin-login-pass').value;
   if (!email||!pass) return showToast('Completá email y contraseña');
   try {
     const data = await api('/api/auth/login',{method:'POST',body:JSON.stringify({email,password:pass})});
     if (data.user.role!=='admin') { showToast('❌ Esta cuenta no es admin'); return; }
     saveSession(data.token, data.user);
     loadAdminPanel();
-  } catch(e) { showToast(`❌ ${e.message}`); }
+  } catch(e) { showToast('❌ '+e.message); }
 }
-
 async function setupAdmin() {
-  const name=document.getElementById('admin-name').value.trim();
-  const email=document.getElementById('admin-email').value.trim();
-  const pass=document.getElementById('admin-pass').value;
+  const name  = document.getElementById('admin-name').value.trim();
+  const email = document.getElementById('admin-email').value.trim();
+  const pass  = document.getElementById('admin-pass').value;
   try {
     const data = await api('/api/admin/setup',{method:'POST',body:JSON.stringify({name,email,password:pass})});
     saveSession(data.token, data.user);
     loadAdminPanel(); showToast('✅ Admin creado');
-  } catch(e) { showToast(`❌ ${e.message}`); }
+  } catch(e) { showToast('❌ '+e.message); }
 }
 
+// ── WITHDRAWALS (keeps existing) ───────────────────
 async function loadAdminWithdrawals() {
   try {
     const ws = await api('/api/admin/withdrawals');
     const el = document.getElementById('admin-withdrawals-list');
     if (!ws.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px 0;">No hay retiros pendientes 🎉</div>'; return; }
-    const pending = ws.filter(w => w.status === 'pending');
-    const done = ws.filter(w => w.status !== 'pending');
+    const pending = ws.filter(w=>w.status==='pending');
+    const done    = ws.filter(w=>w.status!=='pending');
     el.innerHTML = `
-      ${pending.length ? `<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">⏳ Pendientes (${pending.length})</div>` : ''}
+      ${pending.length?`<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">⏳ Pendientes (${pending.length})</div>`:''}
       ${pending.map(w=>`
       <div class="admin-withdraw-card" style="border-left:3px solid #f59e0b;">
         <div class="awc-top"><div class="awc-name">${w.owner_name}</div><div class="awc-amt" style="color:#f59e0b;">$${w.amount}</div></div>
-        <div class="awc-info">📧 ${w.email}<br>💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia bancaria'}: <strong>${w.destination}</strong><br>📅 Solicitado: ${new Date(w.created_at).toLocaleString('es-UY')}</div>
-        <div style="background:#fffbeb;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:12px;color:#92400e;">⏱️ Los retiros se acreditan en hasta <strong>24hs hábiles</strong> desde la aprobación.</div>
+        <div class="awc-info">📧 ${w.email}<br>💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia'}: <strong>${w.destination}</strong><br>📅 ${new Date(w.created_at).toLocaleString('es-UY')}</div>
         <div class="awc-actions">
-          <button class="btn-sm green" onclick="approveWithdraw('${w.id}')">✓ Confirmar retiro</button>
-          <button class="btn-sm red" onclick="rejectWithdraw('${w.id}')">✕ Rechazar</button>
+          <button class="btn-sm green" onclick="approveWithdraw('${w.id}')">✓ Confirmar pago</button>
+          <button class="btn-sm red"   onclick="rejectWithdraw('${w.id}')">✕ Rechazar</button>
         </div>
       </div>`).join('')}
-      ${done.length ? `<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;">✅ Procesados</div>` : ''}
+      ${done.length?`<div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;">✅ Procesados</div>`:''}
       ${done.slice(0,10).map(w=>`
       <div class="admin-withdraw-card" style="opacity:.7;">
         <div class="awc-top"><div class="awc-name">${w.owner_name}</div><div class="awc-amt">$${w.amount} <span style="font-size:11px;font-weight:600;color:${w.status==='completed'?'#27ae60':'#e74c3c'};">${w.status==='completed'?'✅ Pagado':'❌ Rechazado'}</span></div></div>
-        <div class="awc-info">💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia'}: ${w.destination}<br>📅 ${w.processed_at ? new Date(w.processed_at).toLocaleString('es-UY') : '—'}</div>
+        <div class="awc-info">💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia'}: ${w.destination}<br>📅 ${w.processed_at?new Date(w.processed_at).toLocaleString('es-UY'):'—'}</div>
       </div>`).join('')}
     `;
   } catch(e) { document.getElementById('admin-withdrawals-list').innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px;">Error: ${e.message}</div>`; }
 }
-
 async function approveWithdraw(id) {
   if (!confirm('¿Confirmar que ya procesaste el pago?')) return;
-  try { await api(`/api/admin/withdrawals/${id}/approve`,{method:'POST'}); showToast('✅ Retiro aprobado'); loadAdminWithdrawals(); }
-  catch(e) { showToast(`❌ ${e.message}`); }
+  try { await api('/api/admin/withdrawals/'+id+'/approve',{method:'POST'}); showToast('✅ Retiro aprobado'); loadAdminWithdrawals(); }
+  catch(e) { showToast('❌ '+e.message); }
 }
 async function rejectWithdraw(id) {
-  if (!confirm('¿Rechazar este retiro? Se devolverá el saldo.')) return;
-  try { await api(`/api/admin/withdrawals/${id}/reject`,{method:'POST'}); showToast('✅ Retiro rechazado y saldo devuelto'); loadAdminWithdrawals(); }
-  catch(e) { showToast(`❌ ${e.message}`); }
+  const reason = prompt('Motivo del rechazo:');
+  if (reason === null) return;
+  try { await api('/api/admin/withdrawals/'+id+'/reject',{method:'POST',body:JSON.stringify({reason})}); showToast('✅ Retiro rechazado'); loadAdminWithdrawals(); }
+  catch(e) { showToast('❌ '+e.message); }
 }
 
-// ═══════════════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════════════
-let toastTimer;
-function showToast(msg) {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
-}
-
-// ═══════════════════════════════════════════════
-//  COUPONS
-// ═══════════════════════════════════════════════
-async function loadCoupons() {
-  const extraEl = document.getElementById('coupons-extra-list');
-  if (!extraEl) return;
-  if (!user) {
-    extraEl.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:14px;">Iniciá sesión para ver tus cupones</div>';
-    return;
-  }
-  try {
-    const res = await api('/api/coupons/available');
-    if (!res.length) { extraEl.innerHTML = ''; return; }
-    extraEl.innerHTML = res.map(c => {
-      const label = c.discount_type==='percent' ? `${c.discount_value}% OFF` : `$ ${Number(c.discount_value).toLocaleString('es-UY')}`;
-      const minLabel = c.min_order > 0 ? `Mínimo de compra: $ ${Number(c.min_order).toLocaleString('es-UY')}` : 'Sin mínimo de compra';
-      const expiry = c.expires_at ? new Date(c.expires_at).toLocaleDateString('es-UY',{day:'numeric',month:'short'}) : null;
-      return `<div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
-        <div style="display:flex;min-height:100px;">
-          <div style="width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border-right:2px dashed #e0e0e0;gap:6px;">
-            <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;">B</div>
-            ${expiry ? `<div style="font-size:10px;font-weight:700;color:#e67e00;text-align:center;">Vence el<br>${expiry}</div>` : ''}
-          </div>
-          <div style="flex:1;padding:16px 14px;">
-            <div style="font-size:12px;color:#888;margin-bottom:4px;">De regalo</div>
-            <div style="font-size:26px;font-weight:900;color:#1a1a1a;line-height:1.1;margin-bottom:6px;">${label}</div>
-            <div style="font-size:12px;color:#666;line-height:1.5;">${minLabel}<br>${c.description||'Para lo que quieras'}</div>
-          </div>
-        </div>
-        <div style="border-top:1px solid #f0f0f0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
-          <button onclick="showToast('📋 Código: ${c.code}')" style="background:none;border:none;font-size:13px;font-weight:700;color:#1a1a1a;cursor:pointer;padding:0;">Ver detalles</button>
-          <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">Conocer locales</button>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { extraEl.innerHTML = ''; }
-}
-
-function showAddCouponModal() {
-  const code = prompt('Ingresá el código de cupón:');
-  if (!code) return;
-  validateCouponManual(code.trim().toUpperCase());
-}
-
-async function validateCouponManual(code) {
-  if (!code) {
-    const input = document.getElementById('coupon-code-input');
-    code = input ? input.value.trim().toUpperCase() : '';
-  }
-  if (!code) return showToast('Ingresá un código');
-  try {
-    const res = await api('/api/coupons/validate', 'POST', {code, order_total: 0});
-    if (res.valid) { showToast('✅ Cupón válido: ' + (res.coupon?.description || code)); loadCoupons(); }
-    else showToast('❌ ' + (res.error || 'Cupón inválido'));
-  } catch(e) { showToast('❌ Error al validar cupón'); }
-}
-
-
-async function validateCouponManual() {
-  const code = document.getElementById('coupon-code-input').value.trim();
-  const res_el = document.getElementById('coupon-manual-result');
-  if (!code) return showToast('Ingresá un código');
-  if (!user) return showToast('Iniciá sesión para usar cupones');
-  res_el.style.display = 'block';
-  res_el.innerHTML = '<span style="color:var(--muted);">Verificando...</span>';
-  try {
-    const data = await api('/api/coupons/validate', 'POST', { code, order_total: 9999, business_id: null });
-    res_el.innerHTML = `<span style="color:var(--success);font-weight:700;">✅ Cupón válido — ${data.coupon.discount_type==='percent' ? data.coupon.discount_value+'% de descuento' : '$'+data.coupon.discount_value+' de descuento'}</span>`;
-    document.getElementById('coupon-code-input').value = '';
-    showToast('🎟️ Cupón guardado — se aplicará en tu próximo pedido');
-    // Save to localStorage for cart to use
-    localStorage.setItem('active_coupon', JSON.stringify(data.coupon));
-  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);font-weight:600;">❌ ${e.message}</span>`; }
-}
-
-// ═══════════════════════════════════════════════
-//  HELP / AYUDA
-// ═══════════════════════════════════════════════
-function toggleFaq(el) {
-  el.classList.toggle('open');
-}
-
-async function sendHelpMessage() {
-  const name = document.getElementById('help-name').value.trim();
-  const email = document.getElementById('help-email').value.trim();
-  const msg = document.getElementById('help-msg').value.trim();
-  const res_el = document.getElementById('help-result');
-  if (!email || !msg) return showToast('Email y mensaje son requeridos');
-  res_el.style.display = 'block';
-  res_el.innerHTML = '<span style="color:var(--muted);">Enviando...</span>';
-  try {
-    await api('/api/help', 'POST', { name: name || (user?.name || 'Anónimo'), email: email || user?.email, message: msg });
-    res_el.innerHTML = '<span style="color:var(--success);font-weight:700;">✅ Mensaje enviado — te responderemos a la brevedad</span>';
-    document.getElementById('help-name').value = '';
-    document.getElementById('help-email').value = '';
-    document.getElementById('help-msg').value = '';
-  } catch(e) { res_el.innerHTML = `<span style="color:var(--primary);">❌ ${e.message}</span>`; }
-}
-
-// Pre-fill help form if user is logged in
-function initHelpPage() {
-  if (user) {
-    const nameEl = document.getElementById('help-name');
-    const emailEl = document.getElementById('help-email');
-    if (nameEl && !nameEl.value) nameEl.value = user.name || '';
-    if (emailEl && !emailEl.value) emailEl.value = user.email || '';
-  }
-}
-
-// ═══════════════════════════════════════════════
-//  ADMIN — COUPONS SECTION
-// ═══════════════════════════════════════════════
+// ── COUPONS ────────────────────────────────────────
 async function loadAdminCoupons() {
-  const el = document.getElementById('admin-coupons-list');
-  if (!el) return;
   try {
-    const coupons = await api('/api/admin/coupons');
-    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No hay cupones creados</div>'; return; }
-    el.innerHTML = coupons.map(c => `
-      <div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <div>
-            <span style="font-size:16px;font-weight:900;letter-spacing:1px;color:#ea356b;">${c.code}</span>
-            ${c.business_name ? `<span style="font-size:11px;color:var(--muted);margin-left:8px;">🏪 ${c.business_name}</span>` : '<span style="font-size:11px;color:var(--muted);margin-left:8px;">Global</span>'}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="background:${c.active?'#e6f9f0':'#f5f5f5'};color:${c.active?'var(--success)':'var(--muted)'};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${c.active?'Activo':'Pausado'}</span>
-            <button onclick="toggleAdminCoupon('${c.id}',${!c.active})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;cursor:pointer;">${c.active?'Pausar':'Activar'}</button>
-            <button onclick="deleteAdminCoupon('${c.id}')" style="padding:6px 10px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
-          </div>
+    const data = await api('/api/coupons/admin');
+    const el = document.getElementById('admin-coupons-list');
+    if (!data.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin cupones</div>'; return; }
+    el.innerHTML = data.map(c=>`
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <div style="font-size:22px;">🎫</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;letter-spacing:1px;">${c.code}</div>
+          <div style="font-size:12px;color:var(--muted);">${c.type==='percent'?c.value+'%':'$'+c.value} off ${c.min_order_amount>0?'· mín $'+c.min_order_amount:''} · usados: ${c.used_count||0}${c.max_uses?'/'+c.max_uses:''}</div>
+          ${c.expires_at?`<div style="font-size:11px;color:${new Date(c.expires_at)<new Date()?'#ef4444':'var(--muted)'};">Vence: ${new Date(c.expires_at).toLocaleDateString('es-UY')}</div>`:''}
         </div>
-        <div style="font-size:13px;color:var(--muted);margin-top:6px;">
-          ${c.discount_type==='percent'?`${c.discount_value}% descuento`:`$${c.discount_value} descuento fijo`}
-          ${c.min_order>0?` · Mínimo $${c.min_order}`:''}
-          ${c.max_uses?` · ${c.uses_count}/${c.max_uses} usos`:''}
-          ${c.expires_at?` · Vence ${new Date(c.expires_at).toLocaleDateString('es-UY')}`:''}
-        </div>
-        ${c.description?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">${c.description}</div>`:''}
+        <button onclick="adminDeleteCoupon('${c.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:12px;">🗑️</button>
       </div>`).join('');
-  } catch(e) { el.innerHTML = '<div style="color:var(--muted);">Error al cargar</div>'; }
+  } catch(e) { showToast('❌ '+e.message); }
 }
-
-async function toggleAdminCoupon(id, active) {
-  try { await api(`/api/admin/coupons/${id}`, 'PATCH', { active }); loadAdminCoupons(); showToast(active ? '✅ Cupón activado' : '⏸️ Cupón pausado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-async function deleteAdminCoupon(id) {
-  if (!confirm('¿Borrar este cupón?')) return;
-  try { await api(`/api/admin/coupons/${id}`, 'DELETE'); loadAdminCoupons(); showToast('🗑️ Cupón eliminado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
 async function createAdminCoupon() {
-  const code = document.getElementById('new-coupon-code').value.trim().toUpperCase();
-  const type = document.getElementById('new-coupon-type').value;
-  const value = parseFloat(document.getElementById('new-coupon-value').value);
-  const min = parseFloat(document.getElementById('new-coupon-min').value) || 0;
-  const maxUses = parseInt(document.getElementById('new-coupon-maxuses').value) || null;
+  const code    = document.getElementById('new-coupon-code').value.trim().toUpperCase();
+  const type    = document.getElementById('new-coupon-type').value;
+  const value   = parseFloat(document.getElementById('new-coupon-value').value);
+  const minAmt  = parseFloat(document.getElementById('new-coupon-min').value)||0;
+  const maxUses = parseInt(document.getElementById('new-coupon-maxuses').value)||null;
   const expires = document.getElementById('new-coupon-expires').value || null;
-  const desc = document.getElementById('new-coupon-desc').value.trim();
-  if (!code || !value) return showToast('Código y descuento son requeridos');
+  const desc    = document.getElementById('new-coupon-desc').value.trim();
+  if (!code || isNaN(value)) return showToast('Completá código y valor');
   try {
-    await api('/api/admin/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min, max_uses: maxUses, expires_at: expires || null });
+    await api('/api/coupons',{method:'POST',body:JSON.stringify({code,type,value,min_order_amount:minAmt,max_uses:maxUses,expires_at:expires,description:desc})});
     showToast('✅ Cupón creado');
-    document.getElementById('new-coupon-code').value = '';
-    document.getElementById('new-coupon-value').value = '';
-    document.getElementById('new-coupon-min').value = '';
-    document.getElementById('new-coupon-maxuses').value = '';
-    document.getElementById('new-coupon-expires').value = '';
-    document.getElementById('new-coupon-desc').value = '';
+    ['new-coupon-code','new-coupon-value','new-coupon-min','new-coupon-maxuses','new-coupon-expires','new-coupon-desc'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     loadAdminCoupons();
-  } catch(e) { showToast('❌ ' + e.message); }
+  } catch(e) { showToast('❌ '+e.message); }
+}
+async function adminDeleteCoupon(id) {
+  if (!confirm('¿Eliminar este cupón?')) return;
+  try { await api('/api/coupons/'+id,{method:'DELETE'}); showToast('✅ Cupón eliminado'); loadAdminCoupons(); }
+  catch(e) { showToast('❌ '+e.message); }
 }
 
-// ═══════════════════════════════════════════════
-//  ADMIN — HELP MESSAGES
-// ═══════════════════════════════════════════════
-async function loadAdminHelp() {
-  const el = document.getElementById('admin-help-list');
-  if (!el) return;
-  try {
-    const msgs = await api('/api/admin/help');
-    if (!msgs.length) { el.innerHTML = '<div style="color:var(--muted);padding:20px;text-align:center;">No hay mensajes</div>'; return; }
-    const rows = msgs.map(m => {
-      const r = m.status === 'resolved';
-      const replyHtml = m.admin_reply
-        ? '<p style="font-size:13px;background:#f5f5f5;border-radius:8px;padding:10px;color:#666;"><b>Respuesta:</b> ' + m.admin_reply + '</p>'
-        : '<div style="display:flex;gap:8px;margin-top:8px;">'
-          + '<input class="form-input" id="reply-' + m.id + '" placeholder="Escribi tu respuesta..." style="flex:1;font-size:13px;">'
-          + '<button onclick="replyHelp(\'' + m.id + '\')" style="padding:8px 14px;background:var(--primary);color:#fff;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Responder</button>'
-          + '</div>';
-      return '<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid ' + (r?'#d4edda':'#e5e5e5') + ';">'
-        + '<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
-        + '<b style="font-size:14px;">' + m.user_name + '</b>'
-        + '<span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;background:' + (r?'#e6f9f0':'#fff5f7') + ';color:' + (r?'var(--success)':'var(--primary)') + ';">' + (r?'Resuelto':'Pendiente') + '</span>'
-        + '</div>'
-        + '<p style="font-size:12px;color:var(--muted);margin:-4px 0 8px;">' + m.user_email + '</p>'
-        + '<p style="font-size:13px;color:#333;">' + m.message + '</p>'
-        + replyHtml
-        + '<p style="font-size:11px;color:var(--muted);margin-top:6px;">' + new Date(m.created_at).toLocaleString('es-UY') + '</p>'
-        + '</div>';
-    });
-    el.innerHTML = rows.join('');
-  } catch(e) { el.innerHTML = '<div style="color:var(--muted);">Error al cargar</div>'; }
-}
-async function replyHelp(id) {
-  const reply = document.getElementById(`reply-${id}`)?.value.trim();
-  if (!reply) return showToast('Escribí una respuesta');
-  try { await api(`/api/admin/help/${id}`, 'PATCH', { reply }); showToast('✅ Respuesta enviada por email'); loadAdminHelp(); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-// ═══════════════════════════════════════════════
-//  OWNER — COUPONS
-// ═══════════════════════════════════════════════
-async function loadOwnerCoupons() {
-  const el = document.getElementById('owner-coupons-list');
-  if (!el) return;
-  try {
-    const coupons = await api('/api/owner/coupons');
-    if (!coupons.length) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;font-size:13px;">No creaste cupones todavía</div>'; return; }
-    el.innerHTML = coupons.map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f9f9f9;border-radius:10px;margin-bottom:8px;">
-        <div>
-          <div style="font-weight:800;color:#ea356b;letter-spacing:1px;">${c.code}</div>
-          <div style="font-size:12px;color:var(--muted);">${c.discount_type==='percent'?`${c.discount_value}% OFF`:`$${c.discount_value} OFF`} ${c.uses_count ? `· ${c.uses_count} usos` : ''}</div>
-        </div>
-        <button onclick="deleteOwnerCoupon('${c.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid #ffcccc;background:#fff5f5;color:#cc0000;font-size:12px;cursor:pointer;">Borrar</button>
-      </div>`).join('');
-  } catch(e) {}
-}
-
-async function createOwnerCoupon() {
-  const code = document.getElementById('oc-code')?.value.trim().toUpperCase();
-  const type = document.getElementById('oc-type')?.value;
-  const value = parseFloat(document.getElementById('oc-value')?.value);
-  const min = parseFloat(document.getElementById('oc-min')?.value) || 0;
-  const desc = document.getElementById('oc-desc')?.value.trim();
-  if (!code || !value) return showToast('Código y descuento son requeridos');
-  try {
-    await api('/api/owner/coupons', 'POST', { code, description: desc, discount_type: type, discount_value: value, min_order: min });
-    showToast('✅ Cupón creado');
-    document.getElementById('oc-code').value = '';
-    document.getElementById('oc-value').value = '';
-    document.getElementById('oc-min').value = '';
-    if (document.getElementById('oc-desc')) document.getElementById('oc-desc').value = '';
-    loadOwnerCoupons();
-  } catch(e) { showToast('❌ ' + e.message); }
-}
-
-async function deleteOwnerCoupon(id) {
-  if (!confirm('¿Borrar este cupón?')) return;
-  try { await api(`/api/owner/coupons/${id}`, 'DELETE'); loadOwnerCoupons(); showToast('🗑️ Cupón eliminado'); }
-  catch(e) { showToast('❌ ' + e.message); }
-}
-
-// ── Safari vs PWA padding fix ──
-(function() {
-  // Prevent zoom on double-tap and pinch for all browsers
-  document.addEventListener('touchstart', function(e){ if(e.touches.length > 1) e.preventDefault(); }, {passive:false});
-  let lastTouch = 0;
-  document.addEventListener('touchend', function(e){
-    const now = Date.now();
-    if (now - lastTouch < 300) e.preventDefault();
-    lastTouch = now;
-  }, {passive:false});
-})();
-
-
-// ── DYNAMIC HOME ──
-function goToBlowPlus() {
-  if (!user) { openAuth(); return; }
-  // Check blow plus status directly from cached user or hit API
-  fetch('/api/user/blow-plus', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}})
-    .then(r=>r.json())
-    .then(status=>{
-      if (status.active) {
-        const until = status.period_end
-          ? new Date(status.period_end).toLocaleDateString('es-UY',{day:'numeric',month:'long',year:'numeric'})
-          : '';
-        const msg = until ? 'Tu membresía está activa hasta el ' + until : 'Tu membresía está activa';
-        alert('⚡ ¡Sos Blow+!\n\n' + msg + '\n\n✅ Envíos gratis en todos tus pedidos\n✅ Acceso a promociones exclusivas');
-      } else {
-        nav('page-user-blowplus');
-      }
-    })
-    .catch(()=>nav('page-subscription'));
-}
-
-async function loadBlowPlusBanner() {
-  try {
-    const res = await fetch('/api/config/blowplus-banner');
-    if (!res.ok) return;
-    const d = await res.json();
-    if (d.title) {
-      const t = document.getElementById('blowplus-banner-title');
-      const s = document.getElementById('blowplus-banner-sub');
-      if (t) t.textContent = d.title;
-      if (s) s.textContent = d.subtitle || '';
-    }
-  } catch(e) {}
-}
-
-async function loadHomeDynamic() {
-  await Promise.all([loadPromoBanners(), loadFeatured()]);
-}
-
-// ── ADMIN BANNERS ──
-// ── ADMIN BANNERS ──
-function _abnCard(b) {
-  const bg = b.image_url
-    ? `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 45%,rgba(0,0,0,.15)),url('${b.image_url}') right center/cover no-repeat;`
-    : `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 60%,${shadeColor(b.bg_color||'#ea356b',25)} 100%);`;
-  const media = b.image_url
-    ? `<img src="${b.image_url}" style="position:absolute;right:0;top:0;bottom:0;width:40%;object-fit:cover;pointer-events:none;">`
-    : `<span style="font-size:44px;line-height:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.2));">${b.emoji||'🍔'}</span>`;
-  const paused = b.active===false;
-  return `<div class="abn-card" id="abn-${b.id}" style="${paused?'opacity:.55':''}">
-    <!-- PREVIEW -->
-    <div class="abn-preview" style="${bg}">
-      <div style="z-index:1;max-width:60%;">
-        <div style="font-size:15px;font-weight:800;color:#fff;line-height:1.2;">${b.title||''}</div>
-        ${b.subtitle?`<div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:2px;">${b.subtitle}</div>`:''}
-        ${b.highlight?`<div style="font-size:20px;font-weight:900;color:#FFE566;margin-top:4px;">${b.highlight}</div>`:''}
-      </div>
-      ${media}
-      ${paused?'<div style="position:absolute;top:6px;right:8px;background:rgba(0,0,0,.5);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">PAUSADO</div>':''}
-    </div>
-    <!-- EDIT BODY -->
-    <div class="abn-body">
-      <div class="abn-row">
-        <input class="abn-inp" id="abn-title-${b.id}" value="${(b.title||'').replace(/"/g,'&quot;')}" placeholder="Título">
-        <input class="abn-inp" id="abn-sub-${b.id}" value="${(b.subtitle||'').replace(/"/g,'&quot;')}" placeholder="Subtítulo" style="flex:0.8;">
-      </div>
-      <div class="abn-row">
-        <input class="abn-inp" id="abn-hl-${b.id}" value="${(b.highlight||'').replace(/"/g,'&quot;')}" placeholder="Destacado (50% OFF)" style="flex:0.7;">
-        <input class="abn-inp" id="abn-hll-${b.id}" value="${(b.highlight_label||'').replace(/"/g,'&quot;')}" placeholder="Etiq. (Hasta)" style="flex:0.5;">
-        <input class="abn-inp" id="abn-em-${b.id}" value="${b.emoji||'🍔'}" placeholder="Emoji" style="flex:0;width:52px;text-align:center;font-size:18px;" maxlength="4">
-        <input type="color" id="abn-col-${b.id}" value="${b.bg_color||'#ea356b'}" title="Color" style="width:42px;height:36px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;padding:2px;">
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button class="primary-btn" style="padding:8px 14px;font-size:12px;" onclick="saveAdminBanner('${b.id}')">💾 Guardar</button>
-        <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#f9f9f9;">
-          🖼️ ${b.image_url?'Cambiar foto':'Subir foto'}
-          <input type="file" accept="image/*" style="display:none;" onchange="uploadBannerImage('${b.id}',this)">
-        </label>
-        ${b.image_url?`<button style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#f9f9f9;" onclick="removeBannerImage('${b.id}')">🗑️ Quitar foto</button>`:''}
-        <button style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#f9f9f9;margin-left:auto;" onclick="toggleAdminBanner('${b.id}',${paused})">${paused?'▶️ Activar':'⏸️ Pausar'}</button>
-        <button style="padding:8px 12px;border-radius:10px;border:1.5px solid #fee2e2;font-size:12px;font-weight:600;cursor:pointer;background:#fff5f5;color:#dc2626;" onclick="deleteAdminBanner('${b.id}')">✕</button>
-      </div>
-    </div>
-  </div>`;
-}
-
+// ── BANNERS ────────────────────────────────────────
 async function loadAdminBanners() {
-  const el = document.getElementById('admin-banners-list');
-  if (!el) return;
   try {
-    const res = await fetch('/api/admin/banners', {headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-    const banners = await res.json();
-    el.innerHTML = banners.length
-      ? banners.map(b => _abnCard(b)).join('')
-      : '<div style="text-align:center;color:#aaa;padding:30px 0;font-size:14px;">No hay banners aún.<br>Creá el primero 👆</div>';
-  } catch(e){ el.innerHTML='<div style="color:#dc2626;padding:12px;">Error al cargar banners</div>'; }
+    const banners = await api('/api/banners/admin');
+    const el = document.getElementById('admin-banners-list');
+    if (!banners.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin banners</div>'; return; }
+    el.innerHTML = banners.map(b=>`
+      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <div style="width:48px;height:48px;border-radius:10px;background:${b.bg_color||b.background_color||'#ea356b'};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;">${b.title||''}</div>
+          <div style="font-size:12px;color:var(--muted);">${b.subtitle||b.sub_title||''} ${b.highlight_label?'· 🏷️ '+b.highlight_label:''}</div>
+          <div style="font-size:11px;color:var(--muted);">Orden: ${b.sort_order??b.order??0} · ${b.is_active!==false?'✅ Activo':'⏸️ Inactivo'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button onclick="adminToggleBanner('${b.id}',${b.is_active!==false})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">${b.is_active!==false?'⏸️ Ocultar':'▶️ Mostrar'}</button>
+          <button onclick="adminDeleteBanner('${b.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Borrar</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { showToast('❌ '+e.message); }
 }
-
-async function saveAdminBanner(id) {
-  const title = document.getElementById(`abn-title-${id}`)?.value?.trim();
-  const subtitle = document.getElementById(`abn-sub-${id}`)?.value?.trim();
-  const highlight = document.getElementById(`abn-hl-${id}`)?.value?.trim();
-  const highlight_label = document.getElementById(`abn-hll-${id}`)?.value?.trim();
-  const emoji = document.getElementById(`abn-em-${id}`)?.value?.trim() || '🍔';
-  const bg_color = document.getElementById(`abn-col-${id}`)?.value || '#ea356b';
-  if (!title) return showToast('El título es obligatorio');
-  const res = await fetch(`/api/admin/banners/${id}`, {method:'PATCH', headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'}, body:JSON.stringify({title,subtitle,highlight,highlight_label,emoji,bg_color})});
-  const d = await res.json();
-  if (d.ok) { showToast('✅ Banner guardado'); loadAdminBanners(); loadPromoBanners(); }
-  else showToast('Error: '+(d.error||''));
-}
-
 async function createAdminBanner() {
-  const title = document.getElementById('bn-title')?.value?.trim();
-  const subtitle = document.getElementById('bn-subtitle')?.value?.trim();
-  const highlight = document.getElementById('bn-highlight')?.value?.trim();
-  const highlight_label = document.getElementById('bn-hl-label')?.value?.trim();
-  const emoji = document.getElementById('bn-emoji')?.value?.trim() || '🍔';
-  const bg_color = document.getElementById('bn-color')?.value || '#ea356b';
-  if (!title) return showToast('Ingresá un título');
-  const res = await fetch('/api/admin/banners',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({title,subtitle,highlight,highlight_label,emoji,bg_color})});
-  const d = await res.json();
-  if (d.ok) {
-    showToast('✅ Banner creado');
-    loadAdminBanners(); loadPromoBanners();
-    ['bn-title','bn-subtitle','bn-highlight','bn-hl-label'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-    document.getElementById('bn-emoji').value='🍔';
-    document.getElementById('bn-color').value='#ea356b';
-  } else showToast('Error: '+d.error);
-}
-
-async function uploadBannerImage(id, input) {
-  const file = input.files[0]; if (!file) return;
-  showToast('⏳ Subiendo imagen...');
-  const fd = new FormData(); fd.append('image', file);
-  const res = await fetch(`/api/admin/banners/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
-  const d = await res.json();
-  if (d.ok) { showToast('✅ Imagen subida'); loadAdminBanners(); loadPromoBanners(); }
-  else showToast('Error al subir imagen');
-}
-
-async function removeBannerImage(id) {
-  const res = await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({image_url:null})});
-  const d = await res.json();
-  if (d.ok) { showToast('✅ Foto eliminada'); loadAdminBanners(); loadPromoBanners(); }
-}
-
-async function toggleAdminBanner(id, makeActive) {
-  await fetch(`/api/admin/banners/${id}`,{method:'PATCH',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({active:makeActive})});
-  loadAdminBanners(); loadPromoBanners();
-}
-
-async function deleteAdminBanner(id) {
-  if (!confirm('¿Eliminar este banner? Esta acción no se puede deshacer.')) return;
-  await fetch(`/api/admin/banners/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-  showToast('🗑️ Banner eliminado');
-  loadAdminBanners(); loadPromoBanners();
-}
-
-// ── ADMIN FEATURED ──
-async function loadAdminFeatured() {
+  const title    = document.getElementById('bn-title').value.trim();
+  const subtitle = document.getElementById('bn-sub').value.trim();
+  const bg_color = document.getElementById('bn-color').value;
+  const label    = document.getElementById('bn-label').value.trim();
+  const link     = document.getElementById('bn-link').value.trim();
+  const order    = parseInt(document.getElementById('bn-order').value)||0;
+  if (!title) return showToast('El título es obligatorio');
   try {
-    const [featRes, bizRes] = await Promise.all([
-      fetch('/api/admin/featured',{headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}}),
-      fetch('/api/businesses')
-    ]);
-    const feats = await featRes.json();
-    const bizAll = await bizRes.json();
-    // Populate business select
-    const sel = document.getElementById('feat-biz-select');
-    if(sel) sel.innerHTML = '<option value="">-- Elegir negocio --</option>' + bizAll.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
-    document.getElementById('admin-featured-list').innerHTML = feats.length
-      ? feats.map(f=>`<div class="admin-row">
-          <div style="flex:1;"><strong>${f.biz_name||'(sin nombre)'}</strong>${f.custom_title?` · "${f.custom_title}"`:''}
-          ${f.custom_image?`<br><img src="${f.custom_image}" style="height:40px;border-radius:6px;margin-top:4px;">`:''}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="file" accept="image/*" onchange="uploadFeaturedImage('${f.id}',this)" style="font-size:11px;width:120px;">
-            <button class="btn-sm btn-danger" onclick="deleteAdminFeatured('${f.id}')">✕</button>
-          </div>
-        </div>`).join('')
-      : '<div style="text-align:center;color:#aaa;padding:20px;">No hay negocios destacados</div>';
-  } catch(e){}
+    await api('/api/admin/banners',{method:'POST',body:JSON.stringify({title,subtitle,bg_color,highlight_label:label,link_url:link,sort_order:order,is_active:true})});
+    showToast('✅ Banner creado');
+    ['bn-title','bn-sub','bn-label','bn-link'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('bn-order').value = '0';
+    loadAdminBanners();
+  } catch(e) { showToast('❌ '+e.message); }
+}
+async function adminToggleBanner(id, isActive) {
+  try { await api('/api/admin/banners/'+id,{method:'PATCH',body:JSON.stringify({is_active:!isActive})}); showToast('✅ Banner actualizado'); loadAdminBanners(); }
+  catch(e) { showToast('❌ '+e.message); }
+}
+async function adminDeleteBanner(id) {
+  if (!confirm('¿Eliminar este banner?')) return;
+  try { await api('/api/admin/banners/'+id,{method:'DELETE'}); showToast('✅ Banner eliminado'); loadAdminBanners(); }
+  catch(e) { showToast('❌ '+e.message); }
 }
 
-async function createAdminFeatured() {
-  const business_id = document.getElementById('feat-biz-select')?.value;
-  const custom_title = document.getElementById('feat-title')?.value?.trim();
-  if(!business_id) return showToast('Elegí un negocio');
-  const res = await fetch('/api/admin/featured',{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token'),'Content-Type':'application/json'},body:JSON.stringify({business_id,custom_title})});
-  const d = await res.json();
-  if(d.ok){ showToast('✅ Negocio destacado'); loadAdminFeatured(); loadFeatured(); }
-  else showToast('Error: '+d.error);
-}
-
-async function uploadFeaturedImage(id, input) {
-  const file = input.files[0]; if(!file) return;
-  const fd = new FormData(); fd.append('image',file);
-  const res = await fetch(`/api/admin/featured/${id}/image`,{method:'POST',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')},body:fd});
-  const d = await res.json();
-  if(d.ok){ showToast('✅ Imagen subida'); loadAdminFeatured(); loadFeatured(); }
-  else showToast('Error al subir');
-}
-
-async function deleteAdminFeatured(id) {
-  if(!confirm('¿Quitar de destacados?')) return;
-  await fetch(`/api/admin/featured/${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+localStorage.getItem('da_token')}});
-  loadAdminFeatured(); loadFeatured();
-}
 
 
 // ── PERSONAL INFO PAGE ──
