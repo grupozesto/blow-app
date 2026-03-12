@@ -265,6 +265,8 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_payment_id TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_status TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_ready_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
@@ -1479,6 +1481,13 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
     return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   }
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
+  // Si el owner confirma, guardar tiempo estimado de entrega
+  if (status === 'confirmed' && req.body.estimated_minutes) {
+    const mins = parseInt(req.body.estimated_minutes);
+    if (mins > 0 && mins <= 240) {
+      await q('UPDATE orders SET estimated_ready_at=NOW()+($1::int * INTERVAL \'1 minute\') WHERE id=$2', [mins, order.id]);
+    }
+  }
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
   if (status==='delivered') {
     await q('UPDATE orders SET delivered_at=NOW() WHERE id=$1',[order.id]);
@@ -1513,7 +1522,7 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
 app.patch('/api/orders/:id/internal-notes', auth, async (req, res) => {
   try {
     const { internal_notes } = req.body;
-    if (typeof internal_notes !== 'string') return res.status(400).json({ error:'internal_notes debe ser texto' });
+    if (typeof internal_notes !== 'string' || !internal_notes.trim()) return res.status(400).json({ error:'La nota no puede estar vacía' });
     const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
     if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
     // Solo el owner del negocio o admin
@@ -1523,8 +1532,13 @@ app.patch('/api/orders/:id/internal-notes', auth, async (req, res) => {
     } else if (req.user.role !== 'admin') {
       return res.status(403).json({ error:'No autorizado' });
     }
-    await q('UPDATE orders SET internal_notes=$1, updated_at=NOW() WHERE id=$2', [internal_notes.trim(), order.id]);
-    res.json({ ok: true });
+    // Acumular notas con timestamp en lugar de pisar
+    const newNote = internal_notes.trim();
+    const existing = order.internal_notes || '';
+    const now = new Date().toLocaleString('es-UY', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const appended = existing ? `${existing}\n[${now}] ${newNote}` : `[${now}] ${newNote}`;
+    await q('UPDATE orders SET internal_notes=$1, updated_at=NOW() WHERE id=$2', [appended, order.id]);
+    res.json({ ok: true, internal_notes: appended });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1541,11 +1555,12 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   } else if (req.user.role !== 'admin') {
     return res.status(403).json({ error:'No autorizado' });
   }
-  await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[order.id]);
+  await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
   const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
+  const reasonText = req.body.reason ? ` Motivo: "${req.body.reason}"` : '';
   if (biz) {
-    notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
-    sendPushToOwner(biz.owner_id,{ title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado.`, tag:`order-${order.id}`, url:'/' });
+    notify(biz.owner_id,{ type:'order_cancelled', message:`❌ Pedido cancelado${reasonText}`, order_id:order.id });
+    sendPushToOwner(biz.owner_id,{ title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado.${reasonText}`, tag:`order-${order.id}`, url:'/' });
   }
   // Si cancela el owner, notificar al cliente
   if (req.user.role==='owner') {
