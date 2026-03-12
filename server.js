@@ -264,6 +264,7 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS platform_fee REAL DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_payment_id TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_status TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -1474,6 +1475,24 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_update',status,order_id:order.id });
   res.json(await q1('SELECT * FROM orders WHERE id=$1',[order.id]));
+});
+
+app.patch('/api/orders/:id/internal-notes', auth, async (req, res) => {
+  try {
+    const { internal_notes } = req.body;
+    if (typeof internal_notes !== 'string') return res.status(400).json({ error:'internal_notes debe ser texto' });
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
+    // Solo el owner del negocio o admin
+    if (req.user.role === 'owner') {
+      const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1 AND id=$2', [req.user.id, order.business_id]);
+      if (!biz) return res.status(403).json({ error:'No autorizado' });
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ error:'No autorizado' });
+    }
+    await q('UPDATE orders SET internal_notes=$1, updated_at=NOW() WHERE id=$2', [internal_notes.trim(), order.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
@@ -2760,17 +2779,17 @@ app.get('/api/banners', async (req,res)=>{
 });
 app.post('/api/admin/banners', auth, async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {title,subtitle,highlight,emoji,bg_color,link,sort_order} = req.body;
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order} = req.body;
   const id = 'ban_'+Date.now();
-  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,emoji,bg_color,link,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-    [id,title||'',subtitle||'',highlight||'',emoji||'🍔',bg_color||'#FA0050',link||'',sort_order||0]);
+  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link||'',sort_order||0]);
   res.json({ok:true,id});
 });
 app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url} = req.body;
-  await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),emoji=COALESCE($4,emoji),bg_color=COALESCE($5,bg_color),link=COALESCE($6,link),sort_order=COALESCE($7,sort_order),active=COALESCE($8,active),image_url=COALESCE($9,image_url) WHERE id=$10",
-    [title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url,req.params.id]);
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url} = req.body;
+  await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),highlight_label=COALESCE($4,highlight_label),emoji=COALESCE($5,emoji),bg_color=COALESCE($6,bg_color),link=COALESCE($7,link),sort_order=COALESCE($8,sort_order),active=COALESCE($9,active),image_url=COALESCE($10,image_url),updated_at=NOW() WHERE id=$11",
+    [title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url,req.params.id]);
   res.json({ok:true});
 });
 app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
