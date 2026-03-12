@@ -84,7 +84,49 @@ wss.on('connection', ws => {
 });
 function notify(userId, payload) {
   const ws = clients.get(userId);
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
+  const wsAlive = ws && ws.readyState === 1;
+  if (wsAlive) ws.send(JSON.stringify(payload));
+  // Always send push for order events (owner may have tab closed)
+  // Map internal payload to push-friendly format
+  const pushTypes = ['new_order','status_change','order_cancelled','order_update','chat_message','subscription_cancelled','account_banned'];
+  if (pushTypes.includes(payload.type)) {
+    const pushPayload = buildPushPayload(payload);
+    // Fire-and-forget, don't await
+    sendPushToOwner(userId, pushPayload).catch(() => {});
+  }
+}
+
+function buildPushPayload(payload) {
+  const icons = { new_order:'🔔', status_change:'📦', order_cancelled:'❌', order_update:'📦', chat_message:'💬', subscription_cancelled:'📋', account_banned:'⛔' };
+  const icon = icons[payload.type] || '🔔';
+  let title = 'Blow';
+  let body  = payload.message || '';
+  let url   = '/';
+  if (payload.type === 'new_order') {
+    title = '🔔 Nuevo pedido';
+    body  = payload.message || `Pedido #${(payload.order_id||'').slice(-6).toUpperCase()} — $${payload.total||0}`;
+    url   = '/business';
+  } else if (payload.type === 'status_change' || payload.type === 'order_update') {
+    title = '📦 Tu pedido';
+    body  = payload.message || `Estado actualizado: ${payload.status||''}`;
+    url   = payload.order_id ? `/?order=${payload.order_id}` : '/';
+  } else if (payload.type === 'order_cancelled') {
+    title = '❌ Pedido cancelado';
+    body  = payload.message || 'Un pedido fue cancelado';
+    url   = '/business';
+  } else if (payload.type === 'chat_message') {
+    title = '💬 Nuevo mensaje';
+    body  = payload.body || 'Tenés un mensaje nuevo';
+    url   = payload.order_id ? (payload.sender_role === 'customer' ? '/business' : `/?order=${payload.order_id}`) : '/';
+  } else if (payload.type === 'subscription_cancelled') {
+    title = '📋 Suscripción cancelada';
+    body  = payload.message || 'Tu suscripción fue cancelada';
+    url   = '/business';
+  } else if (payload.type === 'account_banned') {
+    title = '⛔ Cuenta suspendida';
+    body  = payload.message || 'Tu cuenta fue suspendida';
+  }
+  return { title, body, url, tag: payload.type + (payload.order_id ? '-' + payload.order_id.slice(-6) : ''), icon: '/icons/icon-192.png', badge: '/icons/icon-72.png' };
 }
 
 // ── PostgreSQL ─────────────────────────────────
@@ -497,12 +539,14 @@ async function sendPushToOwner(ownerId, payload) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify(payload)
+          JSON.stringify(payload),
+          { TTL: 60 * 60 * 24 } // 24h TTL
         );
       } catch(e) {
-        // Suscripción expirada o inválida → borrar
-        if (e.statusCode === 404 || e.statusCode === 410) {
+        if (e.statusCode === 404 || e.statusCode === 410 || e.statusCode === 400) {
           await q('DELETE FROM push_subscriptions WHERE id=$1', [sub.id]);
+        } else {
+          console.warn('Push send error:', e.statusCode, e.message?.slice(0,80));
         }
       }
     }
