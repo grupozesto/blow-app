@@ -602,7 +602,6 @@ async function auth(req, res, next) {
     next();
   } catch { res.status(401).json({ error:'Token inválido' }); }
 }
-}
 const role = (...roles) => (req, res, next) =>
   roles.includes(req.user && req.user.role) ? next() : res.status(403).json({ error:`Rol requerido: ${roles.join('/')}` });
 
