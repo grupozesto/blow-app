@@ -7,6 +7,21 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Blow — Portal de Negocios</title>
 <style>
+/* ── CSS Variables ── */
+:root {
+  --primary:#ea356b; --primary-dark:#c42558;
+  --bg:#f0f3f8; --surface:#fff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
+  --red:#ef4444; --green:#22c55e; --blue:#2558d4;
+  --r:14px;
+}
+[data-theme="dark"] {
+  --bg:#0f111a; --surface:#1a1d2e; --text:#e2e8f0; --muted:#64748b; --border:#2a2d3e;
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) {
+    --bg:#0f111a; --surface:#1a1d2e; --text:#e2e8f0; --muted:#64748b; --border:#2a2d3e;
+  }
+}
 /* ── RESET ── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 
@@ -559,6 +574,7 @@ if(window.navigator.standalone===true||window.matchMedia('(display-mode:standalo
         <span class="hdr-status-dot"></span>
         <span id="h-status-label">Cerrado</span>
       </button>
+      <button onclick="bizCycleDark()" title="Modo oscuro" style="background:rgba(255,255,255,.12);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;" id="biz-dark-btn">🌙</button>
     </div>
     <div id="kpi-bar">
       <div class="kpi"><div class="kpi-v" id="k0">0</div><div class="kpi-l">Pedidos hoy</div></div>
@@ -638,6 +654,14 @@ let _ooWalletIdx=0,_ooTouchX=0;
 // INIT
 // ════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  // Dark mode
+  (function(){
+    const saved = localStorage.getItem('blow_biz_theme') || 'auto';
+    if (saved === 'dark') document.documentElement.setAttribute('data-theme','dark');
+    else if (saved === 'light') document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+  })();
+
   if(_tok && _usr && (_usr.role==='owner'||_usr.role==='admin')){
     showApp();
   } else {
@@ -1230,6 +1254,19 @@ async function changeDeliveryTime(delta){
   _deliveryTimer=setTimeout(async()=>{try{await api('/api/businesses/mine',{method:'PATCH',body:JSON.stringify({delivery_time:String(cur)})});toast('⏱️ Tiempo actualizado');}catch(e){toast('❌ Error al guardar');}},1500);
 }
 
+function bizCycleDark() {
+  const current = localStorage.getItem('blow_biz_theme') || 'auto';
+  const next = { auto:'dark', dark:'light', light:'auto' }[current] || 'auto';
+  const html = document.documentElement;
+  if (next === 'dark') html.setAttribute('data-theme','dark');
+  else if (next === 'light') html.setAttribute('data-theme','light');
+  else html.removeAttribute('data-theme');
+  localStorage.setItem('blow_biz_theme', next);
+  const btn = document.getElementById('biz-dark-btn');
+  if (btn) btn.textContent = { auto:'🌙', dark:'☀️', light:'🔆' }[next] || '🌙';
+  toast({ auto:'Auto', dark:'🌙 Modo oscuro', light:'☀️ Modo claro' }[next]);
+}
+
 async function toggleOpen(){
   if(!_biz)return;
   const newState=!_biz.is_open;
@@ -1432,6 +1469,7 @@ function showAddProduct(editP=null){
   const el=document.getElementById('content-area');
   const isEdit=!!editP;const p=editP||{};const cats=_dash?.categories||[];
   _npPhotos=[null,null,null,null];
+  _npGroups={}; _npGroupCounter=0;
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
       <button onclick="renderMenu()" class="btn btn-g">← Volver</button>
@@ -1493,11 +1531,18 @@ function showAddProduct(editP=null){
   const up=()=>{const price=parseFloat(document.getElementById('np-price')?.value)||0;const disc=parseInt(document.getElementById('np-discount')?.value)||0;const prev=document.getElementById('np-price-preview');if(prev&&price>0&&disc>0){const f=Math.round(price*(1-disc/100));prev.style.display='flex';prev.innerHTML=`💸 Precio final: <strong>$${f}</strong> <span style="text-decoration:line-through;color:var(--muted);font-size:12px;">$${price}</span>`;}else if(prev)prev.style.display='none';};
   document.getElementById('np-price')?.addEventListener('input',up);document.getElementById('np-discount')?.addEventListener('input',up);up();
   // Cargar grupos de variantes existentes
-  _npGroups = (p.variants||[]).reduce((acc,v)=>{
-    if(!acc[v.group_name]) acc[v.group_name]={name:v.group_name,is_required:v.is_required||false,is_multi:v.is_multi||false,max_selections:v.max_selections||1,opts:[]};
-    acc[v.group_name].opts.push({name:v.option_name,delta:v.price_delta||0});
-    return acc;
-  },{});
+  _npGroups = {};
+  _npGroupCounter = 0;
+  (p.variants||[]).forEach(v => {
+    // Find existing group with same name or create new stable key
+    const existingKey = Object.keys(_npGroups).find(k => _npGroups[k].name === v.group_name);
+    if (existingKey) {
+      _npGroups[existingKey].opts.push({name: v.option_name, delta: v.price_delta||0});
+    } else {
+      const key = 'grp_' + (++_npGroupCounter);
+      _npGroups[key] = {name: v.group_name, is_required: v.is_required||false, is_multi: v.is_multi||false, max_selections: v.max_selections||1, opts: [{name: v.option_name, delta: v.price_delta||0}]};
+    }
+  });
   npRenderGroups();
 }
 function npPhotoSelected(slot,input){
@@ -1509,6 +1554,7 @@ function npPhotoSelected(slot,input){
 function npRemovePhoto(slot){_npPhotos[slot]=null;const sl=document.getElementById(`np-slot-${slot}`);if(sl){sl.style.border='2px dashed var(--border)';sl.innerHTML=`<div style="font-size:20px;color:var(--muted2);">📷</div><div style="font-size:9px;color:var(--muted);margin-top:3px;">${slot===0?'Principal':'Foto '+(slot+1)}</div><input type="file" id="np-input-${slot}" accept="image/*" style="display:none;" onchange="npPhotoSelected(${slot},this)">`;}}
 // ════════ VARIANT GROUPS EDITOR ════════
 let _npGroups = {};
+let _npGroupCounter = 0;
 
 function npRenderGroups() {
   const cont = document.getElementById('np-vgroups');
@@ -1518,15 +1564,15 @@ function npRenderGroups() {
   cont.innerHTML = keys.map(gk => {
     const g = _npGroups[gk];
     const optsHtml = g.opts.map((o, oi) =>
-      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;" id="npg-opt-${gk}-${oi}">
-        <input value="${o.name}" placeholder="Nombre opción" class="finp" style="flex:2;padding:8px 10px;" oninput="_npGroups['${gk}'].opts[${oi}].name=this.value">
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <input value="${o.name.replace(/"/g,'&quot;')}" placeholder="Nombre opción" class="finp" style="flex:2;padding:8px 10px;" oninput="_npGroups['${gk}'].opts[${oi}].name=this.value">
         <input type="number" value="${o.delta||0}" placeholder="+$" class="finp" style="flex:1;padding:8px 10px;" oninput="_npGroups['${gk}'].opts[${oi}].delta=parseFloat(this.value)||0">
         <button onclick="npRemoveOpt('${gk}',${oi})" style="background:#fee2e2;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;color:#dc2626;font-weight:800;font-size:13px;">✕</button>
       </div>`
     ).join('');
     return `<div style="background:#f8faff;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <input value="${g.name}" placeholder="Nombre del grupo" class="finp" style="flex:1;min-width:120px;padding:8px 10px;font-weight:700;" oninput="npRenameGroup('${gk}',this.value)">
+        <input value="${g.name.replace(/"/g,'&quot;')}" placeholder="Nombre del grupo" class="finp" style="flex:1;min-width:120px;padding:8px 10px;font-weight:700;" oninput="_npGroups['${gk}'].name=this.value">
         <button onclick="npRemoveGroup('${gk}')" style="background:#fee2e2;border:none;border-radius:8px;padding:7px 10px;cursor:pointer;color:#dc2626;font-size:13px;font-weight:800;">Eliminar</button>
       </div>
       <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;">
@@ -1545,18 +1591,12 @@ function npRenderGroups() {
 }
 
 function npAddGroup() {
-  const key = 'Grupo ' + (Object.keys(_npGroups).length + 1);
-  _npGroups[key] = { name: key, is_required: false, is_multi: false, max_selections: 1, opts: [{ name: '', delta: 0 }] };
+  const key = 'grp_' + (++_npGroupCounter);
+  const num = Object.keys(_npGroups).length + 1;
+  _npGroups[key] = { name: 'Grupo ' + num, is_required: false, is_multi: false, max_selections: 1, opts: [{ name: '', delta: 0 }] };
   npRenderGroups();
 }
 function npRemoveGroup(key) { delete _npGroups[key]; npRenderGroups(); }
-function npRenameGroup(oldKey, newName) {
-  if (!newName.trim() || newName === oldKey) { _npGroups[oldKey].name = newName; return; }
-  const newKey = newName.trim();
-  if (_npGroups[newKey]) return;
-  _npGroups[newKey] = { ..._npGroups[oldKey], name: newKey };
-  delete _npGroups[oldKey];
-}
 function npAddOpt(gk) { if (_npGroups[gk]) { _npGroups[gk].opts.push({ name: '', delta: 0 }); npRenderGroups(); } }
 function npRemoveOpt(gk, oi) { if (_npGroups[gk]) { _npGroups[gk].opts.splice(oi, 1); npRenderGroups(); } }
 
