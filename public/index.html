@@ -2846,7 +2846,7 @@ function nav(pageId) {
   if (pageId === 'page-profile') renderProfile();
   if (pageId === 'page-owner-dash') loadOwnerDash();
   if (pageId === 'page-cart') loadCartPromos();
-  if (pageId === 'page-checkout') buildCheckout();
+  if (pageId === 'page-checkout') renderCheckoutPage();
   if (pageId === 'page-home') loadBankPromoStrip();
   if (pageId === 'page-profile') { if (user?.role === 'customer') loadUserBlowPlus(); }
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
@@ -4812,10 +4812,18 @@ async function loadTracking() {
           </div>
         </div>` : ''}
 
-        ${(!isCancelled && !isPending && (o.delivery_time||o.business_delivery_time)) ? `
-        <div style="background:#eff6ff;border-radius:10px;padding:9px 12px;font-size:13px;color:#1e40af;font-weight:600;margin:8px 0;display:flex;align-items:center;gap:6px;">
-          ⏱️ Tiempo estimado: <strong>${o.delivery_time||o.business_delivery_time} min</strong>
-        </div>` : ''}
+        ${(!isCancelled && !isPending) ? (() => {
+          // ETA dinámica: priorizar estimated_ready_at, fallback a delivery_time del negocio
+          if (o.estimated_ready_at && !['delivered','cancelled'].includes(o.status)) {
+            const minsLeft = Math.max(0, Math.round((new Date(o.estimated_ready_at) - Date.now()) / 60000));
+            const etaText = minsLeft <= 1 ? '¡Ya casi está listo!' : `${minsLeft} min`;
+            return `<div style="background:#eff6ff;border-radius:10px;padding:9px 12px;font-size:13px;color:#1e40af;font-weight:600;margin:8px 0;display:flex;align-items:center;gap:6px;">⏱️ Tiempo estimado: <strong>${etaText}</strong></div>`;
+          }
+          if (o.delivery_time || o.business_delivery_time) {
+            return `<div style="background:#eff6ff;border-radius:10px;padding:9px 12px;font-size:13px;color:#1e40af;font-weight:600;margin:8px 0;display:flex;align-items:center;gap:6px;">⏱️ Tiempo estimado: <strong>${o.delivery_time||o.business_delivery_time} min</strong></div>`;
+          }
+          return '';
+        })() : ''}
 
         ${o.status==='on_way' ? '<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>' : ''}
 
@@ -4855,9 +4863,36 @@ async function loadTracking() {
 
 
 async function cancelOrder(id) {
-  if (!confirm('¿Cancelar este pedido?')) return;
-  try { await api(`/api/orders/${id}/cancel`,{method:'POST'}); showToast('✅ Pedido cancelado'); loadTracking(); }
-  catch(e) { showToast(`❌ ${e.message}`); }
+  // Modal con motivo de cancelación
+  const reasons = ['Me equivoqué al pedir','Tardó demasiado','Ya no lo necesito','Voy a buscarlo yo','Otro motivo'];
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:0;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 36px;width:100%;max-width:480px;box-shadow:0 -4px 40px rgba(0,0,0,.15);">
+      <div style="width:36px;height:4px;background:#e2e8f0;border-radius:99px;margin:0 auto 20px;"></div>
+      <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:6px;">¿Cancelar pedido?</div>
+      <div style="font-size:14px;color:#64748b;margin-bottom:20px;">Contanos por qué (opcional)</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        ${reasons.map(r => `<button onclick="this.parentNode.querySelectorAll('button').forEach(b=>b.style.background='#f8fafc');this.style.background='#fce7ef';this.style.borderColor='var(--primary)';this.style.color='var(--primary)';window._cancelReason='${r}';"
+          style="text-align:left;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;transition:.15s;">${r}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="this.closest('div[style*=fixed]').remove();window._cancelReason='';" style="flex:1;background:#f1f5f9;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">Volver</button>
+        <button id="confirm-cancel-btn" style="flex:1;background:var(--primary);border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar pedido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  window._cancelReason = '';
+  await new Promise(resolve => {
+    overlay.querySelector('#confirm-cancel-btn').onclick = resolve;
+    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); window._cancelReason = ''; } });
+  });
+  overlay.remove();
+  try {
+    await api(`/api/orders/${id}/cancel`, { method:'POST', body: JSON.stringify({ reason: window._cancelReason || '' }) });
+    showToast('✅ Pedido cancelado');
+    loadTracking();
+  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
 // ── Reviews ──────────────────────────────────

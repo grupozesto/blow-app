@@ -1253,13 +1253,20 @@ function renderOrderCard(o,compact=false){
   const typ=o.fulfillment_type==='pickup'?'\U0001f3ea Retira':'\U0001f6f5 Delivery';
   const oid=JSON.stringify(o.id);
   const notesVal=(o.internal_notes||'').replace(/"/g,'&quot;');
-  const customerNotes=o.notes?`<div style="font-size:12px;background:rgba(251,191,36,.12);border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:var(--text);">\U0001f4dd <b>Cliente:</b> ${o.notes}</div>`:'';
-  const internalNotesField=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:${next?'10px':'4px'};">
-      <input id="inotes-${o.id}" type="text" value="${notesVal}" placeholder="\U0001f4cc Nota interna (solo vos la ves)..."
-        style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;"
-        onkeydown="if(event.key==='Enter')saveInternalNote(${oid},this.value)">
-      <button onclick="saveInternalNote(${oid},document.getElementById('inotes-'+${oid}).value)"
-        style="background:rgba(255,255,255,.08);border:none;border-radius:8px;padding:6px 10px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>
+  const customerNotes=o.notes?`<div style="font-size:12px;background:rgba(251,191,36,.12);border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:var(--text);">📝 <b>Cliente:</b> ${o.notes}</div>`:'';
+  const cancelNote=o.cancel_reason?`<div style="font-size:12px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:#ef4444;">❌ <b>Motivo cancelación:</b> ${o.cancel_reason}</div>`:'';
+  const etaBadge=(o.estimated_ready_at&&!['delivered','cancelled'].includes(o.status))?(()=>{const m=Math.max(0,Math.round((new Date(o.estimated_ready_at)-Date.now())/60000));return `<span style="font-size:11px;background:rgba(59,130,246,.12);border-radius:6px;padding:2px 7px;color:#3b82f6;font-weight:700;">⏱ ${m<=1?'¡Ya casi!':m+' min'}</span>`;})():'';
+  const hasNotes = notesVal && notesVal.trim();
+  const notesLines = hasNotes ? notesVal.split('\n').map(l=>`<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,.04);">${l}</div>`).join('') : '';
+  const internalNotesField=`<div style="margin-bottom:${next?'10px':'4px'};">
+      ${hasNotes?`<div id="inotes-log-${o.id}" style="font-size:11px;color:var(--muted);background:rgba(255,255,255,.04);border-radius:8px;padding:6px 10px;margin-bottom:4px;max-height:72px;overflow-y:auto;">${notesLines}</div>`:`<div id="inotes-log-${o.id}" style="display:none;font-size:11px;color:var(--muted);background:rgba(255,255,255,.04);border-radius:8px;padding:6px 10px;margin-bottom:4px;"></div>`}
+      <div style="display:flex;gap:6px;">
+        <input id="inotes-${o.id}" type="text" placeholder="📌 Agregar nota interna..."
+          style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;"
+          onkeydown="if(event.key==='Enter')saveInternalNote(${oid},this.value)">
+        <button onclick="saveInternalNote(${oid},document.getElementById('inotes-'+${oid}).value)"
+          style="background:rgba(255,255,255,.08);border:none;border-radius:8px;padding:6px 10px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Nota</button>
+      </div>
     </div>`;
   return `<div class="oc ${o.status}" style="margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1267,12 +1274,14 @@ function renderOrderCard(o,compact=false){
         <span style="font-size:14px;font-weight:900;">#${o.id.slice(-6).toUpperCase()}</span>
         <span style="font-size:11px;color:var(--muted);">${time}</span>
         <span class="badge ${st.badge}">${st.label}</span>
+        ${etaBadge}
       </div>
       <span style="font-size:15px;font-weight:900;">$${Math.round(o.total||0)}</span>
     </div>
     ${!compact?`
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px;"><b style="color:var(--text);">${o.customer_name||'Cliente'}</b> \u00b7 ${typ} \u00b7 ${pay}</div>
     ${customerNotes}
+    ${cancelNote}
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemsText}</div>
     ${internalNotesField}`:``}
     ${next?`<div style="display:flex;gap:8px;">
@@ -1284,40 +1293,96 @@ function renderOrderCard(o,compact=false){
   </div>`;
 }
 // ════════ ORDERS TAB ════════
+let _ordersSearch = '';
+let _ordersFilter = 'active';
+
 async function renderOrders(){
   const el=document.getElementById('content-area');
   try{
     const data=await api('/api/orders');
-    const orders=Array.isArray(data)?data:(data.orders||[]);
-    const active=orders.filter(o=>!['delivered','cancelled'].includes(o.status));
-    const done=orders.filter(o=>['delivered','cancelled'].includes(o.status)).slice(0,10);
-    el.innerHTML=`
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-size:15px;font-weight:800;">En curso (${active.length})</div>
-      </div>
-      ${active.length?active.map(o=>renderOrderCard(o)).join(''):'<div class="empty"><div class="empty-icon">📭</div><div>Sin pedidos activos</div></div>'}
-      ${done.length?`<div class="sec" style="margin-top:16px;">RECIENTES</div>${done.map(o=>renderOrderCard(o,true)).join('')}`:''}`;
+    const allOrders=Array.isArray(data)?data:(data.orders||[]);
+    renderOrdersUI(allOrders);
   }catch(e){el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">${e.message}</div>`;}
 }
 
-async function updateOrder(id,status){
-  if(status==='cancelled'&&!confirm('¿Cancelar este pedido?'))return;
-  try{
-    if(status==='cancelled')await api(`/api/orders/${id}/cancel`,{method:'POST'});
-    else await api(`/api/orders/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});
-    toast(status==='cancelled'?'✅ Pedido cancelado':'✅ Estado actualizado');
-    const d=await api('/api/businesses/mine/dashboard');_dash=d;_biz=d.business||{};
-    updateHeader();updateKPIs();
-    if(_tab==='home')renderHome();else renderOrders();
-  }catch(e){toast('❌ '+e.message);}
+function renderOrdersUI(allOrders) {
+  const el=document.getElementById('content-area');
+  const q = _ordersSearch.toLowerCase().trim();
+
+  let filtered = allOrders.filter(o => {
+    if (_ordersFilter === 'active') return !['delivered','cancelled'].includes(o.status);
+    if (_ordersFilter === 'done')   return ['delivered','cancelled'].includes(o.status);
+    return true;
+  });
+
+  if (q) {
+    filtered = filtered.filter(o =>
+      (o.customer_name||'').toLowerCase().includes(q) ||
+      o.id.slice(-6).toLowerCase().includes(q) ||
+      (o.items||[]).some(i => i.name.toLowerCase().includes(q))
+    );
+  }
+
+  const active = allOrders.filter(o => !['delivered','cancelled'].includes(o.status));
+
+  el.innerHTML=`
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:15px;font-weight:800;">Pedidos</div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);">${active.length} activo${active.length!==1?'s':''}</div>
+      </div>
+      <input type="search" placeholder="🔍 Buscar por cliente, #ID o producto..."
+        value="${_ordersSearch}"
+        oninput="_ordersSearch=this.value;renderOrdersUI(window._lastOrders||[]);"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;">
+        ${['active','done','all'].map(f => `<button onclick="_ordersFilter='${f}';renderOrdersUI(window._lastOrders||[]);"
+          style="padding:6px 14px;border-radius:20px;border:1px solid ${_ordersFilter===f?'var(--primary)':'var(--border)'};background:${_ordersFilter===f?'rgba(234,53,107,.12)':'transparent'};color:${_ordersFilter===f?'var(--primary)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;">
+          ${{active:'🟢 Activos',done:'✓ Listos',all:'▤ Todos'}[f]}
+        </button>`).join('')}
+      </div>
+    </div>
+    ${filtered.length ? filtered.map(o=>renderOrderCard(o, ['delivered','cancelled'].includes(o.status))).join('') : '<div class="empty"><div class="empty-icon">📭</div><div>Sin resultados</div></div>'}`;
+  window._lastOrders = allOrders;
+}
+
+async function updateOrder(id, status) {
+  let body = { status };
+
+  if (status === 'cancelled') {
+    if (!confirm('¿Cancelar este pedido?')) return;
+  }
+
+  // Al confirmar, preguntar tiempo estimado
+  if (status === 'confirmed') {
+    const mins = prompt('⏱️ ¿En cuántos minutos estará listo? (dejá en blanco para omitir)');
+    if (mins === null) return; // cancelaron el prompt
+    const n = parseInt(mins);
+    if (n > 0) body.estimated_minutes = n;
+  }
+
+  try {
+    if (status === 'cancelled') await api(`/api/orders/${id}/cancel`, { method:'POST' });
+    else await api(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify(body) });
+    toast(status === 'cancelled' ? '✅ Pedido cancelado' : '✅ Estado actualizado');
+    const d = await api('/api/businesses/mine/dashboard'); _dash=d; _biz=d.business||{};
+    updateHeader(); updateKPIs();
+    if (_tab === 'home') renderHome(); else renderOrders();
+  } catch(e) { toast('❌ ' + e.message); }
 }
 
 async function saveInternalNote(id, text) {
+  if (!text.trim()) return;
   try {
-    await api(`/api/orders/${id}/internal-notes`, { method:'PATCH', body:JSON.stringify({ internal_notes: text }) });
-    // Visual feedback: brief green tint on input
+    const res = await api(`/api/orders/${id}/internal-notes`, { method:'PATCH', body:JSON.stringify({ internal_notes: text }) });
+    // Update the display with accumulated notes
     const inp = document.getElementById('inotes-' + id);
-    if (inp) { inp.style.borderColor = '#22c55e'; setTimeout(() => { inp.style.borderColor = ''; }, 1200); }
+    const log = document.getElementById('inotes-log-' + id);
+    if (inp) { inp.value = ''; inp.style.borderColor = '#22c55e'; setTimeout(() => { inp.style.borderColor = ''; }, 1200); }
+    if (log && res.internal_notes) {
+      log.innerHTML = res.internal_notes.split('\n').map(line => `<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,.04);">${line}</div>`).join('');
+      log.style.display = 'block';
+    }
     toast('📌 Nota guardada');
   } catch(e) { toast('❌ ' + e.message); }
 }
