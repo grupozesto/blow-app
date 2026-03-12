@@ -2841,19 +2841,26 @@ app.get('/api/banners', async (req,res)=>{
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
-app.post('/api/admin/banners', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order} = req.body;
+app.get('/api/banners/admin', auth, role('admin'), async (req,res)=>{
+  try {
+    const rows = await db.query("SELECT *,active as is_active FROM promo_banners ORDER BY sort_order ASC, created_at DESC");
+    res.json(rows.rows);
+  } catch(e){ res.json([]); }
+});
+app.post('/api/admin/banners', auth, role('admin'), async (req,res)=>{
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active} = req.body;
   const id = 'ban_'+Date.now();
-  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link||'',sort_order||0]);
+  const active = is_active !== false;
+  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active]);
   res.json({ok:true,id});
 });
 app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url} = req.body;
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,is_active,image_url} = req.body;
+  const activeVal = is_active !== undefined ? is_active : active;
   await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),highlight_label=COALESCE($4,highlight_label),emoji=COALESCE($5,emoji),bg_color=COALESCE($6,bg_color),link=COALESCE($7,link),sort_order=COALESCE($8,sort_order),active=COALESCE($9,active),image_url=COALESCE($10,image_url),updated_at=NOW() WHERE id=$11",
-    [title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url,req.params.id]);
+    [title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,activeVal,image_url,req.params.id]);
   res.json({ok:true});
 });
 app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
