@@ -4342,8 +4342,11 @@ function renderCart() {
   const sub = cart.reduce((a,b)=>a+b.price*b.qty,0);
   // Use store's delivery cost — 0 if pickup
   const store = currentStoreForCart || allStores.find(s=>s.id===cart[0]?.biz_id);
-  const fee = selectedFulfillment === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0);
-  const feeLabel = selectedFulfillment === 'pickup' ? 'Retiro en tienda · Gratis' : (fee === 0 ? 'Envío · Gratis' : `Envío · $${fee}`);
+  const storeKnown = !!store;
+  const feeRaw = selectedFulfillment === 'pickup' ? 0 : (store?.custom_delivery_cost ?? store?.delivery_cost ?? null);
+  const fee = feeRaw ?? 0; // fallback to 0 for total calc
+  const feeDisplay = feeRaw === null ? '—' : (feeRaw === 0 ? 'Gratis' : `$${feeRaw}`);
+  const feeLabel = selectedFulfillment === 'pickup' ? 'Retiro en tienda · Gratis' : (feeRaw === 0 ? 'Envío · Gratis' : feeRaw === null ? 'Envío (a calcular)' : `Envío · $${feeRaw}`);
   body.innerHTML=`
     <div class="cart-items">${cart.map(item=>`
       <div class="cart-item">
@@ -4358,14 +4361,21 @@ function renderCart() {
     </div>
     <div class="cart-summary">
       <div class="sum-row"><span>Subtotal</span><span>$${sub}</span></div>
-      <div class="sum-row"><span>${feeLabel}</span><span>${fee===0?'Gratis':'$'+fee}</span></div>
+      <div class="sum-row"><span>${feeLabel}</span><span>${feeDisplay}</span></div>
       ${activePromo ? `<div class="sum-row" style="color:#27ae60;font-weight:700;">
-        <span>🏷️ ${activePromo.name}</span><span>-$${activePromoDiscount}</span>
+        <span>🏷️ ${activePromo.name}</span><span>-$${activePromo.type==='free_delivery' ? fee : activePromoDiscount}</span>
       </div>` : ''}
-      ${activePromo?.type==='free_delivery' ? `<div class="sum-row" style="color:#27ae60;font-size:12px;"><span>Envío gratis aplicado</span><span>✓</span></div>` : ''}
-      <div class="sum-row total"><span>Total</span><span>$${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</span></div>
+      ${(() => {
+        const disc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
+        const total = Math.max(0, sub + fee - disc);
+        return `<div class="sum-row total"><span>Total</span><span>$${total}</span></div>`;
+      })()}
     </div>
-    <button class="checkout-btn" onclick="openCheckoutPage()">Ver resumen y pagar · $${Math.max(0, sub + (activePromo?.type==='free_delivery' ? 0 : fee) - (activePromo?.type==='free_delivery' ? 0 : activePromoDiscount))}</button>`;
+    ${(() => {
+      const disc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
+      const total = Math.max(0, sub + fee - disc);
+      return `<button class="checkout-btn" onclick="openCheckoutPage()">Ver resumen y pagar · $${total}</button>`;
+    })()}`;
 }
 
 // ── Estado del checkout ──────────────────────────
@@ -4382,24 +4392,29 @@ function openCheckoutPage() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
   if (!cart.length) return;
+  if (!cart[0]?.biz_id) { showToast('❌ Error: carrito sin negocio asociado. Volvé a agregar los productos.'); return; }
   // Verificar si el negocio está abierto
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
-  if (store && store.is_open === false || store?.is_open === 0) {
+  const isClosed = store && (store.is_open === false || store.is_open === 0);
+  if (isClosed) {
     showToast('🔴 Este negocio está cerrado ahora');
-    // Mostrar modal de negocio cerrado
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.innerHTML = `<div style="background:#fff;border-radius:20px;padding:28px;max-width:340px;width:100%;text-align:center;">
       <div style="font-size:56px;margin-bottom:12px;">🔴</div>
       <div style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:8px;">${store.name} está cerrado</div>
       <div style="font-size:14px;color:#64748b;margin-bottom:20px;">No está recibiendo pedidos en este momento. Podés intentar más tarde.</div>
-      <button onclick="this.closest('div[style]').remove()" style="width:100%;background:#0f172a;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;background:#0f172a;border:none;border-radius:12px;padding:14px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Entendido</button>
     </div>`;
     document.body.appendChild(overlay);
     return;
   }
-  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago'; _chkFulfillment = null;
-  _chkAddress = ''; _chkAltAddress = ''; _chkShowAltAddr = false;
+  // Reset checkout state — detectar fulfillment según el negocio
+  const hasDelivery = !store || store.offers_delivery !== false;
+  const hasPickup   = store?.offers_pickup === true;
+  _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
+  _chkFulfillment = hasDelivery ? 'delivery' : (hasPickup ? 'pickup' : 'delivery');
+  _chkAddress = ''; _chkAltAddress = ''; _chkShowAltAddr = false; _chkNotes = '';
   nav('page-checkout');
   renderCheckoutPage();
 }
@@ -4668,11 +4683,15 @@ async function doCheckout() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
   if (!cart.length) return;
 
+  const bizId = cart[0]?.biz_id;
+  if (!bizId && !isDemoMode) {
+    showToast('❌ Error inesperado: el carrito no tiene negocio. Volvé a agregar los productos.');
+    return;
+  }
+
   const btn = document.getElementById('checkout-pay-btn');
   btn.disabled = true;
   btn.textContent = '⏳ Procesando...';
-
-  const bizId = cart[0].biz_id;
 
   if (isDemoMode || !bizId || bizId.startsWith('demo-')) {
     cart = []; saveCart(); updateCartBadge();
@@ -4756,37 +4775,85 @@ async function loadTracking() {
   try {
     const orders = await api('/api/orders');
     if (!orders.length) { body.innerHTML='<div class="loading-state">No tenés pedidos aún 😊</div>'; return; }
+
+    // Pasos del flujo — 'pending' queda AFUERA (es espera de pago, no un paso del proceso)
+    const FLOW_STEPS  = ['confirmed','preparing','ready','on_way','delivered'];
+    const FLOW_LABELS = ['Confirmado','Preparando','Listo para entregar','En camino','Entregado'];
+
     body.innerHTML = orders.map(o => {
-      const stepIdx = STEPS_MAP.indexOf(o.status);
-      const steps = STEPS_MAP.map((s,i)=>({label:STEP_LABELS[i],done:i<stepIdx,cur:i===stepIdx}));
+      const isPending   = o.status === 'pending';
+      const isCancelled = o.status === 'cancelled';
+      const stepIdx     = FLOW_STEPS.indexOf(o.status);
+
+      const logoHtml = o.logo_url
+        ? `<img src="${o.logo_url}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;">`
+        : `<div style="width:36px;height:36px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${o.logo_emoji||'🏪'}</div>`;
+
+      const chatClosed = o.status==='delivered' && o.delivered_at && ((Date.now()-new Date(o.delivered_at).getTime())/36e5>48);
+      const hasUnread  = _chatUnread.has(o.id);
+
       return `<div class="order-card">
         <div class="oc-top">
-          <div><div class="oc-store">${o.business_name||o.business_id}</div><div class="oc-time">Pedido · ${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div>
-          <div class="status-badge ${o.status}">${o.status==='pending'?'⏳ Esperando pago':STATUS_LABELS[o.status]||o.status}</div>
-        ${(!['delivered','cancelled'].includes(o.status) && (o.delivery_time||o.business_delivery_time)) ? `<div style="background:#eff6ff;border-radius:10px;padding:9px 12px;font-size:13px;color:#1e40af;font-weight:600;margin:8px 0;display:flex;align-items:center;gap:6px;">⏱️ Tiempo estimado: <strong>${o.delivery_time||o.business_delivery_time} min</strong></div>` : ''}
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${logoHtml}
+            <div>
+              <div class="oc-store">${o.business_name||o.business_id}</div>
+              <div class="oc-time">${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+            </div>
+          </div>
+          <div class="status-badge ${o.status}">${isPending?'⏳ Esperando pago':STATUS_LABELS[o.status]||o.status}</div>
         </div>
-        ${o.status==='pending'?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:13px;color:#92400e;margin:8px 0;">⏳ Confirmando pago con MercadoPago... Esto puede demorar unos segundos.</div>`:''}
-        ${o.status==='on_way'?`<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>`:''}
-        <div class="track-steps">${steps.map((s,i)=>`
-          <div class="track-step ${s.done?'done':''}">
-            <div class="step-dot ${s.done?'done':''} ${s.cur?'cur':''}">${s.done?'✓':s.cur?'●':'○'}</div>
-            <div class="step-info"><div class="step-label ${s.done||s.cur?'done':''}">${s.label}</div></div>
-          </div>`).join('')}
-        </div>
+
+        ${isPending ? `
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
+          <div style="font-size:22px;">⏳</div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#92400e;">Confirmando pago con MercadoPago</div>
+            <div style="font-size:12px;color:#b45309;margin-top:2px;">Esto puede demorar unos segundos. No cerrés la app.</div>
+          </div>
+        </div>` : ''}
+
+        ${(!isCancelled && !isPending && (o.delivery_time||o.business_delivery_time)) ? `
+        <div style="background:#eff6ff;border-radius:10px;padding:9px 12px;font-size:13px;color:#1e40af;font-weight:600;margin:8px 0;display:flex;align-items:center;gap:6px;">
+          ⏱️ Tiempo estimado: <strong>${o.delivery_time||o.business_delivery_time} min</strong>
+        </div>` : ''}
+
+        ${o.status==='on_way' ? '<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>' : ''}
+
+        ${(!isPending && !isCancelled) ? `
+        <div class="track-steps">${FLOW_STEPS.map((s,i) => {
+          const done = i < stepIdx;
+          const cur  = i === stepIdx;
+          return `<div class="track-step ${done?'done':''}">
+            <div class="step-dot ${done?'done':''} ${cur?'cur':''}">${done?'✓':cur?'●':'○'}</div>
+            <div class="step-info"><div class="step-label ${done||cur?'done':''}">${FLOW_LABELS[i]}</div></div>
+          </div>`;
+        }).join('')}</div>` : ''}
+
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:13px;color:var(--muted);">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</span>
           <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
         </div>
-        ${['pending','confirmed'].includes(o.status)?`<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>`:''}
-        ${(()=>{const chatClosed=o.status==='delivered'&&o.delivered_at&&((Date.now()-new Date(o.delivered_at).getTime())/36e5>48);const hasUnread=_chatUnread.has(o.id);const safeName=(o.business_name||'').replace(/['"`]/g,'');if(o.status==='cancelled')return '';if(chatClosed)return '<div style="width:100%;margin-top:8px;background:#f8fafc;border-radius:10px;padding:10px;color:#94a3b8;font-size:12px;text-align:center;">🔒 Chat cerrado</div>';return '<button id="chat-btn-'+o.id+'" onclick="openOrderChat('+JSON.stringify(o.id)+','+JSON.stringify(o.business_name||'')+');clearChatBadge('+JSON.stringify(o.id)+')" style="width:100%;margin-top:8px;background:'+(hasUnread?'#2558d4':'#f8fafc')+';border:1.5px solid '+(hasUnread?'#2558d4':'#e2e8f0')+';border-radius:10px;padding:10px;color:'+(hasUnread?'#fff':'#0f172a')+';font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">💬 Chat con el negocio'+(hasUnread?' <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">● nuevo</span>':'')+'</button>';})}
-        ${o.status==='delivered'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+
+        ${['pending','confirmed'].includes(o.status) ? `<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>` : ''}
+
+        ${o.status==='cancelled' ? '' : chatClosed
+          ? '<div style="width:100%;margin-top:8px;background:#f8fafc;border-radius:10px;padding:10px;color:#94a3b8;font-size:12px;text-align:center;">🔒 Chat cerrado</div>'
+          : `<button id="chat-btn-${o.id}" onclick="openOrderChat(${JSON.stringify(o.id)},${JSON.stringify(o.business_name||'')});clearChatBadge(${JSON.stringify(o.id)})"
+              style="width:100%;margin-top:8px;background:${hasUnread?'#2558d4':'#f8fafc'};border:1.5px solid ${hasUnread?'#2558d4':'#e2e8f0'};border-radius:10px;padding:10px;color:${hasUnread?'#fff':'#0f172a'};font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+              💬 Chat con el negocio${hasUnread?' <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">● nuevo</span>':''}
+            </button>`}
+
+        ${o.status==='delivered' ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
           <button onclick="repeatOrder('${o.id}','${o.business_id}')" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:10px;color:#0369a1;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Pedir de nuevo</button>
-          <button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,'')}')" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Reseñar</button>
-        </div>`:''}
+          <button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\'")}')" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Reseñar</button>
+        </div>` : ''}
       </div>`;
     }).join('');
   } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
 }
+
 
 async function cancelOrder(id) {
   if (!confirm('¿Cancelar este pedido?')) return;
@@ -7683,20 +7750,25 @@ if (payStatus) {
 
     if (returnOrderId) {
       // Esperar hasta 10s a que el webhook confirme el pedido
+      // Usar flag para cancelar si el usuario navega a otra pantalla
+      let _pollCancelled = false;
+      const cancelPoll = () => { _pollCancelled = true; };
+      window.addEventListener('popstate', cancelPoll, { once: true });
       (async () => {
         for (let i = 0; i < 10; i++) {
+          if (_pollCancelled) break;
           await new Promise(r => setTimeout(r, 1000));
+          if (_pollCancelled) break;
           try {
             const order = await api(`/api/orders/${returnOrderId}`);
             if (order && order.status !== 'pending') break;
-            // En el último intento forzar verificación manual
             if (i === 8) {
               try { await api(`/api/orders/${returnOrderId}/verify-payment`, { method: 'POST' }); } catch(_) {}
             }
           } catch(e) { break; }
         }
-        nav('page-tracking');
-        loadTracking();
+        if (!_pollCancelled) { nav('page-tracking'); loadTracking(); }
+        window.removeEventListener('popstate', cancelPoll);
       })();
     } else {
       setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1500);
@@ -9960,20 +10032,29 @@ function ooShowRetiro() { ooOpenRetiroModal(); }
 async function repeatOrder(orderId, bizId) {
   try {
     showToast('🔄 Cargando tu pedido anterior...');
-    const orders = await api('/api/orders');
-    const order = orders.find(o => o.id === orderId);
+    const order = await api(`/api/orders/${orderId}`);
     if (!order || !order.items?.length) { showToast('❌ No se encontraron los items del pedido'); return; }
+    // Si hay carrito de otro negocio, preguntar primero
+    if (cart.length > 0 && cart[0].biz_id && cart[0].biz_id !== (bizId || order.business_id)) {
+      const otherStore = allStores.find(s => s.id === cart[0].biz_id);
+      if (!confirm(`Ya tenés productos de "${otherStore?.name || 'otro negocio'}" en el carrito.\n\n¿Vaciar el carrito y pedir de nuevo?`)) return;
+      cart = []; saveCart(); updateCartBadge();
+    }
     // Open the store
     await openStore(bizId || order.business_id);
     // Wait for store to load then add items
     setTimeout(() => {
       let added = 0;
       (order.items || []).forEach(item => {
-        const prod = _prodReg[item.product_id] || { id: item.product_id, name: item.name, price: item.unit_price || item.price || 0 };
-        // Try quick add (no variants)
-        addToCart({ ...prod, qty: item.quantity || 1 });
+        const prod = _prodReg[item.product_id] || { id: item.product_id, name: item.name, price: item.unit_price || item.price || 0, biz_id: bizId || order.business_id };
+        // Add without multi-store check (already cleared above)
+        const key = prod.cart_key || prod.id;
+        const ex = cart.find(x => (x.cart_key||x.id) === key);
+        if (ex) ex.qty += (item.quantity || 1);
+        else cart.push({...prod, qty: item.quantity || 1});
         added++;
       });
+      saveCart(); updateCartBadge();
       if (added > 0) {
         showToast(`✅ ${added} producto${added>1?'s':''} agregado${added>1?'s':''} al carrito`);
         setTimeout(() => nav('page-cart'), 800);
