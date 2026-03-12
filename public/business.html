@@ -575,6 +575,7 @@ if(window.navigator.standalone===true||window.matchMedia('(display-mode:standalo
         <span id="h-status-label">Cerrado</span>
       </button>
       <button onclick="bizCycleDark()" title="Modo oscuro" style="background:rgba(255,255,255,.12);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;" id="biz-dark-btn">🌙</button>
+      <button id="biz-push-btn" onclick="bizTogglePush()" title="Activar notificaciones push" style="background:rgba(255,255,255,.12);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🔕</button>
     </div>
     <div id="kpi-bar">
       <div class="kpi"><div class="kpi-v" id="k0">0</div><div class="kpi-l">Pedidos hoy</div></div>
@@ -860,7 +861,8 @@ async function showApp(){
   if(isPC())buildPCNav();
   nav('home');
   startRefresh();
-  // Resize listener
+  _bizCheckPushStatus();
+  setTimeout(bizInitPush, 1500);
   window.addEventListener('resize',()=>{
     if(isPC())buildPCNav();
     syncPCNav();
@@ -1265,6 +1267,73 @@ function bizCycleDark() {
   const btn = document.getElementById('biz-dark-btn');
   if (btn) btn.textContent = { auto:'🌙', dark:'☀️', light:'🔆' }[next] || '🌙';
   toast({ auto:'Auto', dark:'🌙 Modo oscuro', light:'☀️ Modo claro' }[next]);
+}
+
+// ── Push notifications (business.html) ────────
+function _bizVapidB64ToUint8(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function bizInitPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const r = await fetch('/api/push/vapid-public-key');
+    if (!r.ok) return;
+    const { key } = await r.json();
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      if (Notification.permission === 'denied') return;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _bizVapidB64ToUint8(key) });
+    }
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+      body: JSON.stringify(sub.toJSON())
+    });
+    _bizUpdatePushBtn(true);
+  } catch(e) { console.warn('Biz push init:', e.message); }
+}
+
+function _bizUpdatePushBtn(active) {
+  const btn = document.getElementById('biz-push-btn');
+  if (!btn) return;
+  btn.textContent = active ? '🔔' : '🔕';
+  btn.title = active ? 'Notificaciones activas — click para desactivar' : 'Activar notificaciones push';
+  btn.style.background = active ? 'rgba(34,197,94,.25)' : 'rgba(255,255,255,.12)';
+}
+
+async function bizTogglePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Tu navegador no soporta notificaciones push.'); return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
+    await fetch('/api/push/unsubscribe', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+      body: JSON.stringify({ endpoint: existing.endpoint })
+    }).catch(()=>{});
+    _bizUpdatePushBtn(false);
+    toast('🔕 Notificaciones desactivadas');
+  } else {
+    await bizInitPush();
+  }
+}
+
+async function _bizCheckPushStatus() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    _bizUpdatePushBtn(!!sub && Notification.permission === 'granted');
+  } catch {}
 }
 
 async function toggleOpen(){
