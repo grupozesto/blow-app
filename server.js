@@ -265,6 +265,7 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_payment_id TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_status TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -565,8 +566,17 @@ if (rateLimit) {
     standardHeaders: true, legacyHeaders: false,
     validate: { xForwardedForHeader: false },
   });
+  // Limiter más agresivo para forgot/reset: 5 intentos por hora
+  const passwordResetLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, max: 5,
+    message: { error: 'Demasiados intentos de recuperación. Esperá 1 hora.' },
+    standardHeaders: true, legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+  });
   app.use('/api/', generalLimiter);
   app.use('/api/auth/', authLimiter);
+  app.use('/api/auth/forgot-password', passwordResetLimiter);
+  app.use('/api/auth/reset-password', passwordResetLimiter);
 }
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
@@ -575,11 +585,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Helpers ───────────────────────────────────
 const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'7d' });
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const h = req.headers.authorization;
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error:'Token requerido' });
-  try { req.user = jwt.verify(h.split(' ')[1], JWT_SECRET); next(); }
-  catch { res.status(401).json({ error:'Token inválido' }); }
+  try {
+    const decoded = jwt.verify(h.split(' ')[1], JWT_SECRET);
+    // Invalidar tokens emitidos antes del último cambio de contraseña
+    if (decoded.iat) {
+      const u = await q1('SELECT password_changed_at FROM users WHERE id=$1', [decoded.id]);
+      if (u?.password_changed_at) {
+        const changedAt = Math.floor(new Date(u.password_changed_at).getTime() / 1000);
+        if (decoded.iat < changedAt) return res.status(401).json({ error:'Sesión expirada. Por favor iniciá sesión de nuevo.' });
+      }
+    }
+    req.user = decoded;
+    next();
+  } catch { res.status(401).json({ error:'Token inválido' }); }
+}
 }
 const role = (...roles) => (req, res, next) =>
   roles.includes(req.user && req.user.role) ? next() : res.status(403).json({ error:`Rol requerido: ${roles.join('/')}` });
@@ -762,7 +784,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
     if (!data.reset) return res.status(400).json({ error: 'Código inválido' });
     const hashed = await bcrypt.hash(new_password, 10);
-    await q('UPDATE users SET password=$1 WHERE id=$2', [hashed, data.user_id]);
+    await q('UPDATE users SET password=$1, password_changed_at=NOW() WHERE id=$2', [hashed, data.user_id]);
     await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
     const u = await q1('SELECT id,name,email,role FROM users WHERE id=$1', [data.user_id]);
     res.json({ ok: true, token: sign(u), user: { id:u.id, name:u.name, email:u.email, role:u.role } });
@@ -1434,16 +1456,28 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const { status } = req.body;
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
-  const allowed={ 
-    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered', 'ready|delivered':'delivered' },
+
+  // ── Validación de ownership PRIMERO (no filtrar por rol después) ──
+  if (req.user.role === 'owner') {
+    const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!b || b.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+  } else if (req.user.role === 'delivery') {
+    // Solo puede actuar sobre pedidos que le fueron asignados, o pedidos ready sin asignar de su zona
+    if (order.delivery_id && order.delivery_id !== req.user.id) return res.status(403).json({ error:'No autorizado' });
+  } else if (req.user.role !== 'admin') {
+    return res.status(403).json({ error:'No autorizado' });
+  }
+
+  const allowed={
+    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' },
     delivery:{ ready:'on_way', on_way:'delivered' },
     admin:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' }
   };
   const ra = allowed[req.user.role];
-  if (!ra || (ra[order.status] !== status && !(req.user.role === 'owner' && order.status === 'ready' && status === 'delivered'))) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
-  if (req.user.role==='owner') {
-    const b=await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-    if (!b||b.id!==order.business_id) return res.status(403).json({ error:'No es tu pedido' });
+  // owner puede marcar delivered desde ready (cuando maneja su propio delivery)
+  const ownerDirectDelivery = req.user.role === 'owner' && order.status === 'ready' && status === 'delivered';
+  if (!ra || (ra[order.status] !== status && !ownerDirectDelivery)) {
+    return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   }
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
@@ -1499,7 +1533,15 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
   if (!['pending','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
-  if (req.user.role==='customer'&&order.customer_id!==req.user.id) return res.status(403).json({ error:'No es tu pedido' });
+  // Validación de ownership por rol
+  if (req.user.role === 'customer') {
+    if (order.customer_id !== req.user.id) return res.status(403).json({ error:'No autorizado' });
+  } else if (req.user.role === 'owner') {
+    const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!b || b.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+  } else if (req.user.role !== 'admin') {
+    return res.status(403).json({ error:'No autorizado' });
+  }
   await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[order.id]);
   const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) {
@@ -2102,7 +2144,7 @@ app.delete('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
 app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req, res) => {
   const { password }=req.body;
   if (!password||password.length<6) return res.status(400).json({ error:'Mínimo 6 caracteres' });
-  await q('UPDATE users SET password=$1 WHERE id=$2',[await bcrypt.hash(password,10),req.params.id]);
+  await q('UPDATE users SET password=$1, password_changed_at=NOW() WHERE id=$2',[await bcrypt.hash(password,10),req.params.id]);
   res.json({ success:true });
 });
 app.get('/api/admin/businesses', auth, role('admin'), async (req, res) =>
@@ -2773,7 +2815,9 @@ app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business
 // ── PROMO BANNERS API ──
 app.get('/api/banners', async (req,res)=>{
   try {
-    const rows = await db.query("SELECT * FROM promo_banners WHERE active=TRUE ORDER BY sort_order ASC, created_at DESC");
+    const rows = await db.query(
+      "SELECT id,title,subtitle,highlight,highlight_label,emoji,bg_color,image_url FROM promo_banners WHERE active=TRUE ORDER BY sort_order ASC, created_at DESC"
+    );
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
