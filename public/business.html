@@ -579,7 +579,7 @@ if(window.navigator.standalone===true||window.matchMedia('(display-mode:standalo
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Inicio
     </button>
-    <button class="nb" data-t="orders" onclick="nav('orders')">
+    <button class="nb" id="tab-orders-btn" data-t="orders" onclick="nav('orders')" style="position:relative;">
       <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
       Pedidos
       <span class="nb-badge" id="nb-badge" style="display:none">0</span>
@@ -978,7 +978,7 @@ function nav(tab){
   }
   document.getElementById('content-area').innerHTML='<div class="spin"></div>';
   if(tab==='home')renderHome();
-  else if(tab==='orders')renderOrders();
+  else if(tab==='orders'){clearOrdersBadge();renderOrders();}
   else if(tab==='menu')renderMenu();
   else if(tab==='stats')renderStats();
   else if(tab==='settings'||tab==='cfg')renderSettings();
@@ -1248,9 +1248,19 @@ function renderOrderCard(o,compact=false){
   const st=STATUS_LABELS[o.status]||{label:o.status,color:'#94a3b8',badge:'b-gray'};
   const next=NEXT_STATUS[o.status];
   const time=new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
-  const items=(o.items||[]).map(i=>`${i.quantity}× ${i.name}`).join(', ')||'—';
-  const pay=o.payment_method==='cash'?'💵 Efectivo':'💳 Online';
-  const typ=o.fulfillment_type==='pickup'?'🏪 Retira':'🛵 Delivery';
+  const itemsText=(o.items||[]).map(i=>i.quantity+'\u00d7 '+i.name).join(', ')||'\u2014';
+  const pay=o.payment_method==='cash'?'\U0001f4b5 Efectivo':'\U0001f4b3 Online';
+  const typ=o.fulfillment_type==='pickup'?'\U0001f3ea Retira':'\U0001f6f5 Delivery';
+  const oid=JSON.stringify(o.id);
+  const notesVal=(o.internal_notes||'').replace(/"/g,'&quot;');
+  const customerNotes=o.notes?`<div style="font-size:12px;background:rgba(251,191,36,.12);border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:var(--text);">\U0001f4dd <b>Cliente:</b> ${o.notes}</div>`:'';
+  const internalNotesField=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:${next?'10px':'4px'};">
+      <input id="inotes-${o.id}" type="text" value="${notesVal}" placeholder="\U0001f4cc Nota interna (solo vos la ves)..."
+        style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none;"
+        onkeydown="if(event.key==='Enter')saveInternalNote(${oid},this.value)">
+      <button onclick="saveInternalNote(${oid},document.getElementById('inotes-'+${oid}).value)"
+        style="background:rgba(255,255,255,.08);border:none;border-radius:8px;padding:6px 10px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Guardar</button>
+    </div>`;
   return `<div class="oc ${o.status}" style="margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1261,17 +1271,18 @@ function renderOrderCard(o,compact=false){
       <span style="font-size:15px;font-weight:900;">$${Math.round(o.total||0)}</span>
     </div>
     ${!compact?`
-    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;"><b style="color:var(--text);">${o.customer_name||'Cliente'}</b> · ${typ} · ${pay}</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:${next?'10px':'0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${items}</div>`:''}
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;"><b style="color:var(--text);">${o.customer_name||'Cliente'}</b> \u00b7 ${typ} \u00b7 ${pay}</div>
+    ${customerNotes}
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemsText}</div>
+    ${internalNotesField}`:``}
     ${next?`<div style="display:flex;gap:8px;">
       <button onclick="updateOrder('${o.id}','${next.next}')" style="flex:1;background:var(--primary);border:none;border-radius:10px;padding:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">${next.label}</button>
-      <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}',this)" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">💬</button>
-      <button onclick="printTicket(${JSON.stringify(o).replace(/'/g,'&#39;')})" style="background:rgba(255,255,255,.08);border:none;border-radius:10px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;" title="Imprimir ticket">🖨️</button>
-      <button onclick="updateOrder('${o.id}','cancelled')" style="background:rgba(239,68,68,.15);border:none;border-radius:10px;padding:10px 13px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;">✕</button>
-    </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}',this)" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">💬 Ver chat</button>`}
+      <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}')" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">\U0001f4ac</button>
+      <button onclick="printTicket(${JSON.stringify(o).replace(/'/g,'&#39;')})" style="background:rgba(255,255,255,.08);border:none;border-radius:10px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;" title="Imprimir ticket">\U0001f5a8\ufe0f</button>
+      <button onclick="updateOrder('${o.id}','cancelled')" style="background:rgba(239,68,68,.15);border:none;border-radius:10px;padding:10px 13px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;">\u2715</button>
+    </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\\'")}')" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">\U0001f4ac Ver chat</button>`}
   </div>`;
 }
-
 // ════════ ORDERS TAB ════════
 async function renderOrders(){
   const el=document.getElementById('content-area');
@@ -1300,6 +1311,17 @@ async function updateOrder(id,status){
     if(_tab==='home')renderHome();else renderOrders();
   }catch(e){toast('❌ '+e.message);}
 }
+
+async function saveInternalNote(id, text) {
+  try {
+    await api(`/api/orders/${id}/internal-notes`, { method:'PATCH', body:JSON.stringify({ internal_notes: text }) });
+    // Visual feedback: brief green tint on input
+    const inp = document.getElementById('inotes-' + id);
+    if (inp) { inp.style.borderColor = '#22c55e'; setTimeout(() => { inp.style.borderColor = ''; }, 1200); }
+    toast('📌 Nota guardada');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
 
 // ════════ MENU ════════
 async function renderMenu(){
@@ -1883,6 +1905,76 @@ function showPrivacy() {
     <button class="btn btn-g btn-f" style="margin-top:16px;" onclick="closeMod()">Cerrar</button>`;
   document.getElementById('modal-ov').classList.add('show');
 }
+
+// ── WebSocket — notificaciones en tiempo real ──────────────────────────
+let _bizWs = null;
+let _pendingOrdersBadge = 0;
+
+function connectBizWS() {
+  const token = localStorage.getItem('blow_biz_token');
+  if (!token || _bizWs?.readyState === WebSocket.OPEN) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  _bizWs = new WebSocket(`${proto}//${location.host}`);
+  _bizWs.onopen = () => _bizWs.send(JSON.stringify({ token }));
+  _bizWs.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'new_order') {
+        // Sonido + toast
+        toast('🔔 ' + (msg.message || 'Nuevo pedido recibido'));
+        // Incrementar badge en tab de pedidos
+        _pendingOrdersBadge++;
+        updateOrdersBadge();
+        // Si el tab de pedidos está activo, refrescar inmediatamente
+        if (_tab === 'orders') renderOrders();
+        else if (_tab === 'home') renderHome();
+      }
+
+      if (msg.type === 'order_update' || msg.type === 'order_cancelled') {
+        if (_tab === 'orders') renderOrders();
+        else if (_tab === 'home') renderHome();
+      }
+
+      if (msg.type === 'chat_message') {
+        if (_chatOrderId === msg.order_id) {
+          loadChatMessages();
+        } else {
+          toast(`💬 Nuevo mensaje en pedido #${(msg.order_id||'').slice(-6).toUpperCase()}`);
+        }
+      }
+    } catch {}
+  };
+  _bizWs.onclose = () => setTimeout(connectBizWS, 5000);
+}
+
+function updateOrdersBadge() {
+  const btn = document.getElementById('tab-orders-btn');
+  if (!btn) return;
+  let badge = btn.querySelector('.orders-badge');
+  if (_pendingOrdersBadge > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'orders-badge';
+      badge.style.cssText = 'position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:99px;font-size:10px;font-weight:900;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px;';
+      btn.style.position = 'relative';
+      btn.appendChild(badge);
+    }
+    badge.textContent = _pendingOrdersBadge > 9 ? '9+' : _pendingOrdersBadge;
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
+function clearOrdersBadge() {
+  _pendingOrdersBadge = 0;
+  updateOrdersBadge();
+}
+
+// Conectar WS cuando carga la página
+window.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('blow_biz_token')) connectBizWS();
+});
 </script>
 </body>
 </html>
