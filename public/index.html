@@ -189,6 +189,9 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
 .chips::-webkit-scrollbar{display:none;}
 .chip{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e0e0e0;border-radius:30px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;color:#444;white-space:nowrap;transition:all .15s;}
+.flt-chip{background:#f8fafc;border:1.5px solid #e8edf3;border-radius:20px;padding:7px 13px;font-size:12px;font-weight:600;color:#475569;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.flt-chip.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+.flt-chip:hover:not(.active){border-color:var(--primary);color:var(--primary);}
 .chip:hover{border-color:#999;}
 .chip.active{background:var(--text);border-color:var(--text);color:#fff;}
 
@@ -1009,13 +1012,78 @@ body.owner-mode #owner-overlay {
     <!-- TIENDAS -->
     <div style="padding:16px 16px 0;">
       <div style="font-size:20px;font-weight:900;margin-bottom:12px;letter-spacing:-.3px;">Cerca de vos</div>
-      <div class="chips" id="chips" style="margin-bottom:4px;">
-        <div class="chip active" onclick="chipFilter(this,'all')">Todo</div>
-        <div class="chip" onclick="chipFilter(this,'food')">🍔 Comida</div>
-        <div class="chip" onclick="chipFilter(this,'market')">🛒 Mercado</div>
-        <div class="chip" onclick="chipFilter(this,'pharmacy')">💊 Farmacia</div>
-        <div class="chip" onclick="chipFilter(this,'drinks')">🥤 Bebidas</div>
-        <div class="chip" onclick="chipFilter(this,'desserts')">🍰 Postres</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div class="chips" id="chips" style="flex:1;min-width:0;">
+          <div class="chip active" onclick="chipFilter(this,'all')">Todo</div>
+          <div class="chip" onclick="chipFilter(this,'food')">🍔 Comida</div>
+          <div class="chip" onclick="chipFilter(this,'market')">🛒 Mercado</div>
+          <div class="chip" onclick="chipFilter(this,'pharmacy')">💊 Farmacia</div>
+          <div class="chip" onclick="chipFilter(this,'drinks')">🥤 Bebidas</div>
+          <div class="chip" onclick="chipFilter(this,'desserts')">🍰 Postres</div>
+        </div>
+        <button id="filter-toggle-btn" onclick="toggleFiltersPanel()" style="flex-shrink:0;display:flex;align-items:center;gap:5px;background:#fff;border:1.5px solid #e0e0e0;border-radius:30px;padding:8px 14px;font-size:13px;font-weight:700;color:#444;cursor:pointer;white-space:nowrap;transition:all .15s;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filtros <span id="filter-active-badge" style="display:none;background:var(--primary);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:2px;">0</span>
+        </button>
+      </div>
+      <!-- Panel de filtros avanzados -->
+      <div id="filters-panel" style="display:none;background:#fff;border-radius:16px;border:1.5px solid #f0f0f0;padding:16px;margin-top:8px;box-shadow:0 4px 20px rgba(0,0,0,.07);">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:12px;">Filtrar tiendas</div>
+
+        <!-- Envío -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Costo de envío</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="flt-chip active" data-filter="delivery" data-value="all" onclick="setFilter('delivery','all',this)">Cualquiera</button>
+            <button class="flt-chip" data-filter="delivery" data-value="free" onclick="setFilter('delivery','free',this)">🟢 Envío gratis</button>
+            <button class="flt-chip" data-filter="delivery" data-value="low" onclick="setFilter('delivery','low',this)">Menos de $60</button>
+          </div>
+        </div>
+
+        <!-- Tiempo -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Tiempo de entrega</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="flt-chip active" data-filter="time" data-value="all" onclick="setFilter('time','all',this)">Cualquiera</button>
+            <button class="flt-chip" data-filter="time" data-value="fast" onclick="setFilter('time','fast',this)">⚡ Menos de 30 min</button>
+            <button class="flt-chip" data-filter="time" data-value="medium" onclick="setFilter('time','medium',this)">30–45 min</button>
+          </div>
+        </div>
+
+        <!-- Estado -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Estado</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="flt-chip active" data-filter="open" data-value="all" onclick="setFilter('open','all',this)">Todos</button>
+            <button class="flt-chip" data-filter="open" data-value="open" onclick="setFilter('open','open',this)">🟢 Abiertos ahora</button>
+          </div>
+        </div>
+
+        <!-- Tipo -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Modalidad</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="flt-chip active" data-filter="mode" data-value="all" onclick="setFilter('mode','all',this)">Todos</button>
+            <button class="flt-chip" data-filter="mode" data-value="delivery" onclick="setFilter('mode','delivery',this)">🛵 Delivery</button>
+            <button class="flt-chip" data-filter="mode" data-value="pickup" onclick="setFilter('mode','pickup',this)">🏃 Retiro en tienda</button>
+          </div>
+        </div>
+
+        <!-- Ordenar -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Ordenar por</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="flt-chip active" data-filter="sort" data-value="default" onclick="setFilter('sort','default',this)">Destacados</button>
+            <button class="flt-chip" data-filter="sort" data-value="rating" onclick="setFilter('sort','rating',this)">⭐ Mejor calificados</button>
+            <button class="flt-chip" data-filter="sort" data-value="delivery_cost" onclick="setFilter('sort','delivery_cost',this)">💸 Menor envío</button>
+            <button class="flt-chip" data-filter="sort" data-value="delivery_time" onclick="setFilter('sort','delivery_time',this)">⚡ Más rápidos</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button onclick="clearFilters()" style="flex:1;background:#f1f5f9;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;">Limpiar</button>
+          <button onclick="applyFilters()" style="flex:2;background:var(--primary);border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;color:#fff;cursor:pointer;">Aplicar filtros</button>
+        </div>
       </div>
     </div>
     <div style="padding:14px 16px 80px;"><div class="stores-grid" id="stores-grid"><div class="loading-state"><div class="spinner"></div>Cargando tiendas...</div></div></div>
@@ -3188,7 +3256,7 @@ async function loadStores() {
     allStores = DEMO_STORES;
     isDemoMode = true;
   }
-  renderStores(allStores);
+  applyAllFilters();
 }
 
 function renderStores(list) {
@@ -3297,21 +3365,130 @@ function getCatBg(id) {
   return map[id] || '#f5f5f5';
 }
 
-function filterCat(cat) {
-  const filtered = cat==='all' ? allStores : allStores.filter(s => s.category===cat);
-  if (!filtered.length && activeCity) {
-    document.getElementById('stores-grid').innerHTML = `<div class="loading-state" style="grid-column:1/-1">No hay negocios de esta categoría en ${activeCity}</div>`;
-    document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
+// ═══════════════════════════════════════════════
+//  FILTROS AVANZADOS
+// ═══════════════════════════════════════════════
+let activeFilters = { delivery:'all', time:'all', open:'all', mode:'all', sort:'default' };
+let activeCategoryFilter = 'all';
+
+function toggleFiltersPanel() {
+  const panel = document.getElementById('filters-panel');
+  const btn   = document.getElementById('filter-toggle-btn');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.style.background = isOpen ? '#fff' : '#fdf2f5';
+  btn.style.borderColor = isOpen ? '#e0e0e0' : 'var(--primary)';
+  btn.style.color = isOpen ? '#444' : 'var(--primary)';
+}
+
+function setFilter(key, value, el) {
+  activeFilters[key] = value;
+  // Deactivate siblings
+  document.querySelectorAll(`.flt-chip[data-filter="${key}"]`).forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function clearFilters() {
+  activeFilters = { delivery:'all', time:'all', open:'all', mode:'all', sort:'default' };
+  document.querySelectorAll('.flt-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.value === 'all' || c.dataset.value === 'default');
+  });
+  updateFilterBadge();
+}
+
+function updateFilterBadge() {
+  const active = Object.values(activeFilters).filter(v => v !== 'all' && v !== 'default').length;
+  const badge = document.getElementById('filter-active-badge');
+  const btn = document.getElementById('filter-toggle-btn');
+  if (badge) { badge.textContent = active; badge.style.display = active > 0 ? 'inline' : 'none'; }
+  if (btn) {
+    btn.style.borderColor = active > 0 ? 'var(--primary)' : '#e0e0e0';
+    btn.style.color = active > 0 ? 'var(--primary)' : '#444';
+  }
+}
+
+function applyFilters() {
+  updateFilterBadge();
+  toggleFiltersPanel();
+  applyAllFilters();
+}
+
+function applyAllFilters() {
+  let list = activeCategoryFilter === 'all'
+    ? [...allStores]
+    : allStores.filter(s => s.category === activeCategoryFilter);
+
+  // Filtro envío
+  if (activeFilters.delivery === 'free') list = list.filter(s => s.delivery_cost === 0);
+  else if (activeFilters.delivery === 'low') list = list.filter(s => (s.delivery_cost||0) < 60);
+
+  // Filtro tiempo — parsea "20-35" → toma el mínimo
+  if (activeFilters.time === 'fast') {
+    list = list.filter(s => {
+      const t = s.delivery_time || '';
+      const min = parseInt(t.split('-')[0]) || 99;
+      return min < 30;
+    });
+  } else if (activeFilters.time === 'medium') {
+    list = list.filter(s => {
+      const t = s.delivery_time || '';
+      const min = parseInt(t.split('-')[0]) || 0;
+      return min >= 30 && min <= 45;
+    });
+  }
+
+  // Filtro abiertos ahora
+  if (activeFilters.open === 'open') list = list.filter(s => s.is_open !== false && s.is_open !== 0);
+
+  // Filtro modalidad
+  if (activeFilters.mode === 'delivery') list = list.filter(s => s.offers_delivery !== false);
+  else if (activeFilters.mode === 'pickup') list = list.filter(s => s.offers_pickup === true);
+
+  // Ordenar
+  if (activeFilters.sort === 'rating') {
+    list.sort((a,b) => (b.rating||0) - (a.rating||0));
+  } else if (activeFilters.sort === 'delivery_cost') {
+    list.sort((a,b) => (a.delivery_cost||0) - (b.delivery_cost||0));
+  } else if (activeFilters.sort === 'delivery_time') {
+    list.sort((a,b) => {
+      const ta = parseInt((a.delivery_time||'99').split('-')[0]);
+      const tb = parseInt((b.delivery_time||'99').split('-')[0]);
+      return ta - tb;
+    });
+  } else {
+    // Default: blow_plus primero
+    list.sort((a,b) => (b.blow_plus ? 1 : 0) - (a.blow_plus ? 1 : 0));
+  }
+
+  if (!list.length) {
+    const activeCount = Object.values(activeFilters).filter(v => v !== 'all' && v !== 'default').length;
+    document.getElementById('stores-grid').innerHTML = `
+      <div class="loading-state" style="grid-column:1/-1;padding:40px 20px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">🔍</div>
+        <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Sin resultados</div>
+        <div style="color:var(--muted);font-size:14px;margin-bottom:16px;">No hay tiendas con esos filtros.</div>
+        <button onclick="clearFilters();applyAllFilters();" style="background:var(--primary);border:none;border-radius:12px;padding:10px 20px;color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Limpiar filtros</button>
+      </div>`;
     return;
   }
-  renderStores(filtered);
+  renderStores(list);
   document.getElementById('stores-grid').scrollIntoView({behavior:'smooth'});
 }
 
 function chipFilter(el, cat) {
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  filterCat(cat);
+  activeCategoryFilter = cat;
+  applyAllFilters();
+}
+
+function filterCat(cat) {
+  activeCategoryFilter = cat;
+  // Sync chips
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('onclick')?.includes(`'${cat}'`));
+  });
+  applyAllFilters();
 }
 
 let _searchTimer = null;
@@ -3352,7 +3529,7 @@ function searchStores(q) {
   clearTimeout(_searchTimer);
   if (!q.trim()) {
     document.getElementById('search-results-panel')?.remove();
-    renderStores(allStores);
+    applyAllFilters();
     return;
   }
   // Búsqueda local instantánea mientras espera el API
