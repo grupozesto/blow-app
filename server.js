@@ -1410,8 +1410,21 @@ app.get('/api/orders', auth, async (req, res) => {
 });
 
 app.get('/api/orders/:id', auth, async (req, res) => {
-  const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,u.name as customer_name FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
+  const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,b.logo_url,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
   if (!o) return res.status(404).json({ error:'Pedido no encontrado' });
+  // Solo el cliente dueño del pedido, el owner del negocio, delivery asignado o admin pueden verlo
+  const isOwner   = req.user.role === 'owner';
+  const isAdmin   = req.user.role === 'admin';
+  const isDelivery = req.user.role === 'delivery' && o.delivery_id === req.user.id;
+  const isCustomer = o.customer_id === req.user.id;
+  if (!isAdmin && !isCustomer && !isDelivery) {
+    if (isOwner) {
+      const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1 AND id=$2',[req.user.id, o.business_id]);
+      if (!biz) return res.status(403).json({ error:'No autorizado' });
+    } else {
+      return res.status(403).json({ error:'No autorizado' });
+    }
+  }
   o.items=await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id]);
   res.json(o);
 });
