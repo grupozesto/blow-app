@@ -6573,6 +6573,80 @@ async function applyPromoCode() {
 
 let userBlowPlusActive = false;
 
+function goToBlowPlus() { nav('page-user-blowplus'); }
+
+async function loadCoupons() {
+  try {
+    const coupons = await api('/api/coupons/available');
+    const el = document.getElementById('coupons-extra-list');
+    if (!el) return;
+    if (!coupons.length) { el.innerHTML = ''; return; }
+    el.innerHTML = coupons.map(c => `
+      <div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.07);">
+        <div style="display:flex;min-height:90px;">
+          <div style="width:90px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:14px;border-right:2px dashed #e0e0e0;">
+            <div style="font-size:28px;">${c.business_name ? '🏪' : '🎫'}</div>
+          </div>
+          <div style="flex:1;padding:14px;">
+            <div style="font-size:11px;color:#888;margin-bottom:2px;">${c.business_name || 'Blow'}</div>
+            <div style="font-size:22px;font-weight:900;color:#1a1a1a;line-height:1.1;margin-bottom:4px;">${c.discount_type==='percent' ? c.discount_value+'% OFF' : '$ '+c.discount_value+' OFF'}</div>
+            <div style="font-size:12px;color:#666;">${c.description || ''}${c.min_order > 0 ? ' · Mín $'+c.min_order : ''}</div>
+            ${c.expires_at ? `<div style="font-size:11px;color:${new Date(c.expires_at)<new Date()?'#ef4444':'#f59e0b'};margin-top:3px;">Vence: ${new Date(c.expires_at).toLocaleDateString('es-UY')}</div>` : ''}
+          </div>
+        </div>
+        <div style="border-top:1px solid #f0f0f0;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;font-weight:800;letter-spacing:1px;color:var(--primary);">${c.code}</span>
+          <button onclick="navigator.clipboard?.writeText('${c.code}').then(()=>showToast('📋 Código copiado')).catch(()=>showToast('Código: ${c.code}'))" style="background:#f1f5f9;border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Copiar</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.warn('loadCoupons:', e.message); }
+}
+
+function showAddCouponModal() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  overlay.innerHTML = `<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 32px;">
+    <div style="width:36px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 20px;"></div>
+    <div style="font-size:17px;font-weight:900;margin-bottom:16px;">🎫 Ingresar código de cupón</div>
+    <input id="coupon-code-input" placeholder="Ej: BIENVENIDA20" style="width:100%;border:2px solid #e2e8f0;border-radius:12px;padding:14px;font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;box-sizing:border-box;font-family:inherit;outline:none;" oninput="this.value=this.value.toUpperCase()">
+    <div id="coupon-input-result" style="font-size:13px;margin-top:8px;min-height:20px;"></div>
+    <button onclick="applyCouponCode()" style="width:100%;margin-top:14px;background:var(--primary);border:none;border-radius:14px;padding:15px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Aplicar cupón</button>
+    <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;margin-top:10px;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;font-family:inherit;">Cancelar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('coupon-code-input')?.focus(), 100);
+}
+
+async function applyCouponCode() {
+  const code = document.getElementById('coupon-code-input')?.value?.trim();
+  const result = document.getElementById('coupon-input-result');
+  if (!code) { if(result) { result.style.color='#ef4444'; result.textContent='Ingresá un código'; } return; }
+  try {
+    const data = await api('/api/coupons/validate', { method:'POST', body: JSON.stringify({ code, order_total: 0 }) });
+    if (result) { result.style.color='#16a34a'; result.textContent='✅ Cupón válido: '+code; }
+    setTimeout(() => { document.querySelector('div[style*=fixed][style*=9999]')?.remove(); loadCoupons(); showToast('🎫 Cupón '+code+' guardado'); }, 1000);
+  } catch(e) {
+    if (result) { result.style.color='#ef4444'; result.textContent='❌ '+(e.message||'Cupón inválido'); }
+  }
+}
+
+async function sendHelpMessage() {
+  const msg = document.getElementById('help-msg')?.value?.trim();
+  const result = document.getElementById('help-result');
+  if (!msg) { showToast('Escribí tu consulta antes de enviar'); return; }
+  const btn = document.querySelector('[onclick="sendHelpMessage()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  try {
+    await api('/api/help', { method: 'POST', body: JSON.stringify({ message: msg, user_email: user?.email||'', user_name: user?.name||'' }) });
+    if (result) { result.style.display='block'; result.style.color='#16a34a'; result.textContent='✅ Mensaje enviado. Te respondemos pronto.'; }
+    if (document.getElementById('help-msg')) document.getElementById('help-msg').value = '';
+  } catch(e) {
+    if (result) { result.style.display='block'; result.style.color='#ef4444'; result.textContent='❌ Error al enviar. Intentá de nuevo.'; }
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='Enviar mensaje →'; }
+  }
+}
+
 async function subscribeUserBlowPlus() {
   const btn = document.getElementById('ubp-pay-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
@@ -7463,7 +7537,7 @@ async function rejectWithdraw(id) {
 // ── COUPONS ────────────────────────────────────────
 async function loadAdminCoupons() {
   try {
-    const data = await api('/api/coupons/admin');
+    const data = await api('/api/admin/coupons');
     const el = document.getElementById('admin-coupons-list');
     if (!data.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin cupones</div>'; return; }
     el.innerHTML = data.map(c=>`
@@ -7488,7 +7562,7 @@ async function createAdminCoupon() {
   const desc    = document.getElementById('new-coupon-desc').value.trim();
   if (!code || isNaN(value)) return showToast('Completá código y valor');
   try {
-    await api('/api/coupons',{method:'POST',body:JSON.stringify({code,type,value,min_order_amount:minAmt,max_uses:maxUses,expires_at:expires,description:desc})});
+    await api('/api/admin/coupons',{method:'POST',body:JSON.stringify({code,discount_type:type,discount_value:value,min_order:minAmt,max_uses:maxUses,expires_at:expires,description:desc})});
     showToast('✅ Cupón creado');
     ['new-coupon-code','new-coupon-value','new-coupon-min','new-coupon-maxuses','new-coupon-expires','new-coupon-desc'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     loadAdminCoupons();
@@ -7496,7 +7570,7 @@ async function createAdminCoupon() {
 }
 async function adminDeleteCoupon(id) {
   if (!confirm('¿Eliminar este cupón?')) return;
-  try { await api('/api/coupons/'+id,{method:'DELETE'}); showToast('✅ Cupón eliminado'); loadAdminCoupons(); }
+  try { await api('/api/admin/coupons/'+id,{method:'DELETE'}); showToast('✅ Cupón eliminado'); loadAdminCoupons(); }
   catch(e) { showToast('❌ '+e.message); }
 }
 
