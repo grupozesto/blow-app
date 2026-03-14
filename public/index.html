@@ -967,41 +967,14 @@ body.owner-mode #owner-overlay {
     <div id="recent-searches-panel" style="display:none;position:absolute;left:14px;right:14px;top:calc(100% - 8px);background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:200;overflow:hidden;"></div>
   </div>
   <div class="sc">
-    <!-- BANNER -->
-
+    <!-- BANNER (dinámico desde BD) -->
     <div class="banner-wrap">
       <div class="banner-viewport">
         <div class="banner-track" id="banner-track">
-          <div class="banner-slide" id="banner-0">
-            <div class="btext">
-              <div class="btag" id="btag-0">🔥 Oferta especial</div>
-              <div class="btitle" id="btitle-0">Hasta 40% OFF<br>+ Envíos gratis</div>
-              <div class="bsub" id="bsub-0">Con débito Santander<br><strong style="color:#FFB800">+10% OFF adicional</strong></div>
-              <button class="bcta">¡Ver ofertas!</button>
-            </div>
-            <div class="bemoji-wrap" id="bemoji-0">🍕</div>
-          </div>
-          <div class="banner-slide s2" id="banner-1">
-            <div class="btext">
-              <div class="btag" id="btag-1">⚡ Rápido</div>
-              <div class="btitle" id="btitle-1">Pedí en<br>minutos</div>
-              <div class="bsub" id="bsub-1">Locales abiertos ahora<br>cerca de vos</div>
-              <button class="bcta">Ver locales</button>
-            </div>
-            <div class="bemoji-wrap" id="bemoji-1">🍔</div>
-          </div>
-          <div class="banner-slide s3" id="banner-2">
-            <div class="btext">
-              <div class="btag" id="btag-2">💊 Salud</div>
-              <div class="btitle" id="btitle-2">Farmacias<br>24 horas</div>
-              <div class="bsub" id="bsub-2">Envío express<br>en 20 minutos</div>
-              <button class="bcta">Ver farmacias</button>
-            </div>
-            <div class="bemoji-wrap" id="bemoji-2">💊</div>
-          </div>
+          <!-- Se llena dinámicamente por loadMainBanners() -->
         </div>
       </div>
-      <div class="bdots" id="bdots"><div class="bdot active" onclick="goBanner(0)"></div><div class="bdot" onclick="goBanner(1)"></div><div class="bdot" onclick="goBanner(2)"></div></div>
+      <div class="bdots" id="bdots"></div>
     </div>
     <!-- PROMO -->
     <div class="promo-strip" id="bank-promo-strip" style="display:none;"><div class="promo-strip-icon" id="bps-icon">🏦</div><div class="promo-strip-text"><div class="promo-strip-title" id="bps-title">Con Débito Santander</div><div class="promo-strip-sub" id="bps-sub">Lunes a Jueves · T&C aplican</div></div><div class="promo-badge" id="bps-badge">+10% OFF</div></div>
@@ -3069,9 +3042,9 @@ function nav(pageId) {
   if (pageId === 'page-home') loadBankPromoStrip();
   if (pageId === 'page-owner-login') { ownerTab('register'); updateOwnerPriceDisplay(); }
   if (pageId === 'page-coupons') loadCoupons();
-  if (pageId === 'page-profile') loadBlowPlusBanner();
+  if (pageId === 'page-profile') { try { loadBlowPlusBanner(); } catch(e) {} }
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
-  if (pageId === 'page-help') initHelpPage();
+  if (pageId === 'page-help') { try { initHelpPage(); } catch(e) {} }
   if (pageId === 'page-favorites') loadFavorites();
   if (pageId === 'page-terms' || pageId === 'page-privacy') {}
   if (pageId === 'page-tracking') {
@@ -3100,18 +3073,74 @@ function nav(pageId) {
 }
 
 // ═══════════════════════════════════════════════
-//  BANNER
+//  BANNER (dinámico desde BD)
 // ═══════════════════════════════════════════════
-let bIdx = 0;
+let bIdx = 0, bTotal = 3, bTimer = null;
+
 function goBanner(i) {
   bIdx = i;
   const t = document.getElementById('banner-track');
-  // Track is 300% wide, each slide is 1/3 of track = 33.333%
-  // So slide i starts at i * (100/3)% of track width
-  t.style.transform = `translateX(-${i * 33.3333}%)`;
+  if (!t) return;
+  const pct = bTotal > 0 ? (100 / bTotal) : 33.3333;
+  t.style.transform = `translateX(-${i * pct}%)`;
   document.querySelectorAll('.bdot').forEach((d,j) => d.classList.toggle('active', j===i));
 }
-setInterval(() => goBanner((bIdx+1)%3), 4000);
+
+function _startBannerAuto() {
+  if (bTimer) clearInterval(bTimer);
+  bTimer = setInterval(() => goBanner((bIdx+1) % bTotal), 4000);
+}
+
+async function loadMainBanners() {
+  const FALLBACK = [
+    { title:'Hasta 40% OFF\n+ Envíos gratis', subtitle:'Con débito Santander', highlight:'40% OFF', emoji:'🍕', bg_color:'#ea356b', link:null },
+    { title:'Pedí en\nminutos', subtitle:'Locales abiertos ahora cerca de vos', highlight:'Rápido', emoji:'🍔', bg_color:'#7c3aed', link:null },
+    { title:'Farmacias\n24 horas', subtitle:'Envío express en 20 minutos', highlight:'24 hs', emoji:'💊', bg_color:'#0284c7', link:null },
+  ];
+  let banners = FALLBACK;
+  try {
+    const res = await fetch(API + '/api/banners');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.length) banners = data;
+    }
+  } catch {}
+  _renderMainBanners(banners);
+}
+
+function _renderMainBanners(banners) {
+  const track = document.getElementById('banner-track');
+  const dots  = document.getElementById('bdots');
+  if (!track || !dots) return;
+  bTotal = banners.length || 1;
+  track.style.width = (bTotal * 100) + '%';
+  track.innerHTML = banners.map((b, i) => {
+    const bg = b.bg_color || '#ea356b';
+    const emoji = esc(b.emoji || '🍔');
+    const title = esc((b.title || '').replace(/\n/g,'<br>'));
+    const sub   = esc(b.subtitle || '');
+    const badge = esc(b.highlight || '');
+    const url   = b.link ? `onclick="window.open('${esc(b.link)}','_blank')"` : '';
+    const imgHtml = b.image_url
+      ? `<img src="${esc(b.image_url)}" style="position:absolute;right:0;bottom:0;height:100%;width:auto;object-fit:cover;opacity:.25;border-radius:inherit;">`
+      : '';
+    return `<div class="banner-slide" id="banner-${i}" style="width:${100/bTotal}%;background:linear-gradient(135deg,${bg} 40%,${bg}cc);flex-shrink:0;" ${url}>
+      ${imgHtml}
+      <div class="btext">
+        ${badge ? `<div class="btag">${badge}</div>` : ''}
+        <div class="btitle">${title}</div>
+        ${sub ? `<div class="bsub">${sub}</div>` : ''}
+      </div>
+      <div class="bemoji-wrap">${emoji}</div>
+    </div>`;
+  }).join('');
+  dots.innerHTML = banners.map((_,i) =>
+    `<div class="bdot${i===0?' active':''}" onclick="goBanner(${i})"></div>`
+  ).join('');
+  bIdx = 0;
+  goBanner(0);
+  _startBannerAuto();
+}
 
 // ═══════════════════════════════════════════════
 //  PROMO CAROUSEL
@@ -5294,6 +5323,74 @@ async function sendChatMessage() {
 function renderProfile() {
   const el = id => document.getElementById(id);
 
+  // Admin gets a completely different profile view
+  if (user && user.role === 'admin') {
+    const sc = document.querySelector('#page-profile .sc');
+    if (sc) {
+      sc.innerHTML = `
+        <div style="background:#fff;padding:max(20px,calc(env(safe-area-inset-top,0px)+16px)) 20px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #f1f5f9;">
+          <div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;">${user.name[0].toUpperCase()}</div>
+          <div>
+            <div style="font-size:18px;font-weight:900;color:#0f172a;">${esc(user.name)}</div>
+            <div style="font-size:12px;color:#94a3b8;">${esc(user.email)} · <span style="color:var(--primary);font-weight:700;">🔧 Admin</span></div>
+          </div>
+        </div>
+
+        <div style="padding:20px 16px 8px;">
+          <div style="font-size:13px;font-weight:800;color:#64748b;letter-spacing:.5px;margin-bottom:12px;">🖼️ BANNERS DEL CARRUSEL</div>
+          <div style="background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #e2e8f0;">
+            <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:13px;color:#64748b;">Banners visibles en el inicio de la app</div>
+              <button onclick="adminOpenBannerSheet()" style="background:var(--primary);border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Nuevo</button>
+            </div>
+            <div id="profile-banners-list" style="padding:8px 16px 12px;">
+              <div style="text-align:center;color:#94a3b8;font-size:13px;padding:16px 0;">Cargando banners...</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:0 16px 8px;">
+          <div style="font-size:13px;font-weight:800;color:#64748b;letter-spacing:.5px;margin-bottom:12px;">⚙️ PANEL DE ADMINISTRACIÓN</div>
+          <div style="background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #e2e8f0;">
+            ${[
+              ['stats','📊','Stats y reportes','Métricas de la plataforma'],
+              ['users','👥','Usuarios','Gestionar clientes y owners'],
+              ['businesses','🏪','Negocios','Ver y administrar negocios'],
+              ['orders','📦','Pedidos','Historial de todos los pedidos'],
+              ['coupons','🎫','Cupones','Crear y gestionar cupones'],
+              ['withdrawals','💸','Retiros','Aprobar solicitudes de retiro'],
+            ].map(([tab,icon,label,sub]) => `
+              <div onclick="_adminInitialTab='${tab}';nav('page-admin')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f8fafc;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <div style="width:36px;height:36px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${icon}</div>
+                <div style="flex:1;">
+                  <div style="font-size:14px;font-weight:700;color:#0f172a;">${label}</div>
+                  <div style="font-size:11px;color:#94a3b8;">${sub}</div>
+                </div>
+                <span style="color:#94a3b8;font-size:18px;">›</span>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div style="padding:0 16px 8px;">
+          <div style="background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #e2e8f0;">
+            <div onclick="cycleDarkMode()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f8fafc;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+              <div style="width:36px;height:36px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">🌙</div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#0f172a;">Modo oscuro</div></div>
+              <span id="dark-mode-chip" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#64748b;">Auto</span>
+            </div>
+            <div onclick="handleSession()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+              <div style="width:36px;height:36px;background:#fee2e2;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">🔐</div>
+              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#ef4444;">Cerrar sesión</div><div style="font-size:11px;color:#94a3b8;">${esc(user.email)}</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="height:40px;"></div>
+      `;
+      loadProfileBanners();
+    }
+    return;
+  }
+
   // Elements that only show when logged in as customer
   const loggedInSections = ['profile-blowplus-banner','profile-quick-icons',
     'profile-section-perfil','profile-section-actividad',
@@ -6673,6 +6770,8 @@ async function applyPromoCode() {
 let userBlowPlusActive = false;
 
 function goToBlowPlus() { nav('page-user-blowplus'); }
+function loadBlowPlusBanner() { /* loaded via renderProfile */ }
+function initHelpPage() { /* no-op */ }
 
 async function loadCoupons() {
   try {
@@ -8082,6 +8181,8 @@ if (user && user.role === 'owner') {
 
 // Si tiene ciudad guardada, cargar directamente
 // Si no, detectar GPS automáticamente
+loadMainBanners(); // Cargar el carrusel principal desde la BD
+
 if (activeCity) {
   loadStores();
 } else if (user?.city) {
