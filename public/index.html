@@ -1890,18 +1890,57 @@ body.owner-mode #owner-overlay {
         <!-- BANNERS -->
         <div id="admin-tab-banners" style="display:none;">
           <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners del carrusel</div>
+
+          <!-- CREAR NUEVO BANNER -->
           <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:20px;border:1.5px dashed var(--border);">
-            <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--muted);">NUEVO BANNER</div>
+            <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;letter-spacing:.5px;">NUEVO BANNER</div>
+
+            <!-- Preview vivo -->
+            <div id="bn-preview" style="height:100px;border-radius:12px;background:#ea356b;margin-bottom:14px;display:flex;flex-direction:column;justify-content:flex-end;padding:14px 16px;position:relative;overflow:hidden;transition:background .2s;">
+              <div id="bn-preview-label" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:800;color:#fff;width:fit-content;margin-bottom:6px;"></div>
+              <div id="bn-preview-title" style="font-size:17px;font-weight:900;color:#fff;line-height:1.2;">Título del banner</div>
+              <div id="bn-preview-sub" style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;"></div>
+              <div id="bn-preview-emoji" style="position:absolute;right:14px;bottom:14px;font-size:40px;opacity:.5;"></div>
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Título *</label><input class="form-input" id="bn-title" placeholder="Oferta especial hoy"></div>
-              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Subtítulo</label><input class="form-input" id="bn-sub" placeholder="Hasta 30% en restaurantes seleccionados"></div>
-              <div class="form-group"><label class="form-label">Color fondo</label><input class="form-input" id="bn-color" type="color" value="#ea356b"></div>
-              <div class="form-group"><label class="form-label">Label badge</label><input class="form-input" id="bn-label" placeholder="ej: 🔥 PROMO"></div>
-              <div class="form-group"><label class="form-label">URL destino</label><input class="form-input" id="bn-link" placeholder="https://..." type="url"></div>
-              <div class="form-group"><label class="form-label">Orden</label><input class="form-input" id="bn-order" type="number" value="0"></div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label class="form-label">Título *</label>
+                <input class="form-input" id="bn-title" placeholder="Oferta especial hoy" oninput="document.getElementById('bn-preview-title').textContent=this.value||'Título del banner'">
+              </div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label class="form-label">Subtítulo</label>
+                <input class="form-input" id="bn-sub" placeholder="Hasta 30% en restaurantes seleccionados" oninput="document.getElementById('bn-preview-sub').textContent=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Color fondo</label>
+                <input class="form-input" id="bn-color" type="color" value="#ea356b" oninput="document.getElementById('bn-preview').style.background=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Emoji decorativo</label>
+                <input class="form-input" id="bn-emoji" placeholder="🍔" maxlength="4" oninput="document.getElementById('bn-preview-emoji').textContent=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Label badge</label>
+                <input class="form-input" id="bn-label" placeholder="🔥 PROMO" oninput="const el=document.getElementById('bn-preview-label');el.textContent=this.value;el.style.display=this.value?'block':'none'">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Texto highlight</label>
+                <input class="form-input" id="bn-highlight" placeholder="ej: ¡Nuevo!">
+              </div>
+              <div class="form-group">
+                <label class="form-label">URL destino</label>
+                <input class="form-input" id="bn-link" placeholder="https://..." type="url">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Orden</label>
+                <input class="form-input" id="bn-order" type="number" value="0" min="0">
+              </div>
             </div>
             <button class="primary-btn" onclick="createAdminBanner()" style="margin-top:8px;">➕ Crear banner</button>
           </div>
+
+          <!-- LISTA DE BANNERS -->
           <div id="admin-banners-list"></div>
         </div>
 
@@ -7579,49 +7618,134 @@ async function loadAdminBanners() {
   try {
     const banners = await api('/api/banners/admin');
     const el = document.getElementById('admin-banners-list');
-    if (!banners.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin banners</div>'; return; }
-    el.innerHTML = banners.map(b=>`
-      <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-        <div style="width:48px;height:48px;border-radius:10px;background:${b.bg_color||b.background_color||'#ea356b'};flex-shrink:0;"></div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;">${b.title||''}</div>
-          <div style="font-size:12px;color:var(--muted);">${b.subtitle||b.sub_title||''} ${b.highlight_label?'· 🏷️ '+b.highlight_label:''}</div>
-          <div style="font-size:11px;color:var(--muted);">Orden: ${b.sort_order??b.order??0} · ${b.is_active!==false?'✅ Activo':'⏸️ Inactivo'}</div>
+    if (!banners.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin banners — creá el primero arriba</div>'; return; }
+    el.innerHTML = banners.map(b => `
+      <div id="bncard-${b.id}" style="background:var(--surface);border-radius:14px;margin-bottom:12px;border:1.5px solid var(--border);overflow:hidden;${b.is_active===false||b.active===false?'opacity:.6':''}">
+        <div style="height:80px;background:${b.bg_color||'#ea356b'};position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:10px 14px;">
+          ${b.image_url ? `<img src="${b.image_url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.4;">` : ''}
+          ${b.highlight_label ? `<span style="background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;font-size:9px;font-weight:800;color:#fff;width:fit-content;margin-bottom:4px;">${esc(b.highlight_label)}</span>` : ''}
+          <div style="font-size:14px;font-weight:900;color:#fff;line-height:1.2;">${esc(b.title||'')}</div>
+          ${b.subtitle ? `<div style="font-size:11px;color:rgba(255,255,255,.8);">${esc(b.subtitle)}</div>` : ''}
+          ${b.emoji ? `<div style="position:absolute;right:12px;bottom:8px;font-size:32px;opacity:.5;">${b.emoji}</div>` : ''}
+          <div style="position:absolute;top:8px;right:8px;background:${b.is_active!==false&&b.active!==false?'#22c55e':'#94a3b8'};border-radius:20px;padding:2px 8px;font-size:9px;font-weight:800;color:#fff;">${b.is_active!==false&&b.active!==false?'ACTIVO':'INACTIVO'}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <button onclick="adminToggleBanner('${b.id}',${b.is_active!==false})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">${b.is_active!==false?'⏸️ Ocultar':'▶️ Mostrar'}</button>
-          <button onclick="adminDeleteBanner('${b.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Borrar</button>
+        <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div style="font-size:11px;color:var(--muted);">Orden: ${b.sort_order??b.order??0}${b.link ? ` · <a href="${b.link}" target="_blank" style="color:var(--primary);">🔗 Link</a>` : ''}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="adminEditBanner('${b.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:11px;font-weight:600;">✏️ Editar</button>
+            <button onclick="adminUploadBannerImage('${b.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:11px;font-weight:600;">🖼️ Imagen</button>
+            <button onclick="adminToggleBanner('${b.id}',${b.is_active!==false&&b.active!==false})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:11px;font-weight:600;">${b.is_active!==false&&b.active!==false?'⏸️ Ocultar':'▶️ Mostrar'}</button>
+            <button onclick="adminDeleteBanner('${b.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;font-weight:600;">🗑️</button>
+          </div>
+        </div>
+        <div id="bnedit-${b.id}" style="display:none;padding:14px;border-top:1px solid var(--border);background:#fafafa;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.5px;">EDITAR BANNER</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Título</label><input class="form-input" id="bne-title-${b.id}" value="${esc(b.title||'')}"></div>
+            <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Subtítulo</label><input class="form-input" id="bne-sub-${b.id}" value="${esc(b.subtitle||'')}"></div>
+            <div class="form-group"><label class="form-label">Color fondo</label><input class="form-input" id="bne-color-${b.id}" type="color" value="${b.bg_color||'#ea356b'}"></div>
+            <div class="form-group"><label class="form-label">Emoji</label><input class="form-input" id="bne-emoji-${b.id}" value="${esc(b.emoji||'')}" maxlength="4" placeholder="🍔"></div>
+            <div class="form-group"><label class="form-label">Label badge</label><input class="form-input" id="bne-label-${b.id}" value="${esc(b.highlight_label||b.highlight||'')}" placeholder="🔥 PROMO"></div>
+            <div class="form-group"><label class="form-label">Texto highlight</label><input class="form-input" id="bne-hl-${b.id}" value="${esc(b.highlight||'')}" placeholder="¡Nuevo!"></div>
+            <div class="form-group"><label class="form-label">URL destino</label><input class="form-input" id="bne-link-${b.id}" type="url" value="${esc(b.link||b.link_url||'')}" placeholder="https://..."></div>
+            <div class="form-group"><label class="form-label">Orden</label><input class="form-input" id="bne-order-${b.id}" type="number" value="${b.sort_order??0}" min="0"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button onclick="adminSaveBanner('${b.id}')" class="primary-btn" style="flex:1;">💾 Guardar cambios</button>
+            <button onclick="document.getElementById('bnedit-${b.id}').style.display='none'" style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:13px;">Cancelar</button>
+          </div>
         </div>
       </div>`).join('');
   } catch(e) { showToast('❌ '+e.message); }
 }
+
 async function createAdminBanner() {
-  const title    = document.getElementById('bn-title').value.trim();
-  const subtitle = document.getElementById('bn-sub').value.trim();
-  const bg_color = document.getElementById('bn-color').value;
-  const label    = document.getElementById('bn-label').value.trim();
-  const link     = document.getElementById('bn-link').value.trim();
-  const order    = parseInt(document.getElementById('bn-order').value)||0;
+  const title     = document.getElementById('bn-title').value.trim();
+  const subtitle  = document.getElementById('bn-sub').value.trim();
+  const bg_color  = document.getElementById('bn-color').value;
+  const emoji     = document.getElementById('bn-emoji').value.trim();
+  const label     = document.getElementById('bn-label').value.trim();
+  const highlight = document.getElementById('bn-highlight').value.trim();
+  const link      = document.getElementById('bn-link').value.trim();
+  const order     = parseInt(document.getElementById('bn-order').value)||0;
   if (!title) return showToast('El título es obligatorio');
   try {
-    await api('/api/admin/banners',{method:'POST',body:JSON.stringify({title,subtitle,bg_color,highlight_label:label,link_url:link,sort_order:order,is_active:true})});
+    await api('/api/admin/banners',{method:'POST',body:JSON.stringify({title,subtitle,bg_color,emoji,highlight_label:label,highlight,link_url:link,sort_order:order,is_active:true})});
     showToast('✅ Banner creado');
-    ['bn-title','bn-sub','bn-label','bn-link'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-    document.getElementById('bn-order').value = '0';
+    ['bn-title','bn-sub','bn-emoji','bn-label','bn-highlight','bn-link'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('bn-order').value='0';
+    document.getElementById('bn-color').value='#ea356b';
+    document.getElementById('bn-preview').style.background='#ea356b';
+    document.getElementById('bn-preview-title').textContent='Título del banner';
+    document.getElementById('bn-preview-sub').textContent='';
+    document.getElementById('bn-preview-emoji').textContent='';
+    document.getElementById('bn-preview-label').style.display='none';
     loadAdminBanners();
   } catch(e) { showToast('❌ '+e.message); }
 }
+
+function adminEditBanner(id) {
+  const form = document.getElementById('bnedit-'+id);
+  if (!form) return;
+  const isOpen = form.style.display !== 'none';
+  document.querySelectorAll('[id^="bnedit-"]').forEach(f => f.style.display='none');
+  form.style.display = isOpen ? 'none' : 'block';
+}
+
+async function adminSaveBanner(id) {
+  const title     = document.getElementById('bne-title-'+id)?.value.trim();
+  const subtitle  = document.getElementById('bne-sub-'+id)?.value.trim();
+  const bg_color  = document.getElementById('bne-color-'+id)?.value;
+  const emoji     = document.getElementById('bne-emoji-'+id)?.value.trim();
+  const hl_label  = document.getElementById('bne-label-'+id)?.value.trim();
+  const highlight = document.getElementById('bne-hl-'+id)?.value.trim();
+  const link      = document.getElementById('bne-link-'+id)?.value.trim();
+  const order     = parseInt(document.getElementById('bne-order-'+id)?.value)||0;
+  if (!title) return showToast('El título es obligatorio');
+  try {
+    await api('/api/admin/banners/'+id,{method:'PATCH',body:JSON.stringify({title,subtitle,bg_color,emoji,highlight_label:hl_label,highlight,link,sort_order:order})});
+    showToast('✅ Banner actualizado');
+    loadAdminBanners();
+  } catch(e) { showToast('❌ '+e.message); }
+}
+
 async function adminToggleBanner(id, isActive) {
-  try { await api('/api/admin/banners/'+id,{method:'PATCH',body:JSON.stringify({is_active:!isActive})}); showToast('✅ Banner actualizado'); loadAdminBanners(); }
-  catch(e) { showToast('❌ '+e.message); }
+  try {
+    await api('/api/admin/banners/'+id,{method:'PATCH',body:JSON.stringify({is_active:!isActive,active:!isActive})});
+    showToast('✅ Banner '+(isActive?'ocultado':'mostrado'));
+    loadAdminBanners();
+  } catch(e) { showToast('❌ '+e.message); }
 }
+
+function adminUploadBannerImage(id) {
+  const input = document.createElement('input');
+  input.type='file'; input.accept='image/*';
+  input.onchange = async () => {
+    const file = input.files[0]; if (!file) return;
+    if (file.size > 5*1024*1024) return showToast('La imagen no puede superar 5MB');
+    showToast('⏳ Subiendo imagen...');
+    try {
+      const fd = new FormData(); fd.append('image', file);
+      const r = await fetch('/api/admin/banners/'+id+'/image', {
+        method:'POST', headers:{Authorization:'Bearer '+token}, body:fd
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error||'Error al subir');
+      showToast('✅ Imagen actualizada');
+      loadAdminBanners();
+    } catch(e) { showToast('❌ '+e.message); }
+  };
+  input.click();
+}
+
 async function adminDeleteBanner(id) {
-  if (!confirm('¿Eliminar este banner?')) return;
-  try { await api('/api/admin/banners/'+id,{method:'DELETE'}); showToast('✅ Banner eliminado'); loadAdminBanners(); }
-  catch(e) { showToast('❌ '+e.message); }
+  if (!confirm('¿Eliminar este banner? Esta acción no se puede deshacer.')) return;
+  try {
+    await api('/api/admin/banners/'+id,{method:'DELETE'});
+    showToast('✅ Banner eliminado');
+    loadAdminBanners();
+  } catch(e) { showToast('❌ '+e.message); }
 }
-
-
 
 // ── PERSONAL INFO PAGE ──
 function loadPersonalInfo() {
