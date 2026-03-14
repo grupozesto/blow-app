@@ -2941,21 +2941,18 @@ app.post('/api/admin/banners', auth, role('admin'), async (req,res)=>{
     [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active]);
   res.json({ok:true,id});
 });
-app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.patch('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
   const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,is_active,image_url} = req.body;
   const activeVal = is_active !== undefined ? is_active : active;
   await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),highlight_label=COALESCE($4,highlight_label),emoji=COALESCE($5,emoji),bg_color=COALESCE($6,bg_color),link=COALESCE($7,link),sort_order=COALESCE($8,sort_order),active=COALESCE($9,active),image_url=COALESCE($10,image_url),updated_at=NOW() WHERE id=$11",
     [title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,activeVal,image_url,req.params.id]);
   res.json({ok:true});
 });
-app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.delete('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
   await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
   res.json({ok:true});
 });
-app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.post('/api/admin/banners/:id/image', auth, role('admin'), uploadMiddleware('image'), async (req,res)=>{
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
     let imageUrl;
