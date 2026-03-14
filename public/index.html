@@ -3041,7 +3041,7 @@ function nav(pageId) {
   if (pageId === 'page-profile') renderProfile();
   if (pageId === 'page-owner-dash') loadOwnerDash();
   if (pageId === 'page-cart') loadCartPromos();
-  if (pageId === 'page-checkout') renderCheckoutPage();
+  if (pageId === 'page-checkout') { if (!_chkNavFromOpen) renderCheckoutPage(); _chkNavFromOpen = false; }
   if (pageId === 'page-home') loadBankPromoStrip();
   if (pageId === 'page-profile') { if (user?.role === 'customer') loadUserBlowPlus(); }
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
@@ -4532,10 +4532,10 @@ function updateCartBadge() {
   });
 }
 function changeCartQty(id, d) {
-  const item = cart.find(x=>x.id===id);
+  const item = cart.find(x => (x.cart_key||x.id) === id);
   if (!item) return;
-  item.qty+=d;
-  if (item.qty<=0) cart=cart.filter(x=>x.id!==id);
+  item.qty += d;
+  if (item.qty <= 0) cart = cart.filter(x => (x.cart_key||x.id) !== id);
   saveCart(); updateCartBadge(); renderCart();
 }
 function renderCart() {
@@ -4556,7 +4556,11 @@ function renderCart() {
     <div class="cart-items">${cart.map(item=>`
       <div class="cart-item">
         <div class="ci-em">${item.emoji||'🍽️'}</div>
-        <div class="ci-info"><div class="ci-name">${item.name}</div><div class="ci-price">$${Math.round(item.price*item.qty)}</div></div>
+        <div class="ci-info">
+          <div class="ci-name">${esc(item.name)}</div>
+          ${item.variant_label ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${esc(item.variant_label)}</div>` : ''}
+          <div class="ci-price">$${Math.round(item.price*item.qty)}</div>
+        </div>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="changeCartQty('${item.cart_key||item.id}',-1)">−</button>
           <span class="qty-num">${item.qty}</span>
@@ -4590,6 +4594,7 @@ let _chkPriority = false;
 let _chkNotes = '';
 let _chkFulfillment = null; // 'delivery' | 'pickup' — null = auto
 let _chkAddress = '';
+let _chkNavFromOpen = false; // prevents double renderCheckoutPage
 let _chkAltAddress = '';
 let _chkShowAltAddr = false;
 
@@ -4620,6 +4625,7 @@ function openCheckoutPage() {
   _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
   _chkFulfillment = hasDelivery ? 'delivery' : (hasPickup ? 'pickup' : 'delivery');
   _chkAddress = ''; _chkAltAddress = ''; _chkShowAltAddr = false; _chkNotes = '';
+  _chkNavFromOpen = true;
   nav('page-checkout');
   renderCheckoutPage();
 }
@@ -4637,6 +4643,7 @@ function calcCheckoutTotal() {
 function renderCheckoutPage() {
   const body = document.getElementById('checkout-body');
   if (!body) return;
+  if (!cart.length) { body.innerHTML='<div style="text-align:center;padding:40px 20px;color:#94a3b8;font-size:15px;">Tu carrito está vacío.</div>'; return; }
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
   const hasPickup   = store?.offers_pickup === true;
   const hasDelivery = store?.offers_delivery !== false;
@@ -4668,7 +4675,7 @@ function renderCheckoutPage() {
   // Auto-select default if nothing selected yet
   if (!_chkAddress && defaultAddr) _chkAddress = defaultAddr.full_address || defaultAddr.label;
 
-  body.innerHTML = `
+  try { body.innerHTML = `
     <!-- MÉTODO DE PAGO -->
     <div style="margin-top:16px;margin-bottom:14px;">
       <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;">¿Cómo querés pagar?</div>
@@ -4786,7 +4793,7 @@ function renderCheckoutPage() {
       </div>
       <div style="margin-top:6px;font-size:10px;color:#94a3b8;">Pago online aplica 9% devolución IVA (Leyes N° 17.934 y 19.210).</div>
     </div>
-  `;
+  `; } catch(err) { console.error('renderCheckoutPage error:', err); body.innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:40px;margin-bottom:12px;">⚠️</div><div style="font-size:15px;color:#ef4444;font-weight:700;">Error al cargar el checkout</div><div style="font-size:13px;color:#94a3b8;margin-top:6px;">'+err.message+'</div><button onclick=\"nav(\'page-cart\')\" style=\"margin-top:16px;background:#0f172a;border:none;border-radius:12px;padding:12px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;\">← Volver al carrito</button></div>'; }
 }
 
 function chkSetPay(method) {
