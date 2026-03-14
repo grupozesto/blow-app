@@ -792,6 +792,45 @@ app.get('/api/debug/cloudinary', auth, (req, res) => {
   });
 });
 
+// ── Registro de negocio desde business.html ──────────────────
+// Alias de /api/auth/register con role=owner + crea negocio
+app.post('/api/auth/register-business', async (req, res) => {
+  try {
+    const { name, email, phone='', password, business_name, address='', city='', department='', description='', business_type='food' } = req.body;
+    if (!name || !email || !password || !business_name) return res.status(400).json({ error:'Faltan datos obligatorios' });
+    if (password.length < 6) return res.status(400).json({ error:'La contraseña debe tener al menos 6 caracteres' });
+    const emailLow = email.toLowerCase().trim();
+    if (await q1('SELECT id FROM users WHERE email=$1', [emailLow])) return res.status(409).json({ error:'Este email ya está registrado' });
+    const hashed = await bcrypt.hash(password, 10);
+    const userId = uuid();
+    await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [userId, name.trim(), emailLow, phone, hashed, 'owner', city, department||'']);
+    const bizId = uuid();
+    await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department,description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [bizId, userId, business_name.trim(), business_type||'food', address, city, department||'', description||'']);
+    const user = { id:userId, name:name.trim(), email:emailLow, role:'owner' };
+    res.status(201).json({ token: sign(user), user, business_id: bizId });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Envío de código de verificación de email (desde business.html) ──
+// El frontend genera el código y lo envía aquí para que lo mandemos por email
+app.post('/api/auth/send-verification', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error:'Email y código requeridos' });
+    const emailLow = email.toLowerCase().trim();
+    const sent = await sendEmail(emailLow, 'Tu código de verificación — Blow',
+      `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px;">
+        <h2 style="color:#FA0050;">⚡ Blow</h2>
+        <p>Tu código de verificación es:</p>
+        <div style="font-size:40px;font-weight:900;letter-spacing:8px;color:#FA0050;text-align:center;padding:24px;background:#fff5f7;border-radius:12px;margin:20px 0;">${code}</div>
+        <p style="color:#888;font-size:13px;">Válido por 15 minutos. Si no solicitaste este código ignorá este mensaje.</p>
+      </div>`);
+    res.json({ sent: !!sent });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Olvidé mi contraseña — paso 1: enviar código ──────────────
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
@@ -1534,6 +1573,9 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   }
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
   if (status==='delivered') {
+    // Guard against double-credit: only proceed if not already marked delivered
+    const already = await q1('SELECT delivered_at FROM orders WHERE id=$1 AND delivered_at IS NOT NULL', [order.id]);
+    if (already) return res.status(400).json({ error:'Este pedido ya fue marcado como entregado' });
     await q('UPDATE orders SET delivered_at=NOW() WHERE id=$1',[order.id]);
     // Si el delivery_id es el owner del negocio (maneja su propio delivery), acreditar también el delivery_amount al negocio
     const deliveryBiz = await q1('SELECT id, owner_id FROM businesses WHERE id=$1',[order.business_id]);
