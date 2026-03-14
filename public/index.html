@@ -1410,6 +1410,28 @@ body.owner-mode #owner-overlay {
 
     <div id="profile-div-3" style="height:8px;background:#f5f5f5;"></div>
 
+    <!-- Sección Admin (solo visible para admins) -->
+    <div id="profile-section-admin" style="display:none;" class="menu-list">
+      <div class="menu-sec-title">⚙️ Administración</div>
+      <div class="menu-item" onclick="nav('page-admin');adminTab('banners')">
+        <div class="mi-icon">🖼️</div>
+        <div class="mi-text"><span>Gestionar banners</span><small style="color:var(--muted);">Carrusel de la app</small></div>
+        <span class="mi-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="nav('page-admin');adminTab('stats')">
+        <div class="mi-icon">📊</div>
+        <div class="mi-text"><span>Panel de administración</span><small style="color:var(--muted);">Stats, usuarios, negocios</small></div>
+        <span class="mi-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="nav('page-admin');adminTab('coupons')">
+        <div class="mi-icon">🎫</div>
+        <div class="mi-text"><span>Cupones</span></div>
+        <span class="mi-arrow">›</span>
+      </div>
+    </div>
+
+    <div id="profile-div-admin" style="display:none;height:8px;background:#f5f5f5;"></div>
+
     <!-- Configuración -->
     <div class="menu-list">
       <div class="menu-sec-title">Configuración</div>
@@ -5274,9 +5296,15 @@ function renderProfile() {
 
     // Show/hide sections based on role
     const isCustomer = user.role === 'customer';
+    const isAdmin = user.role === 'admin';
     loggedInSections.forEach(id => {
       const s = el(id); if(s) s.style.display = isCustomer ? '' : 'none';
     });
+    // Admin section
+    const adminSection = el('profile-section-admin');
+    const adminDiv = el('profile-div-admin');
+    if (adminSection) adminSection.style.display = isAdmin ? '' : 'none';
+    if (adminDiv) adminDiv.style.display = isAdmin ? '' : 'none';
 
     // Portal de Negocios: siempre visible para todos los roles
     const portalItem = el('portal-negocios-item');
