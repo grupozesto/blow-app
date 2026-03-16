@@ -367,6 +367,7 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_ready_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
@@ -1918,11 +1919,24 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
-    const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='', coupon_code='' } = req.body;
+    const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='', coupon_code='', scheduled_for=null } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
+
+    // Validate scheduled_for if provided
+    let scheduledDate = null;
+    if (scheduled_for) {
+      scheduledDate = new Date(scheduled_for);
+      if (isNaN(scheduledDate.getTime())) return res.status(400).json({ error:'Fecha programada inválida' });
+      const now = new Date();
+      const minTime = new Date(now.getTime() + 30 * 60000); // minimum 30 min from now
+      const maxTime = new Date(now.getTime() + 7 * 24 * 3600000); // maximum 7 days ahead
+      if (scheduledDate < minTime) return res.status(400).json({ error:'La hora programada debe ser al menos 30 minutos desde ahora' });
+      if (scheduledDate > maxTime) return res.status(400).json({ error:'No se puede programar a más de 7 días' });
+    }
+
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
-    if (!biz.is_open) return res.status(400).json({ error:'Este negocio está cerrado' });
+    if (!biz.is_open && !scheduledDate) return res.status(400).json({ error:'Este negocio está cerrado. Podés programar tu pedido para más tarde.' });
     let subtotal = 0; const lineItems = [];
     for (const item of items) {
       const p = await q1('SELECT * FROM products WHERE id=$1 AND business_id=$2 AND is_available=TRUE',[item.product_id,business_id]);
@@ -1977,8 +1991,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     // All orders start as 'pending' until payment is confirmed
     // Cash orders go to 'paid' immediately (owner still needs to accept)
     const initialStatus = payment_method === 'cash' ? 'paid' : 'pending';
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,fulfillment_type,tip,priority,priority_fee,payment_method,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [orderId,req.user.id,business_id,initialStatus,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,fulfillment_type,tipAmt,Boolean(priority),priorityFee,payment_method,notes||'']);
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,fulfillment_type,tip,priority,priority_fee,payment_method,notes,scheduled_for) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [orderId,req.user.id,business_id,initialStatus,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,fulfillment_type,tipAmt,Boolean(priority),priorityFee,payment_method,notes||'',scheduledDate?scheduledDate.toISOString():null]);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -2008,14 +2022,18 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
     // ── Helper: notify owner about new paid order ──
     async function notifyOwnerNewOrder() {
-      notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
-      sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'💳'} Nuevo pedido — Aceptar o rechazar`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
+      const schedLabel = scheduledDate ? ` · 📅 Programado para ${scheduledDate.toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}` : '';
+      const schedTag = scheduledDate ? '📅 ' : '';
+      notify(biz.owner_id,{ type:'new_order',message:`🔔 ${schedTag}Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}${schedLabel}`,order_id:orderId,total });
+      sendPushToOwner(biz.owner_id,{ title:`${schedTag}${payment_method==='cash'?'💵':'💳'} Nuevo pedido — Aceptar o rechazar`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}${schedLabel}`, tag:'new_order', url:'/' });
       const ownerUser = await q1('SELECT email,name FROM users WHERE id=$1', [biz.owner_id]);
       if (ownerUser?.email) {
         const itemsList = lineItems.map(i => `${i.quantity}× ${i.name} — $${i.unit_price * i.quantity}`).join('<br>');
-        sendEmail(ownerUser.email, `🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,
+        const schedHtml = scheduledDate ? `<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:12px;margin:12px 0;text-align:center;"><span style="font-size:14px;font-weight:800;color:#1d4ed8;">📅 PEDIDO PROGRAMADO</span><br><span style="font-size:18px;font-weight:900;color:#1e40af;">${scheduledDate.toLocaleString('es-UY',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}</span></div>` : '';
+        sendEmail(ownerUser.email, `🔔 ${schedTag}Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,
           `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
             <h2 style="color:#ea356b;">🔔 Nuevo pedido en ${escHtml(biz.name)}</h2>
+            ${schedHtml}
             <p><strong>#${orderId.slice(-6).toUpperCase()}</strong> · ${payment_method==='cash'?'💵 Efectivo':'💳 MercadoPago'} · $${total}</p>
             <p>👤 ${escHtml(cust.name||'Cliente')}${cust.phone?' · 📞 '+escHtml(cust.phone):''}</p>
             ${address?'<p>📍 '+escHtml(address)+'</p>':''}
