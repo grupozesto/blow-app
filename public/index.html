@@ -90,6 +90,8 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .nb svg{width:24px;height:24px;stroke-width:1.8;}
 .nw{position:relative;}
 .nb-badge{position:absolute;top:-4px;right:-8px;background:var(--primary);color:#fff;border-radius:50%;width:17px;height:17px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.nb-badge.bounce{animation:badgeBounce .4s ease;}
+@keyframes badgeBounce{0%{transform:scale(1)}30%{transform:scale(1.5)}50%{transform:scale(.85)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
 
 /* ── PAGES ── */
 .page{display:none;min-height:100vh;flex-direction:column;} .page.active{display:flex;}
@@ -988,6 +990,16 @@ body.owner-mode #owner-overlay {
     </div>
     <!-- PROMO -->
     <div class="promo-strip" id="bank-promo-strip" style="display:none;"><div class="promo-strip-icon" id="bps-icon">🏦</div><div class="promo-strip-text"><div class="promo-strip-title" id="bps-title">Con Débito Santander</div><div class="promo-strip-sub" id="bps-sub">Lunes a Jueves · T&C aplican</div></div><div class="promo-badge" id="bps-badge">+10% OFF</div></div>
+
+    <!-- GREETING + REORDER -->
+    <div id="home-greeting-section" style="padding:16px 16px 0;">
+      <div id="home-greeting" style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:4px;"></div>
+      <div id="home-greeting-sub" style="font-size:13px;color:#64748b;margin-bottom:12px;"></div>
+    </div>
+    <div id="home-reorder-section" style="display:none;padding:0 16px 8px;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">🔄 Pedí de nuevo</div>
+      <div id="home-reorder-list" style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;" class="hide-scrollbar"></div>
+    </div>
     <!-- CATEGORÍAS -->
     <div class="section" style="padding:16px 16px 0;">
       <div class="bigcat-grid" style="margin-bottom:10px;">
@@ -4730,7 +4742,12 @@ function updateCartBadge() {
   const n = cart.reduce((a,b)=>a+b.qty,0);
   ['cart-badge','nb-cart-badge','si-cart-badge'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el){el.style.display=n>0?'flex':'none';el.textContent=n;}
+    if(el){
+      el.style.display=n>0?'flex':'none';
+      el.textContent=n;
+      // Bounce animation
+      if(n>0){el.classList.remove('bounce');void el.offsetWidth;el.classList.add('bounce');}
+    }
   });
   // Update floating cart bar in store detail
   const floatBar = document.getElementById('store-cart-float');
@@ -8240,6 +8257,50 @@ if (user && user.role === 'owner') {
 function loadHomeDynamic() {
   loadBusinessCategories();
   loadPromoBanners();
+  updateHomeGreeting();
+  loadHomeReorder();
+}
+
+function updateHomeGreeting() {
+  const el = document.getElementById('home-greeting');
+  const sub = document.getElementById('home-greeting-sub');
+  if (!el || !sub) return;
+  const h = new Date().getHours();
+  const timeGreet = h < 12 ? '☀️ Buenos días' : h < 19 ? '👋 Buenas tardes' : '🌙 Buenas noches';
+  const name = user?.name?.split(' ')[0] || '';
+  el.textContent = name ? `${timeGreet}, ${name}` : `${timeGreet}`;
+  sub.textContent = '¿Qué querés pedir hoy?';
+}
+
+async function loadHomeReorder() {
+  const section = document.getElementById('home-reorder-section');
+  const list = document.getElementById('home-reorder-list');
+  if (!section || !list || !user || !token) { if(section) section.style.display='none'; return; }
+  try {
+    const orders = await api('/api/orders');
+    const delivered = orders.filter(o => o.status === 'delivered');
+    if (!delivered.length) { section.style.display='none'; return; }
+    // Get unique businesses from last orders
+    const seen = new Set();
+    const recentBiz = [];
+    for (const o of delivered) {
+      if (!seen.has(o.business_id) && o.business_name) {
+        seen.add(o.business_id);
+        recentBiz.push(o);
+        if (recentBiz.length >= 6) break;
+      }
+    }
+    if (!recentBiz.length) { section.style.display='none'; return; }
+    section.style.display = '';
+    list.innerHTML = recentBiz.map(o => `
+      <div onclick="openStore('${o.business_id}')" style="flex-shrink:0;width:110px;cursor:pointer;">
+        <div style="width:110px;height:70px;border-radius:14px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:6px;">
+          ${o.logo_url ? `<img src="${o.logo_url}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:36px;">${o.logo_emoji||'🏪'}</span>`}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(o.business_name)}</div>
+      </div>
+    `).join('');
+  } catch { section.style.display='none'; }
 }
 
 // Si tiene ciudad guardada, cargar directamente
