@@ -115,26 +115,25 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .sc{flex:1;overflow-y:auto;background:#fff;}
 
 /* ── BANNER — full width PedidosYa style ── */
-.banner-wrap{padding:16px 0 8px;position:relative;overflow:hidden;width:100%;}
-.banner-viewport{position:relative;width:100%;overflow:hidden;}
-.banner-track{display:flex;gap:12px;padding:0 16px;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform;box-sizing:border-box;}
-.banner-slide{position:relative;flex-shrink:0;width:calc(100% - 48px);max-width:480px;height:160px;border-radius:20px;overflow:hidden;cursor:pointer;display:flex;align-items:stretch;box-shadow:0 4px 20px rgba(0,0,0,.13);box-sizing:border-box;}
-.banner-slide-left{flex:1;padding:20px 16px 20px 20px;display:flex;flex-direction:column;justify-content:center;z-index:1;}
-.banner-slide-img{width:48%;position:relative;overflow:hidden;flex-shrink:0;}
+.banner-wrap{padding:16px 0 6px;position:relative;width:100%;}
+.banner-viewport{width:100%;overflow:hidden;}
+.banner-track{display:flex;gap:12px;padding:0 16px 4px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;transition:none;}
+.banner-track::-webkit-scrollbar{display:none;}
+.banner-slide{scroll-snap-align:start;flex-shrink:0;width:calc(100% - 48px);max-width:500px;height:158px;border-radius:20px;overflow:hidden;cursor:pointer;display:flex;align-items:stretch;box-shadow:0 4px 24px rgba(0,0,0,.14);box-sizing:border-box;position:relative;}
+.banner-slide-left{flex:1;padding:18px 12px 18px 20px;display:flex;flex-direction:column;justify-content:center;z-index:1;min-width:0;}
+.banner-slide-img{width:46%;flex-shrink:0;overflow:hidden;position:relative;}
 .banner-slide-img img{width:100%;height:100%;object-fit:cover;}
-.banner-slide-img-emoji{width:48%;display:flex;align-items:center;justify-content:center;font-size:72px;opacity:.9;}
-.btag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:6px;}
-.btitle{font-size:20px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:4px;letter-spacing:-.3px;}
-.bsub{font-size:12px;color:rgba(255,255,255,.85);line-height:1.4;}
+.banner-slide-img-emoji{width:46%;display:flex;align-items:center;justify-content:center;font-size:68px;flex-shrink:0;}
+.btag{display:inline-flex;align-items:center;background:rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:5px;width:fit-content;}
+.bhighlight{font-size:30px;font-weight:900;color:#FFB800;line-height:1;margin-bottom:3px;}
+.btitle{font-size:16px;font-weight:800;color:#fff;line-height:1.25;margin-bottom:3px;}
+.bsub{font-size:11px;color:rgba(255,255,255,.85);line-height:1.4;}
 .bsub strong{color:#FFB800;}
-.bcta{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:800;border:2px solid rgba(255,255,255,.4);cursor:pointer;margin-top:10px;font-family:inherit;}
-.btext{position:relative;z-index:1;}
-.bemoji-wrap{display:flex;align-items:center;justify-content:center;font-size:72px;}
-.bhighlight{font-size:32px;font-weight:900;color:#FFB800;line-height:1;margin-bottom:2px;}
+.bcta{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.4);color:#fff;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px;font-family:inherit;}
 .bstore-badge{position:absolute;top:10px;right:10px;background:#fff;border-radius:10px;padding:4px 8px;font-size:11px;font-weight:800;color:#0f172a;box-shadow:0 2px 8px rgba(0,0,0,.15);}
-.bdots{display:flex;justify-content:center;gap:6px;padding:10px 0 4px;background:#fff;}
+.bdots{display:flex;justify-content:center;gap:6px;padding:8px 0 2px;}
 .bdot{width:7px;height:7px;border-radius:50%;background:#ddd;cursor:pointer;transition:all .2s;}
-.bdot.active{background:var(--primary);width:18px;border-radius:4px;}
+.bdot.active{.bdot.active{background:var(--primary);width:18px;border-radius:4px;}
 
 /* ── PROMO CAROUSEL ── */
 .pcarousel-wrap{padding:0 16px;margin:16px 0 0;position:relative;}
@@ -3073,11 +3072,9 @@ function goBanner(i) {
   bIdx = i;
   const track = document.getElementById('banner-track');
   if (!track) return;
-  // Get the width of one card + gap (12px)
-  const card = track.querySelector('.banner-slide');
+  const card = track.querySelectorAll('.banner-slide')[i];
   if (card) {
-    const cardW = card.offsetWidth + 12;
-    track.style.transform = `translateX(-${i * cardW}px)`;
+    track.scrollTo({ left: card.offsetLeft - 16, behavior: 'smooth' });
   }
   document.querySelectorAll('.bdot').forEach((d,j) => d.classList.toggle('active', j===i));
 }
@@ -3153,22 +3150,19 @@ function _initBannerSwipe() {
   const track = document.getElementById('banner-track');
   if (!track || track._swipeInit) return;
   track._swipeInit = true;
-  let startX = 0, isDragging = false;
-  track.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isDragging = true; }, {passive:true});
-  track.addEventListener('touchend', e => {
-    if (!isDragging) return;
-    const dx = e.changedTouches[0].clientX - startX;
-    if (Math.abs(dx) > 40) goBanner(dx < 0 ? Math.min(bIdx+1, bTotal-1) : Math.max(bIdx-1, 0));
-    isDragging = false;
-  }, {passive:true});
-  // Mouse drag for desktop
-  track.addEventListener('mousedown', e => { startX = e.clientX; isDragging = true; });
-  track.addEventListener('mouseup', e => {
-    if (!isDragging) return;
-    const dx = e.clientX - startX;
-    if (Math.abs(dx) > 40) goBanner(dx < 0 ? Math.min(bIdx+1, bTotal-1) : Math.max(bIdx-1, 0));
-    isDragging = false;
-  });
+  // Sync dots when user scrolls natively
+  track.addEventListener('scroll', () => {
+    const cards = track.querySelectorAll('.banner-slide');
+    let closest = 0, minDist = Infinity;
+    cards.forEach((card, i) => {
+      const dist = Math.abs(card.offsetLeft - track.scrollLeft - 16);
+      if (dist < minDist) { minDist = dist; closest = i; }
+    });
+    if (closest !== bIdx) {
+      bIdx = closest;
+      document.querySelectorAll('.bdot').forEach((d,j) => d.classList.toggle('active', j===bIdx));
+    }
+  }, { passive: true });
 }
 
 // ═══════════════════════════════════════════════
@@ -3534,21 +3528,26 @@ async function loadStores() {
     let url = '/api/businesses';
     if (activeCity) url += `?city=${encodeURIComponent(activeCity)}`;
     const data = await api(url);
-    if (activeCity && data.length === 0) {
-      // No hay negocios en esta ciudad — mostrar mensaje amigable
-      g.innerHTML = `<div class="loading-state" style="grid-column:1/-1;padding:40px 20px;text-align:center;">
-        <div style="font-size:48px;margin-bottom:12px;">🔍</div>
-        <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Todavía no hay negocios en ${activeCity}</div>
-        <div style="color:var(--muted);font-size:14px;margin-bottom:16px;">¿Sos dueño de un negocio? ¡Registrate y empezá a recibir pedidos!</div>
-        <button onclick="openLocModal()" style="background:none;border:2px solid var(--primary);color:var(--primary);border-radius:12px;padding:10px 20px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cambiar ciudad</button>
-      </div>`;
-      allStores = [];
-      isDemoMode = false;
-      return;
-    }
     if (data.length > 0) {
       allStores = data;
       isDemoMode = false;
+    } else if (activeCity) {
+      // No hay negocios en esa ciudad — mostrar todos sin filtro de ciudad
+      const allData = await api('/api/businesses').catch(() => []);
+      if (allData.length > 0) {
+        allStores = allData;
+        isDemoMode = false;
+      } else {
+        allStores = [];
+        isDemoMode = false;
+        g.innerHTML = `<div class="loading-state" style="grid-column:1/-1;padding:40px 20px;text-align:center;">
+          <div style="font-size:48px;margin-bottom:12px;">🔍</div>
+          <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Todavía no hay negocios en ${activeCity}</div>
+          <div style="color:var(--muted);font-size:14px;margin-bottom:16px;">¿Sos dueño de un negocio? ¡Registrate y empezá a recibir pedidos!</div>
+          <button onclick="openLocModal()" style="background:none;border:2px solid var(--primary);color:var(--primary);border-radius:12px;padding:10px 20px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cambiar ciudad</button>
+        </div>`;
+        return;
+      }
     } else {
       allStores = [];
       isDemoMode = false;
