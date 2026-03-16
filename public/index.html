@@ -6605,7 +6605,7 @@ async function loadOwnerDash() {
 }
 
 function renderOwnerOrders(orders) {
-  const active = orders.filter(o=>!['delivered','cancelled'].includes(o.status));
+  const active = orders.filter(o=>!['delivered','cancelled','rejected'].includes(o.status));
   const el = document.getElementById('owner-orders-list');
   if (!active.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px 0;">No hay pedidos activos 🎉</div>'; return; }
   el.innerHTML = active.map(o=>`
@@ -9230,10 +9230,10 @@ function enterOwnerOverlay() {
   _ooRefreshInterval = setInterval(async () => {
     try {
       const fresh = await ooFetch('/api/businesses/mine/dashboard');
-      const prevPending = (_ooDashData?.orders||[]).filter(o=>o.status==='pending').length;
+      const prevPending = (_ooDashData?.orders||[]).filter(o=>['pending','paid'].includes(o.status)).length;
       _ooDashData = fresh;
       if (fresh.business) _ooBiz = fresh.business;
-      const newPending = (fresh.orders||[]).filter(o=>o.status==='pending').length;
+      const newPending = (fresh.orders||[]).filter(o=>['pending','paid'].includes(o.status)).length;
       // Actualizar KPI
       const kpiEl = document.getElementById('oo-kpi-pending');
       if (kpiEl) kpiEl.textContent = newPending;
@@ -9342,7 +9342,7 @@ async function ooLoadData() {
     // KPIs from dashboard data
     const orders = d.orders || [];
     const today  = d.today  || {};
-    const pending = orders.filter(o => o.status === 'pending').length;
+    const pending = orders.filter(o => ['pending','paid'].includes(o.status)).length;
     document.getElementById('oo-kpi-orders').textContent  = today.orders  || 0;
     document.getElementById('oo-kpi-revenue').textContent = '$' + Math.round(today.net_revenue || today.revenue || 0);
     document.getElementById('oo-kpi-pending').textContent = pending;
@@ -9388,7 +9388,7 @@ const OO_NEXT_STATUS = {
 
 function ooRenderHomePedidos() {
   const orders = (_ooDashData?.orders || []).slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-  const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
+  const active = orders.filter(o => !['delivered','cancelled','rejected'].includes(o.status));
   const recent = orders.filter(o => ['delivered','cancelled'].includes(o.status)).slice(0, 5);
 
   if (!orders.length) return `
@@ -9620,17 +9620,17 @@ async function ooRenderOrders() {
   try {
     const data = await ooFetch('/api/orders');
     const orders = Array.isArray(data) ? data : (data.orders || []);
-    const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
+    const active = orders.filter(o => !['delivered','cancelled','rejected'].includes(o.status));
     if (!active.length) {
       el.innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:48px;">📭</div><div style="font-size:16px;font-weight:700;color:#94a3b8;margin-top:12px;">Sin pedidos activos</div><div style="font-size:13px;color:#cbd5e1;margin-top:6px;">Los pedidos nuevos aparecerán aquí</div></div>';
       return;
     }
 
-    const STATUS_COLOR = { pending:'#f59e0b', confirmed:'#3b82f6', preparing:'#f97316', ready:'#16a34a', on_way:'#8b5cf6' };
-    const STATUS_LABEL = { pending:'🆕 Nuevo', confirmed:'✅ Confirmado', preparing:'👨‍🍳 Preparando', ready:'🟢 Listo', on_way:'🛵 En camino' };
+    const STATUS_COLOR = { pending:'#94a3b8', paid:'#f59e0b', confirmed:'#3b82f6', preparing:'#f97316', ready:'#16a34a', on_way:'#8b5cf6' };
+    const STATUS_LABEL = { pending:'⏳ Esperando pago', paid:'💰 Pagado — Aceptar o rechazar', confirmed:'✅ Confirmado', preparing:'👨‍🍳 Preparando', ready:'🟢 Listo', on_way:'🛵 En camino' };
     // Botón siguiente según estado actual
     const NEXT_BTN = {
-      pending:    { label:'✓ Aceptar pedido',       next:'confirmed', color:'#2558d4' },
+      paid:       { label:'✓ Aceptar pedido',       next:'confirmed', color:'#16a34a' },
       confirmed:  { label:'👨‍🍳 Empezar a preparar',  next:'preparing', color:'#f97316' },
       preparing:  { label:'✓ Marcar como listo',    next:'ready',     color:'#16a34a' },
       ready:      { label:'🛵 Salió para entrega',    next:'on_way',    color:'#8b5cf6' },
@@ -9683,8 +9683,9 @@ async function ooRenderOrders() {
         <!-- Botones de acción -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${btn ? `<button onclick="ooUpdateOrder('${o.id}','${btn.next}')" style="flex:1;background:${btn.color};border:none;border-radius:10px;padding:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${btn.label}</button>` : `<div style="flex:1;background:#dcfce7;border-radius:10px;padding:12px;text-align:center;font-size:13px;color:#16a34a;font-weight:700;">✅ Entregado</div>`}
+          ${o.status === 'paid' ? `<button onclick="ooRejectOrder('${o.id}')" style="flex:1;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:10px;padding:12px;color:#dc2626;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">✕ Rechazar</button>` : ''}
           ${['ready','on_way'].includes(o.status) ? `<button onclick="ooUpdateOrder('${o.id}','delivered')" style="background:#0ea5e9;border:none;border-radius:10px;padding:12px 14px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Marcar entregado">✅ Entregado</button>` : ''}
-          <button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1.5px solid #fee2e2;border-radius:10px;padding:12px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Cancelar">✕</button>
+          ${o.status !== 'paid' ? `<button onclick="ooUpdateOrder('${o.id}','cancelled')" style="background:#fff;border:1.5px solid #fee2e2;border-radius:10px;padding:12px 14px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;" title="Cancelar">✕</button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -9700,7 +9701,7 @@ async function ooUpdateOrder(id, status) {
       await ooFetch(`/api/orders/${id}/cancel`, { method:'POST' });
     } else {
       const body = { status };
-      // Ask for ETA when confirming
+      // Ask for ETA when confirming (accepting)
       if (status === 'confirmed') {
         const mins = prompt('⏱️ ¿En cuántos minutos estará listo?\n(dejá en blanco para usar el tiempo por defecto)');
         if (mins === null) return; // canceló
@@ -9715,11 +9716,35 @@ async function ooUpdateOrder(id, status) {
       const fresh = await ooFetch('/api/businesses/mine/dashboard');
       _ooDashData = fresh;
       if (fresh.business) _ooBiz = fresh.business;
-      const pending = (fresh.orders||[]).filter(o => o.status === 'pending').length;
+      const pendingPaid = (fresh.orders||[]).filter(o => ['pending','paid'].includes(o.status)).length;
       const kpiEl = document.getElementById('oo-kpi-pending');
-      if (kpiEl) kpiEl.textContent = pending;
+      if (kpiEl) kpiEl.textContent = pendingPaid;
     } catch(_) {}
     // Re-renderizar el tab activo sin cambiar de sección
+    const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
+    if (activeTab === 'home') ooRenderHome();
+    else ooRenderOrders();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function ooRejectOrder(id) {
+  const reason = prompt('Motivo del rechazo (opcional):');
+  if (reason === null) return; // user cancelled the prompt
+  try {
+    const res = await ooFetch(`/api/orders/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    const refundInfo = res.refund
+      ? (res.refund.error ? ' (reembolso requiere revisión manual)' : ' (reembolso automático procesado)')
+      : '';
+    showToast(`✅ Pedido rechazado${refundInfo}`);
+    // Refresh
+    try {
+      const fresh = await ooFetch('/api/businesses/mine/dashboard');
+      _ooDashData = fresh;
+      if (fresh.business) _ooBiz = fresh.business;
+    } catch(_) {}
     const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
     if (activeTab === 'home') ooRenderHome();
     else ooRenderOrders();
@@ -11493,7 +11518,7 @@ async function loadLastOrderStrip() {
     const statusEl = document.getElementById('last-order-status');
     if (!strip || !nameEl) return;
 
-    const statusLabel = { pending:'⏳ Confirmando pago', confirmed:'✅ Confirmado', preparing:'👨‍🍳 Preparando', ready:'📦 Listo para despacho', on_way:'🛵 En camino a vos', delivered:'✅ Entregado', cancelled:'❌ Cancelado' };
+    const statusLabel = { pending:'⏳ Esperando pago', paid:'💰 Pagado — esperando confirmación del local', confirmed:'✅ Confirmado por el local', preparing:'👨‍🍳 Preparando tu pedido', ready:'📦 Listo para despacho', on_way:'🛵 En camino a vos', delivered:'✅ Entregado', cancelled:'❌ Cancelado', rejected:'❌ Rechazado por el local' };
     nameEl.textContent = last.business_name || 'Pedido #' + last.id;
     statusEl.textContent = statusLabel[last.status] || last.status;
     strip.style.display = 'block';
