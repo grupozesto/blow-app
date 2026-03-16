@@ -2803,6 +2803,18 @@ let currentStoreForCart = null;
 let appCategories = [];
 
 // ═══════════════════════════════════════════════
+//  TOAST NOTIFICATIONS
+// ═══════════════════════════════════════════════
+function showToast(msg, duration) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), duration || 3000);
+}
+
+// ═══════════════════════════════════════════════
 //  XSS SANITIZATION
 // ═══════════════════════════════════════════════
 function esc(str) {
@@ -9955,8 +9967,6 @@ function ooRenderMore() {
 
 // ── Estadísticas ─────────────────────────────
 let _ooStatsPeriod = 7;
-
-function ooRenderStats() { ooShowStats(); }
 
 async function ooShowStats(period) {
   if (period) _ooStatsPeriod = period;
