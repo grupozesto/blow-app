@@ -934,7 +934,7 @@ app.post('/api/auth/register', async (req, res) => {
       const user = { id:uid, name:data.name, email:data.email, role:'customer' };
       res.status(201).json({ token:sign(user), user });
     }
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Step 2 — verify code
@@ -952,7 +952,7 @@ app.post('/api/auth/verify-email', async (req, res) => {
     await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
     const user = { id, name:data.name, email:data.email, role:'customer' };
     res.status(201).json({ token:sign(user), user });
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -969,7 +969,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error:'Email o contraseña incorrectos' });
     }
     res.json({ token:sign(u), user:{ id:u.id, name:u.name, email:u.email, role:u.role } });
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Debug: check cloudinary config (admin only)
@@ -1748,6 +1748,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       if (fee > 0) mpItems.push({ title:'Costo de envío',quantity:1,unit_price:fee,currency_id:'UYU' });
       if (tipAmt > 0) mpItems.push({ title:'Propina para el repartidor',quantity:1,unit_price:tipAmt,currency_id:'UYU' });
       if (priorityFee > 0) mpItems.push({ title:'Envío prioritario',quantity:1,unit_price:priorityFee,currency_id:'UYU' });
+      if (discountAmt > 0) mpItems.push({ title:'Descuento cupón',quantity:1,unit_price:-discountAmt,currency_id:'UYU' });
       const pref = await mp.preferences.create({
         items: mpItems,
         payer: { name:cust.name,email:cust.email },
@@ -1764,7 +1765,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
       res.json({ order_id:orderId,demo:true });
     }
-  } catch(e) { console.error(e); res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error(e); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/orders', auth, async (req, res) => {
@@ -3268,7 +3269,7 @@ app.post('/api/support/messages', auth, async (req, res) => {
       notify(adm.id, { type:'support_message', user_id:req.user.id, body:body.trim().slice(0,80), sender_role:'customer' });
     }
     res.json(msg);
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Admin: list all users with support chats
@@ -3308,7 +3309,7 @@ app.post('/api/admin/support/messages/:userId', auth, role('admin'), async (req,
     // Notify user via WS
     notify(req.params.userId, { type:'support_reply', body:body.trim().slice(0,80) });
     res.json(msg);
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business.html')));
