@@ -201,6 +201,9 @@ hr{border-color:var(--border);}
     <button class="nav-item" onclick="showPage('banners')" id="nav-banners">
       <span class="nav-icon">🖼️</span>Banners
     </button>
+    <button class="nav-item" onclick="showPage('categories')" id="nav-categories">
+      <span class="nav-icon">📂</span>Categorías
+    </button>
     <button class="nav-item" onclick="showPage('businesses')" id="nav-businesses">
       <span class="nav-icon">🏪</span>Negocios
     </button>
@@ -321,9 +324,9 @@ function showPage(page) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   const navEl = document.getElementById('nav-' + page);
   if (navEl) navEl.classList.add('active');
-  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', config:'Configuración', export:'Exportar datos' };
+  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', categories:'Categorías & Contenido', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', config:'Configuración', export:'Exportar datos' };
   document.getElementById('page-title').textContent = titles[page] || page;
-  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, config: renderConfig, export: renderExport };
+  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, config: renderConfig, export: renderExport };
   if (pages[page]) pages[page]();
 }
 
@@ -1356,6 +1359,342 @@ if (_impToken && _impUser) {
   window.history.replaceState({}, '', '/');
   // This page is now acting as a redirect bridge
 }
+
+// ═══════════════════════════════════════════════
+//  CATEGORÍAS & CONTENIDO — Admin Panel
+// ═══════════════════════════════════════════════
+let _adminCats = [], _adminSubs = [], _adminCatBanners = [], _adminCatFeatured = [], _adminBizList = [];
+let _catTab = 'subcategories';
+
+async function renderCategoriesPage() {
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="btn-tab active" onclick="switchCatTab('subcategories',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#0f172a;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">📂 Sub-categorías</button>
+      <button class="btn-tab" onclick="switchCatTab('catbanners',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-weight:700;cursor:pointer;font-size:13px;">🖼️ Banners de categoría</button>
+      <button class="btn-tab" onclick="switchCatTab('catfeatured',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-weight:700;cursor:pointer;font-size:13px;">⭐ Destacados</button>
+      <button class="btn-tab" onclick="switchCatTab('maincats',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-weight:700;cursor:pointer;font-size:13px;">🏷️ Categorías principales</button>
+    </div>
+    <div id="cat-tab-content"><div class="spinner"></div></div>`;
+  // Load all data
+  try {
+    [_adminCats, _adminSubs, _adminCatBanners, _adminCatFeatured, _adminBizList] = await Promise.all([
+      api('/api/admin/business-categories'),
+      api('/api/admin/subcategories'),
+      api('/api/admin/category-banners'),
+      api('/api/admin/category-featured'),
+      api('/api/admin/businesses'),
+    ]);
+  } catch(e) { console.error(e); }
+  renderCatTabContent();
+}
+
+function switchCatTab(tab, el) {
+  _catTab = tab;
+  document.querySelectorAll('.btn-tab').forEach(b => { b.style.background='#fff'; b.style.color='#334155'; });
+  if (el) { el.style.background='#0f172a'; el.style.color='#fff'; }
+  renderCatTabContent();
+}
+
+function renderCatTabContent() {
+  const c = document.getElementById('cat-tab-content');
+  if (!c) return;
+  if (_catTab === 'subcategories') renderSubcategoriesTab(c);
+  else if (_catTab === 'catbanners') renderCatBannersTab(c);
+  else if (_catTab === 'catfeatured') renderCatFeaturedTab(c);
+  else if (_catTab === 'maincats') renderMainCatsTab(c);
+}
+
+function catSelect(selected) {
+  return _adminCats.map(c => `<option value="${c.id}" ${c.id===selected?'selected':''}>${c.emoji} ${esc(c.name)}</option>`).join('');
+}
+
+// ── SUB-CATEGORÍAS ──
+function renderSubcategoriesTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Nueva sub-categoría</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Categoría padre</label><select id="sub-cat-id" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${catSelect()}</select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Nombre</label><input id="sub-name" placeholder="Ej: Pizzas" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Emoji</label><input id="sub-emoji" value="🍽️" style="width:60px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:18px;text-align:center;"></div>
+        <button onclick="addSubcat()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Agregar</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px;">${_adminSubs.length} sub-categorías</div>
+      <div id="subcats-list"></div>
+    </div>`;
+  renderSubcatsList();
+}
+
+function renderSubcatsList() {
+  const el = document.getElementById('subcats-list');
+  if (!el) return;
+  if (!_adminSubs.length) { el.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No hay sub-categorías. Creá una arriba.</div>'; return; }
+  // Group by category
+  const grouped = {};
+  _adminSubs.forEach(s => { const k = s.category_name||s.category_id||'Sin categoría'; if(!grouped[k])grouped[k]=[]; grouped[k].push(s); });
+  el.innerHTML = Object.entries(grouped).map(([cat, items]) => `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">${esc(cat)}</div>
+      ${items.map(s => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;" data-id="${s.id}">
+          <div style="width:44px;height:44px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;">
+            ${s.image_url ? `<img src="${s.image_url}" style="width:100%;height:100%;object-fit:cover;">` : (s.emoji||'🍽️')}
+          </div>
+          <div style="flex:1;font-size:14px;font-weight:700;">${esc(s.name)}</div>
+          <span style="font-size:11px;color:#94a3b8;">orden: ${s.sort_order}</span>
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${s.is_active?'#dcfce7':'#fee2e2'};color:${s.is_active?'#16a34a':'#dc2626'};font-weight:700;">${s.is_active?'Activa':'Inactiva'}</span>
+          <button onclick="toggleSubcat('${s.id}',${!s.is_active})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${s.is_active?'Desactivar':'Activar'}</button>
+          <button onclick="uploadSubcatImg('${s.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">📷 Foto</button>
+          <button onclick="deleteSubcat('${s.id}','${escJS(s.name)}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+async function addSubcat() {
+  const category_id = document.getElementById('sub-cat-id')?.value;
+  const name = document.getElementById('sub-name')?.value?.trim();
+  const emoji = document.getElementById('sub-emoji')?.value || '🍽️';
+  if (!name) return alert('Nombre requerido');
+  const sort_order = _adminSubs.filter(s=>s.category_id===category_id).length;
+  try {
+    const res = await api('/api/admin/subcategories', { method:'POST', body:JSON.stringify({ category_id, name, emoji, sort_order }) });
+    _adminSubs.push(res);
+    document.getElementById('sub-name').value = '';
+    renderSubcatsList();
+  } catch(e) { alert(e.message); }
+}
+
+async function toggleSubcat(id, active) {
+  await api(`/api/admin/subcategories/${id}`, { method:'PATCH', body:JSON.stringify({ is_active:active }) });
+  const s = _adminSubs.find(x=>x.id===id); if(s) s.is_active = active;
+  renderSubcatsList();
+}
+
+async function deleteSubcat(id, name) {
+  if (!confirm(`¿Eliminar sub-categoría "${name}"?`)) return;
+  await api(`/api/admin/subcategories/${id}`, { method:'DELETE' });
+  _adminSubs = _adminSubs.filter(x=>x.id!==id);
+  renderSubcatsList();
+}
+
+function uploadSubcatImg(id) {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange = async () => {
+    const fd = new FormData(); fd.append('photo', inp.files[0]);
+    const res = await fetch(`/api/admin/subcategories/${id}/upload-image`, { method:'POST', headers:{'Authorization':'Bearer '+adminToken}, body:fd });
+    const data = await res.json();
+    if (data.url) { const s=_adminSubs.find(x=>x.id===id); if(s) s.image_url=data.url; renderSubcatsList(); }
+  };
+  inp.click();
+}
+
+// ── BANNERS DE CATEGORÍA ──
+function renderCatBannersTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Nuevo banner de categoría</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Categoría</label><select id="catban-cat" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${catSelect()}</select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Título</label><input id="catban-title" placeholder="Ej: 2x1 en Pizzas" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Subtítulo</label><input id="catban-subtitle" placeholder="Solo hoy" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Color de fondo</label><input id="catban-color" type="color" value="#FA0050" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Negocio vinculado (opcional)</label><select id="catban-biz" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"><option value="">— Ninguno —</option>${_adminBizList.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>
+        <button onclick="addCatBanner()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Crear</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px;">${_adminCatBanners.length} banners</div>
+      <div id="catbanners-list"></div>
+    </div>`;
+  renderCatBannersList();
+}
+
+function renderCatBannersList() {
+  const el = document.getElementById('catbanners-list');
+  if (!el) return;
+  if (!_adminCatBanners.length) { el.innerHTML='<div style="color:#94a3b8;text-align:center;padding:20px;">No hay banners de categoría.</div>'; return; }
+  el.innerHTML = _adminCatBanners.map(b => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="width:120px;height:50px;border-radius:10px;overflow:hidden;flex-shrink:0;background:${b.bg_color||'#FA0050'};display:flex;align-items:center;justify-content:center;">
+        ${b.image_url ? `<img src="${b.image_url}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="color:#fff;font-size:12px;font-weight:800;">${esc(b.title||'Banner')}</span>`}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">${esc(b.title||'Sin título')}</div>
+        <div style="font-size:11px;color:#64748b;">${esc(b.category_name||b.category_id)} ${b.business_name?'→ '+esc(b.business_name):''}</div>
+      </div>
+      <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${b.active?'#dcfce7':'#fee2e2'};color:${b.active?'#16a34a':'#dc2626'};font-weight:700;">${b.active?'Activo':'Inactivo'}</span>
+      <button onclick="toggleCatBanner('${b.id}',${!b.active})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${b.active?'Desactivar':'Activar'}</button>
+      <button onclick="uploadCatBannerImg('${b.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">📷</button>
+      <button onclick="deleteCatBanner('${b.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+}
+
+async function addCatBanner() {
+  const category_id = document.getElementById('catban-cat')?.value;
+  const title = document.getElementById('catban-title')?.value?.trim();
+  const subtitle = document.getElementById('catban-subtitle')?.value?.trim();
+  const bg_color = document.getElementById('catban-color')?.value;
+  const link_business_id = document.getElementById('catban-biz')?.value || null;
+  try {
+    const res = await api('/api/admin/category-banners', { method:'POST', body:JSON.stringify({ category_id, title, subtitle, bg_color, link_business_id, sort_order: _adminCatBanners.length }) });
+    _adminCatBanners.push(res);
+    document.getElementById('catban-title').value='';
+    document.getElementById('catban-subtitle').value='';
+    renderCatBannersList();
+  } catch(e) { alert(e.message); }
+}
+
+async function toggleCatBanner(id, active) {
+  await api(`/api/admin/category-banners/${id}`, { method:'PATCH', body:JSON.stringify({active}) });
+  const b=_adminCatBanners.find(x=>x.id===id); if(b)b.active=active;
+  renderCatBannersList();
+}
+
+async function deleteCatBanner(id) {
+  if (!confirm('¿Eliminar este banner?')) return;
+  await api(`/api/admin/category-banners/${id}`, { method:'DELETE' });
+  _adminCatBanners = _adminCatBanners.filter(x=>x.id!==id);
+  renderCatBannersList();
+}
+
+function uploadCatBannerImg(id) {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange = async () => {
+    const fd = new FormData(); fd.append('photo', inp.files[0]);
+    const res = await fetch(`/api/admin/category-banners/${id}/upload-image`, { method:'POST', headers:{'Authorization':'Bearer '+adminToken}, body:fd });
+    const data = await res.json();
+    if (data.url) { const b=_adminCatBanners.find(x=>x.id===id); if(b)b.image_url=data.url; renderCatBannersList(); }
+  };
+  inp.click();
+}
+
+// ── DESTACADOS POR CATEGORÍA ──
+function renderCatFeaturedTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Destacar negocio en categoría</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Categoría</label><select id="catfeat-cat" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${catSelect()}</select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Negocio</label><select id="catfeat-biz" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${_adminBizList.map(b=>`<option value="${b.id}">${esc(b.name)} (${b.city||''})</option>`).join('')}</select></div>
+        <button onclick="addCatFeatured()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Destacar</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px;">${_adminCatFeatured.length} negocios destacados</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Aparecen en el carrusel "Descubrí locales" dentro de cada categoría</div>
+      <div id="catfeatured-list"></div>
+    </div>`;
+  renderCatFeaturedList();
+}
+
+function renderCatFeaturedList() {
+  const el = document.getElementById('catfeatured-list');
+  if (!el) return;
+  if (!_adminCatFeatured.length) { el.innerHTML='<div style="color:#94a3b8;text-align:center;padding:20px;">No hay negocios destacados.</div>'; return; }
+  el.innerHTML = _adminCatFeatured.map(f => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:20px;">${f.logo_emoji||'🏪'}</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">${esc(f.business_name||'')}</div>
+        <div style="font-size:11px;color:#64748b;">${esc(f.category_name||f.category_id)} · orden: ${f.sort_order}</div>
+      </div>
+      <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${f.active?'#dcfce7':'#fee2e2'};color:${f.active?'#16a34a':'#dc2626'};font-weight:700;">${f.active?'Activo':'Inactivo'}</span>
+      <button onclick="toggleCatFeat('${f.id}',${!f.active})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${f.active?'Quitar':'Activar'}</button>
+      <button onclick="deleteCatFeat('${f.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+}
+
+async function addCatFeatured() {
+  const category_id = document.getElementById('catfeat-cat')?.value;
+  const business_id = document.getElementById('catfeat-biz')?.value;
+  if (!category_id || !business_id) return alert('Seleccioná categoría y negocio');
+  try {
+    const res = await api('/api/admin/category-featured', { method:'POST', body:JSON.stringify({ category_id, business_id, sort_order: _adminCatFeatured.length }) });
+    _adminCatFeatured.push(res);
+    renderCatFeaturedList();
+  } catch(e) { alert(e.message||'Error'); }
+}
+
+async function toggleCatFeat(id, active) {
+  await api(`/api/admin/category-featured/${id}`, { method:'PATCH', body:JSON.stringify({active}) });
+  const f=_adminCatFeatured.find(x=>x.id===id); if(f)f.active=active;
+  renderCatFeaturedList();
+}
+
+async function deleteCatFeat(id) {
+  if (!confirm('¿Quitar de destacados?')) return;
+  await api(`/api/admin/category-featured/${id}`, { method:'DELETE' });
+  _adminCatFeatured = _adminCatFeatured.filter(x=>x.id!==id);
+  renderCatFeaturedList();
+}
+
+// ── CATEGORÍAS PRINCIPALES ──
+function renderMainCatsTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Nueva categoría principal</div>
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Nombre</label><input id="maincat-name" placeholder="Ej: Kioscos" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Emoji</label><input id="maincat-emoji" value="🏪" style="width:60px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:18px;text-align:center;"></div>
+        <button onclick="addMainCat()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Crear</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px;">${_adminCats.length} categorías</div>
+      <div id="maincats-list"></div>
+    </div>`;
+  renderMainCatsList();
+}
+
+function renderMainCatsList() {
+  const el = document.getElementById('maincats-list');
+  if (!el) return;
+  el.innerHTML = _adminCats.map(c => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:24px;">${c.emoji||'🏪'}</div>
+      <div style="flex:1;font-size:14px;font-weight:700;">${esc(c.name)}</div>
+      <span style="font-size:11px;color:#94a3b8;">id: ${c.id}</span>
+      <span style="font-size:11px;color:#94a3b8;">orden: ${c.sort_order}</span>
+      <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${c.is_active!==false?'#dcfce7':'#fee2e2'};color:${c.is_active!==false?'#16a34a':'#dc2626'};font-weight:700;">${c.is_active!==false?'Activa':'Inactiva'}</span>
+      <button onclick="toggleMainCat('${c.id}',${!(c.is_active!==false)})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${c.is_active!==false?'Desactivar':'Activar'}</button>
+      <button onclick="deleteMainCat('${c.id}','${escJS(c.name)}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+}
+
+async function addMainCat() {
+  const name = document.getElementById('maincat-name')?.value?.trim();
+  const emoji = document.getElementById('maincat-emoji')?.value || '🏪';
+  if (!name) return alert('Nombre requerido');
+  try {
+    await api('/api/admin/business-categories', { method:'POST', body:JSON.stringify({ name, emoji, sort_order: _adminCats.length+1 }) });
+    _adminCats = await api('/api/admin/business-categories');
+    document.getElementById('maincat-name').value='';
+    renderMainCatsList();
+  } catch(e) { alert(e.message); }
+}
+
+async function toggleMainCat(id, active) {
+  await api(`/api/admin/business-categories/${id}`, { method:'PATCH', body:JSON.stringify({ is_active:active }) });
+  const c=_adminCats.find(x=>x.id===id); if(c)c.is_active=active;
+  renderMainCatsList();
+}
+
+async function deleteMainCat(id, name) {
+  if (!confirm(`¿Eliminar categoría "${name}"? También se eliminarán sus sub-categorías.`)) return;
+  await api(`/api/admin/business-categories/${id}`, { method:'DELETE' });
+  _adminCats = _adminCats.filter(x=>x.id!==id);
+  _adminSubs = _adminSubs.filter(x=>x.category_id!==id);
+  renderMainCatsList();
+}
+
+// Helper: escJS for admin (same as in index.html)
+function escJS(str) { if(typeof str!=='string')return''; return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'\\x3c').replace(/>/g,'\\x3e'); }
+function esc(str) { if(typeof str!=='string')return''; const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
 
 // ── BOOT ──────────────────────────────────────
 if (adminToken && adminUser?.role === 'admin') {

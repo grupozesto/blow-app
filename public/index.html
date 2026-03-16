@@ -3975,57 +3975,12 @@ function filterCat(cat) {
 // ═══════════════════════════════════════════════
 let _catFilter = { category: null, search: '', sort: 'default', discount: false, featured: false, open_only: true, free_delivery: false, subcat: null };
 const CAT_LABELS = { food:'Restaurantes', market:'Mercados', pharmacy:'Farmacias', drinks:'Bebidas', desserts:'Postres', cafe:'Cafés' };
-const CAT_SUBCATS = {
-  food: [
-    {id:'all',label:'Todos',emoji:'🍽️'},
-    {id:'hamburguesas',label:'Hamburguesas',emoji:'🍔'},
-    {id:'pizzas',label:'Pizzas',emoji:'🍕'},
-    {id:'empanadas',label:'Empanadas',emoji:'🥟'},
-    {id:'sandwiches',label:'Sándwiches',emoji:'🥪'},
-    {id:'sushi',label:'Sushi',emoji:'🍣'},
-    {id:'pastas',label:'Pastas',emoji:'🍝'},
-    {id:'parrilla',label:'Parrilla',emoji:'🥩'},
-    {id:'milanesas',label:'Milanesas',emoji:'🍗'},
-    {id:'pollo',label:'Pollo',emoji:'🍗'},
-    {id:'saludable',label:'Saludable',emoji:'🥗'},
-    {id:'desayunos',label:'Desayunos',emoji:'🥐'},
-  ],
-  market: [
-    {id:'all',label:'Todos',emoji:'🛒'},
-    {id:'super',label:'Supermercado',emoji:'🏪'},
-    {id:'almacen',label:'Almacén',emoji:'🏠'},
-    {id:'verduleria',label:'Verdulería',emoji:'🥦'},
-    {id:'carniceria',label:'Carnicería',emoji:'🥩'},
-    {id:'dietetica',label:'Dietética',emoji:'🌾'},
-  ],
-  pharmacy: [
-    {id:'all',label:'Todos',emoji:'💊'},
-    {id:'24hs',label:'24 horas',emoji:'🕐'},
-    {id:'perfumeria',label:'Perfumería',emoji:'💄'},
-  ],
-  drinks: [
-    {id:'all',label:'Todos',emoji:'🥤'},
-    {id:'cerveza',label:'Cerveza',emoji:'🍺'},
-    {id:'vinos',label:'Vinos',emoji:'🍷'},
-    {id:'licores',label:'Licores',emoji:'🥃'},
-    {id:'gaseosas',label:'Gaseosas',emoji:'🥤'},
-  ],
-  desserts: [
-    {id:'all',label:'Todos',emoji:'🍰'},
-    {id:'helados',label:'Helados',emoji:'🍦'},
-    {id:'tortas',label:'Tortas',emoji:'🎂'},
-    {id:'panaderia',label:'Panaderías',emoji:'🥖'},
-    {id:'chocolates',label:'Chocolates',emoji:'🍫'},
-  ],
-  cafe: [
-    {id:'all',label:'Todos',emoji:'☕'},
-    {id:'cafeteria',label:'Cafetería',emoji:'☕'},
-    {id:'te',label:'Té',emoji:'🍵'},
-    {id:'brunch',label:'Brunch',emoji:'🧇'},
-  ],
-};
+// Subcategories, banners, and featured are loaded from API
+let _catSubcategories = [];
+let _catBanners = [];
+let _catFeaturedStores = [];
 
-function openCategoryPage(cat) {
+async function openCategoryPage(cat) {
   _catFilter = { category: cat, search: '', sort: 'default', discount: false, featured: false, open_only: true, free_delivery: false, subcat: null };
   _catSortIdx = 0;
   nav('page-category');
@@ -4044,85 +3999,136 @@ function openCategoryPage(cat) {
   if (fdBtn) { fdBtn.style.background = '#fff'; fdBtn.style.color = '#334155'; }
   const sortBtn = document.getElementById('cat-sort-btn');
   if (sortBtn) { sortBtn.innerHTML = 'Ordenar <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="3"><polyline points="6,9 12,15 18,9"/></svg>'; sortBtn.style.background = '#f1f5f9'; sortBtn.style.color = '#334155'; }
-  // Render subcategory image cards
-  renderCatSubcats(cat);
-  // Render promo carousel
-  renderCatPromos(cat);
-  // Render featured stores
-  renderCatFeatured(cat);
-  // Update cart badge
+  // Cart badge
   const n = cart.reduce((a,b)=>a+b.qty,0);
   const badge = document.getElementById('cat-cart-badge');
   if (badge) { badge.style.display = n>0?'flex':'none'; badge.textContent = n; }
+
+  // Load all data from API in parallel
+  try {
+    const [subs, banners, featured] = await Promise.all([
+      api(`/api/subcategories?category_id=${cat}`).catch(()=>[]),
+      api(`/api/category-banners?category_id=${cat}`).catch(()=>[]),
+      api(`/api/category-featured?category_id=${cat}`).catch(()=>[]),
+    ]);
+    _catSubcategories = subs || [];
+    _catBanners = banners || [];
+    _catFeaturedStores = featured || [];
+  } catch(e) {
+    _catSubcategories = []; _catBanners = []; _catFeaturedStores = [];
+  }
+
+  renderCatSubcats(cat);
+  renderCatPromos(cat);
+  renderCatFeatured(cat);
   renderCatList();
 }
 
 function renderCatSubcats(cat) {
   const grid = document.getElementById('cat-subcats-grid');
   if (!grid) return;
-  const subs = CAT_SUBCATS[cat] || [];
-  if (!subs.length) { grid.style.display = 'none'; return; }
+  if (!_catSubcategories.length) { grid.style.display = 'none'; return; }
   grid.style.display = 'flex';
-  grid.innerHTML = subs.map(s => `
-    <div class="cat-subcat-card${s.id==='all'?' active':''}" onclick="selectSubcat(this,'${s.id}')" data-sub="${s.id}">
-      <div class="cat-subcat-img">${s.emoji}</div>
-      <div class="cat-subcat-label">${esc(s.label)}</div>
+  grid.innerHTML = `
+    <div class="cat-subcat-card active" onclick="selectSubcat(this,null)" data-sub="all">
+      <div class="cat-subcat-img">🍽️</div>
+      <div class="cat-subcat-label">Todos</div>
+    </div>` +
+    _catSubcategories.map(s => `
+    <div class="cat-subcat-card" onclick="selectSubcat(this,'${escJS(s.name)}')" data-sub="${esc(s.id)}">
+      <div class="cat-subcat-img">
+        ${s.image_url
+          ? `<img src="${s.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" onerror="this.style.display='none';this.parentNode.textContent='${s.emoji||'🍽️'}'">`
+          : (s.emoji||'🍽️')}
+      </div>
+      <div class="cat-subcat-label">${esc(s.name)}</div>
     </div>`).join('');
 }
 
-function selectSubcat(el, subId) {
+function selectSubcat(el, subName) {
   document.querySelectorAll('#cat-subcats-grid .cat-subcat-card').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  _catFilter.subcat = subId === 'all' ? null : subId;
+  _catFilter.subcat = subName;
   renderCatList();
 }
 
 function renderCatPromos(cat) {
   const carousel = document.getElementById('cat-promo-carousel');
   if (!carousel) return;
-  // Get stores with promos in this category
-  const promoStores = allStores.filter(s => s.category === cat && s.promo_count > 0 && s.is_open !== false);
-  if (!promoStores.length) { carousel.style.display = 'none'; return; }
+
+  // Use API banners if available, otherwise fallback to stores with promos
+  let slides = [];
+  if (_catBanners.length) {
+    slides = _catBanners.map(b => {
+      const bg = b.image_url ? '' : `background:${b.bg_color||'linear-gradient(135deg,var(--primary),#ff6b6b)'};`;
+      const onclick = b.link_business_id ? `openStore('${b.link_business_id}')` : '';
+      return `
+      <div class="cat-promo-slide" ${onclick ? `onclick="${onclick}"` : ''} style="${bg}${onclick?'':'cursor:default;'}">
+        ${b.image_url ? `<img src="${b.image_url}" onerror="this.style.display='none'">` : ''}
+        <div class="cat-promo-overlay">
+          <div class="title">${esc(b.title)}</div>
+          ${b.subtitle ? `<div class="sub">${esc(b.subtitle)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+  } else {
+    // Fallback: auto-generate from promo stores
+    const promoStores = allStores.filter(s => s.category === cat && s.promo_count > 0 && s.is_open !== false);
+    const colors = ['linear-gradient(135deg,#ea356b,#ff6b6b)','linear-gradient(135deg,#6b00cc,#9b59b6)','linear-gradient(135deg,#0369a1,#38bdf8)','linear-gradient(135deg,#15803d,#4ade80)','linear-gradient(135deg,#c2410c,#fb923c)'];
+    slides = promoStores.slice(0, 6).map((s, i) => {
+      const bg = s.cover_url ? '' : `background:${colors[i % colors.length]};`;
+      return `
+      <div class="cat-promo-slide" onclick="openStore('${s.id}')" style="${bg}">
+        ${s.cover_url ? `<img src="${s.cover_url}" onerror="this.style.display='none'">` : ''}
+        <div class="cat-promo-overlay">
+          <div class="title">${esc(s.name)}</div>
+          <div class="sub">🏷️ Promos disponibles · ${s.delivery_time||'30-45'} min</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (!slides.length) { carousel.style.display = 'none'; return; }
   carousel.style.display = 'flex';
-  const colors = ['linear-gradient(135deg,#ea356b,#ff6b6b)','linear-gradient(135deg,#6b00cc,#9b59b6)','linear-gradient(135deg,#0369a1,#38bdf8)','linear-gradient(135deg,#15803d,#4ade80)','linear-gradient(135deg,#c2410c,#fb923c)'];
-  carousel.innerHTML = promoStores.slice(0, 6).map((s, i) => {
-    const bg = s.cover_url ? '' : `background:${colors[i % colors.length]};`;
-    return `
-    <div class="cat-promo-slide" onclick="openStore('${s.id}')" style="${bg}">
-      ${s.cover_url ? `<img src="${s.cover_url}" onerror="this.style.display='none'">` : ''}
-      <div class="cat-promo-overlay">
-        <div class="title">${esc(s.name)}</div>
-        <div class="sub">🏷️ Promos disponibles · ${s.delivery_time||'30-45'} min</div>
-      </div>
-    </div>`;
-  }).join('');
+  carousel.innerHTML = slides.join('');
 }
 
 function renderCatFeatured(cat) {
   const section = document.getElementById('cat-featured-section');
   const scroll = document.getElementById('cat-featured-scroll');
   if (!section || !scroll) return;
-  // Featured: Blow+ stores or highest rated in this category
-  const featured = allStores
-    .filter(s => s.category === cat && s.is_open !== false)
-    .sort((a,b) => {
-      if (a.blow_plus && !b.blow_plus) return -1;
-      if (!a.blow_plus && b.blow_plus) return 1;
-      return (b.rating||0) - (a.rating||0);
-    })
-    .slice(0, 8);
+
+  let featured = [];
+  if (_catFeaturedStores.length) {
+    // Use admin-curated featured
+    featured = _catFeaturedStores;
+  } else {
+    // Fallback: auto-generate from Blow+ / highest rated
+    featured = allStores
+      .filter(s => s.category === cat && s.is_open !== false)
+      .sort((a,b) => {
+        if (a.blow_plus && !b.blow_plus) return -1;
+        if (!a.blow_plus && b.blow_plus) return 1;
+        return (b.rating||0) - (a.rating||0);
+      })
+      .slice(0, 8)
+      .map(s => ({ ...s, business_name: s.name, business_id: s.id }));
+  }
+
   if (featured.length < 2) { section.style.display = 'none'; return; }
   section.style.display = 'block';
   scroll.innerHTML = featured.map(s => {
-    const img = s.cover_url || s.logo_url;
+    const name = s.custom_title || s.business_name || s.name || '';
+    const img = s.custom_image || s.cover_url || s.logo_url;
+    const storeId = s.business_id || s.id;
     return `
-    <div class="cat-featured-card" onclick="openStore('${s.id}')">
+    <div class="cat-featured-card" onclick="openStore('${storeId}')">
       <div class="img">
-        ${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='<div style=display:flex;align-items:center;justify-content:center;height:100%;font-size:48px;background:#f5f5f5>${s.logo_emoji||'🏪'}</div>'">` 
+        ${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='<div style=display:flex;align-items:center;justify-content:center;height:100%;font-size:48px;background:#f5f5f5>${s.logo_emoji||'🏪'}</div>'">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:48px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);">${s.logo_emoji||'🏪'}</div>`}
       </div>
       <div class="info">
-        <div class="name">${esc(s.name)}</div>
+        <div class="name">${esc(name)}</div>
         <div class="meta">
           ${s.rating ? `<span>★ ${s.rating}</span>` : ''}
           <span>🕐 ${s.delivery_time||'30-45'} min</span>
