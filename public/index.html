@@ -5273,7 +5273,8 @@ async function doCheckout() {
         payment_method: payMethod,
         tip: tipAmt,
         priority: _chkPriority,
-        notes: _chkNotes || ''
+        notes: _chkNotes || '',
+        coupon_code: activePromo?.code || ''
       })
     });
 
