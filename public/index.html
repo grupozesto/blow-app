@@ -642,6 +642,9 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .prod-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px;}
 .prod-card-price{font-size:15px;font-weight:900;color:#1a1a1a;line-height:1.2;}
 .prod-card-price .original{font-size:11px;color:#bbb;text-decoration:line-through;font-weight:400;margin-right:3px;display:block;line-height:1;}
+.prod-cart-badge{position:absolute;top:6px;left:6px;background:var(--primary);color:#fff;border-radius:20px;padding:2px 7px;font-size:11px;font-weight:800;z-index:2;}
+.prod-card-incart{outline:2px solid var(--primary);}
+.prod-card-incart .prod-card-img{opacity:.92;}
 .prod-card-add{width:36px;height:36px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;box-shadow:0 3px 10px rgba(37,88,212,.4);position:relative;z-index:1;}
 .prod-discount-badge{position:absolute;top:8px;left:8px;background:#e11d48;color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:800;letter-spacing:.3px;}
 .prod-featured-badge{position:absolute;top:8px;right:8px;background:#FFB800;color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:800;}
@@ -4157,14 +4160,25 @@ function renderProductCard(p, s) {
   const featBadge = p.is_featured ? `<div class="prod-featured-badge">🔥 Popular</div>` : '';
   const regKey = `${p.id}_${s?.id||''}`;
   _prodReg[regKey] = {...p, biz_id: s?.id};
-  return `<div class="prod-card" onclick="quickAdd('${regKey}')">
-    <div class="prod-card-img">${imgHtml}${discBadge}${featBadge}</div>
+  // Check if item is already in cart
+  const cartItem = cart.find(x => (x.cart_key||x.id) === `${p.id}_base` || x.id === p.id);
+  const inCart = cartItem && cartItem.qty > 0;
+  const cartKey = cartItem ? (cartItem.cart_key || cartItem.id) : `${p.id}_base`;
+  const qtyCtrl = inCart
+    ? `<div class="qty-ctrl" onclick="event.stopPropagation()">
+        <button class="qty-btn" onclick="changeCartQty('${cartKey}',-1);rerenderStoreCards()">−</button>
+        <span class="qty-num">${cartItem.qty}</span>
+        <button class="qty-btn" onclick="changeCartQty('${cartKey}',1);rerenderStoreCards()">+</button>
+       </div>`
+    : `<button class="prod-card-add" onclick="event.stopPropagation();quickAdd('${regKey}')">+</button>`;
+  return `<div class="prod-card${inCart?' prod-card-incart':''}" data-regkey="${regKey}" onclick="quickAdd('${regKey}')">
+    <div class="prod-card-img">${imgHtml}${discBadge}${featBadge}${inCart?`<div class="prod-cart-badge">${cartItem.qty}</div>`:''}</div>
     <div class="prod-card-body">
       <div class="prod-card-name">${p.name}</div>
       ${p.description ? `<div class="prod-card-desc">${p.description}</div>` : ''}
       <div class="prod-card-footer">
         <div class="prod-card-price">${priceHtml}</div>
-        <button class="prod-card-add" onclick="event.stopPropagation();quickAdd('${regKey}')">+</button>
+        ${qtyCtrl}
       </div>
     </div>
   </div>`;
@@ -4613,6 +4627,24 @@ function changeCartQty(id, d) {
   if (item.qty <= 0) cart = cart.filter(x => (x.cart_key||x.id) !== id);
   saveCart(); updateCartBadge(); renderCart();
 }
+
+function rerenderStoreCards() {
+  // Re-render all product cards to reflect updated cart quantities
+  const container = document.getElementById('store-prods');
+  if (!container) return;
+  // Replace individual prod-card divs using data-regkey
+  container.querySelectorAll('.prod-card[data-regkey]').forEach(card => {
+    const regKey = card.dataset.regkey;
+    const p = _prodReg[regKey];
+    if (!p) return;
+    const s = currentStoreForCart || {id: p.biz_id};
+    const newHtml = renderProductCard(p, s);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = newHtml;
+    const newCard = tmp.firstElementChild;
+    if (newCard) card.replaceWith(newCard);
+  });
+}
 function renderCart() {
   const body = document.getElementById('cart-body');
   if (!cart.length) {
@@ -4675,7 +4707,7 @@ let _chkShowAltAddr = false;
 
 function openCheckoutPage() {
   if (!user) { openAuth('Iniciá sesión para continuar'); return; }
-  if (user.role !== 'customer') { showToast('⚠️ Solo clientes pueden hacer pedidos'); return; }
+
   if (!cart.length) return;
   if (!cart[0]?.biz_id) { showToast('❌ Error: carrito sin negocio asociado. Volvé a agregar los productos.'); return; }
   // Verificar si el negocio está abierto
@@ -4868,7 +4900,15 @@ function renderCheckoutPage() {
       </div>
       <div style="margin-top:6px;font-size:10px;color:#94a3b8;">Pago online aplica 9% devolución IVA (Leyes N° 17.934 y 19.210).</div>
     </div>
-  `; } catch(err) { console.error('renderCheckoutPage error:', err); body.innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:40px;margin-bottom:12px;">⚠️</div><div style="font-size:15px;color:#ef4444;font-weight:700;">Error al cargar el checkout</div><div style="font-size:13px;color:#94a3b8;margin-top:6px;">'+err.message+'</div><button onclick=\"nav(\'page-cart\')\" style=\"margin-top:16px;background:#0f172a;border:none;border-radius:12px;padding:12px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;\">← Volver al carrito</button></div>'; }
+  `; } catch(err) {
+    console.error('renderCheckoutPage error:', err);
+    body.innerHTML = `<div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+      <div style="font-size:15px;color:#ef4444;font-weight:700;">Error al cargar el checkout</div>
+      <div style="font-size:13px;color:#94a3b8;margin-top:6px;">${err.message}</div>
+      <button onclick="nav('page-cart')" style="margin-top:16px;background:#0f172a;border:none;border-radius:12px;padding:12px 24px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">← Volver al carrito</button>
+    </div>`;
+  }
 }
 
 function chkSetPay(method) {
