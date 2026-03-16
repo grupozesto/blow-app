@@ -1344,41 +1344,6 @@ body.owner-mode #owner-overlay {
 
     <div id="profile-div-3" style="height:8px;background:#f5f5f5;"></div>
 
-    <!-- Sección Admin (solo visible para admins) -->
-    <div id="profile-section-admin" style="display:none;">
-
-      <!-- Accesos rápidos al panel -->
-      <div class="menu-list" style="margin-top:8px;">
-        <div class="menu-sec-title">⚙️ Panel de administración</div>
-        <div class="menu-item" onclick="_adminInitialTab='banners';nav('page-admin')">
-          <div class="mi-icon">🖼️</div>
-          <div class="mi-text"><span>Banners</span><small style="color:var(--muted);font-size:11px;">Crear y editar banners del carrusel</small></div>
-          <span class="mi-arrow">›</span>
-        </div>
-        <div class="menu-item" onclick="_adminInitialTab='stats';nav('page-admin')">
-          <div class="mi-icon">📊</div>
-          <div class="mi-text"><span>Stats y reportes</span></div>
-          <span class="mi-arrow">›</span>
-        </div>
-        <div class="menu-item" onclick="_adminInitialTab='users';nav('page-admin')">
-          <div class="mi-icon">👥</div>
-          <div class="mi-text"><span>Usuarios</span></div>
-          <span class="mi-arrow">›</span>
-        </div>
-        <div class="menu-item" onclick="_adminInitialTab='businesses';nav('page-admin')">
-          <div class="mi-icon">🏪</div>
-          <div class="mi-text"><span>Negocios</span></div>
-          <span class="mi-arrow">›</span>
-        </div>
-        <div class="menu-item" onclick="_adminInitialTab='coupons';nav('page-admin')">
-          <div class="mi-icon">🎫</div>
-          <div class="mi-text"><span>Cupones</span></div>
-          <span class="mi-arrow">›</span>
-        </div>
-      </div>
-
-    </div>
-
     <div id="profile-div-admin" style="display:none;height:8px;background:#f5f5f5;"></div>
 
     <!-- Configuración -->
@@ -5347,48 +5312,20 @@ async function sendChatMessage() {
 function renderProfile() {
   const el = id => document.getElementById(id);
 
-  // Admin: show admin section, hide customer sections, load banners
+  // Admin: show normal profile (admin panel is at blow.uy/admin)
   if (user && user.role === 'admin') {
-    // Update greeting and avatar
     const firstName = user.name.split(' ')[0];
     const greetEl = document.getElementById('profile-greeting');
     const avatarEl = document.getElementById('profile-avatar');
     if (greetEl) greetEl.textContent = '¡Hola, ' + firstName + '!';
-    if (avatarEl) {
-      if (user.avatar_url) {
-        avatarEl.style.backgroundImage = 'url(' + user.avatar_url + ')';
-        avatarEl.style.backgroundSize = 'cover';
-        avatarEl.textContent = '';
-      } else {
-        avatarEl.textContent = user.name[0].toUpperCase();
-      }
-    }
-
-    // Hide customer sections
-    ['profile-blowplus-banner','profile-quick-icons',
-     'profile-section-perfil','profile-section-actividad',
-     'profile-div-1','profile-div-2','profile-div-3'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-
-    // Show admin section and its wrapper div
-    const adminSection = document.getElementById('profile-section-admin');
-    const adminDiv     = document.getElementById('profile-div-admin');
-    const sessionItem  = document.getElementById('session-item');
-    if (adminSection) adminSection.style.display = '';
-    if (adminDiv)     adminDiv.style.display = '';
-    if (sessionItem)  sessionItem.style.display = '';
-
-    // Update session button
-    const sessionLabel = document.getElementById('session-label');
-    const sessionSub   = document.getElementById('session-sub');
-    if (sessionLabel) sessionLabel.textContent = 'Cerrar sesión';
-    if (sessionSub)   sessionSub.textContent = user.email;
-
-    // Load banners into the static #profile-banners-list
-    loadProfileBanners();
-    return;
+    if (avatarEl) avatarEl.textContent = user.name[0].toUpperCase();
+    if(el('profile-name')) el('profile-name').textContent = user.name;
+    if(el('profile-email')) el('profile-email').textContent = user.email;
+    if(el('profile-email-sub')) el('profile-email-sub').textContent = user.email;
+    if(el('profile-role-badge')) el('profile-role-badge').textContent = '🔧 Admin';
+    el('session-label').textContent = 'Cerrar sesión';
+    el('session-sub').textContent = user.email;
+    // Admin sees same sections as customer
   }
 
 // Elements that only show when logged in as customer
@@ -5419,14 +5356,8 @@ function renderProfile() {
     const isCustomer = user.role === 'customer';
     const isAdmin = user.role === 'admin';
     loggedInSections.forEach(id => {
-      const s = el(id); if(s) s.style.display = isCustomer ? '' : 'none';
+      const s = el(id); if(s) s.style.display = (isCustomer || isAdmin) ? '' : 'none';
     });
-    // Admin section
-    const adminSection = el('profile-section-admin');
-    const adminDiv = el('profile-div-admin');
-    if (adminSection) adminSection.style.display = isAdmin ? '' : 'none';
-    if (adminDiv) adminDiv.style.display = isAdmin ? '' : 'none';
-    if (isAdmin) loadProfileBanners();
 
     // Portal de Negocios: siempre visible para todos los roles
     const portalItem = el('portal-negocios-item');
@@ -8438,18 +8369,19 @@ if (payStatus) {
     setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1500);
   }
 }
-// ── Secret admin access via URL ──────────────────
+// ── Admin access via URL (/admin or /blow-admin-panel) ──────────────────
 const secretPath = window.location.pathname;
-if (secretPath === '/blow-admin-panel') {
-  window.history.replaceState({}, '', '/');
+if (secretPath === '/admin' || secretPath === '/blow-admin-panel') {
+  window.history.replaceState({}, '', '/admin');
   if (!user || user.role !== 'admin') {
-    // No logueado o no es admin: pedir login
     setTimeout(() => {
       localStorage.setItem('post_login_redirect', 'page-admin');
       openAuth('Acceso Admin');
     }, 300);
+  } else {
+    // Admin logueado: ir directo al panel
+    setTimeout(() => nav('page-admin'), 50);
   }
-  // Si ya es admin, el INIT de arriba ya lo mandó a page-admin — no hacer nada más
 }
 
 const blowplususerStatus = urlP.get('blowplususer');
