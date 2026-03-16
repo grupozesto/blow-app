@@ -1638,7 +1638,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const fulfillment_type = req.body.fulfillment_type || 'delivery';
     const baseFee = fulfillment_type === 'pickup' ? 0 : (biz.custom_delivery_cost ?? biz.delivery_cost ?? 0);
     const fee = (userBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
-    const priorityFee = priority ? Math.round(fee * 0.5) : 0; // 50% extra por prioritario
+    const priorityPct = (biz.priority_percent != null ? parseInt(biz.priority_percent) : 50) / 100;
+    const priorityFee = priority ? Math.round(fee * priorityPct) : 0;
     const tipAmt = parseFloat(tip) || 0;
     const total = subtotal + fee + priorityFee + tipAmt;
     const _fee = await getPlatformFee();
@@ -1670,6 +1671,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
     if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
       const mpItems = lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' }));
+      if (fee > 0) mpItems.push({ title:'Costo de envío',quantity:1,unit_price:fee,currency_id:'UYU' });
       if (tipAmt > 0) mpItems.push({ title:'Propina para el repartidor',quantity:1,unit_price:tipAmt,currency_id:'UYU' });
       if (priorityFee > 0) mpItems.push({ title:'Envío prioritario',quantity:1,unit_price:priorityFee,currency_id:'UYU' });
       const pref = await mp.preferences.create({
