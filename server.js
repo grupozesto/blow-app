@@ -86,7 +86,7 @@ const PLANS = {
 // ── WebSockets ─────────────────────────────────
 const { WebSocketServer } = require('ws');
 const wss     = new WebSocketServer({ server });
-const clients = new Map();
+const clients = new Map(); // userId → Set of ws connections (multi-device)
 wss.on('connection', ws => {
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
@@ -101,29 +101,46 @@ wss.on('connection', ws => {
             const changedAt = Math.floor(new Date(row.password_changed_at).getTime() / 1000);
             if (u.iat < changedAt) { ws.close(4001, 'Token invalidated'); return; }
           }
-          clients.set(u.id, ws);
+          if (!clients.has(u.id)) clients.set(u.id, new Set());
+          clients.get(u.id).add(ws);
           ws.userId = u.id;
         }).catch(() => {});
       } else {
-        clients.set(u.id, ws);
+        if (!clients.has(u.id)) clients.set(u.id, new Set());
+        clients.get(u.id).add(ws);
         ws.userId = u.id;
       }
     } catch { ws.close(4000, 'Invalid token'); }
   });
-  ws.on('close', () => { if (ws.userId) clients.delete(ws.userId); });
+  ws.on('close', () => {
+    if (ws.userId && clients.has(ws.userId)) {
+      clients.get(ws.userId).delete(ws);
+      if (clients.get(ws.userId).size === 0) clients.delete(ws.userId);
+    }
+  });
 });
 // Ping clients every 30s, terminate dead connections
 const wsHeartbeat = setInterval(() => {
   wss.clients.forEach(ws => {
-    if (!ws.isAlive) { if (ws.userId) clients.delete(ws.userId); return ws.terminate(); }
+    if (!ws.isAlive) {
+      if (ws.userId && clients.has(ws.userId)) {
+        clients.get(ws.userId).delete(ws);
+        if (clients.get(ws.userId).size === 0) clients.delete(ws.userId);
+      }
+      return ws.terminate();
+    }
     ws.isAlive = false;
     ws.ping();
   });
 }, 30000);
 function notify(userId, payload) {
-  const ws = clients.get(userId);
-  const wsAlive = ws && ws.readyState === 1;
-  if (wsAlive) ws.send(JSON.stringify(payload));
+  const wsSet = clients.get(userId);
+  if (wsSet) {
+    const msg = JSON.stringify(payload);
+    for (const ws of wsSet) {
+      if (ws.readyState === 1) ws.send(msg);
+    }
+  }
   // Always send push for order events (owner may have tab closed)
   // Map internal payload to push-friendly format
   const pushTypes = ['new_order','status_change','order_cancelled','order_update','chat_message','subscription_cancelled','account_banned'];
@@ -1324,8 +1341,8 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
   const wallet      = await q1('SELECT * FROM wallets WHERE owner_id=$1',[b.id]) || { balance:0, id:null };
   const transactions= wallet.id ? await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]) : [];
   const withdrawals = await qa('SELECT * FROM withdrawals WHERE owner_id=$1 ORDER BY created_at DESC',[req.user.id]);
-  const today       = await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE business_id=$1 AND DATE(created_at)=CURRENT_DATE AND status NOT IN ('cancelled','pending')`,[b.id]);
-  const week        = await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE business_id=$1 AND created_at>=NOW()-INTERVAL '7 days' AND status NOT IN ('cancelled','pending')`,[b.id]);
+  const today       = await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue,COALESCE(SUM(business_amount),0) as net_revenue FROM orders WHERE business_id=$1 AND DATE(created_at)=CURRENT_DATE AND status NOT IN ('cancelled','pending')`,[b.id]);
+  const week        = await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue,COALESCE(SUM(business_amount),0) as net_revenue FROM orders WHERE business_id=$1 AND created_at>=NOW()-INTERVAL '7 days' AND status NOT IN ('cancelled','pending')`,[b.id]);
   res.json({ business:b, products, categories, orders, balance:parseFloat(wallet.balance)||0, transactions, withdrawals, today, week });
 });
 
@@ -1736,6 +1753,23 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
     sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'🛍️'} Nuevo pedido`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
+    // Email notification to owner (fire-and-forget)
+    const ownerUser = await q1('SELECT email,name FROM users WHERE id=$1', [biz.owner_id]);
+    if (ownerUser?.email) {
+      const itemsList = lineItems.map(i => `${i.quantity}× ${i.name} — $${i.unit_price * i.quantity}`).join('<br>');
+      sendEmail(ownerUser.email, `🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,
+        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
+          <h2 style="color:#ea356b;">🔔 Nuevo pedido en ${biz.name}</h2>
+          <p><strong>#${orderId.slice(-6).toUpperCase()}</strong> · ${payment_method==='cash'?'💵 Efectivo':'💳 MercadoPago'} · $${total}</p>
+          <p>👤 ${cust.name||'Cliente'}${cust.phone?' · 📞 '+cust.phone:''}</p>
+          ${address?'<p>📍 '+address+'</p>':''}
+          ${notes?'<p>📝 '+notes+'</p>':''}
+          <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
+          <p>${itemsList}</p>
+          <p style="color:#888;font-size:12px;margin-top:20px;">Abrí tu panel de Blow para gestionar este pedido.</p>
+        </div>`
+      ).catch(() => {});
+    }
 
     // Pedido en efectivo → ya está confirmado, no necesita MP
     if (payment_method === 'cash') {
