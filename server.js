@@ -461,6 +461,13 @@ async function initDB() {
       admin_reply TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS support_chat (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sender_role TEXT NOT NULL DEFAULT 'customer',
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
@@ -3163,6 +3170,71 @@ app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
 });
 
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
+
+// ── SUPPORT LIVE CHAT ──
+app.get('/api/support/messages', auth, async (req, res) => {
+  try {
+    const msgs = await qa('SELECT * FROM support_chat WHERE user_id=$1 ORDER BY created_at ASC', [req.user.id]);
+    res.json(msgs);
+  } catch(e) { res.json([]); }
+});
+
+app.post('/api/support/messages', auth, async (req, res) => {
+  const { body } = req.body;
+  if (!body?.trim()) return res.status(400).json({ error:'Mensaje vacío' });
+  try {
+    const msg = await q1(
+      'INSERT INTO support_chat (id,user_id,sender_role,body) VALUES ($1,$2,$3,$4) RETURNING *',
+      [uuid(), req.user.id, req.user.role === 'admin' ? 'admin' : 'customer', body.trim().slice(0,1000)]
+    );
+    // Notify all admin users via WS
+    const admins = await qa("SELECT id FROM users WHERE role='admin'", []);
+    for (const adm of admins) {
+      notify(adm.id, { type:'support_message', user_id:req.user.id, body:body.trim().slice(0,80), sender_role:'customer' });
+    }
+    res.json(msg);
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+// Admin: list all users with support chats
+app.get('/api/admin/support/conversations', auth, role('admin'), async (req, res) => {
+  try {
+    const convos = await qa(`
+      SELECT sc.user_id, u.name as user_name, u.email as user_email,
+        MAX(sc.created_at) as last_message_at,
+        COUNT(*)::int as message_count,
+        (SELECT body FROM support_chat WHERE user_id=sc.user_id ORDER BY created_at DESC LIMIT 1) as last_message
+      FROM support_chat sc
+      JOIN users u ON u.id = sc.user_id
+      GROUP BY sc.user_id, u.name, u.email
+      ORDER BY MAX(sc.created_at) DESC
+      LIMIT 50
+    `, []);
+    res.json(convos);
+  } catch(e) { res.json([]); }
+});
+
+// Admin: get messages for a specific user
+app.get('/api/admin/support/messages/:userId', auth, role('admin'), async (req, res) => {
+  try {
+    res.json(await qa('SELECT * FROM support_chat WHERE user_id=$1 ORDER BY created_at ASC', [req.params.userId]));
+  } catch(e) { res.json([]); }
+});
+
+// Admin: reply to a user
+app.post('/api/admin/support/messages/:userId', auth, role('admin'), async (req, res) => {
+  const { body } = req.body;
+  if (!body?.trim()) return res.status(400).json({ error:'Mensaje vacío' });
+  try {
+    const msg = await q1(
+      'INSERT INTO support_chat (id,user_id,sender_role,body) VALUES ($1,$2,$3,$4) RETURNING *',
+      [uuid(), req.params.userId, 'admin', body.trim().slice(0,1000)]
+    );
+    // Notify user via WS
+    notify(req.params.userId, { type:'support_reply', body:body.trim().slice(0,80) });
+    res.json(msg);
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business.html')));
 
