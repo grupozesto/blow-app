@@ -3042,7 +3042,7 @@ async function loadMainBanners() {
   ];
   let banners = FALLBACK;
   try {
-    const res = await fetch(API + '/api/banners');
+    const res = await fetch(API + '/api/banners?type=hero');
     if (res.ok) {
       const data = await res.json();
       if (data && data.length) banners = data;
@@ -3182,7 +3182,7 @@ function goPC(i) {
 
 async function loadPromoBanners() {
   try {
-    const res = await fetch('/api/banners');
+    const res = await fetch('/api/banners?type=promo');
     if (!res.ok) throw new Error();
     const active = await res.json();
     renderPromoCarousel(active.length ? active : FALLBACK_BANNERS);

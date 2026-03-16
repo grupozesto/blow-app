@@ -655,17 +655,29 @@ async function rejectWithdrawal(id) {
 
 // ── BANNERS ──────────────────────────────────
 let allBanners = [];
+let currentBannerType = 'hero';
+
 async function renderBanners() {
   document.getElementById('content').innerHTML = `
     <div class="section-header">
-      <div class="section-title">Banners del carrusel</div>
+      <div class="section-title">Banners</div>
       <div class="spacer"></div>
       <div style="font-size:12px;color:var(--muted);background:var(--bg);padding:6px 12px;border-radius:8px;">📐 Resolución ideal: 800×300px</div>
     </div>
 
+    <!-- TABS -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <button onclick="switchBannerType('hero')" id="bn-tab-hero" class="date-preset active" style="padding:8px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">🏠 Hero (Header)</button>
+      <button onclick="switchBannerType('promo')" id="bn-tab-promo" class="date-preset" style="padding:8px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">🎯 Promo (Abajo)</button>
+    </div>
+
+    <div id="bn-type-desc" style="background:#eff6ff;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#2558d4;font-weight:600;">
+      🏠 Banners Hero: aparecen en el header rosado, integrados al encabezado de la app.
+    </div>
+
     <!-- CREAR NUEVO BANNER -->
     <div style="background:var(--surface);border-radius:12px;padding:20px;margin-bottom:24px;border:2px dashed var(--border);">
-      <div style="font-size:14px;font-weight:700;margin-bottom:16px;">➕ Nuevo banner</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;">➕ Nuevo banner <span id="bn-type-label" style="background:#eff6ff;color:#2558d4;padding:2px 8px;border-radius:8px;font-size:11px;">Hero</span></div>
 
       <!-- Preview -->
       <div id="bn-preview" style="height:120px;border-radius:16px;background:#ea356b;margin-bottom:16px;display:flex;align-items:stretch;overflow:hidden;">
@@ -720,6 +732,22 @@ async function renderBanners() {
   loadBannersList();
 }
 
+function switchBannerType(type) {
+  currentBannerType = type;
+  document.getElementById('bn-tab-hero').classList.toggle('active', type === 'hero');
+  document.getElementById('bn-tab-promo').classList.toggle('active', type === 'promo');
+  const desc = document.getElementById('bn-type-desc');
+  const label = document.getElementById('bn-type-label');
+  if (type === 'hero') {
+    desc.innerHTML = '🏠 <b>Banners Hero:</b> aparecen en el header rosado, integrados al encabezado de la app.';
+    label.textContent = 'Hero';
+  } else {
+    desc.innerHTML = '🎯 <b>Banners Promo:</b> aparecen debajo de las categorías, como carrusel de promociones.';
+    label.textContent = 'Promo';
+  }
+  loadBannersList();
+}
+
 function bnPreviewImg(input) {
   const file = input.files[0];
   const img = document.getElementById('bn-p-img');
@@ -733,11 +761,12 @@ function bnPreviewImg(input) {
 
 async function loadBannersList() {
   try {
-    const banners = await api('/api/banners/admin');
+    const banners = await api('/api/banners/admin?type=' + currentBannerType);
     allBanners = banners;
     const el = document.getElementById('banners-list');
+    const typeLabel = currentBannerType === 'hero' ? 'Hero' : 'Promo';
     if (!banners.length) {
-      el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">No hay banners creados. Los usuarios ven los banners por defecto.</div>';
+      el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:40px;">No hay banners ${typeLabel} creados. Los usuarios ven los banners por defecto.</div>`;
       return;
     }
     el.innerHTML = '<div class="table-wrap"><table class="table"><thead><tr><th>Preview</th><th>Título</th><th>Subtítulo</th><th>Estado</th><th>Orden</th><th>Acciones</th></tr></thead><tbody>' +
@@ -771,7 +800,6 @@ async function createBanner() {
   if (!title) return alert('El título es obligatorio');
 
   let image_url = '';
-  // Upload image if selected
   if (imgInput?.files[0]) {
     const fd = new FormData();
     fd.append('photo', imgInput.files[0]);
@@ -785,8 +813,7 @@ async function createBanner() {
   }
 
   try {
-    await api('/api/admin/banners', { method:'POST', body: JSON.stringify({title,subtitle,bg_color,emoji,highlight,highlight_label,link_url:link,sort_order,is_active:true,image_url}) });
-    // Reset form
+    await api('/api/admin/banners', { method:'POST', body: JSON.stringify({title,subtitle,bg_color,emoji,highlight,highlight_label,link_url:link,sort_order,is_active:true,image_url,banner_type:currentBannerType}) });
     ['bn-title','bn-sub','bn-emoji','bn-highlight','bn-label','bn-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('bn-order').value = '0';
     document.getElementById('bn-color').value = '#ea356b';
@@ -819,6 +846,7 @@ async function deleteBanner(id) {
 }
 
 function esc(str) { if (typeof str !== 'string') return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
 
 // ── NEGOCIOS ──────────────────────────────────
 let allBusinesses = [];
