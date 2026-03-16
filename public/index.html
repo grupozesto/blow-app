@@ -8272,6 +8272,13 @@ if (blowplususerStatus === 'success') {
   showToast('❌ El pago fue rechazado. Intentá de nuevo.');
 }
 
+// ── Deep link: abrir negocio si viene ?biz=ID en la URL ──
+const _deepBizId = urlP.get('biz');
+if (_deepBizId) {
+  window.history.replaceState({}, '', '/');
+  setTimeout(() => openStore(_deepBizId), 800);
+}
+
 // ══ OWNER OVERLAY ═══════════════════════════════════════════════
 let _ooBiz = null;
 let _ooDashData = null;
@@ -10540,15 +10547,12 @@ async function loadFavorites() {
   const body = document.getElementById('favorites-body');
   if (!body) return;
 
-  const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
-  const likedIds = Object.keys(liked).filter(k => liked[k]);
-
-  if (!likedIds.length) {
+  if (!user || !token) {
     body.innerHTML = `<div style="text-align:center;padding:60px 20px;">
       <div style="font-size:64px;margin-bottom:16px;">❤️</div>
-      <div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:8px;">Sin favoritos aún</div>
-      <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Tocá el corazón en cualquier producto para guardarlo acá</div>
-      <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;">Explorar negocios</button>
+      <div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:8px;">Iniciá sesión</div>
+      <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Logueate para guardar tus productos favoritos</div>
+      <button onclick="openAuth()" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;">Iniciar sesión</button>
     </div>`;
     return;
   }
@@ -10556,43 +10560,65 @@ async function loadFavorites() {
   body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
 
   try {
-    // Load all stores to match liked products
-    const stores = await api('/api/businesses?limit=200').catch(() => []);
-    const storeMap = {};
-    (stores || []).forEach(s => { storeMap[s.id] = s; });
+    const favs = await api('/api/favorites');
 
-    // Try to load product details for liked ids
-    const productCards = likedIds.map(pid => {
-      const p = _prodReg[pid];
-      if (!p) return null;
-      const biz = storeMap[p.business_id] || {};
-      return `<div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,.07);display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="openStore('${p.business_id || ''}')">
-        <div style="width:56px;height:56px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden;">
-          ${p.image_url ? `<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;">` : (p.emoji || '🍽️')}
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:2px;">${p.name || 'Producto'}</div>
-          <div style="font-size:12px;color:#94a3b8;">${biz.name || 'Ver negocio'}</div>
-          <div style="font-size:15px;font-weight:800;color:var(--primary);margin-top:4px;">$${p.price || 0}</div>
-        </div>
-        <button onclick="event.stopPropagation();quickAdd('${pid}')" style="background:var(--primary);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
-      </div>`;
-    }).filter(Boolean);
-
-    if (!productCards.length) {
+    if (!favs.length) {
       body.innerHTML = `<div style="text-align:center;padding:60px 20px;">
         <div style="font-size:64px;margin-bottom:16px;">❤️</div>
-        <div style="font-size:17px;font-weight:800;margin-bottom:8px;">Tus favoritos</div>
-        <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Explorá negocios para agregar favoritos</div>
+        <div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:8px;">Sin favoritos aún</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Tocá el corazón en cualquier producto para guardarlo acá</div>
         <button onclick="nav('page-home')" style="background:var(--primary);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;">Explorar negocios</button>
       </div>`;
       return;
     }
 
-    body.innerHTML = `<div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;">${likedIds.length} producto${likedIds.length!==1?'s':''} guardado${likedIds.length!==1?'s':''}</div>` + productCards.join('');
+    body.innerHTML = `<div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;">${favs.length} producto${favs.length!==1?'s':''} guardado${favs.length!==1?'s':''}</div>` +
+      favs.map(f => `<div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,.07);display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="openStore('${esc(f.business_id)}')">
+        <div style="width:56px;height:56px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;overflow:hidden;">
+          ${f.photo_url ? `<img src="${esc(f.photo_url)}" style="width:100%;height:100%;object-fit:cover;">` : (f.emoji || '🍽️')}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:2px;">${esc(f.name || 'Producto')}</div>
+          <div style="font-size:12px;color:#94a3b8;">${esc(f.business_name || '')}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--primary);margin-top:4px;">$${f.price || 0}</div>
+        </div>
+        <button onclick="event.stopPropagation();removeFavorite('${f.product_id}')" style="background:#fee2e2;border:none;border-radius:50%;width:36px;height:36px;color:#ef4444;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">♥</button>
+      </div>`).join('');
   } catch(e) {
     body.innerHTML = `<div class="loading-state" style="color:#ef4444;">Error al cargar favoritos</div>`;
   }
+}
+
+async function toggleFavorite(productId, businessId) {
+  if (!user || !token) { openAuth(); return; }
+  const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
+  if (liked[productId]) {
+    delete liked[productId];
+    localStorage.setItem('blow_liked', JSON.stringify(liked));
+    api('/api/favorites/' + productId, { method: 'DELETE' }).catch(() => {});
+    showToast('💔 Eliminado de favoritos');
+  } else {
+    liked[productId] = true;
+    localStorage.setItem('blow_liked', JSON.stringify(liked));
+    api('/api/favorites', { method: 'POST', body: JSON.stringify({ product_id: productId, business_id: businessId }) }).catch(() => {});
+    showToast('❤️ Agregado a favoritos');
+  }
+  // Update heart icon if visible
+  document.querySelectorAll(`[data-fav="${productId}"]`).forEach(el => {
+    el.classList.toggle('liked', !!liked[productId]);
+    el.textContent = liked[productId] ? '♥' : '♡';
+  });
+}
+
+async function removeFavorite(productId) {
+  try {
+    await api('/api/favorites/' + productId, { method: 'DELETE' });
+    const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
+    delete liked[productId];
+    localStorage.setItem('blow_liked', JSON.stringify(liked));
+    showToast('💔 Eliminado de favoritos');
+    loadFavorites();
+  } catch(e) { showToast('❌ Error'); }
 }
 
 // ═══════════════════════════════════════════
