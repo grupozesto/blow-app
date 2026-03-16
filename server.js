@@ -1109,10 +1109,12 @@ app.get('/api/businesses', async (req, res) => {
   const baseSql = `SELECT b.*,
     ROUND(AVG(r.rating)::numeric,1) as rating,
     COUNT(DISTINCT r.id)::int as rating_count,
-    COUNT(DISTINCT p.id) FILTER (WHERE p.is_available=TRUE)::int as product_count
+    COUNT(DISTINCT p.id) FILTER (WHERE p.is_available=TRUE)::int as product_count,
+    COUNT(DISTINCT prm.id) FILTER (WHERE prm.ends_at IS NULL OR prm.ends_at > NOW())::int as promo_count
     FROM businesses b
     LEFT JOIN reviews r ON r.business_id = b.id
-    LEFT JOIN products p ON p.business_id = b.id`;
+    LEFT JOIN products p ON p.business_id = b.id
+    LEFT JOIN promotions prm ON prm.business_id = b.id`;
   
   const mapRow = b => ({
     ...b,
