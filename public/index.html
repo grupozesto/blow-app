@@ -6052,9 +6052,15 @@ async function completeRegistration() {
   } else if (payment === 'success') {
     showToast('✅ Pago confirmado');
     if (user && user.role === 'owner') { enterOwnerOverlay(); }
+    else { setTimeout(() => nav('page-tracking'), 500); }
   } else if (payment === 'failure') {
-    nav('page-owner-login');
-    showToast('❌ El pago no fue aprobado. Intentá de nuevo.');
+    if (user && user.role === 'owner') {
+      nav('page-owner-login');
+      showToast('❌ El pago no fue aprobado. Intentá de nuevo.');
+    } else {
+      nav('page-tracking');
+      showToast('❌ El pago no fue aprobado. Si ya tenías un pedido, revisá su estado.');
+    }
   }
 })();
 
