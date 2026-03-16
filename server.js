@@ -3030,12 +3030,25 @@ app.get('/api/banners/admin', auth, role('admin'), async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 app.post('/api/admin/banners', auth, role('admin'), async (req,res)=>{
-  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active} = req.body;
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active,image_url} = req.body;
   const id = 'ban_'+Date.now();
   const active = is_active !== false;
-  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active]);
+  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active,image_url||'']);
   res.json({ok:true,id});
+});
+// Upload banner image (returns URL, doesn't require banner ID)
+app.post('/api/admin/banners/upload-image', auth, role('admin'), uploadMiddleware('photo'), async (req,res)=>{
+  if(!req.file) return res.status(400).json({error:'No image'});
+  try {
+    let imageUrl;
+    if (req.file.secure_url) { imageUrl = req.file.secure_url; }
+    else if (req.file.buffer) {
+      const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,{folder:'blow_banners',transformation:[{width:800,height:300,crop:'fill'}]});
+      imageUrl = result.secure_url;
+    } else { imageUrl = req.file.path; }
+    res.json({ok:true,url:imageUrl});
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 app.patch('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
   const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,is_active,image_url} = req.body;
