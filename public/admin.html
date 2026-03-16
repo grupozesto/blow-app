@@ -198,6 +198,9 @@ hr{border-color:var(--border);}
     </button>
 
     <div class="nav-section">Gestión</div>
+    <button class="nav-item" onclick="showPage('banners')" id="nav-banners">
+      <span class="nav-icon">🖼️</span>Banners
+    </button>
     <button class="nav-item" onclick="showPage('businesses')" id="nav-businesses">
       <span class="nav-icon">🏪</span>Negocios
     </button>
@@ -315,9 +318,9 @@ function showPage(page) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   const navEl = document.getElementById('nav-' + page);
   if (navEl) navEl.classList.add('active');
-  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', config:'Configuración', export:'Exportar datos' };
+  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', config:'Configuración', export:'Exportar datos' };
   document.getElementById('page-title').textContent = titles[page] || page;
-  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, config: renderConfig, export: renderExport };
+  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, config: renderConfig, export: renderExport };
   if (pages[page]) pages[page]();
 }
 
@@ -649,6 +652,173 @@ async function rejectWithdrawal(id) {
   try { await api(`/api/admin/withdrawals/${id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); showToast('✅ Rechazado — saldo devuelto'); loadWithdrawals(); }
   catch(e) { showToast('❌ ' + e.message); }
 }
+
+// ── BANNERS ──────────────────────────────────
+let allBanners = [];
+async function renderBanners() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Banners del carrusel</div>
+      <div class="spacer"></div>
+      <div style="font-size:12px;color:var(--muted);background:var(--bg);padding:6px 12px;border-radius:8px;">📐 Resolución ideal: 800×300px</div>
+    </div>
+
+    <!-- CREAR NUEVO BANNER -->
+    <div style="background:var(--surface);border-radius:12px;padding:20px;margin-bottom:24px;border:2px dashed var(--border);">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;">➕ Nuevo banner</div>
+
+      <!-- Preview -->
+      <div id="bn-preview" style="height:120px;border-radius:16px;background:#ea356b;margin-bottom:16px;display:flex;align-items:stretch;overflow:hidden;">
+        <div style="flex:1;padding:18px 16px;display:flex;flex-direction:column;justify-content:center;">
+          <div id="bn-p-tag" style="display:none;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;width:fit-content;margin-bottom:6px;"></div>
+          <div id="bn-p-hl" style="font-size:24px;font-weight:900;color:#FFB800;display:none;"></div>
+          <div id="bn-p-title" style="font-size:18px;font-weight:900;color:#fff;line-height:1.2;">Título del banner</div>
+          <div id="bn-p-sub" style="font-size:12px;color:rgba(255,255,255,.8);margin-top:4px;"></div>
+        </div>
+        <div id="bn-p-right" style="width:40%;display:flex;align-items:center;justify-content:center;">
+          <span id="bn-p-emoji" style="font-size:56px;opacity:.6;"></span>
+          <img id="bn-p-img" style="display:none;width:100%;height:100%;object-fit:cover;" alt="">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="grid-column:1/-1;"><label class="cfg-label">Título *</label>
+          <input class="cfg-input" id="bn-title" placeholder="Oferta especial hoy" oninput="document.getElementById('bn-p-title').textContent=this.value||'Título del banner'">
+        </div>
+        <div style="grid-column:1/-1;"><label class="cfg-label">Subtítulo</label>
+          <input class="cfg-input" id="bn-sub" placeholder="Hasta 30% en restaurantes seleccionados" oninput="document.getElementById('bn-p-sub').textContent=this.value">
+        </div>
+        <div style="grid-column:1/-1;"><label class="cfg-label">Imagen (800×300px, JPG/PNG)</label>
+          <input class="cfg-input" id="bn-image" type="file" accept="image/jpeg,image/png,image/webp" onchange="bnPreviewImg(this)">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Aparece a la derecha del banner. Si no subís imagen, se usa el emoji.</div>
+        </div>
+        <div><label class="cfg-label">Color fondo</label>
+          <input class="cfg-input" id="bn-color" type="color" value="#ea356b" oninput="document.getElementById('bn-preview').style.background=this.value">
+        </div>
+        <div><label class="cfg-label">Emoji</label>
+          <input class="cfg-input" id="bn-emoji" placeholder="🍔" maxlength="4" oninput="document.getElementById('bn-p-emoji').textContent=this.value">
+        </div>
+        <div><label class="cfg-label">Texto highlight (grande)</label>
+          <input class="cfg-input" id="bn-highlight" placeholder="40% OFF" oninput="const el=document.getElementById('bn-p-hl');el.textContent=this.value;el.style.display=this.value?'block':'none'">
+        </div>
+        <div><label class="cfg-label">Tag/badge</label>
+          <input class="cfg-input" id="bn-label" placeholder="🔥 PROMO" oninput="const el=document.getElementById('bn-p-tag');el.textContent=this.value;el.style.display=this.value?'block':'none'">
+        </div>
+        <div><label class="cfg-label">URL destino</label>
+          <input class="cfg-input" id="bn-link" placeholder="https://..." type="url">
+        </div>
+        <div><label class="cfg-label">Orden</label>
+          <input class="cfg-input" id="bn-order" type="number" value="0" min="0">
+        </div>
+      </div>
+      <button onclick="createBanner()" style="margin-top:14px;background:var(--primary);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;">➕ Crear banner</button>
+    </div>
+
+    <!-- LISTA -->
+    <div id="banners-list"><div class="spinner"></div></div>
+  `;
+  loadBannersList();
+}
+
+function bnPreviewImg(input) {
+  const file = input.files[0];
+  const img = document.getElementById('bn-p-img');
+  const emoji = document.getElementById('bn-p-emoji');
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; img.style.display='block'; emoji.style.display='none'; };
+    reader.readAsDataURL(file);
+  } else { img.style.display='none'; emoji.style.display=''; }
+}
+
+async function loadBannersList() {
+  try {
+    const banners = await api('/api/banners/admin');
+    allBanners = banners;
+    const el = document.getElementById('banners-list');
+    if (!banners.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">No hay banners creados. Los usuarios ven los banners por defecto.</div>';
+      return;
+    }
+    el.innerHTML = '<div class="table-wrap"><table class="table"><thead><tr><th>Preview</th><th>Título</th><th>Subtítulo</th><th>Estado</th><th>Orden</th><th>Acciones</th></tr></thead><tbody>' +
+      banners.map(b => `<tr>
+        <td><div style="width:120px;height:50px;border-radius:8px;background:${b.bg_color||'#ea356b'};display:flex;align-items:center;overflow:hidden;">
+          <div style="flex:1;padding:6px 8px;"><div style="font-size:9px;font-weight:800;color:#fff;line-height:1.2;">${esc(b.title||'')}</div></div>
+          ${b.image_url ? `<img src="${esc(b.image_url)}" style="width:45%;height:100%;object-fit:cover;">` : `<div style="font-size:20px;opacity:.5;padding-right:6px;">${b.emoji||''}</div>`}
+        </div></td>
+        <td style="font-weight:700;">${esc(b.title||'')}</td>
+        <td style="color:var(--muted);">${esc(b.subtitle||'—')}</td>
+        <td><span style="background:${b.active!==false&&b.is_active!==false?'#dcfce7':'#fee2e2'};color:${b.active!==false&&b.is_active!==false?'#16a34a':'#dc2626'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${b.active!==false&&b.is_active!==false?'Activo':'Oculto'}</span></td>
+        <td>${b.sort_order||0}</td>
+        <td style="display:flex;gap:6px;">
+          <button onclick="toggleBanner('${b.id}',${b.active!==false&&b.is_active!==false})" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;" title="${b.active!==false?'Ocultar':'Mostrar'}">${b.active!==false&&b.is_active!==false?'⏸️':'▶️'}</button>
+          <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:#dc2626;" title="Eliminar">🗑️</button>
+        </td>
+      </tr>`).join('') + '</tbody></table></div>';
+  } catch(e) { document.getElementById('banners-list').innerHTML = '<div style="color:#ef4444;">Error: '+e.message+'</div>'; }
+}
+
+async function createBanner() {
+  const title = document.getElementById('bn-title').value.trim();
+  const subtitle = document.getElementById('bn-sub').value.trim();
+  const bg_color = document.getElementById('bn-color').value;
+  const emoji = document.getElementById('bn-emoji').value.trim();
+  const highlight = document.getElementById('bn-highlight').value.trim();
+  const highlight_label = document.getElementById('bn-label').value.trim();
+  const link = document.getElementById('bn-link').value.trim();
+  const sort_order = parseInt(document.getElementById('bn-order').value) || 0;
+  const imgInput = document.getElementById('bn-image');
+  if (!title) return alert('El título es obligatorio');
+
+  let image_url = '';
+  // Upload image if selected
+  if (imgInput?.files[0]) {
+    const fd = new FormData();
+    fd.append('photo', imgInput.files[0]);
+    try {
+      const upRes = await fetch('/api/admin/banners/upload-image', {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
+      });
+      const upData = await upRes.json();
+      if (upData.url) image_url = upData.url;
+    } catch(e) { return alert('Error subiendo imagen: ' + e.message); }
+  }
+
+  try {
+    await api('/api/admin/banners', { method:'POST', body: JSON.stringify({title,subtitle,bg_color,emoji,highlight,highlight_label,link_url:link,sort_order,is_active:true,image_url}) });
+    // Reset form
+    ['bn-title','bn-sub','bn-emoji','bn-highlight','bn-label','bn-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('bn-order').value = '0';
+    document.getElementById('bn-color').value = '#ea356b';
+    document.getElementById('bn-preview').style.background = '#ea356b';
+    document.getElementById('bn-p-title').textContent = 'Título del banner';
+    document.getElementById('bn-p-sub').textContent = '';
+    document.getElementById('bn-p-emoji').textContent = '';
+    document.getElementById('bn-p-hl').style.display = 'none';
+    document.getElementById('bn-p-tag').style.display = 'none';
+    document.getElementById('bn-p-img').style.display = 'none';
+    document.getElementById('bn-p-emoji').style.display = '';
+    if (imgInput) imgInput.value = '';
+    loadBannersList();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function toggleBanner(id, isActive) {
+  try {
+    await api('/api/admin/banners/' + id, { method:'PATCH', body: JSON.stringify({is_active:!isActive, active:!isActive}) });
+    loadBannersList();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function deleteBanner(id) {
+  if (!confirm('¿Eliminar este banner?')) return;
+  try {
+    await api('/api/admin/banners/' + id, { method:'DELETE' });
+    loadBannersList();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function esc(str) { if (typeof str !== 'string') return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
 // ── NEGOCIOS ──────────────────────────────────
 let allBusinesses = [];
