@@ -3,6 +3,18 @@
 //  Node.js + Express + PostgreSQL + Cloudinary + MercadoPago + WebSockets
 // ════════════════════════════════════════════════
 require('dotenv').config();
+const IS_PROD = process.env.NODE_ENV === 'production';
+// ── Conditional logging — suppress verbose logs in production ──
+const _origLog = console.log;
+const _origWarn = console.warn;
+if (IS_PROD) {
+  console.log = (...args) => {
+    // In production, only log startup messages and critical info
+    const msg = args[0]?.toString?.() || '';
+    if (msg.includes('✅') || msg.includes('❌') || msg.includes('⚡')) _origLog(...args);
+  };
+  // Keep warn and error always active in production
+}
 // Resend email via HTTPS (no SMTP needed)
 const express      = require('express');
 const cors         = require('cors');
@@ -55,7 +67,7 @@ const BLOW_PLUS_USER_PRICE = 200; // $UYU por mes — Blow+ cliente
 const PLANS = {
   active: {
     name: 'Activo',
-    price: PLAN_PRICE,
+    get price() { return PLAN_PRICE; }, // Dynamic — reflects loadPlanPrice() updates
     features: [
       'Productos ilimitados',
       'Recibir pedidos online',
@@ -72,16 +84,38 @@ const { WebSocketServer } = require('ws');
 const wss     = new WebSocketServer({ server });
 const clients = new Map();
 wss.on('connection', ws => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', msg => {
     try {
       const { token } = JSON.parse(msg);
       const u = jwt.verify(token, JWT_SECRET);
-      clients.set(u.id, ws);
-      ws.userId = u.id;
-    } catch {}
+      // Re-validate password_changed_at on every WS message
+      if (u.iat) {
+        q1('SELECT password_changed_at FROM users WHERE id=$1', [u.id]).then(row => {
+          if (row?.password_changed_at) {
+            const changedAt = Math.floor(new Date(row.password_changed_at).getTime() / 1000);
+            if (u.iat < changedAt) { ws.close(4001, 'Token invalidated'); return; }
+          }
+          clients.set(u.id, ws);
+          ws.userId = u.id;
+        }).catch(() => {});
+      } else {
+        clients.set(u.id, ws);
+        ws.userId = u.id;
+      }
+    } catch { ws.close(4000, 'Invalid token'); }
   });
   ws.on('close', () => { if (ws.userId) clients.delete(ws.userId); });
 });
+// Ping clients every 30s, terminate dead connections
+const wsHeartbeat = setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (!ws.isAlive) { if (ws.userId) clients.delete(ws.userId); return ws.terminate(); }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
 function notify(userId, payload) {
   const ws = clients.get(userId);
   const wsAlive = ws && ws.readyState === 1;
@@ -569,6 +603,38 @@ async function deletePhoto(cloudinaryId) {
   }
 }
 
+// ════════════════════════════════════════════════
+//  MULTER + CLOUDINARY UPLOAD
+// ════════════════════════════════════════════════
+let multerUpload = null;
+try {
+  const multer = require('multer');
+  // Always use memory storage — upload manually to Cloudinary to avoid signature issues
+  multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+} catch(e) { console.log('Multer not available:', e.message); }
+
+function uploadMiddleware(field) {
+  return (req, res, next) => {
+    if (!multerUpload) return res.status(503).json({ error: 'Upload no disponible' });
+    multerUpload.single(field)(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      // If we have a file buffer and cloudinary, upload now
+      if (req.file && req.file.buffer && cloudinary) {
+        try {
+          const b64 = req.file.buffer.toString('base64');
+          const up = await uploadPhoto(b64, req.file.mimetype || 'image/jpeg');
+          req.file.path = up.url;
+          req.file.secure_url = up.url;
+          req.file.cloudinary_id = up.cloudinary_id;
+        } catch(upErr) {
+          return res.status(500).json({ error: 'Error subiendo imagen: ' + upErr.message });
+        }
+      }
+      next();
+    });
+  };
+}
+
 // ── MercadoPago ───────────────────────────────
 let mp = null;
 try {
@@ -601,7 +667,7 @@ app.use((req, res, next) => {
 // 🔒 Rate limiting
 if (rateLimit) {
   const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 100,
+    windowMs: 15 * 60 * 1000, max: 300,
     message: { error: 'Demasiadas solicitudes. Intentá de nuevo en 15 minutos.' },
     standardHeaders: true, legacyHeaders: false,
     validate: { xForwardedForHeader: false },
@@ -682,6 +748,10 @@ async function getProductFull(pid) {
 function sanitize(str, maxLen=500) {
   if (typeof str !== 'string') return '';
   return str.trim().slice(0, maxLen);
+}
+function escHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
@@ -778,8 +848,8 @@ app.post('/api/auth/login', async (req, res) => {
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
-// Debug: check cloudinary config (remove after fixing)
-app.get('/api/debug/cloudinary', auth, (req, res) => {
+// Debug: check cloudinary config (admin only)
+app.get('/api/debug/cloudinary', auth, role('admin'), (req, res) => {
   if (!cloudinary) return res.json({ ok: false, error: 'cloudinary null' });
   const cfg = cloudinary.config();
   res.json({
@@ -1239,6 +1309,7 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
   res.json(await getProductFull(req.params.pid));
 });
 
+// Soft-delete: marks product as unavailable (preserves order history references)
 app.delete('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
@@ -1272,8 +1343,9 @@ app.post('/api/register/initiate', async (req, res) => {
       return res.status(409).json({ error:'Este email ya está registrado' });
 
     const regId = uuid();
+    const hashedPw = await bcrypt.hash(password, 10);
     await q('INSERT INTO pending_registrations (id,data) VALUES ($1,$2)',
-      [regId, JSON.stringify({ bizName,category,address,city,department,name,email:emailLow,password,phone })]);
+      [regId, JSON.stringify({ bizName,category,address,city,department,name,email:emailLow,password:hashedPw,phone })]);
 
     // ── MODO GRATUITO TEMPORAL — skip payment ──
     return res.json({ reg_id: regId, demo: true });
@@ -1339,7 +1411,7 @@ app.post('/api/register/complete', async (req, res) => {
 
     const userId = uuid();
     await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [userId, d.name, d.email, d.phone||'', await bcrypt.hash(d.password,10), 'owner', d.city, d.department||'']);
+      [userId, d.name, d.email, d.phone||'', d.password, 'owner', d.city, d.department||'']);
     const bizId = uuid();
     await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
@@ -2231,6 +2303,10 @@ app.delete('/api/bank-accounts/:id', auth, async (req, res) => {
 //  ADMIN
 // ════════════════════════════════════════════════
 app.post('/api/admin/setup', async (req, res) => {
+  // Require setup key in production to prevent unauthorized admin creation
+  const setupKey = process.env.ADMIN_SETUP_KEY;
+  if (IS_PROD && setupKey && req.body.setup_key !== setupKey)
+    return res.status(403).json({ error:'Setup key inválida' });
   if (await q1("SELECT id FROM users WHERE role='admin'",[]))
     return res.status(403).json({ error:'Ya existe un administrador' });
   const { name,email,password } = req.body;
@@ -2353,6 +2429,27 @@ app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
 //  WEBHOOK MERCADOPAGO
 // ════════════════════════════════════════════════
 app.post('/api/webhooks/mp', async (req, res) => {
+  // ── Verificar firma HMAC si MP_WEBHOOK_SECRET está configurado ──
+  const webhookSecret = process.env.MP_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const xSignature = req.headers['x-signature'] || '';
+    const xRequestId = req.headers['x-request-id'] || '';
+    const dataId = req.query['data.id'] || req.body?.data?.id || '';
+    // MP firma: ts=xxx,v1=xxx
+    const parts = {};
+    xSignature.split(',').forEach(p => { const [k,v] = p.split('='); if(k&&v) parts[k.trim()] = v.trim(); });
+    const ts = parts.ts;
+    const v1 = parts.v1;
+    if (ts && v1) {
+      const crypto = require('crypto');
+      const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+      const hmac = crypto.createHmac('sha256', webhookSecret).update(manifest).digest('hex');
+      if (hmac !== v1) {
+        console.warn('⚠️ Webhook MP: firma inválida');
+        return res.sendStatus(401);
+      }
+    }
+  }
   res.sendStatus(200);
   try {
     const { type, data, topic, id } = req.body;
@@ -2389,7 +2486,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
         // Create user
         const userId = uuid();
         await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-          [userId, d.name, d.email, d.phone||'', await bcrypt.hash(d.password,10), 'owner', d.city, d.department||'']);
+          [userId, d.name, d.email, d.phone||'', d.password, 'owner', d.city, d.department||'']);
 
         // Create business
         const bizId = uuid();
@@ -2519,6 +2616,7 @@ app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
 
 
 // Rate limit: 1 req/seg por IP (respetando ToS de Nominatim)
+const GEO_CACHE_MAX = 500;
 const geoCache = new Map(); // cache en memoria para evitar duplicados
 app.get('/api/geocode/reverse', async (req, res) => {
   const { lat, lng } = req.query;
@@ -2545,7 +2643,11 @@ app.get('/api/geocode/reverse', async (req, res) => {
       country: addr.country_code?.toUpperCase() || '',
       display: geo.display_name || ''
     };
-    // Cachear 30 minutos
+    // Cachear 30 minutos — con límite de tamaño
+    if (geoCache.size >= GEO_CACHE_MAX) {
+      const firstKey = geoCache.keys().next().value;
+      geoCache.delete(firstKey);
+    }
     geoCache.set(cacheKey, result);
     setTimeout(() => geoCache.delete(cacheKey), 30 * 60 * 1000);
     res.json(result);
@@ -2711,57 +2813,34 @@ app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), asyn
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Geocoding proxy ───────────────────────────
-// Evita que Nominatim bloquee requests desde el cliente.
-// El server actúa de proxy con cache simple en memoria.
-const _geoCache = new Map();
-
-function nominatimFetch(lat, lng) {
-  return new Promise((resolve, reject) => {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es&zoom=10`;
-    const opts = {
-      hostname: 'nominatim.openstreetmap.org',
-      path: `/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es&zoom=10`,
-      method: 'GET',
-      headers: { 'User-Agent': 'BlowApp/1.0 (hola@blow.uy)' }
-    };
-    const https = require('https');
-    const req = https.request(opts, res => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { reject(new Error('Parse error')); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(8000, () => { req.destroy(); reject(new Error('Timeout')); });
-    req.end();
-  });
-}
-
+// ── Geocoding proxy (alias) ───────────────────────────
+// Legacy endpoint — redirects to /api/geocode/reverse
 app.get('/api/geocode', async (req, res) => {
   const lat = parseFloat(req.query.lat);
   const lng = parseFloat(req.query.lng);
   if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'lat y lng requeridos' });
-
-  // Cache por coordenada redondeada a 2 decimales (~1km)
-  const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-  if (_geoCache.has(cacheKey)) return res.json(_geoCache.get(cacheKey));
-
+  // Forward to the main geocode endpoint
   try {
-    const geo = await nominatimFetch(lat, lng);
+    const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    if (geoCache.has(cacheKey)) return res.json(geoCache.get(cacheKey));
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=es&zoom=14`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'blow-app/1.0 (hola@blow.uy)' },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!response.ok) throw new Error(`Nominatim error ${response.status}`);
+    const geo = await response.json();
     const addr = geo.address || {};
     const result = {
-      city:    addr.city || addr.town || addr.village || addr.municipality || addr.county || '',
+      city:    addr.city || addr.town || addr.village || addr.municipality || addr.suburb || addr.county || '',
       dept:    addr.state || addr.county || '',
       street:  addr.road ? `${addr.road}${addr.house_number ? ' ' + addr.house_number : ''}` : '',
-      country: addr.country_code || '',
-      raw:     addr
+      country: addr.country_code?.toUpperCase() || '',
+      display: geo.display_name || ''
     };
-    // Cachear por 24hs
-    _geoCache.set(cacheKey, result);
-    setTimeout(() => _geoCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+    if (geoCache.size >= GEO_CACHE_MAX) { geoCache.delete(geoCache.keys().next().value); }
+    geoCache.set(cacheKey, result);
+    setTimeout(() => geoCache.delete(cacheKey), 30 * 60 * 1000);
     res.json(result);
   } catch(e) {
     res.status(502).json({ error: 'No se pudo geocodificar: ' + e.message });
@@ -2837,8 +2916,7 @@ app.get('/api/coupons/available', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/admin/coupons', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.post('/api/admin/coupons', auth, role('admin'), async (req, res) => {
   try {
     const { code, description, discount_type, discount_value, min_order, max_uses, per_user, business_id, expires_at } = req.body;
     if (!code || !discount_value) return res.status(400).json({ error: 'Código y descuento requeridos' });
@@ -2851,20 +2929,17 @@ app.post('/api/admin/coupons', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/coupons', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
-  try { res.json(await q('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC')); }
+app.get('/api/admin/coupons', auth, role('admin'), async (req, res) => {
+  try { res.json(await qa('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC', [])); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/admin/coupons/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.patch('/api/admin/coupons/:id', auth, role('admin'), async (req, res) => {
   try { await q('UPDATE coupons SET active=$1 WHERE id=$2', [req.body.active, req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/coupons/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.delete('/api/admin/coupons/:id', auth, role('admin'), async (req, res) => {
   try { await q('DELETE FROM coupons WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2890,7 +2965,7 @@ app.get('/api/owner/coupons', auth, async (req, res) => {
   try {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     if (!biz) return res.json([]);
-    res.json(await q('SELECT * FROM coupons WHERE business_id=$1 ORDER BY created_at DESC', [biz.id]));
+    res.json(await qa('SELECT * FROM coupons WHERE business_id=$1 ORDER BY created_at DESC', [biz.id]));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2919,20 +2994,18 @@ app.post('/api/help', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/help', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
-  try { res.json(await q('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100')); }
+app.get('/api/admin/help', auth, role('admin'), async (req, res) => {
+  try { res.json(await qa('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100', [])); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/admin/help/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
   try {
     const { reply } = req.body;
     const msg = await q1('SELECT * FROM help_messages WHERE id=$1', [req.params.id]);
     if (!msg) return res.status(404).json({ error: 'No encontrado' });
     await q("UPDATE help_messages SET admin_reply=$1, status='resolved' WHERE id=$2", [reply, req.params.id]);
-    await sendEmail(msg.user_email, 'Respuesta de soporte — Blow', '<p>Hola <b>' + msg.user_name + '</b>, respondimos tu consulta:</p><blockquote>' + reply + '</blockquote>');
+    await sendEmail(msg.user_email, 'Respuesta de soporte — Blow', '<p>Hola <b>' + escHtml(msg.user_name) + '</b>, respondimos tu consulta:</p><blockquote>' + escHtml(reply) + '</blockquote>');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3232,37 +3305,4 @@ initDB().then(()=>{
     } catch(e) { console.error('Schedule cron error:', e.message); }
   }, 60000); // cada 60 segundos
 
-}).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });// ════════════════════════════════════════════════
-//  MULTER + CLOUDINARY UPLOAD
-// ════════════════════════════════════════════════
-let multerUpload = null;
-try {
-  const multer = require('multer');
-  // Always use memory storage — upload manually to Cloudinary to avoid signature issues
-  multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-} catch(e) { console.log('Multer not available:', e.message); }
-
-function uploadMiddleware(field) {
-  return (req, res, next) => {
-    if (!multerUpload) return res.status(503).json({ error: 'Upload no disponible' });
-    multerUpload.single(field)(req, res, async (err) => {
-      if (err) return res.status(400).json({ error: err.message });
-      // If we have a file buffer and cloudinary, upload now
-      if (req.file && req.file.buffer && cloudinary) {
-        try {
-          const b64 = req.file.buffer.toString('base64');
-          // Use the same uploadPhoto() function that works for products
-          const up = await uploadPhoto(b64, req.file.mimetype || 'image/jpeg');
-          req.file.path = up.url;
-          req.file.secure_url = up.url;
-          req.file.cloudinary_id = up.cloudinary_id;
-        } catch(upErr) {
-          return res.status(500).json({ error: 'Error subiendo imagen: ' + upErr.message });
-        }
-      }
-      next();
-    });
-  };
-}
-
-
+}).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
