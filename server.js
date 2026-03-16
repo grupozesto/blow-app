@@ -933,6 +933,14 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 // ════════════════════════════════════════════════
 //  NEGOCIOS
 // ════════════════════════════════════════════════
+// TEMP DEBUG — list all businesses raw
+app.get('/api/debug/businesses', auth, role('admin'), async (req, res) => {
+  try {
+    const rows = await qa('SELECT id, name, city, department, owner_id, created_at FROM businesses ORDER BY created_at DESC', []);
+    res.json(rows);
+  } catch(e) { res.status(500).json({error: e.message}); }
+});
+
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
   let sql = `SELECT b.*,
