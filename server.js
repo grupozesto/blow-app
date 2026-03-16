@@ -724,6 +724,20 @@ if (rateLimit) {
   app.use('/api/auth/reset-password', passwordResetLimiter);
 }
 
+// 🔒 Fallback login rate limiting (works even if express-rate-limit not installed)
+const _loginAttempts = new Map();
+function checkLoginRate(ip) {
+  const now = Date.now();
+  const key = `login_${ip}`;
+  const attempts = _loginAttempts.get(key) || [];
+  const recent = attempts.filter(t => now - t < 15 * 60 * 1000);
+  if (recent.length >= 10) return false;
+  recent.push(now);
+  _loginAttempts.set(key, recent);
+  if (Math.random() < 0.01) _loginAttempts.forEach((v, k) => { if (!v.some(t => now - t < 20 * 60 * 1000)) _loginAttempts.delete(k); });
+  return true;
+}
+
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
 app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1d' }));
@@ -943,6 +957,7 @@ app.post('/api/auth/verify-email', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
+    if (!checkLoginRate(req.ip)) return res.status(429).json({ error:'Demasiados intentos. Esperá 15 minutos.' });
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error:'Email y contraseña requeridos' });
     if (typeof email !== 'string' || email.length > 200) return res.status(400).json({ error:'Email inválido' });
@@ -1642,7 +1657,12 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     for (const item of items) {
       const p = await q1('SELECT * FROM products WHERE id=$1 AND business_id=$2 AND is_available=TRUE',[item.product_id,business_id]);
       if (!p) return res.status(400).json({ error:'Producto no disponible' });
-      const qty = parseInt(item.quantity)||1;
+      const qty = Math.max(1, Math.floor(parseInt(item.quantity)||1)); // NEVER negative or zero
+      if (qty > 99) return res.status(400).json({ error:'Cantidad máxima por producto: 99' });
+      // Atomic stock check
+      if (p.stock !== null && p.stock !== undefined && qty > p.stock) {
+        return res.status(400).json({ error:`Stock insuficiente para "${p.name}". Disponible: ${p.stock}` });
+      }
       let unitPrice = p.price; let variantLabel = '';
       if (item.variant_id) {
         const v = await q1('SELECT * FROM product_variants WHERE id=$1 AND product_id=$2',[item.variant_id,p.id]);
@@ -1658,7 +1678,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const fee = (userBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
     const priorityPct = (biz.priority_percent != null ? parseInt(biz.priority_percent) : 50) / 100;
     const priorityFee = priority ? Math.round(fee * priorityPct) : 0;
-    const tipAmt = parseFloat(tip) || 0;
+    const tipAmt = Math.max(0, parseFloat(tip) || 0); // NEVER negative
     const total = subtotal + fee + priorityFee + tipAmt;
     const _fee = await getPlatformFee();
     const plat = parseFloat((subtotal*_fee).toFixed(2)), bizAmt = parseFloat((subtotal-plat).toFixed(2));
@@ -1671,11 +1691,21 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
-      // Decrementar stock si tiene límite definido
+      // Atomic stock decrement (race-safe: uses WHERE stock >= qty)
       if (i.stock !== null && i.stock !== undefined) {
-        const newStock = Math.max(0, i.stock - i.quantity);
-        await q('UPDATE products SET stock=$1, is_available=$2 WHERE id=$3',
-          [newStock, newStock > 0, i.id]);
+        const result = await q('UPDATE products SET stock = stock - $1, is_available = (stock - $1 > 0) WHERE id=$2 AND stock >= $1 RETURNING stock',
+          [i.quantity, i.id]);
+        if (!result || !result.length) {
+          // Stock was insufficient (concurrent order took it) — cancel this order
+          await q("UPDATE orders SET status='cancelled', cancel_reason='Stock agotado durante el procesamiento', cancelled_at=NOW() WHERE id=$1", [orderId]);
+          // Restore stock for items already decremented
+          for (const prev of lineItems.slice(0, lineItems.indexOf(i))) {
+            if (prev.stock !== null && prev.stock !== undefined) {
+              await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [prev.quantity, prev.id]);
+            }
+          }
+          return res.status(400).json({ error:`Lo sentimos, "${i.name}" se agotó mientras procesábamos tu pedido.` });
+        }
       }
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
