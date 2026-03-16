@@ -940,10 +940,10 @@ app.get('/api/businesses', async (req, res) => {
     COUNT(DISTINCT r.id)::int as rating_count,
     COUNT(DISTINCT p.id) FILTER (WHERE p.is_available=TRUE)::int as product_count
     FROM businesses b
-    JOIN subscriptions s ON s.business_id = b.id
+    LEFT JOIN subscriptions s ON s.business_id = b.id
     LEFT JOIN reviews r ON r.business_id = b.id
     LEFT JOIN products p ON p.business_id = b.id
-    WHERE s.status = 'active'`;
+    WHERE (s.status = 'active' OR s.id IS NULL)`;
   const params = [];
   let i = 1;
   if (category)   { sql += ` AND b.category=$${i++}`;               params.push(category); }
@@ -966,21 +966,21 @@ app.get('/api/search', async (req, res) => {
   const term = `%${q.trim().toLowerCase()}%`;
 
   const bizParams = [term, term];
-  let bizWhere = `s.status='active' AND (LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $2 OR LOWER(b.description) LIKE $1 OR LOWER(b.tags::text) LIKE $1)`;
+  let bizWhere = `(s.status='active' OR s.id IS NULL) AND (LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $2 OR LOWER(b.description) LIKE $1 OR LOWER(b.tags::text) LIKE $1)`;
   if (city) { bizWhere += ` AND LOWER(b.city)=LOWER($${bizParams.length+1})`; bizParams.push(city); }
   else if (department) { bizWhere += ` AND LOWER(b.department)=LOWER($${bizParams.length+1})`; bizParams.push(department); }
 
   const prodParams = [term, term];
-  let prodWhere = `p.is_available=TRUE AND s.status='active' AND (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $2)`;
+  let prodWhere = `p.is_available=TRUE AND (s.status='active' OR s.id IS NULL) AND (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $2)`;
   if (city) { prodWhere += ` AND LOWER(b.city)=LOWER($${prodParams.length+1})`; prodParams.push(city); }
   else if (department) { prodWhere += ` AND LOWER(b.department)=LOWER($${prodParams.length+1})`; prodParams.push(department); }
 
   try {
     const [businesses, products] = await Promise.all([
-      qa(`SELECT b.* FROM businesses b JOIN subscriptions s ON s.business_id=b.id WHERE ${bizWhere} ORDER BY b.blow_plus DESC NULLS LAST LIMIT 15`, bizParams),
+      qa(`SELECT b.* FROM businesses b LEFT JOIN subscriptions s ON s.business_id=b.id WHERE ${bizWhere} ORDER BY b.blow_plus DESC NULLS LAST LIMIT 15`, bizParams),
       qa(`SELECT p.id as product_id, p.name as product_name, p.price, p.emoji, p.photo_url, p.discount_percent,
           b.id as biz_id, b.name as biz_name, b.logo_emoji, b.logo_url, b.delivery_time, b.delivery_cost, b.is_open, b.blow_plus
-          FROM products p JOIN businesses b ON p.business_id=b.id JOIN subscriptions s ON s.business_id=b.id
+          FROM products p JOIN businesses b ON p.business_id=b.id LEFT JOIN subscriptions s ON s.business_id=b.id
           WHERE ${prodWhere} ORDER BY b.blow_plus DESC NULLS LAST LIMIT 20`, prodParams)
     ]);
     res.json({ businesses, products });
