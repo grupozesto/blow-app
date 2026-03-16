@@ -3448,4 +3448,25 @@ initDB().then(()=>{
     } catch(e) { console.error('Schedule cron error:', e.message); }
   }, 60000); // cada 60 segundos
 
+  // ── Auto-cancel stale pending orders (cada 5 minutos) ──
+  setInterval(async () => {
+    try {
+      const stale = await qa(
+        `SELECT id, customer_id, business_id FROM orders WHERE status='pending' AND created_at < NOW() - INTERVAL '30 minutes'`, []
+      );
+      for (const order of stale) {
+        await q(`UPDATE orders SET status='cancelled', cancel_reason='Pago no completado (expirado)', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1`, [order.id]);
+        // Restore stock for cancelled items
+        const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
+        for (const item of items) {
+          await q('UPDATE products SET stock = stock + $1 WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
+        }
+        notify(order.customer_id, { type:'order_cancelled', message:`Tu pedido #${order.id.slice(-6).toUpperCase()} fue cancelado por falta de pago.`, order_id:order.id });
+        const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
+        if (biz) notify(biz.owner_id, { type:'order_cancelled', message:`Pedido #${order.id.slice(-6).toUpperCase()} cancelado (pago expirado)`, order_id:order.id });
+        console.log(`🗑️ Auto-cancelled stale pending order: ${order.id}`);
+      }
+    } catch(e) { console.error('Stale orders cleanup error:', e.message); }
+  }, 5 * 60000); // cada 5 minutos
+
 }).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
