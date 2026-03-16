@@ -3661,9 +3661,34 @@ function applyFilters() {
 }
 
 function applyAllFilters() {
-  let list = activeCategoryFilter === 'all'
-    ? [...allStores]
-    : allStores.filter(s => s.category === activeCategoryFilter);
+  let list;
+  if (activeCategoryFilter === 'all') {
+    list = [...allStores];
+  } else {
+    // Match by category ID (cat-food) OR category name (Restaurante/Restaurantes)
+    // Also build a name map from appCategories for matching
+    const catObj = appCategories.find(c => c.id === activeCategoryFilter);
+    const catName = catObj?.name?.toLowerCase() || '';
+    list = allStores.filter(s => {
+      const sc = (s.category || '').toLowerCase();
+      return sc === activeCategoryFilter.toLowerCase()
+        || sc === catName
+        || sc === catName.replace(/s$/, '')  // "Restaurantes" matches "Restaurante"
+        || sc + 's' === catName              // "Restaurante" matches "Restaurantes"
+        || activeCategoryFilter === 'food' && (sc.includes('restaurant') || sc.includes('comida'))
+        || activeCategoryFilter === 'cat-food' && (sc.includes('restaurant') || sc.includes('comida'))
+        || activeCategoryFilter === 'market' && (sc.includes('mercado') || sc.includes('super'))
+        || activeCategoryFilter === 'cat-market' && (sc.includes('mercado') || sc.includes('super'))
+        || activeCategoryFilter === 'pharmacy' && (sc.includes('farmacia'))
+        || activeCategoryFilter === 'cat-pharmacy' && (sc.includes('farmacia'))
+        || activeCategoryFilter === 'drinks' && (sc.includes('bebida') || sc.includes('drink'))
+        || activeCategoryFilter === 'cat-drinks' && (sc.includes('bebida') || sc.includes('drink'))
+        || activeCategoryFilter === 'desserts' && (sc.includes('postre') || sc.includes('dessert'))
+        || activeCategoryFilter === 'cat-desserts' && (sc.includes('postre') || sc.includes('dessert'))
+        || activeCategoryFilter === 'cafe' && (sc.includes('café') || sc.includes('cafe') || sc.includes('coffee'))
+        || activeCategoryFilter === 'cat-cafe' && (sc.includes('café') || sc.includes('cafe') || sc.includes('coffee'));
+    });
+  }
 
   // Filtro envío
   if (activeFilters.delivery === 'free') list = list.filter(s => s.delivery_cost === 0);
