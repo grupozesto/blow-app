@@ -1033,7 +1033,7 @@ app.get('/api/businesses', async (req, res) => {
   const params = [];
   let i = 1;
   if (category)   { sql += ` AND b.category=$${i++}`;            params.push(category); }
-  if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`; params.push(city); }
+  if (city)       { sql += ` AND (LOWER(b.city)=LOWER($${i}) OR b.city IS NULL OR b.city='')`; params.push(city); i++; }
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
   sql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   
