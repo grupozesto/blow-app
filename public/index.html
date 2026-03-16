@@ -5323,75 +5323,51 @@ async function sendChatMessage() {
 function renderProfile() {
   const el = id => document.getElementById(id);
 
-  // Admin gets a completely different profile view
+  // Admin: show admin section, hide customer sections, load banners
   if (user && user.role === 'admin') {
-    const sc = document.querySelector('#page-profile .sc');
-    if (sc) {
-      sc.innerHTML = `
-        <div style="background:#fff;padding:max(20px,calc(env(safe-area-inset-top,0px)+16px)) 20px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #f1f5f9;">
-          <div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;">${user.name[0].toUpperCase()}</div>
-          <div>
-            <div style="font-size:18px;font-weight:900;color:#0f172a;">${esc(user.name)}</div>
-            <div style="font-size:12px;color:#94a3b8;">${esc(user.email)} · <span style="color:var(--primary);font-weight:700;">🔧 Admin</span></div>
-          </div>
-        </div>
-
-        <div style="padding:20px 16px 8px;">
-          <div style="font-size:13px;font-weight:800;color:#64748b;letter-spacing:.5px;margin-bottom:12px;">🖼️ BANNERS DEL CARRUSEL</div>
-          <div style="background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #e2e8f0;">
-            <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-              <div style="font-size:13px;color:#64748b;">Banners visibles en el inicio de la app</div>
-              <button onclick="adminOpenBannerSheet()" style="background:var(--primary);border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Nuevo</button>
-            </div>
-            <div id="profile-banners-list" style="padding:8px 16px 12px;">
-              <div style="text-align:center;color:#94a3b8;font-size:13px;padding:16px 0;">Cargando banners...</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="padding:0 16px 8px;">
-          <div style="font-size:13px;font-weight:800;color:#64748b;letter-spacing:.5px;margin-bottom:12px;">⚙️ PANEL DE ADMINISTRACIÓN</div>
-          <div style="background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #e2e8f0;">
-            ${[
-              ['stats','📊','Stats y reportes','Métricas de la plataforma'],
-              ['users','👥','Usuarios','Gestionar clientes y owners'],
-              ['businesses','🏪','Negocios','Ver y administrar negocios'],
-              ['orders','📦','Pedidos','Historial de todos los pedidos'],
-              ['coupons','🎫','Cupones','Crear y gestionar cupones'],
-              ['withdrawals','💸','Retiros','Aprobar solicitudes de retiro'],
-            ].map(([tab,icon,label,sub]) => `
-              <div onclick="_adminInitialTab='${tab}';nav('page-admin')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f8fafc;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                <div style="width:36px;height:36px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${icon}</div>
-                <div style="flex:1;">
-                  <div style="font-size:14px;font-weight:700;color:#0f172a;">${label}</div>
-                  <div style="font-size:11px;color:#94a3b8;">${sub}</div>
-                </div>
-                <span style="color:#94a3b8;font-size:18px;">›</span>
-              </div>`).join('')}
-          </div>
-        </div>
-
-        <div style="padding:0 16px 8px;">
-          <div style="background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid #e2e8f0;">
-            <div onclick="cycleDarkMode()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f8fafc;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-              <div style="width:36px;height:36px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">🌙</div>
-              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#0f172a;">Modo oscuro</div></div>
-              <span id="dark-mode-chip" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#64748b;">Auto</span>
-            </div>
-            <div onclick="handleSession()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-              <div style="width:36px;height:36px;background:#fee2e2;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">🔐</div>
-              <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:#ef4444;">Cerrar sesión</div><div style="font-size:11px;color:#94a3b8;">${esc(user.email)}</div></div>
-            </div>
-          </div>
-        </div>
-        <div style="height:40px;"></div>
-      `;
-      loadProfileBanners();
+    // Update greeting and avatar
+    const firstName = user.name.split(' ')[0];
+    const greetEl = document.getElementById('profile-greeting');
+    const avatarEl = document.getElementById('profile-avatar');
+    if (greetEl) greetEl.textContent = '¡Hola, ' + firstName + '!';
+    if (avatarEl) {
+      if (user.avatar_url) {
+        avatarEl.style.backgroundImage = 'url(' + user.avatar_url + ')';
+        avatarEl.style.backgroundSize = 'cover';
+        avatarEl.textContent = '';
+      } else {
+        avatarEl.textContent = user.name[0].toUpperCase();
+      }
     }
+
+    // Hide customer sections
+    ['profile-blowplus-banner','profile-quick-icons',
+     'profile-section-perfil','profile-section-actividad',
+     'profile-div-1','profile-div-2','profile-div-3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+
+    // Show admin section and its wrapper div
+    const adminSection = document.getElementById('profile-section-admin');
+    const adminDiv     = document.getElementById('profile-div-admin');
+    const sessionItem  = document.getElementById('session-item');
+    if (adminSection) adminSection.style.display = '';
+    if (adminDiv)     adminDiv.style.display = '';
+    if (sessionItem)  sessionItem.style.display = '';
+
+    // Update session button
+    const sessionLabel = document.getElementById('session-label');
+    const sessionSub   = document.getElementById('session-sub');
+    if (sessionLabel) sessionLabel.textContent = 'Cerrar sesión';
+    if (sessionSub)   sessionSub.textContent = user.email;
+
+    // Load banners into the static #profile-banners-list
+    loadProfileBanners();
     return;
   }
 
-  // Elements that only show when logged in as customer
+// Elements that only show when logged in as customer
   const loggedInSections = ['profile-blowplus-banner','profile-quick-icons',
     'profile-section-perfil','profile-section-actividad',
     'profile-div-1','profile-div-2','profile-div-3'];
