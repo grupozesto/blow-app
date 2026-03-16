@@ -4689,6 +4689,12 @@ function addToCart(item) {
   }
   const key = item.cart_key || item.id;
   const ex = cart.find(x => (x.cart_key||x.id) === key);
+  const currentQty = ex ? ex.qty : 0;
+  // Stock validation
+  if (item.stock != null && item.stock !== undefined && (currentQty + 1) > item.stock) {
+    showToast(`⚠️ Solo quedan ${item.stock} unidades de ${item.name}`);
+    return;
+  }
   if (ex) ex.qty++;
   else cart.push({...item, qty:1});
   saveCart();
@@ -4705,6 +4711,11 @@ function updateCartBadge() {
 function changeCartQty(id, d) {
   const item = cart.find(x => (x.cart_key||x.id) === id);
   if (!item) return;
+  // Stock validation on increase
+  if (d > 0 && item.stock != null && item.stock !== undefined && (item.qty + d) > item.stock) {
+    showToast(`⚠️ Solo quedan ${item.stock} unidades`);
+    return;
+  }
   item.qty += d;
   if (item.qty <= 0) cart = cart.filter(x => (x.cart_key||x.id) !== id);
   saveCart(); updateCartBadge(); renderCart();
@@ -4864,7 +4875,24 @@ function renderCheckoutPage() {
   // Auto-select default if nothing selected yet
   if (!_chkAddress && defaultAddr) _chkAddress = defaultAddr.full_address || defaultAddr.label;
 
+  const eta = store?.delivery_time || '30-45';
+
   try { body.innerHTML = `
+    <!-- ETA BANNER -->
+    ${isDelivery ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:14px;padding:14px 16px;margin-top:16px;display:flex;align-items:center;gap:12px;">
+      <div style="font-size:28px;">🛵</div>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#1e3a5f;">Llega en ${eta} min</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px;">${store?.name || 'Tu pedido'} · ${_chkPriority ? '⚡ Envío prioritario' : 'Envío estándar'}</div>
+      </div>
+    </div>` : `<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:14px;padding:14px 16px;margin-top:16px;display:flex;align-items:center;gap:12px;">
+      <div style="font-size:28px;">🏪</div>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#14532d;">Retiro en el local</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px;">${store?.name || ''} · ${store?.address || ''}</div>
+      </div>
+    </div>`}
+
     <!-- MÉTODO DE PAGO -->
     <div style="margin-top:16px;margin-bottom:14px;">
       <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;">¿Cómo querés pagar?</div>
@@ -10057,6 +10085,36 @@ async function ooDeletePromo(id) {
 
 function ooRenderStats() { ooShowStats(); }
 
+async function ooExportCSV() {
+  try {
+    showToast('⏳ Generando reporte...');
+    const data = await ooFetch('/api/businesses/mine');
+    const orders = data.orders || [];
+    if (!orders.length) { showToast('No hay pedidos para exportar'); return; }
+    // Build CSV
+    const headers = ['Fecha','ID Pedido','Cliente','Estado','Método Pago','Tipo Entrega','Subtotal','Envío','Propina','Total','Dirección','Notas'];
+    const rows = orders.map(o => {
+      const date = new Date(o.created_at).toLocaleString('es-UY');
+      const id = '#' + (o.id||'').slice(-6).toUpperCase();
+      return [
+        date, id, o.customer_name||'', o.status||'', o.payment_method||'',
+        o.fulfillment_type||'delivery', o.subtotal||0, o.delivery_fee||0,
+        o.tip||0, o.total||0, `"${(o.address||'').replace(/"/g,'""')}"`,
+        `"${(o.notes||'').replace(/"/g,'""')}"`
+      ].join(',');
+    });
+    const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blow_ventas_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ Reporte descargado');
+  } catch(e) { showToast('❌ Error: ' + e.message); }
+}
+
 function ooRenderMore() {
   const el = document.getElementById('oo-body');
   if (!el) return;
@@ -10065,6 +10123,11 @@ function ooRenderMore() {
     <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowStats()">
       <span style="font-size:26px;">📊</span>
       <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Estadísticas</div><div style="font-size:12px;color:#64748b;">Ventas históricas</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooExportCSV()">
+      <span style="font-size:26px;">📥</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#0f172a;">Exportar ventas</div><div style="font-size:12px;color:#64748b;">Descargar CSV con todos tus pedidos</div></div>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
     <button class="oo-card" style="width:100%;text-align:left;border:none;cursor:pointer;display:flex;align-items:center;gap:14px;" onclick="ooShowNovedades()">
