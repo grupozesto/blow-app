@@ -2419,10 +2419,12 @@ app.delete('/api/favorites/:productId', auth, async (req, res) => {
 //  ADMIN
 // ════════════════════════════════════════════════
 app.post('/api/admin/setup', async (req, res) => {
-  // Require setup key in production to prevent unauthorized admin creation
+  // In production, ALWAYS require setup key
   const setupKey = process.env.ADMIN_SETUP_KEY;
-  if (IS_PROD && setupKey && req.body.setup_key !== setupKey)
-    return res.status(403).json({ error:'Setup key inválida' });
+  if (IS_PROD) {
+    if (!setupKey) return res.status(403).json({ error:'ADMIN_SETUP_KEY no configurado en el servidor' });
+    if (req.body.setup_key !== setupKey) return res.status(403).json({ error:'Setup key inválida' });
+  }
   if (await q1("SELECT id FROM users WHERE role='admin'",[]))
     return res.status(403).json({ error:'Ya existe un administrador' });
   const { name,email,password } = req.body;
