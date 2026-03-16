@@ -3655,6 +3655,23 @@ window.addEventListener('load', () => {
   }
 });
 
+// Global image error handler — replace broken images with emoji placeholder
+document.addEventListener('error', e => {
+  if (e.target.tagName === 'IMG' && !e.target.dataset.fallback) {
+    e.target.dataset.fallback = '1';
+    e.target.style.display = 'none';
+    const placeholder = document.createElement('div');
+    placeholder.style.cssText = e.target.style.cssText || '';
+    placeholder.style.display = 'flex';
+    placeholder.style.alignItems = 'center';
+    placeholder.style.justifyContent = 'center';
+    placeholder.style.background = '#f1f5f9';
+    placeholder.style.fontSize = '24px';
+    placeholder.textContent = '🏪';
+    if (e.target.parentNode) e.target.parentNode.insertBefore(placeholder, e.target);
+  }
+}, true);
+
 async function loadBankPromoStrip() {
   try {
     const s = await api('/api/admin/settings');
@@ -4880,6 +4897,18 @@ function openCheckoutPage() {
 
   if (!cart.length) return;
   if (!cart[0]?.biz_id) { showToast('❌ Error: carrito sin negocio asociado. Volvé a agregar los productos.'); return; }
+
+  // Validate cart items still exist (remove stale products)
+  const validCart = cart.filter(item => {
+    if (!item.id || !item.biz_id || !item.price || item.price <= 0) return false;
+    return true;
+  });
+  if (validCart.length !== cart.length) {
+    cart = validCart;
+    saveCart(); updateCartBadge();
+    if (!cart.length) { showToast('Tu carrito fue actualizado — algunos productos ya no están disponibles'); return; }
+    showToast('⚠️ Algunos productos ya no están disponibles y fueron removidos');
+  }
   // Verificar si el negocio está abierto
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
   const isClosed = store && (store.is_open === false || store.is_open === 0);
