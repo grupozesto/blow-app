@@ -172,6 +172,9 @@ const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: (process.env.DATABASE_URL || '').includes('railway') || process.env.DB_SSL === 'true'
     ? { rejectUnauthorized: false } : false,
+  max: 25,                    // max connections (default was 10)
+  idleTimeoutMillis: 30000,   // close idle connections after 30s
+  connectionTimeoutMillis: 5000, // fail fast if can't connect in 5s
 });
 
 const q  = (text, params) => db.query(text, params);
@@ -723,7 +726,13 @@ if (rateLimit) {
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
 app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1d' }));
+
+// Logo estático con cache largo (1 año)
+app.get('/logo.png', (req, res) => {
+  res.set({ 'Cache-Control': 'public, max-age=31536000', 'Content-Type': 'image/png' });
+  res.sendFile(path.join(__dirname, 'public', 'logo.png'));
+});
 
 // ── Helpers ───────────────────────────────────
 const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'7d' });
@@ -1113,21 +1122,17 @@ app.get('/api/debug/businesses', auth, role('admin'), async (req, res) => {
 
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
+  // Lightweight query: rating is already on businesses table, count products/promos with subqueries
   const baseSql = `SELECT b.*,
-    ROUND(AVG(r.rating)::numeric,1) as rating,
-    COUNT(DISTINCT r.id)::int as rating_count,
-    COUNT(DISTINCT p.id) FILTER (WHERE p.is_available=TRUE)::int as product_count,
-    COUNT(DISTINCT prm.id) FILTER (WHERE prm.ends_at IS NULL OR prm.ends_at > NOW())::int as promo_count
-    FROM businesses b
-    LEFT JOIN reviews r ON r.business_id = b.id
-    LEFT JOIN products p ON p.business_id = b.id
-    LEFT JOIN promotions prm ON prm.business_id = b.id`;
+    (SELECT COUNT(*) FROM products p WHERE p.business_id=b.id AND p.is_available=TRUE)::int as product_count,
+    (SELECT COUNT(*) FROM promotions prm WHERE prm.business_id=b.id AND (prm.ends_at IS NULL OR prm.ends_at > NOW()))::int as promo_count
+    FROM businesses b`;
   
   const mapRow = b => ({
     ...b,
     rating: b.rating ? parseFloat(b.rating) : null,
-    rating_count: parseInt(b.rating_count || 0),
     product_count: parseInt(b.product_count || 0),
+    promo_count: parseInt(b.promo_count || 0),
   });
 
   // Try with all filters first
@@ -1137,7 +1142,7 @@ app.get('/api/businesses', async (req, res) => {
   if (category)   { sql += ` AND b.category=$${i++}`;            params.push(category); }
   if (city)       { sql += ` AND (LOWER(b.city)=LOWER($${i}) OR b.city IS NULL OR b.city='')`; params.push(city); i++; }
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
-  sql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+  sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   
   let rows = await qa(sql, params);
   
@@ -1147,7 +1152,7 @@ app.get('/api/businesses', async (req, res) => {
     const fbParams = [];
     let j = 1;
     if (category) { fallbackSql += ` AND b.category=$${j++}`; fbParams.push(category); }
-    fallbackSql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+    fallbackSql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
     rows = await qa(fallbackSql, fbParams);
   }
   
@@ -1290,11 +1295,15 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio registrado aún' });
   const rawP     = await qa('SELECT * FROM products WHERE business_id=$1 ORDER BY created_at DESC', [b.id]);
-  const products = await Promise.all(rawP.map(async p => ({
+  // Bulk load photos and variants (avoids N+1 queries)
+  const pIds = rawP.map(p => p.id);
+  const allPhotos = pIds.length ? await qa('SELECT * FROM product_photos WHERE product_id = ANY($1) ORDER BY sort_order', [pIds]) : [];
+  const allVariants = pIds.length ? await qa('SELECT * FROM product_variants WHERE product_id = ANY($1) ORDER BY group_name,sort_order', [pIds]) : [];
+  const products = rawP.map(p => ({
     ...p,
-    photos:   await qa('SELECT id,url,sort_order FROM product_photos WHERE product_id=$1 ORDER BY sort_order',[p.id]),
-    variants: await qa('SELECT * FROM product_variants WHERE product_id=$1 ORDER BY group_name,sort_order',[p.id]),
-  })));
+    photos: allPhotos.filter(ph => ph.product_id === p.id),
+    variants: allVariants.filter(v => v.product_id === p.id),
+  }));
   const categories  = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
   const orders      = await qa(`SELECT o.*,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN users u ON o.customer_id=u.id WHERE o.business_id=$1 ORDER BY o.created_at DESC LIMIT 50`,[b.id]);
   const wallet      = await q1('SELECT * FROM wallets WHERE owner_id=$1',[b.id]) || { balance:0, id:null };
@@ -2334,11 +2343,15 @@ app.get('/api/businesses/:id', async (req, res) => {
       OR (NOW() AT TIME ZONE 'America/Montevideo')::time BETWEEN available_from AND available_until
     )
   `,[b.id]);
-  const prods = await Promise.all(rawP.map(async p => ({
+  // Bulk load photos and variants (avoids N+1 queries)
+  const pIds = rawP.map(p => p.id);
+  const allPhotos = pIds.length ? await qa('SELECT * FROM product_photos WHERE product_id = ANY($1) ORDER BY sort_order', [pIds]) : [];
+  const allVariants = pIds.length ? await qa('SELECT * FROM product_variants WHERE product_id = ANY($1) ORDER BY group_name,sort_order', [pIds]) : [];
+  const prods = rawP.map(p => ({
     ...p,
-    photos:   await qa('SELECT id,url,sort_order FROM product_photos WHERE product_id=$1 ORDER BY sort_order',[p.id]),
-    variants: await qa('SELECT * FROM product_variants WHERE product_id=$1 ORDER BY group_name,sort_order',[p.id]),
-  })));
+    photos: allPhotos.filter(ph => ph.product_id === p.id),
+    variants: allVariants.filter(v => v.product_id === p.id),
+  }));
   const cats = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
   res.json({ ...b, products:prods, categories:cats });
 });
