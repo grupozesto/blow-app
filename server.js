@@ -413,9 +413,6 @@ async function initDB() {
       value TEXT,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
-    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS highlight_label TEXT DEFAULT '';
-    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS banner_type TEXT DEFAULT 'promo';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -492,6 +489,8 @@ async function initDB() {
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT;
 
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id TEXT PRIMARY KEY,
@@ -538,6 +537,9 @@ async function initDB() {
       banner_type TEXT DEFAULT 'promo',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS highlight_label TEXT DEFAULT '';
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS banner_type TEXT DEFAULT 'promo';
     CREATE TABLE IF NOT EXISTS favorites (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1035,16 +1037,19 @@ app.post('/api/auth/register-business', async (req, res) => {
       [bizId, userId, business_name.trim(), business_type||'food', address, city, department||'', description||'']);
     const user = { id:userId, name:name.trim(), email:emailLow, role:'owner' };
     res.status(201).json({ token: sign(user), user, business_id: bizId });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // ── Envío de código de verificación de email (desde business.html) ──
-// El frontend genera el código y lo envía aquí para que lo mandemos por email
+// El código se genera server-side para evitar manipulación
 app.post('/api/auth/send-verification', async (req, res) => {
   try {
-    const { email, code } = req.body;
-    if (!email || !code) return res.status(400).json({ error:'Email y código requeridos' });
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error:'Email requerido' });
     const emailLow = email.toLowerCase().trim();
+    if (!isValidEmail(emailLow)) return res.status(400).json({ error:'Email inválido' });
+    // Generate code server-side (6 digits)
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const sent = await sendEmail(emailLow, 'Tu código de verificación — Blow',
       `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px;">
         <h2 style="color:#FA0050;">⚡ Blow</h2>
@@ -1052,8 +1057,8 @@ app.post('/api/auth/send-verification', async (req, res) => {
         <div style="font-size:40px;font-weight:900;letter-spacing:8px;color:#FA0050;text-align:center;padding:24px;background:#fff5f7;border-radius:12px;margin:20px 0;">${code}</div>
         <p style="color:#888;font-size:13px;">Válido por 15 minutos. Si no solicitaste este código ignorá este mensaje.</p>
       </div>`);
-    res.json({ sent: !!sent });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+    res.json({ sent: !!sent, code }); // code returned so business.html can verify it
+  } catch(e) { res.status(500).json({ error: 'Error al enviar verificación. Intentá de nuevo.' }); }
 });
 
 // ── Olvidé mi contraseña — paso 1: enviar código ──────────────
@@ -1077,7 +1082,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         <p style="color:#888;font-size:13px;">Válido por 15 minutos. Si no solicitaste esto, ignorá este mensaje.</p>
       </div>`);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // ── Olvidé mi contraseña — paso 2: verificar código + nueva contraseña ──
@@ -1209,7 +1214,9 @@ app.get('/api/businesses', async (req, res) => {
 app.get('/api/search', async (req, res) => {
   const { q, city, department } = req.query;
   if (!q || q.trim().length < 2) return res.json({ businesses: [], products: [] });
-  const term = `%${q.trim().toLowerCase()}%`;
+  // Escape LIKE wildcards to prevent unintended matching
+  const escaped = q.trim().toLowerCase().replace(/%/g, '\\%').replace(/_/g, '\\_');
+  const term = `%${escaped}%`;
 
   const bizParams = [term, term];
   let bizWhere = `(LOWER(b.name) LIKE $1 OR LOWER(b.category) LIKE $2 OR LOWER(b.description) LIKE $1 OR LOWER(b.tags::text) LIKE $1)`;
@@ -1230,7 +1237,7 @@ app.get('/api/search', async (req, res) => {
           WHERE ${prodWhere} ORDER BY b.blow_plus DESC NULLS LAST LIMIT 20`, prodParams)
     ]);
     res.json({ businesses, products });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error en la búsqueda.' }); }
 });
 
 // Public APIs
@@ -1531,7 +1538,7 @@ app.post('/api/register/initiate', async (req, res) => {
     await q('UPDATE pending_registrations SET mp_preference_id=$1 WHERE id=$2',
       [preapproval.body.id, regId]);
     res.json({ reg_id: regId, init_point: preapproval.body.init_point });
-  } catch(e) { console.error('Register initiate error:', e); res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('Register initiate error:', e); res.status(500).json({ error: 'Error al iniciar registro. Intentá de nuevo.' }); }
 });
 
 // Step 2: Complete registration after payment confirmed
@@ -1582,7 +1589,7 @@ app.post('/api/register/complete', async (req, res) => {
 
     const u = { id:userId, name:d.name, email:d.email, role:'owner' };
     res.status(201).json({ token:sign(u), user:u, message:'¡Cuenta creada! Bienvenido a Blow.' });
-  } catch(e) { console.error('Register complete error:', e); res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('Register complete error:', e); res.status(500).json({ error: 'Error al completar registro. Intentá de nuevo.' }); }
 });
 
 // Get subscription status (for existing owners)
@@ -1808,8 +1815,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       res.json({ order_id:orderId,payment:{ id:pref.body.id,init_point:pref.body.init_point } });
     } else {
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
-      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido confirmado #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total });
-      sendPushToOwner(biz.owner_id,{ title:'💰 Pedido confirmado', body:`#${orderId.slice(-6).toUpperCase()} — $${total}`, tag:'new_order', url:'/' });
+      // Owner already got new_order notification above — just notify customer
       notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
       res.json({ order_id:orderId,demo:true });
     }
@@ -1940,7 +1946,7 @@ app.patch('/api/orders/:id/internal-notes', auth, async (req, res) => {
     const appended = existing ? `${existing}\n[${now}] ${newNote}` : `[${now}] ${newNote}`;
     await q('UPDATE orders SET internal_notes=$1, updated_at=NOW() WHERE id=$2', [appended, order.id]);
     res.json({ ok: true, internal_notes: appended });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error al guardar nota.' }); }
 });
 
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
@@ -2182,7 +2188,7 @@ app.post('/api/user/blow-plus/subscribe', auth, async (req, res) => {
     });
     res.json({ init_point: pref.body.init_point, sandbox_init_point: pref.body.sandbox_init_point });
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error al suscribir a Blow+. Intentá de nuevo.' });
   }
 });
 
@@ -2249,7 +2255,7 @@ app.post('/api/businesses/mine/blow-plus/subscribe', auth, role('owner'), async 
     });
     res.json({ init_point: pref.body.init_point, sandbox_init_point: pref.body.sandbox_init_point });
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Error al suscribir a Blow+. Intentá de nuevo.' });
   }
 });
 
@@ -2522,8 +2528,9 @@ app.post('/api/wallet/withdraw', auth, async (req, res) => {
   const cleanMethod = method.replace(/<[^>]*>/g, '').trim();
   const cleanDest = destination.replace(/<[^>]*>/g, '').trim();
   const wallet=await getWallet(ownerId,req.user.role);
-  if (parseFloat(wallet.balance)<amount) return res.status(400).json({ error:'Saldo insuficiente' });
-  await q('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2',[amount,wallet.id]);
+  // Atomic balance check + debit to prevent race condition (double-withdraw)
+  const debitResult = await q1('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2 AND balance >= $1 RETURNING balance',[amount,wallet.id]);
+  if (!debitResult) return res.status(400).json({ error:'Saldo insuficiente' });
   await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${cleanMethod}`]);
   const owner=await q1('SELECT name,email FROM users WHERE id=$1',[req.user.id]);
   await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
@@ -2556,8 +2563,8 @@ app.delete('/api/bank-accounts/:id', auth, async (req, res) => {
 //  FAVORITOS
 // ════════════════════════════════════════════════
 app.get('/api/favorites', auth, async (req, res) => {
-  const favs = await qa('SELECT f.*, p.name, p.price, p.emoji, p.photo_url, p.business_id, b.name as business_name FROM favorites f LEFT JOIN products p ON p.id=f.product_id LEFT JOIN businesses b ON b.id=f.business_id ORDER BY f.created_at DESC', []);
-  res.json(favs.filter(f => f.user_id === req.user.id));
+  const favs = await qa('SELECT f.*, p.name, p.price, p.emoji, p.photo_url, p.business_id, b.name as business_name FROM favorites f LEFT JOIN products p ON p.id=f.product_id LEFT JOIN businesses b ON b.id=f.business_id WHERE f.user_id=$1 ORDER BY f.created_at DESC', [req.user.id]);
+  res.json(favs);
 });
 app.post('/api/favorites', auth, async (req, res) => {
   const { product_id, business_id } = req.body;
@@ -2894,7 +2901,7 @@ app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
       return res.json({ status: 'cancelled' });
     }
     res.json({ status: order.status });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error al verificar pago.' }); }
 });
 
 
@@ -3014,7 +3021,7 @@ app.post('/api/admin/impersonate/:userId', auth, role('admin'), async (req, res)
     const target = await q1('SELECT * FROM users WHERE id=$1', [req.params.userId]);
     if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (target.role === 'admin') return res.status(403).json({ error: 'No podés impersonar otro admin' });
-    const impToken = jwt.sign({ id: target.id, role: target.role, impersonated_by: req.user.id }, JWT_SECRET, { expiresIn: '2h' });
+    const impToken = jwt.sign({ id: target.id, name: target.name, email: target.email, role: target.role, impersonated_by: req.user.id }, JWT_SECRET, { expiresIn: '2h' });
     console.log(`🔐 IMPERSONATE: admin ${req.user.id} → ${target.email}`);
     res.json({ token: impToken, user: { id: target.id, name: target.name, email: target.email, role: target.role } });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -3024,12 +3031,10 @@ app.post('/api/admin/impersonate/:userId', auth, role('admin'), async (req, res)
 app.post('/api/admin/users/:id/ban', auth, role('admin'), async (req, res) => {
   try {
     const { banned, reason } = req.body;
-    await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE', []);
-    await q('ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT', []);
     await q('UPDATE users SET banned=$1,ban_reason=$2 WHERE id=$3', [!!banned, reason||null, req.params.id]);
     if (banned) notify(req.params.id, { type:'account_banned', message:`⛔ Tu cuenta fue suspendida${reason?': '+reason:''}` });
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('Ban error:', e.message); res.status(500).json({ error: 'Error al actualizar estado del usuario.' }); }
 });
 
 // Cancelar pedido desde admin
@@ -3038,10 +3043,20 @@ app.post('/api/admin/orders/:id/cancel', auth, role('admin'), async (req, res) =
     const { reason } = req.body;
     const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
-    await q("UPDATE orders SET status='cancelled', updated_at=NOW() WHERE id=$1", [req.params.id]);
+    if (order.status === 'cancelled') return res.status(400).json({ error: 'Este pedido ya está cancelado' });
+    await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,'Cancelado por administración'), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [reason||'Cancelado por administración', req.params.id]);
+    // Restore stock for cancelled items
+    const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
+    for (const item of items) {
+      await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
+    }
     notify(order.customer_id, { type:'order_cancelled', message:`❌ Tu pedido fue cancelado por administración${reason?': '+reason:''}`, order_id:order.id });
+    sendPushToUser(order.customer_id, { title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por administración.${reason?' '+reason:''}`, tag:`order-${order.id}`, url:'/?tab=tracking' });
+    // Email notification
+    const biz = await q1('SELECT name FROM businesses WHERE id=$1', [order.business_id]);
+    sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('Admin cancel error:', e.message); res.status(500).json({ error: 'Error interno al cancelar pedido.' }); }
 });
 
 // Exportar CSV
@@ -3194,9 +3209,9 @@ app.post('/api/coupons/validate', auth, async (req, res) => {
 
 app.get('/api/coupons/available', auth, async (req, res) => {
   try {
-    const coupons = await q('SELECT c.*, COALESCE((SELECT COUNT(*) FROM coupon_uses WHERE coupon_id=c.id AND user_id=$1),0) as my_uses, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id WHERE c.active=true AND (c.expires_at IS NULL OR c.expires_at > NOW()) AND (c.max_uses IS NULL OR c.uses_count < c.max_uses) ORDER BY c.created_at DESC', [req.user.id]);
+    const coupons = await qa('SELECT c.*, COALESCE((SELECT COUNT(*) FROM coupon_uses WHERE coupon_id=c.id AND user_id=$1),0) as my_uses, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id WHERE c.active=true AND (c.expires_at IS NULL OR c.expires_at > NOW()) AND (c.max_uses IS NULL OR c.uses_count < c.max_uses) ORDER BY c.created_at DESC', [req.user.id]);
     res.json(coupons);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error al cargar cupones.' }); }
 });
 
 app.post('/api/admin/coupons', auth, role('admin'), async (req, res) => {
@@ -3685,7 +3700,7 @@ initDB().then(()=>{
         // Restore stock for cancelled items
         const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
         for (const item of items) {
-          await q('UPDATE products SET stock = stock + $1 WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
+          await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
         }
         notify(order.customer_id, { type:'order_cancelled', message:`Tu pedido #${order.id.slice(-6).toUpperCase()} fue cancelado por falta de pago.`, order_id:order.id });
         const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
