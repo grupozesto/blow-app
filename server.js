@@ -943,27 +943,43 @@ app.get('/api/debug/businesses', auth, role('admin'), async (req, res) => {
 
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
-  let sql = `SELECT b.*,
+  const baseSql = `SELECT b.*,
     ROUND(AVG(r.rating)::numeric,1) as rating,
     COUNT(DISTINCT r.id)::int as rating_count,
     COUNT(DISTINCT p.id) FILTER (WHERE p.is_available=TRUE)::int as product_count
     FROM businesses b
     LEFT JOIN reviews r ON r.business_id = b.id
-    LEFT JOIN products p ON p.business_id = b.id
-    WHERE 1=1`;
-  const params = [];
-  let i = 1;
-  if (category)   { sql += ` AND b.category=$${i++}`;               params.push(category); }
-  if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`;    params.push(city); }
-  if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
-  sql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
-  const rows = await qa(sql, params);
-  res.json(rows.map(b => ({
+    LEFT JOIN products p ON p.business_id = b.id`;
+  
+  const mapRow = b => ({
     ...b,
     rating: b.rating ? parseFloat(b.rating) : null,
     rating_count: parseInt(b.rating_count || 0),
     product_count: parseInt(b.product_count || 0),
-  })));
+  });
+
+  // Try with all filters first
+  let sql = baseSql + ' WHERE 1=1';
+  const params = [];
+  let i = 1;
+  if (category)   { sql += ` AND b.category=$${i++}`;            params.push(category); }
+  if (city)       { sql += ` AND LOWER(b.city)=LOWER($${i++})`; params.push(city); }
+  if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
+  sql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+  
+  let rows = await qa(sql, params);
+  
+  // If city filter returned 0 results, return ALL businesses (city might not be set)
+  if (rows.length === 0 && (city || department)) {
+    let fallbackSql = baseSql + ' WHERE 1=1';
+    const fbParams = [];
+    let j = 1;
+    if (category) { fallbackSql += ` AND b.category=$${j++}`; fbParams.push(category); }
+    fallbackSql += ` GROUP BY b.id ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
+    rows = await qa(fallbackSql, fbParams);
+  }
+  
+  res.json(rows.map(mapRow));
 });
 
 // ── Búsqueda global: negocios + productos ────
