@@ -765,6 +765,20 @@ app.get('/logo.png', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'logo.png'));
 });
 
+// PWA manifest
+app.get('/manifest.json', (req, res) => {
+  res.set({ 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=86400' });
+  res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
+});
+
+// PWA icons
+app.get('/icons/:file', (req, res) => {
+  const allowed = ['icon-72.png','icon-96.png','icon-128.png','icon-144.png','icon-152.png','icon-192.png','icon-384.png','icon-512.png'];
+  if (!allowed.includes(req.params.file)) return res.sendStatus(404);
+  res.set({ 'Cache-Control': 'public, max-age=31536000', 'Content-Type': 'image/png' });
+  res.sendFile(path.join(__dirname, 'public', 'icons', req.params.file));
+});
+
 // ── Helpers ───────────────────────────────────
 const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'7d' });
 async function auth(req, res, next) {
