@@ -1974,7 +1974,9 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const plat = parseFloat((subtotal*_fee).toFixed(2)), bizAmt = parseFloat((subtotal-plat).toFixed(2));
     const orderId = uuid();
     const cust = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
-    const initialStatus = payment_method === 'cash' ? 'confirmed' : 'pending';
+    // All orders start as 'pending' until payment is confirmed
+    // Cash orders go to 'paid' immediately (owner still needs to accept)
+    const initialStatus = payment_method === 'cash' ? 'paid' : 'pending';
     await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,fulfillment_type,tip,priority,priority_fee,payment_method,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [orderId,req.user.id,business_id,initialStatus,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,fulfillment_type,tipAmt,Boolean(priority),priorityFee,payment_method,notes||'']);
     for (const i of lineItems) {
@@ -2003,29 +2005,33 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       await q('INSERT INTO coupon_uses (id,coupon_id,user_id,order_id) VALUES ($1,$2,$3,$4)', [uuid(), appliedCouponId, req.user.id, orderId]);
       await q('UPDATE coupons SET uses_count = COALESCE(uses_count,0) + 1 WHERE id=$1', [appliedCouponId]);
     }
-    notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
-    sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'🛍️'} Nuevo pedido`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
-    // Email notification to owner (fire-and-forget)
-    const ownerUser = await q1('SELECT email,name FROM users WHERE id=$1', [biz.owner_id]);
-    if (ownerUser?.email) {
-      const itemsList = lineItems.map(i => `${i.quantity}× ${i.name} — $${i.unit_price * i.quantity}`).join('<br>');
-      sendEmail(ownerUser.email, `🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
-          <h2 style="color:#ea356b;">🔔 Nuevo pedido en ${biz.name}</h2>
-          <p><strong>#${orderId.slice(-6).toUpperCase()}</strong> · ${payment_method==='cash'?'💵 Efectivo':'💳 MercadoPago'} · $${total}</p>
-          <p>👤 ${cust.name||'Cliente'}${cust.phone?' · 📞 '+cust.phone:''}</p>
-          ${address?'<p>📍 '+address+'</p>':''}
-          ${notes?'<p>📝 '+notes+'</p>':''}
-          <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
-          <p>${itemsList}</p>
-          <p style="color:#888;font-size:12px;margin-top:20px;">Abrí tu panel de Blow para gestionar este pedido.</p>
-        </div>`
-      ).catch(() => {});
+
+    // ── Helper: notify owner about new paid order ──
+    async function notifyOwnerNewOrder() {
+      notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
+      sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'💳'} Nuevo pedido — Aceptar o rechazar`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
+      const ownerUser = await q1('SELECT email,name FROM users WHERE id=$1', [biz.owner_id]);
+      if (ownerUser?.email) {
+        const itemsList = lineItems.map(i => `${i.quantity}× ${i.name} — $${i.unit_price * i.quantity}`).join('<br>');
+        sendEmail(ownerUser.email, `🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,
+          `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
+            <h2 style="color:#ea356b;">🔔 Nuevo pedido en ${escHtml(biz.name)}</h2>
+            <p><strong>#${orderId.slice(-6).toUpperCase()}</strong> · ${payment_method==='cash'?'💵 Efectivo':'💳 MercadoPago'} · $${total}</p>
+            <p>👤 ${escHtml(cust.name||'Cliente')}${cust.phone?' · 📞 '+escHtml(cust.phone):''}</p>
+            ${address?'<p>📍 '+escHtml(address)+'</p>':''}
+            ${notes?'<p>📝 '+escHtml(notes)+'</p>':''}
+            <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
+            <p>${itemsList}</p>
+            <p style="color:#ea356b;font-weight:700;font-size:14px;margin-top:16px;">⚡ Abrí tu panel de Blow para aceptar o rechazar este pedido.</p>
+          </div>`
+        ).catch(() => {});
+      }
     }
 
-    // Pedido en efectivo → ya está confirmado, no necesita MP
+    // Pedido en efectivo → pago inmediato, notificar al owner para que acepte/rechace
     if (payment_method === 'cash') {
-      notify(req.user.id,{ type:'status_change',message:'✅ Pedido recibido — pagás en efectivo al recibir',status:'confirmed',order_id:orderId });
+      await notifyOwnerNewOrder();
+      notify(req.user.id,{ type:'status_change',message:'⏳ Pedido enviado — esperando confirmación del local',status:'paid',order_id:orderId });
       return res.json({ order_id:orderId, cash:true });
     }
 
@@ -2045,9 +2051,10 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       });
       res.json({ order_id:orderId,payment:{ id:pref.body.id,init_point:pref.body.init_point } });
     } else {
-      await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
-      // Owner already got new_order notification above — just notify customer
-      notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
+      // Demo mode (MP not configured): mark as paid, owner still needs to accept
+      await q(`UPDATE orders SET status='paid',updated_at=NOW() WHERE id=$1`,[orderId]);
+      await notifyOwnerNewOrder();
+      notify(req.user.id,{ type:'status_change',message:'⏳ Pedido enviado — esperando confirmación del local',status:'paid',order_id:orderId });
       res.json({ order_id:orderId,demo:true });
     }
   } catch(e) { console.error(e); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
@@ -2103,9 +2110,9 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   }
 
   const allowed={
-    owner:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' },
+    owner:{    paid:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' },
     delivery:{ ready:'on_way', on_way:'delivered' },
-    admin:{    pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' }
+    admin:{    paid:'confirmed', pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'on_way', on_way:'delivered' }
   };
   const ra = allowed[req.user.role];
   // owner puede marcar delivered desde ready (cuando maneja su propio delivery)
@@ -2212,6 +2219,78 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   // Email notification
   sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
   res.json({ success:true });
+});
+
+// ═══════════════════════════════════════════════
+//  RECHAZAR PEDIDO (owner) — Reembolso automático
+// ═══════════════════════════════════════════════
+app.post('/api/orders/:id/reject', auth, role('owner'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
+    
+    // Solo se puede rechazar un pedido pagado (no confirmado ni en preparación)
+    if (order.status !== 'paid') {
+      return res.status(400).json({ error:`No se puede rechazar un pedido en estado "${order.status}". Solo se pueden rechazar pedidos pagados pendientes de aceptación.` });
+    }
+    
+    // Verify ownership
+    const b = await q1('SELECT id,name FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!b || b.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+    
+    // Update order status to rejected
+    await q("UPDATE orders SET status='rejected', cancel_reason=$1, cancelled_at=NOW(), updated_at=NOW() WHERE id=$2",
+      [reason || 'Rechazado por el negocio', req.params.id]);
+    
+    // Restore stock
+    const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
+    for (const item of items) {
+      await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
+    }
+    
+    // ── Automatic MP refund ──
+    let refundResult = null;
+    if (mp && order.mp_payment_id && order.payment_method === 'mercadopago') {
+      try {
+        const refund = await mp.payment.refund(order.mp_payment_id);
+        refundResult = { status: refund.body?.status || 'processed', id: refund.body?.id };
+        await q('UPDATE orders SET internal_notes=COALESCE(internal_notes,$$||$$)||$1 WHERE id=$2',
+          [`\n[AUTO] Reembolso MP: ${JSON.stringify(refundResult)}`, order.id]);
+        console.log(`💸 Refund processed for order ${order.id}: ${JSON.stringify(refundResult)}`);
+      } catch(refundErr) {
+        console.error(`❌ Refund failed for order ${order.id}:`, refundErr.message);
+        await q('UPDATE orders SET internal_notes=COALESCE(internal_notes,$$||$$)||$1 WHERE id=$2',
+          [`\n[ERROR] Reembolso MP falló: ${refundErr.message}`, order.id]);
+        refundResult = { error: refundErr.message };
+      }
+    }
+    
+    // Notify customer
+    const reasonText = reason ? ` Motivo: "${reason}"` : '';
+    const refundMsg = order.payment_method === 'mercadopago'
+      ? ' El reembolso se procesará automáticamente en tu medio de pago.'
+      : '';
+    notify(order.customer_id, {
+      type: 'order_cancelled',
+      message: `❌ Tu pedido #${order.id.slice(-6).toUpperCase()} fue rechazado por el local.${reasonText}${refundMsg}`,
+      order_id: order.id
+    });
+    sendPushToUser(order.customer_id, {
+      title: '❌ Pedido rechazado',
+      body: `#${order.id.slice(-6).toUpperCase()} fue rechazado por ${b.name}.${refundMsg}`,
+      tag: `order-${order.id}`,
+      url: '/?tab=tracking'
+    });
+    
+    // Email to customer
+    sendOrderStatusEmail(order, 'cancelled', b.name).catch(() => {});
+    
+    res.json({ success: true, refund: refundResult });
+  } catch(e) {
+    console.error('Reject order error:', e.message);
+    res.status(500).json({ error: 'Error al rechazar pedido.' });
+  }
 });
 
 // ════════════════════════════════════════════════
@@ -3089,11 +3168,13 @@ app.post('/api/webhooks/mp', async (req, res) => {
     if (!order) return;
     await q('UPDATE orders SET mp_payment_id=$1,mp_status=$2,updated_at=NOW() WHERE id=$3',[String(payment.id),payment.status,orderId]);
     if (payment.status === 'approved' && order.status === 'pending') {
-      await q("UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1",[orderId]);
+      await q("UPDATE orders SET status='paid',updated_at=NOW() WHERE id=$1",[orderId]);
       const biz = await q1('SELECT * FROM businesses WHERE id=$1',[order.business_id]);
-      if (biz) notify(biz.owner_id,{ type:'new_order',message:`💰 Pago confirmado! #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total:order.total });
-      if (biz) sendPushToOwner(biz.owner_id,{ title:'💰 Pago confirmado', body:`#${orderId.slice(-6).toUpperCase()} — $${order.total}`, tag:'new_order', url:'/' });
-      notify(order.customer_id,{ type:'status_change',message:'✅ Pago recibido!',status:'confirmed',order_id:orderId });
+      if (biz) {
+        notify(biz.owner_id,{ type:'new_order',message:`💰 Pago confirmado! #${orderId.slice(-6).toUpperCase()} — Aceptar o rechazar`,order_id:orderId,total:order.total });
+        sendPushToOwner(biz.owner_id,{ title:'💰 Nuevo pedido pagado', body:`#${orderId.slice(-6).toUpperCase()} — $${order.total} · Aceptar o rechazar`, tag:'new_order', url:'/' });
+      }
+      notify(order.customer_id,{ type:'status_change',message:'✅ Pago recibido — esperando confirmación del local',status:'paid',order_id:orderId });
     }
     if (order && ['rejected','cancelled'].includes(payment.status) && order.status === 'pending') {
       await q("UPDATE orders SET status='cancelled', cancel_reason='Pago rechazado por MercadoPago', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1",[orderId]);
@@ -3118,14 +3199,14 @@ app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
     // Consultar MP directamente
     const payment = (await mp.payment.get(order.mp_payment_id)).body;
     if (payment.status === 'approved') {
-      await q("UPDATE orders SET status='confirmed', updated_at=NOW() WHERE id=$1", [order.id]);
+      await q("UPDATE orders SET status='paid', updated_at=NOW() WHERE id=$1", [order.id]);
       const biz = await q1('SELECT * FROM businesses WHERE id=$1', [order.business_id]);
       if (biz) {
-        notify(biz.owner_id, { type:'new_order', message:`💰 Pago confirmado #${order.id.slice(-6).toUpperCase()}`, order_id:order.id, total:order.total });
-        sendPushToOwner(biz.owner_id, { title:'💰 Pago confirmado', body:`#${order.id.slice(-6).toUpperCase()} — $${order.total}`, tag:'new_order', url:'/' });
+        notify(biz.owner_id, { type:'new_order', message:`💰 Nuevo pedido pagado #${order.id.slice(-6).toUpperCase()} — Aceptar o rechazar`, order_id:order.id, total:order.total });
+        sendPushToOwner(biz.owner_id, { title:'💰 Nuevo pedido pagado', body:`#${order.id.slice(-6).toUpperCase()} — $${order.total}`, tag:'new_order', url:'/' });
       }
-      notify(order.customer_id, { type:'status_change', message:'✅ Pago confirmado', status:'confirmed', order_id:order.id });
-      return res.json({ status: 'confirmed' });
+      notify(order.customer_id, { type:'status_change', message:'✅ Pago confirmado — esperando confirmación del local', status:'paid', order_id:order.id });
+      return res.json({ status: 'paid' });
     }
     if (['rejected','cancelled'].includes(payment.status)) {
       await q("UPDATE orders SET status='cancelled', updated_at=NOW() WHERE id=$1", [order.id]);
