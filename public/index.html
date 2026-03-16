@@ -1347,23 +1347,14 @@ body.owner-mode #owner-overlay {
     <!-- Sección Admin (solo visible para admins) -->
     <div id="profile-section-admin" style="display:none;">
 
-      <!-- Gestión de banners inline -->
-      <div style="margin:8px 16px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #f1f5f9;">
-        <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:14px;font-weight:800;color:#0f172a;">🖼️ Banners del carrusel</div>
-            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Solo vos podés editarlos</div>
-          </div>
-          <button onclick="adminOpenBannerSheet()" style="background:var(--primary);border:none;border-radius:10px;padding:8px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">+ Nuevo</button>
-        </div>
-        <div id="profile-banners-list" style="padding:12px 16px;">
-          <div style="text-align:center;color:#94a3b8;font-size:13px;padding:12px 0;">Cargando...</div>
-        </div>
-      </div>
-
       <!-- Accesos rápidos al panel -->
       <div class="menu-list" style="margin-top:8px;">
         <div class="menu-sec-title">⚙️ Panel de administración</div>
+        <div class="menu-item" onclick="_adminInitialTab='banners';nav('page-admin')">
+          <div class="mi-icon">🖼️</div>
+          <div class="mi-text"><span>Banners</span><small style="color:var(--muted);font-size:11px;">Crear y editar banners del carrusel</small></div>
+          <span class="mi-arrow">›</span>
+        </div>
         <div class="menu-item" onclick="_adminInitialTab='stats';nav('page-admin')">
           <div class="mi-icon">📊</div>
           <div class="mi-text"><span>Stats y reportes</span></div>
@@ -1869,18 +1860,26 @@ body.owner-mode #owner-overlay {
 
         <!-- BANNERS -->
         <div id="admin-tab-banners" style="display:none;">
-          <div style="font-size:16px;font-weight:800;margin-bottom:16px;">🖼️ Banners del carrusel</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div style="font-size:16px;font-weight:800;">🖼️ Banners del carrusel</div>
+            <div style="font-size:11px;color:var(--muted);background:var(--bg);padding:4px 10px;border-radius:8px;">📐 Resolución ideal: 800×300px (JPG/PNG)</div>
+          </div>
 
           <!-- CREAR NUEVO BANNER -->
           <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:20px;border:1.5px dashed var(--border);">
             <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:12px;letter-spacing:.5px;">NUEVO BANNER</div>
 
             <!-- Preview vivo -->
-            <div id="bn-preview" style="height:100px;border-radius:12px;background:#ea356b;margin-bottom:14px;display:flex;flex-direction:column;justify-content:flex-end;padding:14px 16px;position:relative;overflow:hidden;transition:background .2s;">
-              <div id="bn-preview-label" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:800;color:#fff;width:fit-content;margin-bottom:6px;"></div>
-              <div id="bn-preview-title" style="font-size:17px;font-weight:900;color:#fff;line-height:1.2;">Título del banner</div>
-              <div id="bn-preview-sub" style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;"></div>
-              <div id="bn-preview-emoji" style="position:absolute;right:14px;bottom:14px;font-size:40px;opacity:.5;"></div>
+            <div id="bn-preview" style="height:120px;border-radius:20px;background:#ea356b;margin-bottom:14px;display:flex;align-items:stretch;position:relative;overflow:hidden;transition:background .2s;">
+              <div style="flex:1;padding:18px 16px;display:flex;flex-direction:column;justify-content:center;z-index:1;">
+                <div id="bn-preview-label" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:800;color:#fff;width:fit-content;margin-bottom:6px;"></div>
+                <div id="bn-preview-title" style="font-size:17px;font-weight:900;color:#fff;line-height:1.2;">Título del banner</div>
+                <div id="bn-preview-sub" style="font-size:12px;color:rgba(255,255,255,.8);margin-top:4px;"></div>
+              </div>
+              <div id="bn-preview-right" style="width:45%;display:flex;align-items:center;justify-content:center;">
+                <div id="bn-preview-emoji" style="font-size:50px;opacity:.6;"></div>
+                <img id="bn-preview-img" style="display:none;width:100%;height:100%;object-fit:cover;" alt="">
+              </div>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -1891,6 +1890,11 @@ body.owner-mode #owner-overlay {
               <div class="form-group" style="grid-column:1/-1;">
                 <label class="form-label">Subtítulo</label>
                 <input class="form-input" id="bn-sub" placeholder="Hasta 30% en restaurantes seleccionados" oninput="document.getElementById('bn-preview-sub').textContent=this.value">
+              </div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label class="form-label">Imagen (800×300px, JPG/PNG)</label>
+                <input class="form-input" id="bn-image" type="file" accept="image/jpeg,image/png,image/webp" onchange="bnPreviewImage(this)">
+                <div style="font-size:10px;color:var(--muted);margin-top:4px;">Aparece a la derecha del banner. Si no subís imagen, se usa el emoji.</div>
               </div>
               <div class="form-group">
                 <label class="form-label">Color fondo</label>
@@ -7951,6 +7955,19 @@ async function loadAdminBanners() {
   } catch(e) { showToast('❌ '+e.message); }
 }
 
+function bnPreviewImage(input) {
+  const file = input.files[0];
+  const img = document.getElementById('bn-preview-img');
+  const emoji = document.getElementById('bn-preview-emoji');
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; img.style.display='block'; emoji.style.display='none'; };
+    reader.readAsDataURL(file);
+  } else {
+    img.style.display='none'; emoji.style.display='';
+  }
+}
+
 async function createAdminBanner() {
   const title     = document.getElementById('bn-title').value.trim();
   const subtitle  = document.getElementById('bn-sub').value.trim();
@@ -7960,9 +7977,23 @@ async function createAdminBanner() {
   const highlight = document.getElementById('bn-highlight').value.trim();
   const link      = document.getElementById('bn-link').value.trim();
   const order     = parseInt(document.getElementById('bn-order').value)||0;
+  const imgInput  = document.getElementById('bn-image');
   if (!title) return showToast('El título es obligatorio');
   try {
-    await api('/api/admin/banners',{method:'POST',body:JSON.stringify({title,subtitle,bg_color,emoji,highlight_label:label,highlight,link_url:link,sort_order:order,is_active:true})});
+    let image_url = '';
+    // Upload image if selected
+    if (imgInput?.files[0]) {
+      const fd = new FormData();
+      fd.append('photo', imgInput.files[0]);
+      const upRes = await fetch('/api/admin/banners/upload-image', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: fd
+      });
+      const upData = await upRes.json();
+      if (upData.url) image_url = upData.url;
+    }
+    await api('/api/admin/banners',{method:'POST',body:JSON.stringify({title,subtitle,bg_color,emoji,highlight_label:label,highlight,link_url:link,sort_order:order,is_active:true,image_url})});
     showToast('✅ Banner creado');
     ['bn-title','bn-sub','bn-emoji','bn-label','bn-highlight','bn-link'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('bn-order').value='0';
@@ -7972,6 +8003,9 @@ async function createAdminBanner() {
     document.getElementById('bn-preview-sub').textContent='';
     document.getElementById('bn-preview-emoji').textContent='';
     document.getElementById('bn-preview-label').style.display='none';
+    document.getElementById('bn-preview-img').style.display='none';
+    document.getElementById('bn-preview-emoji').style.display='';
+    if (imgInput) imgInput.value = '';
     loadAdminBanners();
   } catch(e) { showToast('❌ '+e.message); }
 }
