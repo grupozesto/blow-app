@@ -3076,7 +3076,7 @@ function _renderMainBanners(banners) {
   track.innerHTML = banners.map((b, idx) => {
     const bg = b.bg_color || '#ea356b';
     const emoji = b.emoji || '';
-    const title = esc((b.title || '').replace(/\n/g, '<br>'));
+    const title = esc(b.title || '').replace(/\n/g, '<br>');
     const sub   = esc(b.subtitle || '');
     const badge = esc(b.highlight || '');
     const tag   = esc(b.highlight_label || '');
@@ -3153,7 +3153,7 @@ function buildPromoSlide(b, idx) {
        <div class="pcs-hl">${esc(b.highlight)}</div>` : '';
   return `<div class="pcarousel-slide" style="${bg}" data-idx="${idx}">
     <div class="pcs-text">
-      <div class="pcs-title">${esc((b.title||'').replace(/\n/g,'<br>'))}</div>
+      <div class="pcs-title">${esc(b.title||'').replace(/\n/g,'<br>')}</div>
       ${b.subtitle ? `<div class="pcs-sub">${esc(b.subtitle)}</div>` : ''}
       ${hlBlock}
     </div>
@@ -8175,6 +8175,12 @@ if (user && user.role === 'owner') {
   loadHomeDynamic();
 }
 
+// ── Load all dynamic home content ──
+function loadHomeDynamic() {
+  loadBusinessCategories();
+  loadPromoBanners();
+}
+
 // Si tiene ciudad guardada, cargar directamente
 // Si no, detectar GPS automáticamente
 loadMainBanners(); // Cargar el carrusel principal desde la BD
@@ -8189,14 +8195,11 @@ if (activeCity) {
   updateHeaderCity();
   loadStores();
 } else {
-  // Primera vez — intentar GPS automáticamente (solo para clientes, no owners)
-  loadStores(); // Cargar demo mientras
+  // Primera vez o sin ciudad — intentar GPS automáticamente
+  loadStores(); // Cargar mientras detecta
   const _isPaymentReturn = new URLSearchParams(window.location.search).has('payment');
-  if (user?.role === 'owner' || _isPaymentReturn) {
-    // Owners: tienen el overlay directo
-    // Payment return: no relanzar GPS, ya hay ciudad guardada o se muestra "Elegir ubicación"
-  } else {
-    // Show location permission popup after a short delay
+  if (!_isPaymentReturn) {
+    // Show location permission popup after a short delay for ALL users without city
     setTimeout(() => showLocationPopup(), 800);
   }
 }
