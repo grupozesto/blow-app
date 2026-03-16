@@ -1160,6 +1160,12 @@ body.owner-mode #owner-overlay {
     <!-- Products -->
     <div id="store-prods"></div>
 
+    <!-- Reviews -->
+    <div id="sd-reviews-section" style="display:none;padding:0 16px 20px;">
+      <div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:12px;">💬 Reseñas</div>
+      <div id="sd-reviews-list"></div>
+    </div>
+
   </div>
 </div>
 
@@ -4014,7 +4020,37 @@ function renderStoreDetail(s, products) {
   // ── Products ──
   renderStoreProducts(products, 'all');
 
+  // ── Reviews ──
+  loadStoreReviews(s.id);
+
   if (document.getElementById('store-scroll')) document.getElementById('store-scroll').scrollTop = 0;
+}
+
+// Load and render reviews for a store
+async function loadStoreReviews(bizId) {
+  const section = document.getElementById('sd-reviews-section');
+  const list = document.getElementById('sd-reviews-list');
+  if (!section || !list) return;
+  try {
+    const reviews = await api('/api/businesses/' + bizId + '/reviews');
+    if (!reviews || !reviews.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    list.innerHTML = reviews.slice(0, 10).map(r => {
+      const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+      const date = new Date(r.created_at).toLocaleDateString('es-UY', {day:'numeric',month:'short'});
+      return `<div style="background:#f8fafc;border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;color:#fbbf24;letter-spacing:1px;">${stars}</span>
+            <span style="font-size:13px;font-weight:700;color:#0f172a;">${esc(r.customer_name||'Cliente')}</span>
+          </div>
+          <span style="font-size:11px;color:#94a3b8;">${date}</span>
+        </div>
+        ${r.comment ? `<div style="font-size:13px;color:#334155;line-height:1.4;">${esc(r.comment)}</div>` : ''}
+        ${r.owner_reply ? `<div style="margin-top:8px;padding:8px 10px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af;"><b>Respuesta del negocio:</b> ${esc(r.owner_reply)}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch { section.style.display = 'none'; }
 }
 
 let currentSdFulfillment = 'delivery';
@@ -8704,7 +8740,8 @@ function ooRenderHomePedidos() {
       <div style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.5;">
         <span style="font-weight:600;color:#0f172a;">${o.customer_name||'Cliente'}</span> · ${fulfill} · ${pay}
       </div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:${next?'10px':'0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${items}</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:${o.notes?'6px':next?'10px':'0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${items}</div>
+      ${o.notes ? `<div style="background:#fffbeb;border-radius:8px;padding:6px 10px;margin-bottom:${next?'10px':'0'};font-size:11px;color:#92400e;">📝 ${esc(o.notes)}</div>` : ''}
       ` : ''}
       ${next ? `
       <div style="display:flex;gap:8px;">
@@ -8950,6 +8987,13 @@ async function ooRenderOrders() {
 
         <!-- Items -->
         <div style="margin-bottom:10px;">${items}</div>
+
+        <!-- Notas del cliente -->
+        ${o.notes ? `<div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:800;color:#92400e;margin-bottom:4px;">📝 NOTAS DEL CLIENTE</div>
+          <div style="font-size:13px;color:#78350f;line-height:1.4;">${esc(o.notes)}</div>
+        </div>` : ''}
+
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <span style="font-size:13px;color:#64748b;">${(o.items||[]).length} productos</span>
           <span style="font-size:18px;font-weight:900;color:#0f172a;">$${Math.round(o.total||0)}</span>
