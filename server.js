@@ -549,6 +549,44 @@ async function initDB() {
       UNIQUE(user_id, product_id)
     );
     CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
+
+    CREATE TABLE IF NOT EXISTS business_subcategories (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      emoji TEXT DEFAULT '🍽️',
+      image_url TEXT DEFAULT NULL,
+      sort_order INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_business_subcategories_cat ON business_subcategories(category_id);
+
+    CREATE TABLE IF NOT EXISTS category_banners (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      subtitle TEXT DEFAULT '',
+      image_url TEXT DEFAULT '',
+      bg_color TEXT DEFAULT '#FA0050',
+      link_business_id TEXT DEFAULT NULL,
+      sort_order INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_category_banners_cat ON category_banners(category_id);
+
+    CREATE TABLE IF NOT EXISTS category_featured (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+      custom_title TEXT DEFAULT NULL,
+      custom_image TEXT DEFAULT NULL,
+      sort_order INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_category_featured_cat ON category_featured(category_id);
   `);
   // Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
@@ -563,6 +601,27 @@ async function initDB() {
     ];
     for (const c of defaultCats)
       await q('INSERT INTO business_categories (id,name,emoji,sort_order) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING',[c.id,c.name,c.emoji,c.sort_order]);
+  }
+  // Seed default subcategories if none exist
+  const subCount = await q1('SELECT COUNT(*) as c FROM business_subcategories',[]);
+  if (parseInt(subCount.c) === 0) {
+    const defaultSubs = [
+      {cat:'food',name:'Hamburguesas',emoji:'🍔'},{cat:'food',name:'Pizzas',emoji:'🍕'},{cat:'food',name:'Empanadas',emoji:'🥟'},
+      {cat:'food',name:'Sándwiches',emoji:'🥪'},{cat:'food',name:'Sushi',emoji:'🍣'},{cat:'food',name:'Pastas',emoji:'🍝'},
+      {cat:'food',name:'Parrilla',emoji:'🥩'},{cat:'food',name:'Milanesas',emoji:'🍗'},{cat:'food',name:'Pollo',emoji:'🍗'},
+      {cat:'food',name:'Saludable',emoji:'🥗'},{cat:'food',name:'Desayunos',emoji:'🥐'},
+      {cat:'market',name:'Supermercado',emoji:'🏪'},{cat:'market',name:'Almacén',emoji:'🏠'},{cat:'market',name:'Verdulería',emoji:'🥦'},
+      {cat:'market',name:'Carnicería',emoji:'🥩'},{cat:'market',name:'Dietética',emoji:'🌾'},
+      {cat:'pharmacy',name:'24 horas',emoji:'🕐'},{cat:'pharmacy',name:'Perfumería',emoji:'💄'},
+      {cat:'drinks',name:'Cerveza',emoji:'🍺'},{cat:'drinks',name:'Vinos',emoji:'🍷'},{cat:'drinks',name:'Licores',emoji:'🥃'},{cat:'drinks',name:'Gaseosas',emoji:'🥤'},
+      {cat:'desserts',name:'Helados',emoji:'🍦'},{cat:'desserts',name:'Tortas',emoji:'🎂'},{cat:'desserts',name:'Panaderías',emoji:'🥖'},{cat:'desserts',name:'Chocolates',emoji:'🍫'},
+      {cat:'cafe',name:'Cafetería',emoji:'☕'},{cat:'cafe',name:'Té',emoji:'🍵'},{cat:'cafe',name:'Brunch',emoji:'🧇'},
+    ];
+    for (let i=0;i<defaultSubs.length;i++) {
+      const s = defaultSubs[i];
+      await q('INSERT INTO business_subcategories (id,category_id,name,emoji,sort_order) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',
+        [`subcat-${s.cat}-${i}`, s.cat, s.name, s.emoji, i]);
+    }
   }
   // Seed default subscription plan if none
   const planCount = await q1('SELECT COUNT(*) as c FROM subscription_plans',[]);
@@ -1277,6 +1336,178 @@ app.patch('/api/admin/business-categories/:id', auth, role('admin'), async (req,
 });
 app.delete('/api/admin/business-categories/:id', auth, role('admin'), async (req, res) => {
   await q('DELETE FROM business_categories WHERE id=$1',[req.params.id]);
+  // Also delete subcategories for this category
+  await q('DELETE FROM business_subcategories WHERE category_id=$1',[req.params.id]);
+  res.json({ success:true });
+});
+
+// ═══════════════════════════════════════════════
+//  ADMIN: SUBCATEGORÍAS
+// ═══════════════════════════════════════════════
+app.get('/api/subcategories', async (req, res) => {
+  const { category_id } = req.query;
+  let sql = 'SELECT * FROM business_subcategories WHERE is_active=TRUE';
+  const params = [];
+  if (category_id) { sql += ' AND category_id=$1'; params.push(category_id); }
+  sql += ' ORDER BY sort_order ASC, name ASC';
+  res.json(await qa(sql, params));
+});
+
+app.get('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
+  const { category_id } = req.query;
+  let sql = 'SELECT s.*, c.name as category_name FROM business_subcategories s LEFT JOIN business_categories c ON c.id=s.category_id';
+  const params = [];
+  if (category_id) { sql += ' WHERE s.category_id=$1'; params.push(category_id); }
+  sql += ' ORDER BY s.category_id, s.sort_order ASC';
+  res.json(await qa(sql, params));
+});
+
+app.post('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
+  const { category_id, name, emoji='🍽️', image_url, sort_order=0 } = req.body;
+  if (!category_id || !name) return res.status(400).json({ error:'category_id y name son obligatorios' });
+  const id = 'subcat-' + uuid().slice(0,8);
+  await q('INSERT INTO business_subcategories (id,category_id,name,emoji,image_url,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, category_id, name.trim(), emoji, image_url||null, sort_order]);
+  res.status(201).json(await q1('SELECT * FROM business_subcategories WHERE id=$1',[id]));
+});
+
+app.patch('/api/admin/subcategories/:id', auth, role('admin'), async (req, res) => {
+  const { name, emoji, image_url, sort_order, is_active, category_id } = req.body;
+  const updates=[]; const params=[]; let i=1;
+  if (name!==undefined)        { updates.push(`name=$${i++}`);        params.push(name.trim()); }
+  if (emoji!==undefined)       { updates.push(`emoji=$${i++}`);       params.push(emoji); }
+  if (image_url!==undefined)   { updates.push(`image_url=$${i++}`);   params.push(image_url||null); }
+  if (sort_order!==undefined)  { updates.push(`sort_order=$${i++}`);  params.push(sort_order); }
+  if (is_active!==undefined)   { updates.push(`is_active=$${i++}`);   params.push(is_active); }
+  if (category_id!==undefined) { updates.push(`category_id=$${i++}`); params.push(category_id); }
+  if (!updates.length) return res.status(400).json({ error:'Nada que actualizar' });
+  params.push(req.params.id);
+  await q(`UPDATE business_subcategories SET ${updates.join(',')} WHERE id=$${i}`, params);
+  res.json(await q1('SELECT * FROM business_subcategories WHERE id=$1',[req.params.id]));
+});
+
+app.delete('/api/admin/subcategories/:id', auth, role('admin'), async (req, res) => {
+  await q('DELETE FROM business_subcategories WHERE id=$1',[req.params.id]);
+  res.json({ success:true });
+});
+
+// Upload subcategory image
+app.post('/api/admin/subcategories/:id/upload-image', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error:'No se recibió imagen' });
+  const url = req.file.secure_url || req.file.path;
+  await q('UPDATE business_subcategories SET image_url=$1 WHERE id=$2', [url, req.params.id]);
+  res.json({ url });
+});
+
+// ═══════════════════════════════════════════════
+//  ADMIN: BANNERS DE CATEGORÍA
+// ═══════════════════════════════════════════════
+app.get('/api/category-banners', async (req, res) => {
+  const { category_id } = req.query;
+  let sql = 'SELECT * FROM category_banners WHERE active=TRUE';
+  const params = [];
+  if (category_id) { sql += ' AND category_id=$1'; params.push(category_id); }
+  sql += ' ORDER BY sort_order ASC, created_at DESC';
+  res.json(await qa(sql, params));
+});
+
+app.get('/api/admin/category-banners', auth, role('admin'), async (req, res) => {
+  const { category_id } = req.query;
+  let sql = 'SELECT cb.*, c.name as category_name, b.name as business_name FROM category_banners cb LEFT JOIN business_categories c ON c.id=cb.category_id LEFT JOIN businesses b ON b.id=cb.link_business_id';
+  const params = [];
+  if (category_id) { sql += ' WHERE cb.category_id=$1'; params.push(category_id); }
+  sql += ' ORDER BY cb.category_id, cb.sort_order ASC';
+  res.json(await qa(sql, params));
+});
+
+app.post('/api/admin/category-banners', auth, role('admin'), async (req, res) => {
+  const { category_id, title, subtitle, image_url, bg_color, link_business_id, sort_order=0 } = req.body;
+  if (!category_id) return res.status(400).json({ error:'category_id es obligatorio' });
+  const id = 'catban-' + uuid().slice(0,8);
+  await q('INSERT INTO category_banners (id,category_id,title,subtitle,image_url,bg_color,link_business_id,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [id, category_id, title||'', subtitle||'', image_url||'', bg_color||'#FA0050', link_business_id||null, sort_order]);
+  res.status(201).json(await q1('SELECT * FROM category_banners WHERE id=$1',[id]));
+});
+
+app.patch('/api/admin/category-banners/:id', auth, role('admin'), async (req, res) => {
+  const { title, subtitle, image_url, bg_color, link_business_id, sort_order, active, category_id } = req.body;
+  const updates=[]; const params=[]; let i=1;
+  if (title!==undefined)            { updates.push(`title=$${i++}`);            params.push(title); }
+  if (subtitle!==undefined)         { updates.push(`subtitle=$${i++}`);         params.push(subtitle); }
+  if (image_url!==undefined)        { updates.push(`image_url=$${i++}`);        params.push(image_url); }
+  if (bg_color!==undefined)         { updates.push(`bg_color=$${i++}`);         params.push(bg_color); }
+  if (link_business_id!==undefined) { updates.push(`link_business_id=$${i++}`); params.push(link_business_id||null); }
+  if (sort_order!==undefined)       { updates.push(`sort_order=$${i++}`);       params.push(sort_order); }
+  if (active!==undefined)           { updates.push(`active=$${i++}`);           params.push(active); }
+  if (category_id!==undefined)      { updates.push(`category_id=$${i++}`);      params.push(category_id); }
+  if (!updates.length) return res.status(400).json({ error:'Nada que actualizar' });
+  params.push(req.params.id);
+  await q(`UPDATE category_banners SET ${updates.join(',')} WHERE id=$${i}`, params);
+  res.json(await q1('SELECT * FROM category_banners WHERE id=$1',[req.params.id]));
+});
+
+app.delete('/api/admin/category-banners/:id', auth, role('admin'), async (req, res) => {
+  await q('DELETE FROM category_banners WHERE id=$1',[req.params.id]);
+  res.json({ success:true });
+});
+
+app.post('/api/admin/category-banners/:id/upload-image', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error:'No se recibió imagen' });
+  const url = req.file.secure_url || req.file.path;
+  await q('UPDATE category_banners SET image_url=$1 WHERE id=$2', [url, req.params.id]);
+  res.json({ url });
+});
+
+// ═══════════════════════════════════════════════
+//  ADMIN: DESTACADOS POR CATEGORÍA
+// ═══════════════════════════════════════════════
+app.get('/api/category-featured', async (req, res) => {
+  const { category_id } = req.query;
+  let sql = `SELECT cf.*, b.name as business_name, b.logo_emoji, b.logo_url, b.cover_url, b.rating, b.delivery_time, b.delivery_cost, b.is_open, b.blow_plus
+    FROM category_featured cf JOIN businesses b ON b.id=cf.business_id WHERE cf.active=TRUE`;
+  const params = [];
+  if (category_id) { sql += ' AND cf.category_id=$1'; params.push(category_id); }
+  sql += ' ORDER BY cf.sort_order ASC';
+  res.json(await qa(sql, params));
+});
+
+app.get('/api/admin/category-featured', auth, role('admin'), async (req, res) => {
+  const { category_id } = req.query;
+  let sql = `SELECT cf.*, b.name as business_name, b.logo_emoji, c.name as category_name
+    FROM category_featured cf JOIN businesses b ON b.id=cf.business_id LEFT JOIN business_categories c ON c.id=cf.category_id`;
+  const params = [];
+  if (category_id) { sql += ' WHERE cf.category_id=$1'; params.push(category_id); }
+  sql += ' ORDER BY cf.category_id, cf.sort_order ASC';
+  res.json(await qa(sql, params));
+});
+
+app.post('/api/admin/category-featured', auth, role('admin'), async (req, res) => {
+  const { category_id, business_id, custom_title, custom_image, sort_order=0 } = req.body;
+  if (!category_id || !business_id) return res.status(400).json({ error:'category_id y business_id son obligatorios' });
+  // Prevent duplicates
+  const existing = await q1('SELECT id FROM category_featured WHERE category_id=$1 AND business_id=$2',[category_id, business_id]);
+  if (existing) return res.status(409).json({ error:'Este negocio ya está destacado en esta categoría' });
+  const id = 'catfeat-' + uuid().slice(0,8);
+  await q('INSERT INTO category_featured (id,category_id,business_id,custom_title,custom_image,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, category_id, business_id, custom_title||null, custom_image||null, sort_order]);
+  res.status(201).json(await q1('SELECT cf.*, b.name as business_name FROM category_featured cf JOIN businesses b ON b.id=cf.business_id WHERE cf.id=$1',[id]));
+});
+
+app.patch('/api/admin/category-featured/:id', auth, role('admin'), async (req, res) => {
+  const { custom_title, custom_image, sort_order, active } = req.body;
+  const updates=[]; const params=[]; let i=1;
+  if (custom_title!==undefined) { updates.push(`custom_title=$${i++}`); params.push(custom_title||null); }
+  if (custom_image!==undefined) { updates.push(`custom_image=$${i++}`); params.push(custom_image||null); }
+  if (sort_order!==undefined)   { updates.push(`sort_order=$${i++}`);   params.push(sort_order); }
+  if (active!==undefined)       { updates.push(`active=$${i++}`);       params.push(active); }
+  if (!updates.length) return res.status(400).json({ error:'Nada que actualizar' });
+  params.push(req.params.id);
+  await q(`UPDATE category_featured SET ${updates.join(',')} WHERE id=$${i}`, params);
+  res.json({ success:true });
+});
+
+app.delete('/api/admin/category-featured/:id', auth, role('admin'), async (req, res) => {
+  await q('DELETE FROM category_featured WHERE id=$1',[req.params.id]);
   res.json({ success:true });
 });
 
