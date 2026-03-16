@@ -3187,19 +3187,19 @@ app.get('/api/featured', async (req,res)=>{
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
-app.get('/api/admin/featured', auth, async (req,res)=>{
+app.get('/api/admin/featured', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const rows = await db.query(`SELECT fs.*, b.name as biz_name FROM featured_slots fs LEFT JOIN businesses b ON fs.business_id=b.id ORDER BY fs.sort_order ASC`);
   res.json(rows.rows);
 });
-app.post('/api/admin/featured', auth, async (req,res)=>{
+app.post('/api/admin/featured', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {business_id,custom_title,sort_order} = req.body;
   const id = 'feat_'+Date.now();
   await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]);
   res.json({ok:true,id});
 });
-app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
+app.post('/api/admin/featured/:id/image', auth, role('admin'), uploadMiddleware('image'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
@@ -3212,13 +3212,13 @@ app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async
     res.json({ok:true,url:imageUrl});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
-app.patch('/api/admin/featured/:id', auth, async (req,res)=>{
+app.patch('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {active,sort_order,custom_title} = req.body;
   await db.query("UPDATE featured_slots SET active=COALESCE($1,active),sort_order=COALESCE($2,sort_order),custom_title=COALESCE($3,custom_title) WHERE id=$4",[active,sort_order,custom_title,req.params.id]);
   res.json({ok:true});
 });
-app.delete('/api/admin/featured/:id', auth, async (req,res)=>{
+app.delete('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   await db.query("DELETE FROM featured_slots WHERE id=$1",[req.params.id]);
   res.json({ok:true});
@@ -3233,7 +3233,7 @@ app.get('/api/config/blowplus-banner', async (req,res)=>{
     else res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'});
   } catch(e){ res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'}); }
 });
-app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
+app.post('/api/admin/config/blowplus-banner', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {title, subtitle} = req.body;
   await db.query("INSERT INTO app_config(key,value) VALUES('blowplus_banner',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
@@ -3243,7 +3243,7 @@ app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
 
 
 // ── TOP CUSTOMERS (admin: all app, owner: their business) ──
-app.get('/api/admin/top-customers', auth, async (req,res)=>{
+app.get('/api/admin/top-customers', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   try {
     const rows = await db.query(`
@@ -3282,7 +3282,7 @@ app.get('/api/owner/top-customers', auth, async (req,res)=>{
 });
 
 // ── ASSIGN COUPON TO USER ──
-app.post('/api/admin/coupons/:id/assign', auth, async (req,res)=>{
+app.post('/api/admin/coupons/:id/assign', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {user_ids} = req.body; // array of user ids
   if(!user_ids?.length) return res.status(400).json({error:'user_ids requerido'});
