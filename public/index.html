@@ -4011,7 +4011,7 @@ function renderStoreDetail(s, products) {
     if (s.blow_plus) pillsEl.innerHTML += `<span class="sd-pill" style="background:linear-gradient(90deg,#ea356b,#ff6b6b);color:#fff;">⚡ Blow+</span>`;
     if (s.blow_plus_free_delivery) pillsEl.innerHTML += `<span class="sd-pill" style="background:#e8f5e9;color:#27ae60;">🛵 Envío gratis Blow+</span>`;
     if (s.category) pillsEl.innerHTML += `<span class="sd-pill">${s.category}</span>`;
-    if (s.tags) { try { const tags = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags; tags.forEach(t => { pillsEl.innerHTML += `<span class="sd-pill">${t}</span>`; }); } catch(e){} }
+    if (s.tags) { try { const tags = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags; tags.forEach(t => { pillsEl.innerHTML += `<span class="sd-pill">${esc(t)}</span>`; }); } catch(e){} }
   }
 
   // ── Fulfillment tabs ──
@@ -5321,7 +5321,7 @@ async function loadTracking() {
           <div style="display:flex;align-items:center;gap:10px;">
             ${logoHtml}
             <div>
-              <div class="oc-store">${o.business_name||o.business_id}</div>
+              <div class="oc-store">${esc(o.business_name||o.business_id)}</div>
               <div class="oc-time">${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
             </div>
           </div>
@@ -5851,7 +5851,7 @@ async function loadDeliveryOrders() {
     if (!all.length) { list.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px 0;font-size:14px;">Sin pedidos disponibles ahora</div>'; return; }
     list.innerHTML = all.map(o=>`
       <div class="pending-card ${o.delivery_id===user?.id?'accepted':''}" id="po-${o.id}">
-        <div class="pending-top"><div class="pending-store">${o.business_name||'Negocio'}</div><div class="pending-earn">+$${o.delivery_fee}</div></div>
+        <div class="pending-top"><div class="pending-store">${esc(o.business_name||'Negocio')}</div><div class="pending-earn">+$${o.delivery_fee}</div></div>
         <div class="pending-info">📍 ${o.pickup_address||''} · ${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).slice(0,2).join(', ')}</div>
         <div class="pending-actions">
           ${o.status==='ready'&&!o.delivery_id?`<button class="btn-accept" onclick="takeOrder('${o.id}')">✓ Tomar</button><button class="btn-reject" onclick="document.getElementById('po-${o.id}').remove()">✕</button>`:''}
@@ -6151,8 +6151,8 @@ function renderOwnerOrders(orders) {
   el.innerHTML = active.map(o=>`
     <div class="owner-order-card ${o.status}">
       <div class="ooc-top"><div class="ooc-id">Pedido #${o.id.slice(-6).toUpperCase()}</div><div class="ooc-time">🕐 ${new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</div></div>
-      <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px;">👤 ${o.customer_name||''}</div>
-      ${o.cancel_reason?`<div style="font-size:11px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;padding:4px 8px;border-radius:0 6px 6px 0;margin-bottom:4px;color:#ef4444;">❌ ${o.cancel_reason}</div>`:''}
+      <div style="font-size:12px;font-weight:600;color:var(--info);margin-bottom:4px;">👤 ${esc(o.customer_name||'')}</div>
+      ${o.cancel_reason?`<div style="font-size:11px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;padding:4px 8px;border-radius:0 6px 6px 0;margin-bottom:4px;color:#ef4444;">❌ ${esc(o.cancel_reason)}</div>`:''}
       <div class="ooc-items">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
       <div class="ooc-total">$${o.total}</div>
       <div class="ooc-actions">
@@ -7742,10 +7742,10 @@ function renderAdminOrders(orders) {
     <div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;">${o.customer_name||'Cliente'} → ${o.business_name||'Negocio'}</div>
+          <div style="font-weight:700;">${esc(o.customer_name||'Cliente')} → ${esc(o.business_name||'Negocio')}</div>
           <div style="font-size:11px;color:var(--muted);">#${(o.id||'').slice(-8).toUpperCase()} · ${new Date(o.created_at).toLocaleString('es-UY')}</div>
           <div style="font-size:12px;margin-top:4px;">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</div>
-          ${o.cancel_reason?`<div style="font-size:11px;color:#ef4444;margin-top:4px;">❌ ${o.cancel_reason}</div>`:''}
+          ${o.cancel_reason?`<div style="font-size:11px;color:#ef4444;margin-top:4px;">❌ ${esc(o.cancel_reason)}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0;">
           <div style="font-weight:800;font-size:16px;">$${o.total}</div>
@@ -8903,7 +8903,7 @@ function ooRenderHomePedidos() {
       </div>
       ${!compact ? `
       <div style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.5;">
-        <span style="font-weight:600;color:#0f172a;">${o.customer_name||'Cliente'}</span> · ${fulfill} · ${pay}
+        <span style="font-weight:600;color:#0f172a;">${esc(o.customer_name||'Cliente')}</span> · ${fulfill} · ${pay}
       </div>
       <div style="font-size:12px;color:#64748b;margin-bottom:${o.notes?'6px':next?'10px':'0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${items}</div>
       ${o.notes ? `<div style="background:#fffbeb;border-radius:8px;padding:6px 10px;margin-bottom:${next?'10px':'0'};font-size:11px;color:#92400e;">📝 ${esc(o.notes)}</div>` : ''}
@@ -9145,9 +9145,9 @@ async function ooRenderOrders() {
 
         <!-- Cliente -->
         <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-          <div style="font-size:13px;font-weight:700;color:#0f172a;">👤 ${o.customer_name||'Cliente'}</div>
+          <div style="font-size:13px;font-weight:700;color:#0f172a;">👤 ${esc(o.customer_name||'Cliente')}</div>
           ${o.customer_phone ? `<div style="font-size:12px;color:#2558d4;margin-top:2px;"><a href="tel:${o.customer_phone}" style="color:#2558d4;text-decoration:none;">📞 ${o.customer_phone}</a></div>` : ''}
-          ${o.address && o.fulfillment_type!=='pickup' ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">📍 ${o.address}</div>` : ''}
+          ${o.address && o.fulfillment_type!=='pickup' ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">📍 ${esc(o.address)}</div>` : ''}
         </div>
 
         <!-- Items -->
