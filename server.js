@@ -1835,7 +1835,12 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   } else if (req.user.role !== 'admin') {
     return res.status(403).json({ error:'No autorizado' });
   }
-  await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
+  await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
+  // Restore stock for cancelled items
+  const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
+  for (const item of items) {
+    await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
+  }
   const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
   const reasonText = req.body.reason ? ` Motivo: "${req.body.reason}"` : '';
   if (biz) {
@@ -1931,7 +1936,20 @@ app.get('/api/orders/:id/messages', auth, async (req, res) => {
   res.json(msgs);
 });
 
+// Rate limit: max 10 chat messages per minute per user
+const _chatRateMap = new Map();
 app.post('/api/orders/:id/messages', auth, async (req, res) => {
+  // Rate limit check
+  const now = Date.now();
+  const key = `chat_${req.user.id}`;
+  const history = _chatRateMap.get(key) || [];
+  const recent = history.filter(t => now - t < 60000); // last 60s
+  if (recent.length >= 10) return res.status(429).json({ error:'Demasiados mensajes. Esperá un momento.' });
+  recent.push(now);
+  _chatRateMap.set(key, recent);
+  // Cleanup old entries every 100 requests
+  if (Math.random() < 0.01) _chatRateMap.forEach((v,k) => { if (!v.some(t => now - t < 120000)) _chatRateMap.delete(k); });
+
   const { body } = req.body;
   if (!body?.trim()) return res.status(400).json({ error:'Mensaje vacío' });
   const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
@@ -1957,18 +1975,21 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
     [uuid(), req.params.id, req.user.id, req.user.role, body.trim()]
   );
   // Notificar al otro lado via WS (incluye order_id para badge)
-  const targetId = req.user.role === 'customer' ? order.business_id : order.customer_id;
-  notify(targetId, { type:'chat_message', order_id: req.params.id, body: body.trim(), sender_role: req.user.role });
-  // Push notification
   if (req.user.role === 'customer') {
+    // Notify owner (use owner_id, not business_id, since WS registers by user_id)
     const biz = await q1('SELECT owner_id, name FROM businesses WHERE id=$1', [order.business_id]);
-    if (biz) sendPushToOwner(biz.owner_id, {
-      title: `💬 Nuevo mensaje — pedido #${req.params.id.slice(-6).toUpperCase()}`,
-      body: body.trim().slice(0, 80),
-      tag: 'chat_' + req.params.id,
-      url: '/'
-    });
+    if (biz) {
+      notify(biz.owner_id, { type:'chat_message', order_id: req.params.id, body: body.trim(), sender_role: req.user.role });
+      sendPushToOwner(biz.owner_id, {
+        title: `💬 Nuevo mensaje — pedido #${req.params.id.slice(-6).toUpperCase()}`,
+        body: body.trim().slice(0, 80),
+        tag: 'chat_' + req.params.id,
+        url: '/'
+      });
+    }
   } else {
+    // Notify customer
+    notify(order.customer_id, { type:'chat_message', order_id: req.params.id, body: body.trim(), sender_role: req.user.role });
     const biz = await q1('SELECT name FROM businesses WHERE id=$1', [order.business_id]);
     sendPushToUser(order.customer_id, {
       title: `💬 ${biz?.name || 'El negocio'} te escribió`,
@@ -2705,8 +2726,15 @@ app.post('/api/webhooks/mp', async (req, res) => {
       if (biz) sendPushToOwner(biz.owner_id,{ title:'💰 Pago confirmado', body:`#${orderId.slice(-6).toUpperCase()} — $${order.total}`, tag:'new_order', url:'/' });
       notify(order.customer_id,{ type:'status_change',message:'✅ Pago recibido!',status:'confirmed',order_id:orderId });
     }
-    if (order && ['rejected','cancelled'].includes(payment.status) && order.status === 'pending')
-      await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[orderId]);
+    if (order && ['rejected','cancelled'].includes(payment.status) && order.status === 'pending') {
+      await q("UPDATE orders SET status='cancelled', cancel_reason='Pago rechazado por MercadoPago', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1",[orderId]);
+      // Restore stock for cancelled items
+      const cancelledItems = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [orderId]);
+      for (const ci of cancelledItems) {
+        await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [ci.quantity, ci.product_id]);
+      }
+      console.log(`🔄 Stock restored for cancelled order ${orderId}`);
+    }
 
   } catch(e) { console.error('Webhook error:', e.message); }
 });
