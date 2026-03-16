@@ -1167,9 +1167,15 @@ body.owner-mode #owner-overlay {
     </div>
 
   </div>
+  <!-- Floating cart bar (PedidosYa style) -->
+  <div id="store-cart-float" style="display:none;position:absolute;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid #e2e8f0;z-index:50;">
+    <button onclick="nav('page-cart')" style="width:100%;background:var(--primary);border:none;border-radius:14px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'Inter',sans-serif;">
+      <span style="background:rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;font-size:13px;font-weight:800;color:#fff;" id="scf-qty">0</span>
+      <span style="font-size:15px;font-weight:800;color:#fff;">Ver carrito</span>
+      <span style="font-size:15px;font-weight:800;color:#fff;" id="scf-total">$0</span>
+    </button>
+  </div>
 </div>
-
-<!-- ══ PAGE: CART ══ -->
 <div class="page page-wrap" id="page-cart">
   <div class="page-hdr"><h1>Tu Carrito 🛒</h1></div>
   <div class="sc">
@@ -3563,6 +3569,13 @@ function renderStores(list) {
       ? (s.delivery_cost === 0 ? 'Envío gratis' : `$ ${s.delivery_cost}`)
       : (s.offers_pickup ? 'Retiro en tienda' : '');
     const deliveryCostColor = s.delivery_cost === 0 ? '#00a651' : '#888';
+    // Badges
+    const isNew = s.created_at && (Date.now() - new Date(s.created_at).getTime()) < 14 * 24 * 60 * 60 * 1000; // 14 days
+    const hasPromo = s.has_promotions || s.promo_count > 0;
+    const badges = [
+      isNew ? '<span style="background:#8b5cf6;color:#fff;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;">🆕 Nuevo</span>' : '',
+      hasPromo ? '<span style="background:#f59e0b;color:#fff;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;">🏷️ Promo</span>' : '',
+    ].filter(Boolean).join(' ');
     return `
     <div class="store-card${!isOpen ? ' closed' : ''}" onclick="openStore('${s.id}')">
       <div class="store-cover" style="background:${bg};">
@@ -3570,6 +3583,7 @@ function renderStores(list) {
           ? `<img src="${s.cover_url}" alt="${s.name}">`
           : `<div class="store-cover-emoji">${s.logo_emoji||'🏪'}</div>`}
         ${!isOpen ? `<div class="store-cover-closed"><span>Cerrado</span></div>` : ''}
+        ${badges ? `<div style="position:absolute;top:8px;left:8px;display:flex;gap:4px;z-index:2;">${badges}</div>` : ''}
       </div>
       <div class="store-info">
         <div class="store-logo-chip">${s.logo_url ? `<img src="${s.logo_url}" alt="">` : (s.logo_emoji||'🏪')}</div>
@@ -4168,7 +4182,8 @@ function renderStoreProducts(products, tab='all') {
 
   // Group by category
   const catNames = {};
-  if (s?.product_categories) s.product_categories.forEach(c => { catNames[c.id] = c.name; });
+  if (s?.categories) s.categories.forEach(c => { catNames[c.id] = c.name; });
+    else if (s?.product_categories) s.product_categories.forEach(c => { catNames[c.id] = c.name; });
 
   let html = '';
 
@@ -4200,9 +4215,19 @@ function renderStoreProducts(products, tab='all') {
     byCat[k].push(p);
   });
 
+  // Category quick-scroll chips (only if there are named categories)
+  const namedCats = Object.keys(byCat).filter(k => k !== '__none__' && catNames[k]);
+  if (namedCats.length > 1 && tab === 'all') {
+    html += `<div style="display:flex;gap:8px;overflow-x:auto;padding:0 16px 10px;-webkit-overflow-scrolling:touch;" class="hide-scrollbar">`;
+    namedCats.forEach(catId => {
+      html += `<button onclick="document.getElementById('cat-section-${catId}')?.scrollIntoView({behavior:'smooth',block:'start'})" style="white-space:nowrap;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;">${catNames[catId]}</button>`;
+    });
+    html += `</div>`;
+  }
+
   Object.entries(byCat).forEach(([catId, prods]) => {
     if (catId !== '__none__' && catNames[catId]) {
-      html += `<div class="prod-section-title">${catNames[catId]}</div>`;
+      html += `<div class="prod-section-title" id="cat-section-${catId}">${catNames[catId]}</div>`;
     }
     html += `<div class="prod-grid">`;
     prods.forEach(p => { html += renderProductCard(p, s); });
@@ -4707,6 +4732,18 @@ function updateCartBadge() {
     const el=document.getElementById(id);
     if(el){el.style.display=n>0?'flex':'none';el.textContent=n;}
   });
+  // Update floating cart bar in store detail
+  const floatBar = document.getElementById('store-cart-float');
+  if (floatBar) {
+    const bizItems = cart.filter(c => c.biz_id === currentBizId);
+    const qty = bizItems.reduce((a,b) => a + b.qty, 0);
+    const total = bizItems.reduce((a,b) => a + b.price * b.qty, 0);
+    floatBar.style.display = qty > 0 ? '' : 'none';
+    const qtyEl = document.getElementById('scf-qty');
+    const totalEl = document.getElementById('scf-total');
+    if (qtyEl) qtyEl.textContent = qty;
+    if (totalEl) totalEl.textContent = '$' + total;
+  }
 }
 function changeCartQty(id, d) {
   const item = cart.find(x => (x.cart_key||x.id) === id);
@@ -4994,6 +5031,23 @@ function renderCheckoutPage() {
     <!-- RESUMEN -->
     <div style="background:#fff;border-radius:16px;padding:14px;margin-bottom:10px;border:1px solid #f1f5f9;">
       <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">Resumen</div>
+    <!-- Cupón de descuento -->
+    <div style="padding:0 16px;margin-bottom:16px;">
+      <div style="background:#f8fafc;border-radius:14px;padding:14px;border:1.5px solid #e2e8f0;">
+        ${activePromo
+          ? `<div style="display:flex;align-items:center;justify-content:space-between;">
+              <div><span style="font-size:13px;font-weight:700;color:#16a34a;">🏷️ ${esc(activePromo.name)}</span><br><span style="font-size:11px;color:#64748b;">Descuento aplicado</span></div>
+              <button onclick="activePromo=null;activePromoDiscount=0;renderCheckoutPage();" style="background:#fee2e2;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#dc2626;cursor:pointer;">Quitar</button>
+            </div>`
+          : `<div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:8px;">🏷️ ¿Tenés un código de descuento?</div>
+            <div style="display:flex;gap:8px;">
+              <input id="chk-coupon-input" type="text" placeholder="Ingresá tu código" style="flex:1;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+              <button onclick="chkApplyCoupon()" style="background:var(--primary);border:none;border-radius:10px;padding:10px 16px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">Aplicar</button>
+            </div>`}
+      </div>
+    </div>
+
+    <!-- RESUMEN -->
       <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:14px;">
         <span style="color:#64748b;">Productos</span><span style="font-weight:600;">$${sub}</span>
       </div>
@@ -5029,6 +5083,28 @@ function chkSetPay(method) {
 function chkSetTip(amount) {
   _chkTip = amount;
   renderCheckoutPage();
+}
+
+async function chkApplyCoupon() {
+  const input = document.getElementById('chk-coupon-input');
+  if (!input) return;
+  const code = input.value.trim();
+  if (!code) { showToast('Ingresá un código'); return; }
+  const bizId = cart[0]?.biz_id;
+  if (!bizId) return;
+  try {
+    const sub = cart.reduce((a, b) => a + b.price * b.qty, 0);
+    const res = await api('/api/coupons/validate', { method:'POST', body: JSON.stringify({ code, business_id: bizId, cart_total: sub }) });
+    if (res.error) { showToast('❌ ' + res.error); return; }
+    if (res.promo) {
+      activePromo = res.promo;
+      activePromoDiscount = res.discount || 0;
+      showToast('✅ Cupón aplicado: ' + (activePromo.name || code));
+      renderCheckoutPage();
+    } else {
+      showToast('❌ Código no válido');
+    }
+  } catch(e) { showToast('❌ ' + (e.message || 'Código no válido')); }
 }
 
 function chkTogglePriority() {
