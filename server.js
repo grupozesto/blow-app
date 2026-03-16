@@ -1390,6 +1390,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
     return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
   const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', ingredients='', stock=null, is_featured=false } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
+  if (parseFloat(price) < 0) return res.status(400).json({ error:'El precio no puede ser negativo' });
   const id = uuid();
   await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
     [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',ingredients||'',stock?parseInt(stock):null]);
@@ -1648,7 +1649,7 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
-    const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='' } = req.body;
+    const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='', coupon_code='' } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
@@ -1679,7 +1680,27 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const priorityPct = (biz.priority_percent != null ? parseInt(biz.priority_percent) : 50) / 100;
     const priorityFee = priority ? Math.round(fee * priorityPct) : 0;
     const tipAmt = Math.max(0, parseFloat(tip) || 0); // NEVER negative
-    const total = subtotal + fee + priorityFee + tipAmt;
+
+    // ── Apply coupon/promo discount server-side ──
+    let discountAmt = 0;
+    let appliedCouponId = null;
+    if (coupon_code && typeof coupon_code === 'string' && coupon_code.trim()) {
+      const c = await q1('SELECT * FROM coupons WHERE LOWER(code)=LOWER($1) AND active=TRUE AND (expires_at IS NULL OR expires_at > NOW())', [coupon_code.trim()]);
+      if (c) {
+        const meetsMin = !c.min_order || subtotal >= parseFloat(c.min_order);
+        const hasUses = !c.max_uses || (c.uses_count || 0) < c.max_uses;
+        const userUsed = await q1('SELECT COUNT(*) as cnt FROM coupon_uses WHERE coupon_id=$1 AND user_id=$2', [c.id, req.user.id]);
+        const perUserOk = !c.per_user || parseInt(userUsed?.cnt || 0) < c.per_user;
+        if (meetsMin && hasUses && perUserOk) {
+          discountAmt = c.discount_type === 'percent'
+            ? Math.round(subtotal * parseFloat(c.discount_value) / 100)
+            : Math.min(parseFloat(c.discount_value), subtotal);
+          appliedCouponId = c.id;
+        }
+      }
+    }
+
+    const total = Math.max(0, subtotal + fee + priorityFee + tipAmt - discountAmt);
     const _fee = await getPlatformFee();
     const plat = parseFloat((subtotal*_fee).toFixed(2)), bizAmt = parseFloat((subtotal-plat).toFixed(2));
     const orderId = uuid();
@@ -1707,6 +1728,11 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
           return res.status(400).json({ error:`Lo sentimos, "${i.name}" se agotó mientras procesábamos tu pedido.` });
         }
       }
+    }
+    // Record coupon use if applied
+    if (appliedCouponId) {
+      await q('INSERT INTO coupon_uses (id,coupon_id,user_id,order_id) VALUES ($1,$2,$3,$4)', [uuid(), appliedCouponId, req.user.id, orderId]);
+      await q('UPDATE coupons SET uses_count = COALESCE(uses_count,0) + 1 WHERE id=$1', [appliedCouponId]);
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
     sendPushToOwner(biz.owner_id,{ title:`${payment_method==='cash'?'💵':'🛍️'} Nuevo pedido`, body:`#${orderId.slice(-6).toUpperCase()} — $${total}${payment_method==='cash'?' · Efectivo':''}`, tag:'new_order', url:'/' });
@@ -2439,14 +2465,20 @@ app.post('/api/wallet/withdraw', auth, async (req, res) => {
   const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
   if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
   const { amount,method,destination } = req.body;
-  if (!amount||amount<=0) return res.status(400).json({ error:'Monto inválido' });
+  if (!amount || typeof amount !== 'number' || amount <= 0) return res.status(400).json({ error:'Monto inválido' });
+  if (amount > 1000000) return res.status(400).json({ error:'Monto excede el límite' });
+  if (!method || typeof method !== 'string' || method.length > 100) return res.status(400).json({ error:'Método inválido' });
+  if (!destination || typeof destination !== 'string' || destination.length > 200) return res.status(400).json({ error:'Destino inválido' });
+  // Sanitize: strip HTML tags
+  const cleanMethod = method.replace(/<[^>]*>/g, '').trim();
+  const cleanDest = destination.replace(/<[^>]*>/g, '').trim();
   const wallet=await getWallet(ownerId,req.user.role);
   if (parseFloat(wallet.balance)<amount) return res.status(400).json({ error:'Saldo insuficiente' });
   await q('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2',[amount,wallet.id]);
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${method}`]);
+  await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${cleanMethod}`]);
   const owner=await q1('SELECT name,email FROM users WHERE id=$1',[req.user.id]);
   await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,method,destination]);
+    [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,cleanMethod,cleanDest]);
   res.json({ success:true });
 });
 
