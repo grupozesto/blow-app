@@ -748,7 +748,7 @@ function regBack(){
 }
 let _verifCode=null,_emailOk=false;
 async function sendVerifEmail(email){
-  _verifCode=Math.floor(100000+Math.random()*900000).toString();
+  _verifCode=null;
   _emailOk=false;
   const blk=document.getElementById('ev-block');
   if(blk)blk.style.display='block';
@@ -756,7 +756,9 @@ async function sendVerifEmail(email){
   if(addr)addr.textContent=email;
   const st=document.getElementById('ev-st');
   try{
-    await fetch('/api/auth/send-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code:_verifCode})});
+    const resp=await fetch('/api/auth/send-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const data=await resp.json();
+    if(data.code)_verifCode=data.code;
     if(st){st.style.color='#16a34a';st.textContent='✓ Código enviado — revisá tu correo';}
   }catch(e){
     if(st){st.style.color='#94a3b8';st.textContent='No se pudo enviar — podés continuar igual';}

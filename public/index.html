@@ -666,6 +666,31 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 /* ════════════════════════════════════════
    BLOW+ PREMIUM
 ════════════════════════════════════════ */
+/* ═══ Category Page — PedidosYa style ═══ */
+.cat-subcat-grid{display:flex;gap:10px;padding:0 16px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.cat-subcat-card{flex-shrink:0;width:80px;text-align:center;cursor:pointer;transition:transform .15s;}
+.cat-subcat-card:active{transform:scale(.95);}
+.cat-subcat-img{width:72px;height:72px;border-radius:16px;overflow:hidden;margin:0 auto 6px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:32px;border:2px solid transparent;transition:border-color .2s;}
+.cat-subcat-card.active .cat-subcat-img{border-color:var(--primary);}
+.cat-subcat-label{font-size:11px;font-weight:700;color:#334155;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cat-subcat-card.active .cat-subcat-label{color:var(--primary);}
+.cat-promo-carousel{display:flex;gap:12px;padding:0 16px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.cat-promo-slide{flex-shrink:0;width:280px;height:120px;border-radius:16px;overflow:hidden;position:relative;cursor:pointer;background:linear-gradient(135deg,var(--primary),#ff6b6b);}
+.cat-promo-slide img{width:100%;height:100%;object-fit:cover;}
+.cat-promo-overlay{position:absolute;bottom:0;left:0;right:0;padding:12px 14px;background:linear-gradient(transparent,rgba(0,0,0,.7));color:#fff;}
+.cat-promo-overlay .title{font-size:14px;font-weight:800;line-height:1.2;}
+.cat-promo-overlay .sub{font-size:11px;opacity:.85;margin-top:2px;}
+.cat-featured-row{padding:0 16px 16px;}
+.cat-featured-title{font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;}
+.cat-featured-scroll{display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+.cat-featured-card{flex-shrink:0;width:200px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.08);cursor:pointer;transition:transform .15s;}
+.cat-featured-card:active{transform:scale(.97);}
+.cat-featured-card .img{width:200px;height:120px;background:#f5f5f5;overflow:hidden;}
+.cat-featured-card .img img{width:100%;height:100%;object-fit:cover;}
+.cat-featured-card .info{padding:10px 12px;}
+.cat-featured-card .info .name{font-size:14px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cat-featured-card .info .meta{font-size:12px;color:#64748b;margin-top:3px;display:flex;align-items:center;gap:6px;}
+
 .blowplus-card{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden;margin-bottom:20px;}
 .blowplus-card::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(250,0,80,.3),transparent 70%);}
 .blowplus-card::after{content:'';position:absolute;bottom:-30px;left:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(107,0,204,.4),transparent 70%);}
@@ -1115,37 +1140,54 @@ body.owner-mode #owner-overlay {
       <button onclick="nav('page-home')" style="background:none;border:none;cursor:pointer;padding:4px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.5" width="22" height="22"><polyline points="15,18 9,12 15,6"/></svg>
       </button>
-      <div style="flex:1;background:#f5f5f5;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="cat-search-input" type="text" placeholder="Buscar locales y platos" oninput="filterCatList(this.value)"
-          style="flex:1;background:none;border:none;outline:none;font-family:'Inter',sans-serif;font-size:14px;color:#1a1a1a;">
-      </div>
+      <div id="cat-page-title" style="flex:1;font-size:20px;font-weight:900;color:#0f172a;">Restaurantes</div>
       <button onclick="nav('page-cart')" style="background:none;border:none;cursor:pointer;position:relative;padding:4px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="1.8" width="22" height="22"><path d="M9 22c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm11 0c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1z"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         <span class="nb-badge" id="cat-cart-badge" style="display:none;top:-2px;right:-2px;">0</span>
       </button>
     </div>
-    <!-- Sub-category chips -->
-    <div id="cat-subcats" style="display:flex;gap:8px;padding:0 16px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;" class="hide-scrollbar"></div>
+  </div>
+
+  <div class="sc" style="background:#fff;">
+    <!-- Sub-category image cards (horizontal scroll) -->
+    <div id="cat-subcats-grid" class="cat-subcat-grid hide-scrollbar" style="padding-top:14px;"></div>
+
+    <!-- Search bar -->
+    <div style="padding:4px 16px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border-radius:12px;padding:10px 14px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="cat-search-input" type="text" placeholder="Buscar locales y platos" oninput="filterCatList(this.value)"
+          style="flex:1;background:none;border:none;outline:none;font-family:'Inter',sans-serif;font-size:14px;color:#1a1a1a;">
+      </div>
+    </div>
+
+    <!-- Promo carousel -->
+    <div id="cat-promo-carousel" class="cat-promo-carousel hide-scrollbar" style="display:none;"></div>
+
+    <!-- Featured stores carousel ("Descubrí locales") -->
+    <div id="cat-featured-section" class="cat-featured-row" style="display:none;">
+      <div class="cat-featured-title">🔥 Descubrí locales</div>
+      <div id="cat-featured-scroll" class="cat-featured-scroll hide-scrollbar"></div>
+    </div>
+
     <!-- Filter chips -->
-    <div style="display:flex;gap:8px;padding:0 16px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;" class="hide-scrollbar">
-      <button onclick="toggleCatFilter('filter')" style="display:flex;align-items:center;gap:5px;background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-        Filtrar
-      </button>
+    <div style="display:flex;gap:8px;padding:4px 16px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;" class="hide-scrollbar">
       <button id="cat-sort-btn" onclick="cycleCatSort()" style="display:flex;align-items:center;gap:5px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">
         Ordenar <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="3"><polyline points="6,9 12,15 18,9"/></svg>
       </button>
-      <button onclick="toggleCatFilter('discount')" id="cat-disc-btn" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">Descuentos</button>
-      <button onclick="toggleCatFilter('featured')" id="cat-feat-btn" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">Destacados</button>
+      <button onclick="toggleCatFilter('open')" id="cat-open-btn" style="background:#0f172a;color:#fff;border:1.5px solid #0f172a;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">🟢 Abiertos</button>
+      <button onclick="toggleCatFilter('discount')" id="cat-disc-btn" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">🏷️ Promos</button>
+      <button onclick="toggleCatFilter('free_delivery')" id="cat-freedelivery-btn" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;">🛵 Envío gratis</button>
     </div>
+
+    <!-- Results count -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 16px 10px;">
+      <div id="cat-count" style="font-size:13px;font-weight:700;color:#94a3b8;">0 locales</div>
+    </div>
+
+    <!-- Store list -->
+    <div id="cat-store-list" style="padding:0 16px 100px;"></div>
   </div>
-  <!-- Results count + view toggle -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;">
-    <div id="cat-count" style="font-size:18px;font-weight:900;color:#0f172a;">0 locales</div>
-  </div>
-  <!-- Store list -->
-  <div id="cat-store-list" style="padding:0 16px 80px;"></div>
 </div>
 
 <!-- ══ PAGE: STORE DETAIL ══ -->
@@ -2908,6 +2950,11 @@ function esc(str) {
   d.textContent = str;
   return d.innerHTML;
 }
+// Escape for safe use inside JS string literals within HTML attributes (onclick="fn('...')")
+function escJS(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'\\x3c').replace(/>/g,'\\x3e').replace(/\n/g,'\\n');
+}
 
 // Registro global de productos — evita pasar JSON en onclick
 const _prodReg = {};
@@ -3926,33 +3973,164 @@ function filterCat(cat) {
 // ═══════════════════════════════════════════════
 //  CATEGORY LISTING PAGE (PedidosYa style)
 // ═══════════════════════════════════════════════
-let _catFilter = { category: null, search: '', sort: 'default', discount: false, featured: false };
+let _catFilter = { category: null, search: '', sort: 'default', discount: false, featured: false, open_only: true, free_delivery: false, subcat: null };
 const CAT_LABELS = { food:'Restaurantes', market:'Mercados', pharmacy:'Farmacias', drinks:'Bebidas', desserts:'Postres', cafe:'Cafés' };
 const CAT_SUBCATS = {
-  food: ['Hamburguesas','Pizzas','Empanadas','Sándwiches','Sushi','Pastas','Parrilla','Milanesas','Pollo'],
-  market: ['Supermercado','Almacén','Verdulería','Carnicería','Dietética'],
-  pharmacy: ['Farmacia 24hs','Perfumería'],
-  drinks: ['Cerveza','Vinos','Licores','Gaseosas'],
-  desserts: ['Helados','Tortas','Panaderías','Chocolates'],
+  food: [
+    {id:'all',label:'Todos',emoji:'🍽️'},
+    {id:'hamburguesas',label:'Hamburguesas',emoji:'🍔'},
+    {id:'pizzas',label:'Pizzas',emoji:'🍕'},
+    {id:'empanadas',label:'Empanadas',emoji:'🥟'},
+    {id:'sandwiches',label:'Sándwiches',emoji:'🥪'},
+    {id:'sushi',label:'Sushi',emoji:'🍣'},
+    {id:'pastas',label:'Pastas',emoji:'🍝'},
+    {id:'parrilla',label:'Parrilla',emoji:'🥩'},
+    {id:'milanesas',label:'Milanesas',emoji:'🍗'},
+    {id:'pollo',label:'Pollo',emoji:'🍗'},
+    {id:'saludable',label:'Saludable',emoji:'🥗'},
+    {id:'desayunos',label:'Desayunos',emoji:'🥐'},
+  ],
+  market: [
+    {id:'all',label:'Todos',emoji:'🛒'},
+    {id:'super',label:'Supermercado',emoji:'🏪'},
+    {id:'almacen',label:'Almacén',emoji:'🏠'},
+    {id:'verduleria',label:'Verdulería',emoji:'🥦'},
+    {id:'carniceria',label:'Carnicería',emoji:'🥩'},
+    {id:'dietetica',label:'Dietética',emoji:'🌾'},
+  ],
+  pharmacy: [
+    {id:'all',label:'Todos',emoji:'💊'},
+    {id:'24hs',label:'24 horas',emoji:'🕐'},
+    {id:'perfumeria',label:'Perfumería',emoji:'💄'},
+  ],
+  drinks: [
+    {id:'all',label:'Todos',emoji:'🥤'},
+    {id:'cerveza',label:'Cerveza',emoji:'🍺'},
+    {id:'vinos',label:'Vinos',emoji:'🍷'},
+    {id:'licores',label:'Licores',emoji:'🥃'},
+    {id:'gaseosas',label:'Gaseosas',emoji:'🥤'},
+  ],
+  desserts: [
+    {id:'all',label:'Todos',emoji:'🍰'},
+    {id:'helados',label:'Helados',emoji:'🍦'},
+    {id:'tortas',label:'Tortas',emoji:'🎂'},
+    {id:'panaderia',label:'Panaderías',emoji:'🥖'},
+    {id:'chocolates',label:'Chocolates',emoji:'🍫'},
+  ],
+  cafe: [
+    {id:'all',label:'Todos',emoji:'☕'},
+    {id:'cafeteria',label:'Cafetería',emoji:'☕'},
+    {id:'te',label:'Té',emoji:'🍵'},
+    {id:'brunch',label:'Brunch',emoji:'🧇'},
+  ],
 };
 
 function openCategoryPage(cat) {
-  _catFilter = { category: cat, search: '', sort: 'default', discount: false, featured: false };
+  _catFilter = { category: cat, search: '', sort: 'default', discount: false, featured: false, open_only: true, free_delivery: false, subcat: null };
+  _catSortIdx = 0;
   nav('page-category');
-  // Render subcategory chips
-  const subEl = document.getElementById('cat-subcats');
-  const subs = CAT_SUBCATS[cat] || [];
-  if (subs.length && subEl) {
-    subEl.style.display = 'flex';
-    subEl.innerHTML = subs.map(s =>
-      `<button onclick="this.classList.toggle('active');filterCatList()" style="background:#f5f5f5;border:none;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;flex-shrink:0;" data-sub="${s}">${s}</button>`
-    ).join('');
-  } else if (subEl) { subEl.style.display = 'none'; }
+  // Title
+  const titleEl = document.getElementById('cat-page-title');
+  if (titleEl) titleEl.textContent = CAT_LABELS[cat] || 'Locales';
+  // Reset search
+  const searchInput = document.getElementById('cat-search-input');
+  if (searchInput) searchInput.value = '';
+  // Reset filter button states
+  const openBtn = document.getElementById('cat-open-btn');
+  if (openBtn) { openBtn.style.background = '#0f172a'; openBtn.style.color = '#fff'; openBtn.style.borderColor = '#0f172a'; }
+  const discBtn = document.getElementById('cat-disc-btn');
+  if (discBtn) { discBtn.style.background = '#fff'; discBtn.style.color = '#334155'; }
+  const fdBtn = document.getElementById('cat-freedelivery-btn');
+  if (fdBtn) { fdBtn.style.background = '#fff'; fdBtn.style.color = '#334155'; }
+  const sortBtn = document.getElementById('cat-sort-btn');
+  if (sortBtn) { sortBtn.innerHTML = 'Ordenar <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="3"><polyline points="6,9 12,15 18,9"/></svg>'; sortBtn.style.background = '#f1f5f9'; sortBtn.style.color = '#334155'; }
+  // Render subcategory image cards
+  renderCatSubcats(cat);
+  // Render promo carousel
+  renderCatPromos(cat);
+  // Render featured stores
+  renderCatFeatured(cat);
   // Update cart badge
   const n = cart.reduce((a,b)=>a+b.qty,0);
   const badge = document.getElementById('cat-cart-badge');
   if (badge) { badge.style.display = n>0?'flex':'none'; badge.textContent = n; }
   renderCatList();
+}
+
+function renderCatSubcats(cat) {
+  const grid = document.getElementById('cat-subcats-grid');
+  if (!grid) return;
+  const subs = CAT_SUBCATS[cat] || [];
+  if (!subs.length) { grid.style.display = 'none'; return; }
+  grid.style.display = 'flex';
+  grid.innerHTML = subs.map(s => `
+    <div class="cat-subcat-card${s.id==='all'?' active':''}" onclick="selectSubcat(this,'${s.id}')" data-sub="${s.id}">
+      <div class="cat-subcat-img">${s.emoji}</div>
+      <div class="cat-subcat-label">${esc(s.label)}</div>
+    </div>`).join('');
+}
+
+function selectSubcat(el, subId) {
+  document.querySelectorAll('#cat-subcats-grid .cat-subcat-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  _catFilter.subcat = subId === 'all' ? null : subId;
+  renderCatList();
+}
+
+function renderCatPromos(cat) {
+  const carousel = document.getElementById('cat-promo-carousel');
+  if (!carousel) return;
+  // Get stores with promos in this category
+  const promoStores = allStores.filter(s => s.category === cat && s.promo_count > 0 && s.is_open !== false);
+  if (!promoStores.length) { carousel.style.display = 'none'; return; }
+  carousel.style.display = 'flex';
+  const colors = ['linear-gradient(135deg,#ea356b,#ff6b6b)','linear-gradient(135deg,#6b00cc,#9b59b6)','linear-gradient(135deg,#0369a1,#38bdf8)','linear-gradient(135deg,#15803d,#4ade80)','linear-gradient(135deg,#c2410c,#fb923c)'];
+  carousel.innerHTML = promoStores.slice(0, 6).map((s, i) => {
+    const bg = s.cover_url ? '' : `background:${colors[i % colors.length]};`;
+    return `
+    <div class="cat-promo-slide" onclick="openStore('${s.id}')" style="${bg}">
+      ${s.cover_url ? `<img src="${s.cover_url}" onerror="this.style.display='none'">` : ''}
+      <div class="cat-promo-overlay">
+        <div class="title">${esc(s.name)}</div>
+        <div class="sub">🏷️ Promos disponibles · ${s.delivery_time||'30-45'} min</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCatFeatured(cat) {
+  const section = document.getElementById('cat-featured-section');
+  const scroll = document.getElementById('cat-featured-scroll');
+  if (!section || !scroll) return;
+  // Featured: Blow+ stores or highest rated in this category
+  const featured = allStores
+    .filter(s => s.category === cat && s.is_open !== false)
+    .sort((a,b) => {
+      if (a.blow_plus && !b.blow_plus) return -1;
+      if (!a.blow_plus && b.blow_plus) return 1;
+      return (b.rating||0) - (a.rating||0);
+    })
+    .slice(0, 8);
+  if (featured.length < 2) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  scroll.innerHTML = featured.map(s => {
+    const img = s.cover_url || s.logo_url;
+    return `
+    <div class="cat-featured-card" onclick="openStore('${s.id}')">
+      <div class="img">
+        ${img ? `<img src="${img}" onerror="this.parentNode.innerHTML='<div style=display:flex;align-items:center;justify-content:center;height:100%;font-size:48px;background:#f5f5f5>${s.logo_emoji||'🏪'}</div>'">` 
+              : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:48px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);">${s.logo_emoji||'🏪'}</div>`}
+      </div>
+      <div class="info">
+        <div class="name">${esc(s.name)}</div>
+        <div class="meta">
+          ${s.rating ? `<span>★ ${s.rating}</span>` : ''}
+          <span>🕐 ${s.delivery_time||'30-45'} min</span>
+          ${s.blow_plus ? '<span style="color:var(--primary);font-weight:800;">⚡</span>' : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderCatList() {
@@ -3964,27 +4142,46 @@ function renderCatList() {
 
   // Search filter
   const q = (_catFilter.search || document.getElementById('cat-search-input')?.value || '').toLowerCase().trim();
-  if (q) stores = stores.filter(s => s.name?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q));
+  if (q) stores = stores.filter(s => s.name?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q) || (s.description||'').toLowerCase().includes(q));
+
+  // Sub-category filter (match against store name, description, tags)
+  if (_catFilter.subcat) {
+    const sub = _catFilter.subcat.toLowerCase();
+    stores = stores.filter(s => {
+      const text = ((s.name||'')+(s.description||'')+(s.tags||'')).toLowerCase();
+      return text.includes(sub);
+    });
+  }
+
+  // Open only filter (on by default)
+  if (_catFilter.open_only) stores = stores.filter(s => s.is_open !== false && s.is_open !== 0);
 
   // Discount filter
   if (_catFilter.discount) stores = stores.filter(s => s.promo_count > 0);
+
+  // Free delivery filter
+  if (_catFilter.free_delivery) stores = stores.filter(s => s.delivery_cost === 0 || s.blow_plus_free_delivery);
 
   // Sort
   if (_catFilter.sort === 'rating') stores.sort((a,b) => (b.rating||0) - (a.rating||0));
   else if (_catFilter.sort === 'delivery_time') stores.sort((a,b) => parseInt(a.delivery_time||99) - parseInt(b.delivery_time||99));
   else if (_catFilter.sort === 'delivery_cost') stores.sort((a,b) => (a.delivery_cost||0) - (b.delivery_cost||0));
 
-  // Open stores first
+  // Blow+ first, then open, then closed
   stores.sort((a,b) => {
-    const aOpen = a.is_open !== false && a.is_open !== 0 ? 1 : 0;
-    const bOpen = b.is_open !== false && b.is_open !== 0 ? 1 : 0;
-    return bOpen - aOpen;
+    if (a.blow_plus && !b.blow_plus) return -1;
+    if (!a.blow_plus && b.blow_plus) return 1;
+    return 0;
   });
 
-  if (countEl) countEl.textContent = `${stores.length} ${CAT_LABELS[_catFilter.category] || 'locales'}`;
+  if (countEl) countEl.textContent = `${stores.length} ${stores.length === 1 ? 'local' : 'locales'}`;
 
   if (!stores.length) {
-    listEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;"><div style="font-size:48px;margin-bottom:12px;">🔍</div><div style="font-size:15px;font-weight:700;">No hay locales en esta categoría</div></div>';
+    listEl.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8;">
+      <div style="font-size:48px;margin-bottom:12px;">🔍</div>
+      <div style="font-size:15px;font-weight:700;">No encontramos locales</div>
+      <div style="font-size:13px;margin-top:6px;">Probá desactivando filtros o buscando otra cosa</div>
+    </div>`;
     return;
   }
 
@@ -3993,31 +4190,30 @@ function renderCatList() {
     const hasPromo = s.promo_count > 0;
     const fee = s.delivery_cost === 0 ? 'Envío gratis' : `$${s.delivery_cost}`;
     const feeColor = s.delivery_cost === 0 ? '#16a34a' : '#64748b';
+    const isNew = s.created_at && (Date.now() - new Date(s.created_at).getTime()) < 14 * 86400000;
     return `
-    <div onclick="openStore('${s.id}')" style="display:flex;gap:14px;padding:16px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;${!isOpen?'opacity:.5;':''}">
-      <!-- Logo -->
-      <div style="width:72px;height:72px;border-radius:16px;overflow:hidden;flex-shrink:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;border:1px solid #f0f0f0;">
+    <div onclick="openStore('${s.id}')" style="display:flex;gap:14px;padding:16px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;${!isOpen?'opacity:.55;':''}">
+      <div style="width:76px;height:76px;border-radius:16px;overflow:hidden;flex-shrink:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;border:1px solid #f0f0f0;">
         ${s.logo_url
           ? `<img src="${s.logo_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=font-size:32px>${s.logo_emoji||'🏪'}</span>'">`
           : `<span style="font-size:32px;">${s.logo_emoji||'🏪'}</span>`}
       </div>
-      <!-- Info -->
       <div style="flex:1;min-width:0;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div style="font-size:15px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%;">${esc(s.name)}</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            ${s.rating ? `<span style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:#0f172a;">★ ${s.rating}</span>` : ''}
-            <button onclick="event.stopPropagation();toggleLike('${s.id}')" style="background:none;border:none;cursor:pointer;font-size:18px;padding:0;">♡</button>
-          </div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;">${esc(s.name)}</div>
+          ${s.rating ? `<span style="display:flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:#0f172a;flex-shrink:0;">★ ${s.rating}</span>` : ''}
         </div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px;">${s.category ? CAT_LABELS[s.category]||s.category : ''}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;color:#64748b;">
-          <span style="display:flex;align-items:center;gap:3px;">🕐 <strong style="color:${parseInt(s.delivery_time||30)<=25?'#16a34a':'#0f172a'}">${s.delivery_time||'30-45'} min</strong></span>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:#64748b;flex-wrap:wrap;">
+          <span>🕐 ${s.delivery_time||'30-45'} min</span>
           <span>·</span>
           <span style="color:${feeColor};font-weight:${s.delivery_cost===0?'700':'400'};">${fee}</span>
+          ${s.blow_plus ? '<span>·</span><span style="color:var(--primary);font-weight:800;">⚡ Blow+</span>' : ''}
         </div>
-        ${hasPromo ? '<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;"><span style="background:#dcfce7;color:#16a34a;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">Promos activas</span></div>' : ''}
-        ${!isOpen ? '<div style="margin-top:4px;font-size:11px;color:#ef4444;font-weight:700;">Cerrado ahora</div>' : ''}
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">
+          ${isNew ? '<span style="background:#eff6ff;color:#2563eb;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">🆕 Nuevo</span>' : ''}
+          ${hasPromo ? '<span style="background:#dcfce7;color:#16a34a;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">🏷️ Promo</span>' : ''}
+          ${!isOpen ? '<span style="background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">Cerrado</span>' : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -4040,7 +4236,7 @@ function cycleCatSort() {
   _catFilter.sort = _catSortOptions[_catSortIdx].key;
   const btn = document.getElementById('cat-sort-btn');
   if (btn) {
-    btn.innerHTML = _catSortOptions[_catSortIdx].label + ' <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="3"><polyline points="6,9 12,15 18,9"/></svg>';
+    btn.innerHTML = _catSortOptions[_catSortIdx].label + ' <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6,9 12,15 18,9"/></svg>';
     btn.style.background = _catSortIdx > 0 ? '#0f172a' : '#f1f5f9';
     btn.style.color = _catSortIdx > 0 ? '#fff' : '#334155';
   }
@@ -4051,7 +4247,17 @@ function toggleCatFilter(type) {
   if (type === 'discount') {
     _catFilter.discount = !_catFilter.discount;
     const btn = document.getElementById('cat-disc-btn');
-    if (btn) { btn.style.background = _catFilter.discount?'#0f172a':'#fff'; btn.style.color = _catFilter.discount?'#fff':'#334155'; }
+    if (btn) { btn.style.background = _catFilter.discount?'#0f172a':'#fff'; btn.style.color = _catFilter.discount?'#fff':'#334155'; btn.style.borderColor = _catFilter.discount?'#0f172a':'#e2e8f0'; }
+  }
+  if (type === 'open') {
+    _catFilter.open_only = !_catFilter.open_only;
+    const btn = document.getElementById('cat-open-btn');
+    if (btn) { btn.style.background = _catFilter.open_only?'#0f172a':'#fff'; btn.style.color = _catFilter.open_only?'#fff':'#334155'; btn.style.borderColor = _catFilter.open_only?'#0f172a':'#e2e8f0'; }
+  }
+  if (type === 'free_delivery') {
+    _catFilter.free_delivery = !_catFilter.free_delivery;
+    const btn = document.getElementById('cat-freedelivery-btn');
+    if (btn) { btn.style.background = _catFilter.free_delivery?'#0f172a':'#fff'; btn.style.color = _catFilter.free_delivery?'#fff':'#334155'; btn.style.borderColor = _catFilter.free_delivery?'#0f172a':'#e2e8f0'; }
   }
   if (type === 'featured') {
     _catFilter.featured = !_catFilter.featured;
@@ -4083,9 +4289,9 @@ function showRecentSearches() {
       <button onclick="localStorage.removeItem('blow_recent_searches');hideRecentSearches();" style="background:none;border:none;font-size:12px;color:#94a3b8;cursor:pointer;">Borrar</button>
     </div>
     ${searches.map(s => `
-      <div onclick="document.getElementById('search-input').value='${s.replace(/'/g,"\\'")}';saveRecentSearch('${s.replace(/'/g,"\\'")}');doServerSearch('${s.replace(/'/g,"\\'")}');" style="padding:11px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;border-top:1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+      <div onclick="document.getElementById('search-input').value='${escJS(s)}';saveRecentSearch('${escJS(s)}');doServerSearch('${escJS(s)}');" style="padding:11px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;border-top:1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
         <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span style="font-size:14px;color:#0f172a;">${s}</span>
+        <span style="font-size:14px;color:#0f172a;">${esc(s)}</span>
       </div>`).join('')}
     <div style="height:6px;"></div>`;
   panel.style.display = 'block';
@@ -4207,12 +4413,12 @@ function renderStoreDetail(s, products) {
   const coverEl = document.getElementById('sd-cover');
   if (coverEl) {
     if (s.cover_url) {
-      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><button onclick="shareStore('${s.id}','${(s.name||'').replace(/'/g,"\\'")}',event)" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><img src="${s.cover_url}" alt="portada">`;
+      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><button onclick="shareStore('${s.id}','${escJS(s.name||'')}',event)" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><img src="${s.cover_url}" alt="portada">`;
     } else {
       const catColors = { food:'linear-gradient(135deg,#ea356b,#ff6b6b)', market:'linear-gradient(135deg,#27ae60,#2ecc71)', pharmacy:'linear-gradient(135deg,#2980b9,#3498db)', drinks:'linear-gradient(135deg,#e67e22,#f39c12)', desserts:'linear-gradient(135deg,#8e44ad,#9b59b6)', cafe:'linear-gradient(135deg,#795548,#a1887f)' };
       const bg = catColors[s.category] || 'linear-gradient(135deg,#ea356b,#6b00cc)';
       coverEl.style.background = bg;
-      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><button onclick="shareStore('${s.id}','${(s.name||'').replace(/'/g,"\\'")}',event)" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:90px;opacity:.4;">${s.logo_emoji||'🏪'}</div>`;
+      coverEl.innerHTML = `<button class="back-btn sd-back" onclick="nav('page-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg></button><button onclick="shareStore('${s.id}','${escJS(s.name||'')}',event)" style="position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:90px;opacity:.4;">${s.logo_emoji||'🏪'}</div>`;
     }
   }
 
@@ -5621,7 +5827,7 @@ async function loadTracking() {
         ${o.status==='delivered' ? `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
           <button onclick="repeatOrder('${o.id}','${o.business_id}')" style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:10px;color:#0369a1;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Pedir de nuevo</button>
-          <button onclick="openReviewModal('${o.id}','${(o.business_name||'').replace(/'/g,"\'")}')" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Reseñar</button>
+          <button onclick="openReviewModal('${o.id}','${escJS(o.business_name||'')}')" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border:none;border-radius:10px;padding:10px;color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⭐ Reseñar</button>
         </div>` : ''}
       </div>`;
     }).join('');
@@ -6598,7 +6804,7 @@ function renderCatTree() {
           <div class="cat-indent" style="width:${indent*20}px;flex-shrink:0;"></div>
           <div class="cat-name">${indent?'↳ ':''}${c.name}</div>
           <div class="cat-actions">
-            <button class="cat-btn" onclick="startSubcat('${c.id}','${c.name.replace(/'/g,'')}')" title="Agregar subcategoría">＋</button>
+            <button class="cat-btn" onclick="startSubcat('${c.id}','${escJS(c.name)}')" title="Agregar subcategoría">＋</button>
             <button class="cat-btn" onclick="deleteCat('${c.id}')" title="Eliminar">🗑️</button>
           </div>
         </div>
@@ -7895,13 +8101,13 @@ function renderAdminUsers(users) {
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-        <button onclick="adminResetPw('${u.id}','${(u.name||'').replace(/'/g,'')}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;" title="Cambiar contraseña">🔑 Password</button>
+        <button onclick="adminResetPw('${u.id}','${escJS(u.name||'')}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;" title="Cambiar contraseña">🔑 Password</button>
         <button onclick="adminChangeRole('${u.id}','${u.role}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">👤 Rol</button>
-        <button onclick="adminImpersonate('${u.id}','${(u.name||'').replace(/'/g,'')}','${u.role}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;" title="Ver app como este usuario">👁 Ver como</button>
+        <button onclick="adminImpersonate('${u.id}','${escJS(u.name||'')}','${u.role}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;" title="Ver app como este usuario">👁 Ver como</button>
         ${u.banned
           ? `<button onclick="adminBanUser('${u.id}',false)" style="padding:5px 10px;border-radius:8px;border:none;background:#dcfce7;color:#166534;cursor:pointer;font-size:11px;">✅ Desbanear</button>`
           : `<button onclick="adminBanUser('${u.id}',true)" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🚫 Banear</button>`}
-        <button onclick="adminDeleteUser('${u.id}','${(u.name||'').replace(/'/g,'')}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Eliminar</button>
+        <button onclick="adminDeleteUser('${u.id}','${escJS(u.name||'')}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Eliminar</button>
       </div>
     </div>`).join('');
 }
@@ -7980,7 +8186,7 @@ function renderAdminBiz(bizs) {
         <button onclick="adminToggleOpen('${b.id}',${b.is_open})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">${b.is_open?'🔒 Cerrar':'🔓 Abrir'}</button>
         <button onclick="adminEditBiz('${b.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;">✏️ Editar</button>
         <button onclick="adminToggleBlowPlus('${b.id}',${!!b.blow_plus},'biz')" style="padding:5px 10px;border-radius:8px;border:none;background:${b.blow_plus?'#ede9fe':'#f5f3ff'};color:#7c3aed;cursor:pointer;font-size:11px;">⚡ ${b.blow_plus?'Quitar':'Dar'} Blow+</button>
-        <button onclick="adminDeleteBiz('${b.id}','${(b.name||'').replace(/'/g,'')}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Eliminar</button>
+        <button onclick="adminDeleteBiz('${b.id}','${escJS(b.name||'')}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️ Eliminar</button>
       </div>
     </div>`).join('');
 }
@@ -9214,7 +9420,7 @@ function ooRenderHomePedidos() {
           style="flex:1;background:#0f172a;border:none;border-radius:10px;padding:9px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           ${next.label}
         </button>
-        <button onclick="ooOpenOrderChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,'')}')"
+        <button onclick="ooOpenOrderChat('${o.id}','${escJS(o.customer_name||'Cliente')}')"
           id="oo-chat-btn-${o.id}"
           style="background:#eff6ff;border:none;border-radius:10px;padding:9px 12px;color:#2558d4;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           💬
@@ -9224,7 +9430,7 @@ function ooRenderHomePedidos() {
           ✕
         </button>
       </div>` : `
-      <button onclick="ooOpenOrderChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,'')}')"
+      <button onclick="ooOpenOrderChat('${o.id}','${escJS(o.customer_name||'Cliente')}')"
         style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px;">
         💬 Ver chat
       </button>`}
