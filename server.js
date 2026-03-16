@@ -395,6 +395,7 @@ async function initDB() {
     );
     ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS highlight_label TEXT DEFAULT '';
     ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS banner_type TEXT DEFAULT 'promo';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -507,6 +508,7 @@ async function initDB() {
       link TEXT DEFAULT '',
       sort_order INTEGER DEFAULT 0,
       active BOOLEAN DEFAULT TRUE,
+      banner_type TEXT DEFAULT 'promo',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS favorites (
@@ -3135,24 +3137,32 @@ app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business
 // ── PROMO BANNERS API ──
 app.get('/api/banners', async (req,res)=>{
   try {
+    const bannerType = req.query.type || 'promo';
     const rows = await db.query(
-      "SELECT id,title,subtitle,highlight,highlight_label,emoji,bg_color,image_url FROM promo_banners WHERE active=TRUE ORDER BY sort_order ASC, created_at DESC"
+      "SELECT id,title,subtitle,highlight,highlight_label,emoji,bg_color,image_url FROM promo_banners WHERE active=TRUE AND banner_type=$1 ORDER BY sort_order ASC, created_at DESC",
+      [bannerType]
     );
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
 app.get('/api/banners/admin', auth, role('admin'), async (req,res)=>{
   try {
-    const rows = await db.query("SELECT *,active as is_active FROM promo_banners ORDER BY sort_order ASC, created_at DESC");
+    const bannerType = req.query.type;
+    let query = "SELECT *,active as is_active FROM promo_banners";
+    let params = [];
+    if (bannerType) { query += " WHERE banner_type=$1"; params.push(bannerType); }
+    query += " ORDER BY sort_order ASC, created_at DESC";
+    const rows = await db.query(query, params);
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
 app.post('/api/admin/banners', auth, role('admin'), async (req,res)=>{
-  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active,image_url} = req.body;
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active,image_url,banner_type} = req.body;
   const id = 'ban_'+Date.now();
   const active = is_active !== false;
-  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
-    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active,image_url||'']);
+  const type = banner_type || 'promo';
+  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url,banner_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active,image_url||'',type]);
   res.json({ok:true,id});
 });
 // Upload banner image (returns URL, doesn't require banner ID)
