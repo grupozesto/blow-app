@@ -115,19 +115,23 @@ html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',
 .sc{flex:1;overflow-y:auto;background:#fff;}
 
 /* ── BANNER — full width PedidosYa style ── */
-.banner-wrap{padding:0;margin-bottom:0;position:relative;overflow:hidden;width:100%;}
+.banner-wrap{padding:16px 0 8px;position:relative;overflow:hidden;width:100%;}
 .banner-viewport{position:relative;width:100%;overflow:hidden;}
-.banner-track{display:flex;width:300%;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform;}
-.banner-slide{position:relative;width:33.3333%;flex-shrink:0;height:195px;overflow:hidden;padding:24px 20px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer;background:linear-gradient(135deg,var(--primary) 40%,#6b00cc);box-sizing:border-box;}
-.banner-slide.s2{background:linear-gradient(135deg,#3b0096,#6b00cc 50%,var(--primary));}
-.banner-slide.s3{background:linear-gradient(135deg,#00704a,#00b67a);}
-.btag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:8px;}
-.btitle{font-size:22px;font-weight:900;color:#fff;line-height:1.15;margin-bottom:6px;letter-spacing:-.3px;}
+.banner-track{display:flex;gap:12px;padding:0 16px;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform;box-sizing:border-box;}
+.banner-slide{position:relative;flex-shrink:0;width:calc(100% - 48px);max-width:480px;height:160px;border-radius:20px;overflow:hidden;cursor:pointer;display:flex;align-items:stretch;box-shadow:0 4px 20px rgba(0,0,0,.13);box-sizing:border-box;}
+.banner-slide-left{flex:1;padding:20px 16px 20px 20px;display:flex;flex-direction:column;justify-content:center;z-index:1;}
+.banner-slide-img{width:48%;position:relative;overflow:hidden;flex-shrink:0;}
+.banner-slide-img img{width:100%;height:100%;object-fit:cover;}
+.banner-slide-img-emoji{width:48%;display:flex;align-items:center;justify-content:center;font-size:72px;opacity:.9;}
+.btag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:6px;}
+.btitle{font-size:20px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:4px;letter-spacing:-.3px;}
 .bsub{font-size:12px;color:rgba(255,255,255,.85);line-height:1.4;}
 .bsub strong{color:#FFB800;}
-.bcta{display:inline-block;background:#fff;color:var(--primary);border-radius:20px;padding:7px 16px;font-size:12px;font-weight:800;border:none;cursor:pointer;margin-top:10px;}
-.btext{position:relative;z-index:1;max-width:60%;min-width:0;}
-.bemoji-wrap{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:85px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,.18));z-index:0;pointer-events:none;user-select:none;overflow:hidden;}
+.bcta{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.22);backdrop-filter:blur(4px);color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:800;border:2px solid rgba(255,255,255,.4);cursor:pointer;margin-top:10px;font-family:inherit;}
+.btext{position:relative;z-index:1;}
+.bemoji-wrap{display:flex;align-items:center;justify-content:center;font-size:72px;}
+.bhighlight{font-size:32px;font-weight:900;color:#FFB800;line-height:1;margin-bottom:2px;}
+.bstore-badge{position:absolute;top:10px;right:10px;background:#fff;border-radius:10px;padding:4px 8px;font-size:11px;font-weight:800;color:#0f172a;box-shadow:0 2px 8px rgba(0,0,0,.15);}
 .bdots{display:flex;justify-content:center;gap:6px;padding:10px 0 4px;background:#fff;}
 .bdot{width:7px;height:7px;border-radius:50%;background:#ddd;cursor:pointer;transition:all .2s;}
 .bdot.active{background:var(--primary);width:18px;border-radius:4px;}
@@ -3067,10 +3071,14 @@ let bIdx = 0, bTotal = 3, bTimer = null;
 
 function goBanner(i) {
   bIdx = i;
-  const t = document.getElementById('banner-track');
-  if (!t) return;
-  const pct = bTotal > 0 ? (100 / bTotal) : 33.3333;
-  t.style.transform = `translateX(-${i * pct}%)`;
+  const track = document.getElementById('banner-track');
+  if (!track) return;
+  // Get the width of one card + gap (12px)
+  const card = track.querySelector('.banner-slide');
+  if (card) {
+    const cardW = card.offsetWidth + 12;
+    track.style.transform = `translateX(-${i * cardW}px)`;
+  }
   document.querySelectorAll('.bdot').forEach((d,j) => d.classList.toggle('active', j===i));
 }
 
@@ -3101,33 +3109,66 @@ function _renderMainBanners(banners) {
   const dots  = document.getElementById('bdots');
   if (!track || !dots) return;
   bTotal = banners.length || 1;
-  track.style.width = (bTotal * 100) + '%';
-  track.innerHTML = banners.map((b, i) => {
+  // Card-style: no percentage widths, just natural flex with gap
+  track.style.width = '';
+  track.innerHTML = banners.map((b, idx) => {
     const bg = b.bg_color || '#ea356b';
-    const emoji = esc(b.emoji || '🍔');
-    const title = esc((b.title || '').replace(/\n/g,'<br>'));
+    const emoji = b.emoji || '';
+    const title = esc((b.title || '').replace(/\n/g, '<br>'));
     const sub   = esc(b.subtitle || '');
     const badge = esc(b.highlight || '');
+    const tag   = esc(b.highlight_label || '');
     const url   = b.link ? `onclick="window.open('${esc(b.link)}','_blank')"` : '';
-    const imgHtml = b.image_url
-      ? `<img src="${esc(b.image_url)}" style="position:absolute;right:0;bottom:0;height:100%;width:auto;object-fit:cover;opacity:.25;border-radius:inherit;">`
-      : '';
-    return `<div class="banner-slide" id="banner-${i}" style="width:${100/bTotal}%;background:linear-gradient(135deg,${bg} 40%,${bg}cc);flex-shrink:0;" ${url}>
-      ${imgHtml}
-      <div class="btext">
-        ${badge ? `<div class="btag">${badge}</div>` : ''}
+
+    // Right side: image if available, else emoji
+    const rightSide = b.image_url
+      ? `<div class="banner-slide-img"><img src="${esc(b.image_url)}" alt="${title}"></div>`
+      : `<div class="banner-slide-img-emoji">${emoji}</div>`;
+
+    return `<div class="banner-slide" style="background:linear-gradient(135deg,${bg} 0%,${bg}cc 100%);" ${url}>
+      <div class="banner-slide-left">
+        ${tag ? `<div class="btag">${tag}</div>` : ''}
+        ${badge ? `<div class="bhighlight">${badge}</div>` : ''}
         <div class="btitle">${title}</div>
         ${sub ? `<div class="bsub">${sub}</div>` : ''}
       </div>
-      <div class="bemoji-wrap">${emoji}</div>
+      ${rightSide}
     </div>`;
   }).join('');
+
+  // Dots
   dots.innerHTML = banners.map((_,i) =>
     `<div class="bdot${i===0?' active':''}" onclick="goBanner(${i})"></div>`
   ).join('');
+
+  // Touch/drag support for swipe
+  _initBannerSwipe();
+
   bIdx = 0;
   goBanner(0);
   _startBannerAuto();
+}
+
+function _initBannerSwipe() {
+  const track = document.getElementById('banner-track');
+  if (!track || track._swipeInit) return;
+  track._swipeInit = true;
+  let startX = 0, isDragging = false;
+  track.addEventListener('touchstart', e => { startX = e.touches[0].clientX; isDragging = true; }, {passive:true});
+  track.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 40) goBanner(dx < 0 ? Math.min(bIdx+1, bTotal-1) : Math.max(bIdx-1, 0));
+    isDragging = false;
+  }, {passive:true});
+  // Mouse drag for desktop
+  track.addEventListener('mousedown', e => { startX = e.clientX; isDragging = true; });
+  track.addEventListener('mouseup', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 40) goBanner(dx < 0 ? Math.min(bIdx+1, bTotal-1) : Math.max(bIdx-1, 0));
+    isDragging = false;
+  });
 }
 
 // ═══════════════════════════════════════════════
@@ -8191,33 +8232,66 @@ if (activeCity) {
     // Owners: tienen el overlay directo
     // Payment return: no relanzar GPS, ya hay ciudad guardada o se muestra "Elegir ubicación"
   } else {
-    setTimeout(() => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const { latitude: lat, longitude: lng } = pos.coords;
-            const geo = await geocodeCoords(lat, lng);
-            if (geo?.city) {
-              activeCity = geo.city;
-              activeDept = geo.dept || '';
-              localStorage.setItem('da_city', geo.city);
-              localStorage.setItem('da_dept', geo.dept || '');
-              updateHeaderCity();
-              loadStores();
-              showToast(`📍 Ubicación detectada: ${geo.city}`);
-            } else {
-              openLocModal();
-            }
-          },
-          () => {
-            // GPS denegado — invitar sin ser intrusivo
-            showToast('📍 Activá la ubicación para ver negocios cercanos');
-          },
-          { timeout: 8000 }
-        );
-      }
-    }, 1500);
+    // Show location permission popup after a short delay
+    setTimeout(() => showLocationPopup(), 800);
   }
+}
+
+function showLocationPopup() {
+  if (document.getElementById('location-popup')) return; // already showing
+  const popup = document.createElement('div');
+  popup.id = 'location-popup';
+  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease;';
+  popup.innerHTML = `
+    <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:520px;padding:32px 24px 40px;text-align:center;">
+      <div style="width:64px;height:64px;background:rgba(234,53,107,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">📍</div>
+      <div style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:8px;">¿Dónde estás?</div>
+      <div style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.5;">Usamos tu ubicación para mostrarte los negocios más cercanos y calcular el tiempo de entrega.</div>
+      <button onclick="_useGPS()" style="width:100%;background:var(--primary);border:none;border-radius:14px;padding:15px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <span>📍</span> Usar mi ubicación actual
+      </button>
+      <button onclick="document.getElementById('location-popup')?.remove();openLocModal()" style="width:100%;background:#f1f5f9;border:none;border-radius:14px;padding:15px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+        Ingresar dirección manualmente
+      </button>
+    </div>`;
+  document.body.appendChild(popup);
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+}
+
+async function _useGPS() {
+  const popup = document.getElementById('location-popup');
+  if (popup) {
+    popup.querySelector('button').textContent = 'Detectando...';
+    popup.querySelector('button').disabled = true;
+  }
+  if (!navigator.geolocation) {
+    popup?.remove();
+    openLocModal();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      popup?.remove();
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const geo = await geocodeCoords(lat, lng);
+      if (geo?.city) {
+        activeCity = geo.city;
+        activeDept = geo.dept || '';
+        localStorage.setItem('da_city', geo.city);
+        localStorage.setItem('da_dept', geo.dept || '');
+        updateHeaderCity();
+        loadStores();
+        showToast(`📍 ${geo.city}`);
+      } else {
+        openLocModal();
+      }
+    },
+    () => {
+      popup?.remove();
+      openLocModal();
+    },
+    { timeout: 8000 }
+  );
 }
 
 if (token) connectWS();
