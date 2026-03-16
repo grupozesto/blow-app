@@ -3136,6 +3136,13 @@ function nav(pageId) {
     loadAdminPanel();
   }
   window.scrollTo(0,0);
+  // Also scroll the internal scroll container of the active page to top
+  const activePage = document.getElementById(pageId);
+  if (activePage) {
+    const sc = activePage.querySelector('.sc');
+    if (sc) sc.scrollTop = 0;
+    activePage.scrollTop = 0;
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -3691,7 +3698,13 @@ window.addEventListener('load', () => {
   if (splash) {
     setTimeout(() => {
       splash.style.opacity = '0';
-      setTimeout(() => { splash.style.display = 'none'; }, 420);
+      setTimeout(() => {
+        splash.style.display = 'none';
+        // Ensure home page starts scrolled to top
+        const homeSc = document.querySelector('#page-home .sc');
+        if (homeSc) homeSc.scrollTop = 0;
+        window.scrollTo(0,0);
+      }, 420);
     }, 1200);
   }
 });
