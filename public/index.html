@@ -2833,6 +2833,16 @@ let selectedFulfillment = 'delivery';
 let currentStoreForCart = null;
 let appCategories = [];
 
+// ═══════════════════════════════════════════════
+//  XSS SANITIZATION
+// ═══════════════════════════════════════════════
+function esc(str) {
+  if (typeof str !== 'string') return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 // Registro global de productos — evita pasar JSON en onclick
 const _prodReg = {};
 
@@ -3133,18 +3143,18 @@ const FALLBACK_BANNERS = [
 
 function buildPromoSlide(b, idx) {
   const bg = b.image_url
-    ? `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 45%, transparent 100%), url('${b.image_url}') right center/cover no-repeat;`
-    : `background:linear-gradient(120deg,${b.bg_color||'#ea356b'} 60%,${shadeColor(b.bg_color||'#ea356b', 25)} 100%);`;
+    ? `background:linear-gradient(120deg,${esc(b.bg_color||'#ea356b')} 45%, transparent 100%), url('${esc(b.image_url)}') right center/cover no-repeat;`
+    : `background:linear-gradient(120deg,${esc(b.bg_color||'#ea356b')} 60%,${shadeColor(b.bg_color||'#ea356b', 25)} 100%);`;
   const media = b.image_url
-    ? `<img src="${b.image_url}" class="pcs-img" alt="">`
-    : `<span class="pcs-emoji">${b.emoji||'🍔'}</span>`;
+    ? `<img src="${esc(b.image_url)}" class="pcs-img" alt="">`
+    : `<span class="pcs-emoji">${esc(b.emoji||'🍔')}</span>`;
   const hlBlock = b.highlight
-    ? `${b.highlight_label ? `<div class="pcs-hl-label">${b.highlight_label}</div>` : ''}
-       <div class="pcs-hl">${b.highlight}</div>` : '';
+    ? `${b.highlight_label ? `<div class="pcs-hl-label">${esc(b.highlight_label)}</div>` : ''}
+       <div class="pcs-hl">${esc(b.highlight)}</div>` : '';
   return `<div class="pcarousel-slide" style="${bg}" data-idx="${idx}">
     <div class="pcs-text">
-      <div class="pcs-title">${(b.title||'').replace(/\n/g,'<br>')}</div>
-      ${b.subtitle ? `<div class="pcs-sub">${b.subtitle}</div>` : ''}
+      <div class="pcs-title">${esc((b.title||'').replace(/\n/g,'<br>'))}</div>
+      ${b.subtitle ? `<div class="pcs-sub">${esc(b.subtitle)}</div>` : ''}
       ${hlBlock}
     </div>
     ${media}
