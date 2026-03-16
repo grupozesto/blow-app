@@ -44,7 +44,7 @@ self.addEventListener('fetch', e => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
         if (res.ok && (url.origin === self.location.origin || url.origin.includes('fonts'))) {
-          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+          try { const clone = res.clone(); caches.open(CACHE).then(c => c.put(e.request, clone)); } catch(err) {}
         }
         return res;
       }).catch(() => {
