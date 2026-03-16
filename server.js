@@ -42,6 +42,10 @@ app.set('trust proxy', 1); // Railway runs behind a proxy
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
 const JWT_SECRET   = process.env.JWT_SECRET || 'dev_secret_cambiar_en_prod';
+if (IS_PROD && JWT_SECRET === 'dev_secret_cambiar_en_prod') {
+  console.error('❌ FATAL: JWT_SECRET no está configurado en producción. Configuralo en Railway.');
+  process.exit(1);
+}
 const PLATFORM_FEE_DEFAULT = parseFloat(process.env.PLATFORM_FEE_PERCENT || 0) / 100;
 async function getPlatformFee() {
   try {
@@ -619,7 +623,15 @@ let multerUpload = null;
 try {
   const multer = require('multer');
   // Always use memory storage — upload manually to Cloudinary to avoid signature issues
-  multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+  multerUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
+      if (allowed.includes(file.mimetype)) cb(null, true);
+      else cb(new Error('Solo se permiten imágenes (JPG, PNG, WebP, GIF)'));
+    }
+  });
 } catch(e) { console.log('Multer not available:', e.message); }
 
 function uploadMiddleware(field) {
