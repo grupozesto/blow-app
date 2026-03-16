@@ -2879,22 +2879,7 @@ let appCategories = [];
 const _prodReg = {};
 
 // Demo stores for when backend is not configured yet
-const DEMO_STORES = [
-  {id:'demo-1',logo_emoji:'🍔',name:'Burger Palace',category:'food',rating:4.8,delivery_time:'20-30',delivery_cost:50,tag:'Más pedido',is_open:1},
-  {id:'demo-2',logo_emoji:'🍕',name:'Pizza Roma',category:'food',rating:4.6,delivery_time:'25-40',delivery_cost:0,tag:'Envío gratis',is_open:1},
-  {id:'demo-3',logo_emoji:'🛒',name:'SuperFresh',category:'market',rating:4.5,delivery_time:'35-50',delivery_cost:80,tag:'Supermercado',is_open:1},
-  {id:'demo-4',logo_emoji:'💊',name:'Farmacia Central',category:'pharmacy',rating:4.9,delivery_time:'15-25',delivery_cost:40,tag:'24hs',is_open:1},
-  {id:'demo-5',logo_emoji:'🥤',name:'BubbleTea & More',category:'drinks',rating:4.7,delivery_time:'20-35',delivery_cost:0,tag:'Envío gratis',is_open:1},
-  {id:'demo-6',logo_emoji:'🍰',name:'Sweet Corner',category:'desserts',rating:4.8,delivery_time:'25-40',delivery_cost:60,tag:'Postres',is_open:1},
-];
-const DEMO_PRODUCTS = {
-  'demo-1':[{id:'p101',emoji:'🍔',name:'Classic Burger',description:'Carne angus, queso cheddar, lechuga, tomate.',price:320},{id:'p102',emoji:'🍟',name:'Papas Fritas',description:'Papas crocantes con sal.',price:140},{id:'p103',emoji:'🌭',name:'Hot Dog',description:'Salchicha alemana, mostaza y ketchup.',price:210},{id:'p104',emoji:'🥤',name:'Bebida',description:'Gaseosa 500ml a elección.',price:90}],
-  'demo-2':[{id:'p201',emoji:'🍕',name:'Margherita',description:'Salsa de tomate, mozzarella y albahaca.',price:480},{id:'p202',emoji:'🍕',name:'Pepperoni',description:'Pepperoni importado sobre base de tomate.',price:560},{id:'p203',emoji:'🥗',name:'Ensalada Caesar',description:'Lechuga romana, crutones, parmesano.',price:220}],
-  'demo-3':[{id:'p301',emoji:'🥛',name:'Leche x 1L',description:'Leche entera pasteurizada.',price:65},{id:'p302',emoji:'🍞',name:'Pan lactal',description:'Pan de molde 500g.',price:90},{id:'p303',emoji:'🥚',name:'Huevos x12',description:'Huevos blancos frescos.',price:140}],
-  'demo-4':[{id:'p401',emoji:'💊',name:'Ibuprofeno 400mg',description:'Antiinflamatorio, caja x20.',price:180},{id:'p402',emoji:'🩺',name:'Termómetro digital',description:'Con estuche incluido.',price:450},{id:'p403',emoji:'🩹',name:'Curitas surtidas',description:'Caja de 30 vendas.',price:95}],
-  'demo-5':[{id:'p501',emoji:'🧋',name:'Bubble Tea Taro',description:'Con perlas de tapioca y leche.',price:290},{id:'p502',emoji:'🥤',name:'Smoothie Mango',description:'Mango fresco, banana y yogur.',price:220},{id:'p503',emoji:'☕',name:'Cold Brew',description:'Café frío preparado en 24h.',price:180}],
-  'demo-6':[{id:'p601',emoji:'🎂',name:'Cheesecake NY',description:'Con salsa de frutos rojos.',price:340},{id:'p602',emoji:'🍫',name:'Brownie choco',description:'Con helado de vainilla.',price:220},{id:'p603',emoji:'🍩',name:'Donuts x4',description:'Glaseadas surtidas.',price:260}],
-};
+const DEMO_STORES = [];
 let allStores = DEMO_STORES;
 
 // ═══════════════════════════════════════════════
@@ -3524,12 +3509,13 @@ async function loadStores() {
       allStores = data;
       isDemoMode = false;
     } else {
-      allStores = DEMO_STORES;
-      isDemoMode = true;
+      allStores = [];
+      isDemoMode = false;
     }
   } catch(e) {
-    allStores = DEMO_STORES;
-    isDemoMode = true;
+    console.error('loadStores error:', e);
+    allStores = [];
+    isDemoMode = false;
   }
   applyAllFilters();
 }
@@ -3893,19 +3879,14 @@ function shareStore(id, name, e) {
 }
 
 async function openStore(id) {
-  if (isDemoMode || id.startsWith('demo-')) {
-    // Demo store
-    const s = DEMO_STORES.find(x => x.id===id) || allStores.find(x => x.id===id);
-    const prods = DEMO_PRODUCTS[id] || [];
-    renderStoreDetail(s, prods);
-  } else {
-    try {
-      const b = await api(`/api/businesses/${id}`);
-      renderStoreDetail(b, b.products||[]);
-    } catch(e) { showToast('❌ Error cargando tienda'); }
-  }
   currentBizId = id;
   nav('page-store');
+  try {
+    const b = await api(`/api/businesses/${id}`);
+    renderStoreDetail(b, b.products||[]);
+  } catch(e) {
+    showToast('❌ Error al cargar el negocio');
+  }
 }
 
 function renderStoreDetail(s, products) {
@@ -5011,7 +4992,7 @@ async function doCheckout() {
   if (!cart.length) return;
 
   const bizId = cart[0]?.biz_id;
-  if (!bizId && !isDemoMode) {
+  if (!bizId) {
     showToast('❌ Error inesperado: el carrito no tiene negocio. Volvé a agregar los productos.');
     return;
   }
@@ -5020,12 +5001,6 @@ async function doCheckout() {
   btn.disabled = true;
   btn.textContent = '⏳ Procesando...';
 
-  if (isDemoMode || !bizId || bizId.startsWith('demo-')) {
-    cart = []; saveCart(); updateCartBadge();
-    showToast('🎉 ¡Pedido confirmado! (modo demo)');
-    setTimeout(() => nav('page-tracking'), 800);
-    return;
-  }
 
   // Guardamos los valores ANTES de limpiar el estado
   const payMethod     = _chkPayMethod;
