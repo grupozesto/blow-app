@@ -505,6 +505,15 @@ async function initDB() {
       active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS favorites (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL,
+      business_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, product_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
   `);
   // Seed default categories if none exist
   const catCount = await q1('SELECT COUNT(*) as c FROM business_categories',[]);
@@ -772,6 +781,76 @@ async function sendEmail(to, subject, html) {
     console.log('✅ Email enviado a', to);
     return true;
   } catch(e) { console.error('Email error:', e.message); return false; }
+}
+
+// ── Order status email notifications ───────────────
+async function sendOrderStatusEmail(order, status, bizName) {
+  if (!order.customer_id) return;
+  const customer = await q1('SELECT name,email FROM users WHERE id=$1', [order.customer_id]);
+  if (!customer?.email) return;
+  const code = '#' + order.id.slice(-6).toUpperCase();
+  const name = escHtml(customer.name?.split(' ')[0] || 'Cliente');
+  const biz = escHtml(bizName || 'el negocio');
+  const total = '$' + (order.total || 0);
+
+  const templates = {
+    confirmed: {
+      subject: `✅ Pedido ${code} confirmado — Blow`,
+      emoji: '✅', title: '¡Tu pedido fue confirmado!',
+      body: `<b>${biz}</b> aceptó tu pedido ${code} por ${total}. Te avisaremos cuando esté en preparación.`,
+      color: '#22c55e'
+    },
+    preparing: {
+      subject: `👨‍🍳 Pedido ${code} en preparación — Blow`,
+      emoji: '👨‍🍳', title: 'Estamos preparando tu pedido',
+      body: `Tu pedido ${code} de <b>${biz}</b> está siendo preparado. ¡Ya falta poco!`,
+      color: '#f59e0b'
+    },
+    ready: {
+      subject: `🟢 Pedido ${code} listo — Blow`,
+      emoji: '🟢', title: '¡Tu pedido está listo!',
+      body: `Tu pedido ${code} de <b>${biz}</b> ya está listo para ser entregado o retirado.`,
+      color: '#3b82f6'
+    },
+    on_way: {
+      subject: `🛵 Pedido ${code} en camino — Blow`,
+      emoji: '🛵', title: '¡Tu pedido está en camino!',
+      body: `Tu pedido ${code} de <b>${biz}</b> ya salió. Preparate para recibirlo.`,
+      color: '#8b5cf6'
+    },
+    delivered: {
+      subject: `🎉 Pedido ${code} entregado — Blow`,
+      emoji: '🎉', title: '¡Buen provecho!',
+      body: `Tu pedido ${code} de <b>${biz}</b> fue entregado. ¡Esperamos que lo disfrutes!<br><br>¿Cómo fue tu experiencia? Dejá tu reseña en la app.`,
+      color: '#ea356b'
+    },
+    cancelled: {
+      subject: `❌ Pedido ${code} cancelado — Blow`,
+      emoji: '❌', title: 'Tu pedido fue cancelado',
+      body: `Tu pedido ${code} de <b>${biz}</b> fue cancelado. Si tenés dudas, contactanos desde la app.`,
+      color: '#ef4444'
+    }
+  };
+  const t = templates[status];
+  if (!t) return;
+  const html = `
+    <div style="max-width:480px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      <div style="background:${t.color};padding:24px;text-align:center;border-radius:12px 12px 0 0;">
+        <div style="font-size:48px;margin-bottom:8px;">${t.emoji}</div>
+        <div style="font-size:22px;font-weight:800;color:#fff;">${t.title}</div>
+      </div>
+      <div style="background:#fff;padding:24px;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px;">
+        <p style="font-size:15px;color:#333;line-height:1.6;margin:0 0 16px;">Hola <b>${name}</b>,</p>
+        <p style="font-size:15px;color:#333;line-height:1.6;margin:0 0 20px;">${t.body}</p>
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px;margin-bottom:16px;">
+          <div style="font-size:12px;color:#999;margin-bottom:4px;">PEDIDO</div>
+          <div style="font-size:18px;font-weight:800;color:#0f172a;">${code}</div>
+        </div>
+        <a href="https://blow.uy" style="display:block;text-align:center;background:${t.color};color:#fff;text-decoration:none;padding:14px;border-radius:10px;font-weight:700;font-size:15px;">Ver mi pedido en Blow</a>
+        <p style="font-size:12px;color:#aaa;margin-top:20px;text-align:center;">Blow — Pedidos a domicilio</p>
+      </div>
+    </div>`;
+  sendEmail(customer.email, t.subject, html).catch(() => {});
 }
 
 app.post('/api/auth/register', async (req, res) => {
@@ -1695,8 +1774,10 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const pushMsg = PUSH_MSG[status];
   if (pushMsg) sendPushToUser(order.customer_id, { ...pushMsg, tag: `order-${order.id}`, url: '/?tab=tracking' });
   notify(order.customer_id,{ type:'status_change',message:`Tu pedido: ${status}`,status,order_id:order.id });
-  const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
+  const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_update',status,order_id:order.id });
+  // Send email notification to customer (fire-and-forget)
+  sendOrderStatusEmail(order, status, biz?.name).catch(() => {});
   res.json(await q1('SELECT * FROM orders WHERE id=$1',[order.id]));
 });
 
@@ -1747,6 +1828,8 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   if (req.user.role==='owner') {
     sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local. Contactanos si tenés dudas.`, tag:`order-${order.id}`, url:'/?tab=tracking' });
   }
+  // Email notification
+  sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
   res.json({ success:true });
 });
 
@@ -2297,6 +2380,27 @@ app.post('/api/bank-accounts', auth, async (req, res) => {
 app.delete('/api/bank-accounts/:id', auth, async (req, res) => {
   await q('DELETE FROM bank_accounts WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
   res.json({ success:true });
+});
+
+// ════════════════════════════════════════════════
+//  FAVORITOS
+// ════════════════════════════════════════════════
+app.get('/api/favorites', auth, async (req, res) => {
+  const favs = await qa('SELECT f.*, p.name, p.price, p.emoji, p.photo_url, p.business_id, b.name as business_name FROM favorites f LEFT JOIN products p ON p.id=f.product_id LEFT JOIN businesses b ON b.id=f.business_id ORDER BY f.created_at DESC', []);
+  res.json(favs.filter(f => f.user_id === req.user.id));
+});
+app.post('/api/favorites', auth, async (req, res) => {
+  const { product_id, business_id } = req.body;
+  if (!product_id) return res.status(400).json({ error:'product_id requerido' });
+  const existing = await q1('SELECT id FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, product_id]);
+  if (existing) return res.json({ ok:true, id:existing.id });
+  const id = uuid();
+  await q('INSERT INTO favorites (id,user_id,product_id,business_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [id, req.user.id, product_id, business_id||'']);
+  res.json({ ok:true, id });
+});
+app.delete('/api/favorites/:productId', auth, async (req, res) => {
+  await q('DELETE FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, req.params.productId]);
+  res.json({ ok:true });
 });
 
 // ════════════════════════════════════════════════
