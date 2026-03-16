@@ -212,6 +212,9 @@ hr{border-color:var(--border);}
     </button>
 
     <div class="nav-section">Sistema</div>
+    <button class="nav-item" onclick="showPage('support')" id="nav-support">
+      <span class="nav-icon">🛟</span>Soporte chat
+    </button>
     <button class="nav-item" onclick="showPage('config')" id="nav-config">
       <span class="nav-icon">⚙️</span>Configuración
     </button>
@@ -318,9 +321,9 @@ function showPage(page) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   const navEl = document.getElementById('nav-' + page);
   if (navEl) navEl.classList.add('active');
-  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', config:'Configuración', export:'Exportar datos' };
+  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', config:'Configuración', export:'Exportar datos' };
   document.getElementById('page-title').textContent = titles[page] || page;
-  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, config: renderConfig, export: renderExport };
+  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, config: renderConfig, export: renderExport };
   if (pages[page]) pages[page]();
 }
 
@@ -1139,6 +1142,102 @@ async function toggleBan(id, isBanned) {
     showToast(isBanned ? '✅ Usuario desbaneado' : '⛔ Usuario baneado');
     loadUsers();
   } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── SOPORTE CHAT ──────────────────────────────
+let _supportActiveUser = null;
+let _supportPollAdmin = null;
+
+async function renderSupport() {
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;gap:20px;height:calc(100vh - 120px);">
+      <!-- Conversations list -->
+      <div style="width:320px;background:var(--surface);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;">
+        <div style="padding:16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:800;">💬 Conversaciones</div>
+        <div id="support-convos" style="flex:1;overflow-y:auto;"></div>
+      </div>
+      <!-- Chat area -->
+      <div style="flex:1;background:var(--surface);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;">
+        <div id="support-chat-header" style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--muted);">Seleccioná una conversación</div>
+        <div id="support-admin-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;">
+          <div style="text-align:center;color:var(--muted);padding:60px 20px;font-size:14px;">← Elegí un usuario para responder</div>
+        </div>
+        <div id="support-admin-input-area" style="display:none;padding:12px 16px;background:#fff;border-top:1px solid var(--border);">
+          <div style="display:flex;gap:8px;">
+            <input id="support-admin-input" placeholder="Escribí tu respuesta..." style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-family:'Inter',sans-serif;outline:none;"
+              onkeydown="if(event.key==='Enter')sendAdminSupportReply()">
+            <button onclick="sendAdminSupportReply()" style="background:var(--primary);border:none;border-radius:10px;padding:10px 18px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  loadSupportConversations();
+  clearInterval(_supportPollAdmin);
+  _supportPollAdmin = setInterval(() => {
+    if (currentPage === 'support') {
+      loadSupportConversations();
+      if (_supportActiveUser) loadAdminChatMessages(_supportActiveUser);
+    } else clearInterval(_supportPollAdmin);
+  }, 6000);
+}
+
+async function loadSupportConversations() {
+  try {
+    const convos = await api('/api/admin/support/conversations');
+    const el = document.getElementById('support-convos');
+    if (!el) return;
+    if (!convos.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 16px;font-size:13px;">No hay conversaciones de soporte</div>'; return; }
+    el.innerHTML = convos.map(c => {
+      const active = _supportActiveUser === c.user_id;
+      const time = new Date(c.last_message_at).toLocaleString('es-UY', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div onclick="openAdminChat('${c.user_id}','${esc(c.user_name||'Usuario')}')" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);background:${active?'var(--surface2)':'transparent'};transition:.15s;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(c.user_name||'Usuario')}</div>
+          <div style="font-size:10px;color:var(--muted);">${time}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc((c.last_message||'').slice(0,60))}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error('loadSupportConversations:', e); }
+}
+
+async function openAdminChat(userId, userName) {
+  _supportActiveUser = userId;
+  document.getElementById('support-chat-header').innerHTML = `<div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;">${(userName||'U')[0].toUpperCase()}</div><div><div style="font-size:14px;font-weight:800;">${esc(userName)}</div><div style="font-size:11px;color:var(--muted);">ID: ${userId.slice(0,8)}...</div></div></div>`;
+  document.getElementById('support-admin-input-area').style.display = '';
+  loadAdminChatMessages(userId);
+  loadSupportConversations(); // refresh active highlight
+}
+
+async function loadAdminChatMessages(userId) {
+  const container = document.getElementById('support-admin-messages');
+  if (!container) return;
+  try {
+    const msgs = await api('/api/admin/support/messages/' + userId);
+    if (!msgs.length) { container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">Sin mensajes</div>'; return; }
+    container.innerHTML = msgs.map(m => {
+      const isAdmin = m.sender_role === 'admin';
+      const time = new Date(m.created_at).toLocaleTimeString('es-UY', {hour:'2-digit',minute:'2-digit'});
+      return `<div style="max-width:75%;${isAdmin?'align-self:flex-end;':'align-self:flex-start;'}">
+        <div style="background:${isAdmin?'var(--primary)':'#fff'};color:${isAdmin?'#fff':'var(--text)'};border-radius:${isAdmin?'12px 12px 4px 12px':'12px 12px 12px 4px'};padding:10px 14px;font-size:13px;line-height:1.4;${isAdmin?'':'border:1px solid var(--border);'}">${esc(m.body)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;${isAdmin?'text-align:right;':''}">${isAdmin?'Vos (admin)':'Cliente'} · ${time}</div>
+      </div>`;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+  } catch { container.innerHTML = '<div style="color:var(--red);padding:20px;">Error al cargar</div>'; }
+}
+
+async function sendAdminSupportReply() {
+  const input = document.getElementById('support-admin-input');
+  if (!input || !_supportActiveUser) return;
+  const body = input.value.trim();
+  if (!body) return;
+  input.value = '';
+  try {
+    await api('/api/admin/support/messages/' + _supportActiveUser, { method:'POST', body: JSON.stringify({ body }) });
+    loadAdminChatMessages(_supportActiveUser);
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 // ── CONFIGURACIÓN ──────────────────────────────

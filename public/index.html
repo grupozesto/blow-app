@@ -2591,13 +2591,26 @@ body.owner-mode #owner-overlay {
       </div>
     </div>
 
-    <!-- Mensaje directo -->
-    <div style="margin-top:20px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,.06);">
-      <div style="font-size:15px;font-weight:800;margin-bottom:4px;">¿No encontraste lo que buscás?</div>
-      <div style="font-size:13px;color:#888;margin-bottom:14px;">Dejanos tu consulta y te respondemos a la brevedad.</div>
-      <textarea id="help-msg" rows="3" placeholder="Escribí tu consulta..." style="width:100%;border:1.5px solid #eee;border-radius:12px;padding:12px;font-size:14px;font-family:inherit;resize:none;box-sizing:border-box;outline:none;"></textarea>
-      <button onclick="sendHelpMessage()" style="width:100%;margin-top:10px;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">Enviar mensaje →</button>
-      <div id="help-result" style="font-size:13px;margin-top:10px;display:none;text-align:center;"></div>
+    <!-- Live Support Chat -->
+    <div style="margin-top:20px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.06);">
+      <div style="background:linear-gradient(135deg,#06112a,#1e4fd4);padding:16px 18px;display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;">🛟</div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff;">Chat con soporte</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);" id="support-status">Escribinos, te respondemos al instante</div>
+        </div>
+      </div>
+      <div id="support-chat-messages" style="height:300px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;">
+        <div style="text-align:center;color:#94a3b8;font-size:13px;padding:20px 0;">Cargando...</div>
+      </div>
+      <div style="padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:8px;align-items:flex-end;">
+        <textarea id="support-chat-input" placeholder="Escribí tu consulta..." rows="1"
+          style="flex:1;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px 14px;font-size:14px;font-family:'Inter',sans-serif;resize:none;outline:none;line-height:1.4;max-height:80px;overflow-y:auto;"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportMessage();}"></textarea>
+        <button onclick="sendSupportMessage()" style="background:var(--primary);border:none;border-radius:50%;width:40px;height:40px;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
     </div>
 
   </div>
@@ -2948,6 +2961,16 @@ function connectWS() {
         }
       }
       if (msg.type === 'order_delivered') showToast(msg.message);
+      if (msg.type === 'support_reply') {
+        showToast('🛟 Nuevo mensaje de soporte');
+        _playNotificationSound();
+        if (document.getElementById('page-help')?.classList.contains('active')) loadSupportChat();
+      }
+      if (msg.type === 'support_message') {
+        // For admin: notification of new support message
+        showToast('🛟 Nuevo mensaje de soporte');
+        _playNotificationSound();
+      }
       if (msg.type === 'chat_message') {
         // 🔔 Sound for chat messages too
         _playNotificationSound();
@@ -6950,7 +6973,59 @@ let userBlowPlusActive = false;
 
 function goToBlowPlus() { nav('page-user-blowplus'); }
 function loadBlowPlusBanner() { /* loaded via renderProfile */ }
-function initHelpPage() { /* no-op */ }
+function initHelpPage() { loadSupportChat(); }
+
+let _supportPollTimer = null;
+async function loadSupportChat() {
+  const container = document.getElementById('support-chat-messages');
+  if (!container) return;
+  if (!user || !token) {
+    container.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:40px 10px;">Iniciá sesión para chatear con soporte</div>';
+    return;
+  }
+  try {
+    const msgs = await api('/api/support/messages');
+    if (!msgs.length) {
+      container.innerHTML = `<div style="text-align:center;padding:30px 10px;">
+        <div style="font-size:36px;margin-bottom:8px;">👋</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">¡Hola${user.name ? ', ' + user.name.split(' ')[0] : ''}!</div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:4px;">Escribinos tu consulta y te respondemos al instante.</div>
+      </div>`;
+    } else {
+      container.innerHTML = msgs.map(m => {
+        const isMe = m.sender_role !== 'admin';
+        const time = new Date(m.created_at).toLocaleTimeString('es-UY', {hour:'2-digit',minute:'2-digit'});
+        return `<div style="max-width:80%;${isMe?'align-self:flex-end;':'align-self:flex-start;'}">
+          <div style="background:${isMe?'var(--primary)':'#fff'};color:${isMe?'#fff':'#0f172a'};border-radius:${isMe?'16px 16px 4px 16px':'16px 16px 16px 4px'};padding:10px 14px;font-size:14px;line-height:1.4;${isMe?'':'border:1px solid #e2e8f0;'}">
+            ${esc(m.body)}
+          </div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:3px;${isMe?'text-align:right;':''}">${isMe?'Vos':'🛟 Soporte Blow'} · ${time}</div>
+        </div>`;
+      }).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+  } catch { container.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:20px;">Error al cargar chat</div>'; }
+  // Auto-refresh every 8s while on help page
+  clearInterval(_supportPollTimer);
+  _supportPollTimer = setInterval(() => {
+    if (document.getElementById('page-help')?.classList.contains('active')) loadSupportChat();
+    else clearInterval(_supportPollTimer);
+  }, 8000);
+}
+
+async function sendSupportMessage() {
+  const input = document.getElementById('support-chat-input');
+  if (!input) return;
+  const body = input.value.trim();
+  if (!body) return;
+  if (!user || !token) { openAuth('Iniciá sesión para chatear con soporte'); return; }
+  input.value = '';
+  input.style.height = 'auto';
+  try {
+    await api('/api/support/messages', { method:'POST', body: JSON.stringify({ body }) });
+    loadSupportChat();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
 
 async function loadCoupons() {
   try {
