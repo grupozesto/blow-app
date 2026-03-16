@@ -1058,19 +1058,17 @@ body.owner-mode #owner-overlay {
     <!-- TIENDAS -->
     <div style="padding:16px 16px 0;">
       <div style="font-size:20px;font-weight:900;margin-bottom:12px;letter-spacing:-.3px;">Cerca de vos</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-        <div class="chips" id="chips" style="flex:1;min-width:0;">
+      <div class="chips" id="chips" style="margin-bottom:4px;">
           <div class="chip active" onclick="chipFilter(this,'all')">Todo</div>
           <div class="chip" onclick="chipFilter(this,'food')">🍔 Comida</div>
           <div class="chip" onclick="chipFilter(this,'market')">🛒 Mercado</div>
           <div class="chip" onclick="chipFilter(this,'pharmacy')">💊 Farmacia</div>
           <div class="chip" onclick="chipFilter(this,'drinks')">🥤 Bebidas</div>
           <div class="chip" onclick="chipFilter(this,'desserts')">🍰 Postres</div>
-        </div>
-        <button id="filter-toggle-btn" onclick="toggleFiltersPanel()" style="flex-shrink:0;display:flex;align-items:center;gap:5px;background:#fff;border:1.5px solid #e0e0e0;border-radius:30px;padding:8px 14px;font-size:13px;font-weight:700;color:#444;cursor:pointer;white-space:nowrap;transition:all .15s;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-          Filtros <span id="filter-active-badge" style="display:none;background:var(--primary);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:2px;">0</span>
-        </button>
+          <button id="filter-toggle-btn" onclick="toggleFiltersPanel()" class="chip" style="display:inline-flex;align-items:center;gap:5px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:#444;transition:all .15s;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            Filtros <span id="filter-active-badge" style="display:none;background:var(--primary);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:2px;">0</span>
+          </button>
       </div>
       <!-- Panel de filtros avanzados -->
       <div id="filters-panel" style="display:none;background:#fff;border-radius:16px;border:1.5px solid #f0f0f0;padding:16px;margin-top:8px;box-shadow:0 4px 20px rgba(0,0,0,.07);">
