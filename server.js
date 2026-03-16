@@ -1066,7 +1066,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
     const u = await q1('SELECT id,name,email,role FROM users WHERE id=$1', [data.user_id]);
     res.json({ ok: true, token: sign(u), user: { id:u.id, name:u.name, email:u.email, role:u.role } });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error('Reset password error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/auth/me', auth, async (req, res) => {
@@ -3646,5 +3646,22 @@ initDB().then(()=>{
       }
     } catch(e) { console.error('Stale orders cleanup error:', e.message); }
   }, 5 * 60000); // cada 5 minutos
+
+  // ── Auto-suspend expired subscriptions (cada 30 minutos) ──
+  setInterval(async () => {
+    try {
+      const expired = await qa(
+        `SELECT s.id, s.business_id, s.owner_id FROM subscriptions s
+         WHERE s.status='active' AND s.current_period_end IS NOT NULL AND s.current_period_end < NOW()`, []
+      );
+      for (const sub of expired) {
+        await q("UPDATE subscriptions SET status='past_due', updated_at=NOW() WHERE id=$1", [sub.id]);
+        // Close the business so it stops receiving orders
+        await q("UPDATE businesses SET is_open=FALSE WHERE id=$1", [sub.business_id]);
+        notify(sub.owner_id, { type:'subscription_issue', message:'⚠️ Tu suscripción venció. Renovála para seguir recibiendo pedidos.' });
+        console.log(`⏰ Subscription expired: business ${sub.business_id}`);
+      }
+    } catch(e) { console.error('Subscription expiry check error:', e.message); }
+  }, 30 * 60000); // cada 30 minutos
 
 }).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
