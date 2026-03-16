@@ -5289,6 +5289,7 @@ let _chkPriority = false;
 let _chkNotes = '';
 let _chkFulfillment = null; // 'delivery' | 'pickup' — null = auto
 let _chkAddress = '';
+let _chkScheduled = null; // ISO date string or null for ASAP
 let _chkNavFromOpen = false; // prevents double renderCheckoutPage
 let _chkAltAddress = '';
 let _chkShowAltAddr = false;
@@ -5399,6 +5400,29 @@ function renderCheckoutPage() {
         <div style="font-size:12px;color:#64748b;margin-top:2px;">${store?.name || ''} · ${store?.address || ''}</div>
       </div>
     </div>`}
+
+    <!-- CUÁNDO QUERÉS RECIBIRLO -->
+    <div style="background:#fff;border-radius:16px;padding:14px;margin-top:12px;border:1px solid #f1f5f9;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">📅 ¿Cuándo querés recibirlo?</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="chkSetSchedule(null)"
+          style="flex:1;padding:12px;border-radius:12px;border:2px solid ${!_chkScheduled?'#0f172a':'#e2e8f0'};background:${!_chkScheduled?'#0f172a':'#fff'};color:${!_chkScheduled?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;text-align:center;">
+          ⚡ Lo antes posible
+        </button>
+        <button onclick="chkOpenSchedulePicker()"
+          style="flex:1;padding:12px;border-radius:12px;border:2px solid ${_chkScheduled?'#0f172a':'#e2e8f0'};background:${_chkScheduled?'#0f172a':'#fff'};color:${_chkScheduled?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;text-align:center;">
+          ${_chkScheduled ? '📅 ' + new Date(_chkScheduled).toLocaleString('es-UY',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '📅 Programar'}
+        </button>
+      </div>
+      <div id="chk-schedule-picker" style="display:${_chkScheduled?'block':'none'};margin-top:12px;">
+        <input type="datetime-local" id="chk-schedule-input"
+          value="${_chkScheduled ? new Date(new Date(_chkScheduled).getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16) : ''}"
+          min="${new Date(Date.now() + 30*60000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"
+          max="${new Date(Date.now() + 7*24*3600000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)}"
+          onchange="chkApplySchedule(this.value)"
+          style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:'Inter',sans-serif;color:#0f172a;">
+      </div>
+    </div>
 
     <!-- MÉTODO DE PAGO -->
     <div style="margin-top:16px;margin-bottom:14px;">
@@ -5547,6 +5571,33 @@ function renderCheckoutPage() {
 
 function chkSetPay(method) {
   _chkPayMethod = method;
+  renderCheckoutPage();
+}
+
+function chkSetSchedule(val) {
+  _chkScheduled = val;
+  renderCheckoutPage();
+}
+function chkOpenSchedulePicker() {
+  const picker = document.getElementById('chk-schedule-picker');
+  if (picker) picker.style.display = 'block';
+  // If no date set yet, default to 1 hour from now
+  if (!_chkScheduled) {
+    const def = new Date(Date.now() + 60 * 60000);
+    def.setMinutes(Math.ceil(def.getMinutes() / 15) * 15, 0, 0); // round to nearest 15 min
+    _chkScheduled = def.toISOString();
+    const inp = document.getElementById('chk-schedule-input');
+    if (inp) inp.value = new Date(def.getTime() - def.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+  renderCheckoutPage();
+}
+function chkApplySchedule(val) {
+  if (!val) { _chkScheduled = null; renderCheckoutPage(); return; }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return;
+  const minTime = Date.now() + 30 * 60000;
+  if (d.getTime() < minTime) { showToast('Mínimo 30 minutos desde ahora'); return; }
+  _chkScheduled = d.toISOString();
   renderCheckoutPage();
 }
 
@@ -5704,7 +5755,8 @@ async function doCheckout() {
         tip: tipAmt,
         priority: _chkPriority,
         notes: _chkNotes || '',
-        coupon_code: activePromo?.code || ''
+        coupon_code: activePromo?.code || '',
+        scheduled_for: _chkScheduled || null
       })
     });
 
@@ -5712,10 +5764,10 @@ async function doCheckout() {
     cart = []; saveCart(); updateCartBadge();
     _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
     _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
-    _chkAltAddress = ''; _chkShowAltAddr = false;
+    _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
 
     if (payMethod === 'cash' || res.cash) {
-      showToast('✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
+      showToast(_chkScheduled ? '📅 ¡Pedido programado! El negocio lo confirmará.' : '✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
       setTimeout(() => nav('page-tracking'), 800);
     } else if (res.payment?.init_point && !res.payment.demo) {
       showToast('💳 Redirigiendo a MercadoPago...');
@@ -5760,7 +5812,8 @@ async function loadTracking() {
 
     body.innerHTML = orders.map(o => {
       const isPending   = o.status === 'pending';
-      const isCancelled = o.status === 'cancelled';
+      const isPaid      = o.status === 'paid';
+      const isCancelled = o.status === 'cancelled' || o.status === 'rejected';
       const stepIdx     = FLOW_STEPS.indexOf(o.status);
 
       const logoHtml = o.logo_url
@@ -5769,6 +5822,14 @@ async function loadTracking() {
 
       const chatClosed = o.status==='delivered' && o.delivered_at && ((Date.now()-new Date(o.delivered_at).getTime())/36e5>48);
       const hasUnread  = _chatUnread.has(o.id);
+
+      const schedHtml = o.scheduled_for ? `<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:12px;padding:10px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
+        <div style="font-size:22px;">📅</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#1d4ed8;">Pedido programado</div>
+          <div style="font-size:14px;font-weight:900;color:#1e40af;margin-top:2px;">${new Date(o.scheduled_for).toLocaleString('es-UY',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>` : '';
 
       return `<div class="order-card">
         <div class="oc-top">
@@ -5779,8 +5840,10 @@ async function loadTracking() {
               <div class="oc-time">${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
             </div>
           </div>
-          <div class="status-badge ${o.status}">${isPending?'⏳ Esperando pago':STATUS_LABELS[o.status]||o.status}</div>
+          <div class="status-badge ${o.status}">${isPending?'⏳ Esperando pago':isPaid?'💰 Pagado':o.status==='rejected'?'❌ Rechazado':STATUS_LABELS[o.status]||o.status}</div>
         </div>
+
+        ${schedHtml}
 
         ${isPending ? `
         <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
@@ -5791,7 +5854,25 @@ async function loadTracking() {
           </div>
         </div>` : ''}
 
-        ${(!isCancelled && !isPending) ? (() => {
+        ${isPaid ? `
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
+          <div style="font-size:22px;">💰</div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#166534;">Pago recibido</div>
+            <div style="font-size:12px;color:#15803d;margin-top:2px;">Esperando que el negocio acepte tu pedido.</div>
+          </div>
+        </div>` : ''}
+
+        ${o.status === 'rejected' ? `
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
+          <div style="font-size:22px;">❌</div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#991b1b;">Pedido rechazado por el local</div>
+            <div style="font-size:12px;color:#b91c1c;margin-top:2px;">${o.cancel_reason ? esc(o.cancel_reason) : 'El negocio no pudo aceptar tu pedido.'}${o.payment_method==='mercadopago'?' El reembolso se procesará automáticamente.':''}</div>
+          </div>
+        </div>` : ''}
+
+        ${(!isCancelled && !isPending && !isPaid) ? (() => {
           // ETA dinámica: priorizar estimated_ready_at, fallback a delivery_time del negocio
           if (o.estimated_ready_at && !['delivered','cancelled'].includes(o.status)) {
             const minsLeft = Math.max(0, Math.round((new Date(o.estimated_ready_at) - Date.now()) / 60000));
@@ -5806,7 +5887,7 @@ async function loadTracking() {
 
         ${o.status==='on_way' ? '<div class="map-preview"><div class="map-grid"></div><div class="map-rider">🛵</div></div>' : ''}
 
-        ${(!isPending && !isCancelled) ? `
+        ${(!isPending && !isPaid && !isCancelled) ? `
         <div class="track-steps">${FLOW_STEPS.map((s,i) => {
           const done = i < stepIdx;
           const cur  = i === stepIdx;
@@ -9668,6 +9749,15 @@ async function ooRenderOrders() {
 
         <!-- Items -->
         <div style="margin-bottom:10px;">${items}</div>
+
+        <!-- Pedido programado -->
+        ${o.scheduled_for ? `<div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">📅</span>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:#1d4ed8;">PEDIDO PROGRAMADO</div>
+            <div style="font-size:14px;font-weight:900;color:#1e40af;">${new Date(o.scheduled_for).toLocaleString('es-UY',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+        </div>` : ''}
 
         <!-- Notas del cliente -->
         ${o.notes ? `<div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;margin-bottom:10px;">
