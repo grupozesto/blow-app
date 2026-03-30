@@ -817,6 +817,18 @@ function checkLoginRate(ip) {
   return true;
 }
 
+// Rate limit para verify-payment: máx 5 llamadas por minuto por usuario
+const _verifyPaymentAttempts = new Map();
+function checkVerifyPaymentRate(userId) {
+  const now = Date.now();
+  const attempts = (_verifyPaymentAttempts.get(userId) || []).filter(t => now - t < 60 * 1000);
+  if (attempts.length >= 5) return false;
+  attempts.push(now);
+  _verifyPaymentAttempts.set(userId, attempts);
+  if (Math.random() < 0.05) _verifyPaymentAttempts.forEach((v, k) => { if (!v.some(t => now - t < 2 * 60 * 1000)) _verifyPaymentAttempts.delete(k); });
+  return true;
+}
+
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
 app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1d' }));
@@ -996,12 +1008,13 @@ app.post('/api/auth/register', async (req, res) => {
     if (!name || !email || !password) return res.status(400).json({ error:'Nombre, email y contraseña son obligatorios' });
     if (password.length < 6) return res.status(400).json({ error:'La contraseña debe tener al menos 6 caracteres' });
     const emailLow = email.toLowerCase().trim();
-    if (await q1('SELECT id FROM users WHERE email=$1', [emailLow])) return res.status(409).json({ error:'Este email ya está registrado' });
-
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const id = uuid();
     const hashed = await bcrypt.hash(password, 10);
+    // Si el email ya existe, respondemos igual que si enviamos el código (anti-enumeration)
+    const existing = await q1('SELECT id FROM users WHERE email=$1', [emailLow]);
+    if (existing) return res.status(200).json({ pending: true, message:'Código enviado a ' + emailLow });
     // Delete previous pending for same email
     await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
     await q('INSERT INTO email_verifications (id,email,code,data) VALUES ($1,$2,$3,$4)',
@@ -1087,7 +1100,7 @@ app.post('/api/auth/register-business', async (req, res) => {
     if (!name || !email || !password || !business_name) return res.status(400).json({ error:'Faltan datos obligatorios' });
     if (password.length < 6) return res.status(400).json({ error:'La contraseña debe tener al menos 6 caracteres' });
     const emailLow = email.toLowerCase().trim();
-    if (await q1('SELECT id FROM users WHERE email=$1', [emailLow])) return res.status(409).json({ error:'Este email ya está registrado' });
+    if (await q1('SELECT id FROM users WHERE email=$1', [emailLow])) return res.status(400).json({ error:'No se pudo completar el registro. Revisá los datos e intentá de nuevo.' });
     const hashed = await bcrypt.hash(password, 10);
     const userId = uuid();
     await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
@@ -1223,13 +1236,6 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 // ════════════════════════════════════════════════
 //  NEGOCIOS
 // ════════════════════════════════════════════════
-// TEMP DEBUG — list all businesses raw
-app.get('/api/debug/businesses', auth, role('admin'), async (req, res) => {
-  try {
-    const rows = await qa('SELECT id, name, city, department, owner_id, created_at FROM businesses ORDER BY created_at DESC', []);
-    res.json(rows);
-  } catch(e) { res.status(500).json({error: e.message}); }
-});
 
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
@@ -1737,7 +1743,7 @@ app.post('/api/register/initiate', async (req, res) => {
       return res.status(400).json({ error:'La contraseña debe tener al menos 6 caracteres' });
     const emailLow = email.toLowerCase().trim();
     if (await q1('SELECT id FROM users WHERE email=$1',[emailLow]))
-      return res.status(409).json({ error:'Este email ya está registrado' });
+      return res.status(400).json({ error:'No se pudo completar el registro. Revisá los datos e intentá de nuevo.' });
 
     const regId = uuid();
     const hashedPw = await bcrypt.hash(password, 10);
@@ -3210,6 +3216,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
 // ── Verificar pago manualmente (fallback si webhook no llegó) ──
 app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
   try {
+    if (!checkVerifyPaymentRate(req.user.id)) return res.status(429).json({ error: 'Demasiadas verificaciones. Esperá un momento.' });
     const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
     if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
     if (order.status !== 'pending') return res.json({ status: order.status, already_confirmed: true });
@@ -3945,7 +3952,7 @@ app.patch('/api/user/profile', auth, async (req,res)=>{
     res.json({ok:true, user: updated});
   } catch(e) {
     if (e.code==='23505') return res.status(400).json({error:'Ese email ya está en uso'});
-    res.status(500).json({error:e.message});
+    res.status(500).json({error:'Error interno. Intentá de nuevo.'});
   }
 });
 
