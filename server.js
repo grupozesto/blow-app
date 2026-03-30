@@ -2214,35 +2214,72 @@ app.patch('/api/orders/:id/internal-notes', auth, async (req, res) => {
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
-  if (!['pending','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
-  // Validación de ownership por rol
+
+  // Validación de ownership y estados permitidos por rol
   if (req.user.role === 'customer') {
     if (order.customer_id !== req.user.id) return res.status(403).json({ error:'No autorizado' });
+    // Cliente solo puede cancelar si todavía no fue aceptado por el negocio
+    if (!['pending','paid'].includes(order.status)) {
+      return res.status(400).json({ error:'No podés cancelar un pedido que ya fue aceptado por el negocio. Contactá al local.' });
+    }
   } else if (req.user.role === 'owner') {
     const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     if (!b || b.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+    // Owner puede cancelar hasta que esté en camino
+    if (!['paid','confirmed'].includes(order.status)) {
+      return res.status(400).json({ error:'No se puede cancelar en este estado' });
+    }
   } else if (req.user.role !== 'admin') {
     return res.status(403).json({ error:'No autorizado' });
   }
+
   await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
+
   // Restore stock for cancelled items
   const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
   for (const item of items) {
     await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
   }
+
+  // ── Reembolso automático MP si el pedido fue pagado con MP ──
+  let refundResult = null;
+  if (mp && order.mp_payment_id && order.payment_method === 'mercadopago' && ['paid','confirmed'].includes(order.status)) {
+    try {
+      const refund = await mp.payment.refund(order.mp_payment_id);
+      refundResult = { status: refund.body?.status || 'processed', id: refund.body?.id };
+      await q("UPDATE orders SET internal_notes=COALESCE(internal_notes,'')||$1 WHERE id=$2",
+        [`\n[AUTO] Reembolso MP por cancelación: ${JSON.stringify(refundResult)}`, order.id]);
+      console.log(`💸 Refund on cancel for order ${order.id}: ${JSON.stringify(refundResult)}`);
+    } catch(refundErr) {
+      console.error(`❌ Refund failed on cancel for order ${order.id}:`, refundErr.message);
+      await q("UPDATE orders SET internal_notes=COALESCE(internal_notes,'')||$1 WHERE id=$2",
+        [`\n[ERROR] Reembolso MP falló al cancelar: ${refundErr.message}`, order.id]);
+      refundResult = { error: refundErr.message };
+    }
+  }
+
   const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
   const reasonText = req.body.reason ? ` Motivo: "${req.body.reason}"` : '';
+  const refundMsg = order.payment_method === 'mercadopago' && ['paid','confirmed'].includes(order.status)
+    ? ' El reembolso se procesará automáticamente.' : '';
+
   if (biz) {
-    notify(biz.owner_id,{ type:'order_cancelled', message:`❌ Pedido cancelado${reasonText}`, order_id:order.id });
+    notify(biz.owner_id,{ type:'order_cancelled', message:`❌ Pedido #${order.id.slice(-6).toUpperCase()} cancelado${reasonText}`, order_id:order.id });
     sendPushToOwner(biz.owner_id,{ title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado.${reasonText}`, tag:`order-${order.id}`, url:'/' });
   }
-  // Si cancela el owner, notificar al cliente
-  if (req.user.role==='owner') {
-    sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local. Contactanos si tenés dudas.`, tag:`order-${order.id}`, url:'/?tab=tracking' });
+
+  // Notificar al cliente si cancela el owner o admin
+  if (req.user.role === 'owner' || req.user.role === 'admin') {
+    notify(order.customer_id,{ type:'order_cancelled', message:`❌ Tu pedido #${order.id.slice(-6).toUpperCase()} fue cancelado por el local.${reasonText}${refundMsg}`, order_id:order.id });
+    sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local.${refundMsg}`, tag:`order-${order.id}`, url:'/?tab=tracking' });
+  } else {
+    // Cliente canceló — notificar al owner con info de reembolso
+    if (biz) notify(biz.owner_id,{ type:'order_cancelled', message:`❌ El cliente canceló el pedido #${order.id.slice(-6).toUpperCase()}.${refundMsg}`, order_id:order.id });
   }
+
   // Email notification
   sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
-  res.json({ success:true });
+  res.json({ success:true, refund: refundResult });
 });
 
 // ═══════════════════════════════════════════════
