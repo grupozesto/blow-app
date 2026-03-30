@@ -746,9 +746,8 @@ function regBack(){
   document.getElementById('reg-s2').style.display='none';
   document.getElementById('reg-s1').style.display='block';
 }
-let _verifCode=null,_emailOk=false;
+let _emailOk=false;
 async function sendVerifEmail(email){
-  _verifCode=null;
   _emailOk=false;
   const blk=document.getElementById('ev-block');
   if(blk)blk.style.display='block';
@@ -758,7 +757,6 @@ async function sendVerifEmail(email){
   try{
     const resp=await fetch('/api/auth/send-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
     const data=await resp.json();
-    if(data.code)_verifCode=data.code;
     if(st){st.style.color='#16a34a';st.textContent='✓ Código enviado — revisá tu correo';}
   }catch(e){
     if(st){st.style.color='#94a3b8';st.textContent='No se pudo enviar — podés continuar igual';}
@@ -766,12 +764,21 @@ async function sendVerifEmail(email){
   }
 }
 function resendCode(){const e=document.getElementById('r-email')?.value?.trim();if(e)sendVerifEmail(e);}
-function verifCode(){
+async function verifCode(){
   const inp=document.getElementById('r-code')?.value?.trim();
+  const email=document.getElementById('r-email')?.value?.trim();
   const st=document.getElementById('ev-st');
-  if(inp===_verifCode){_emailOk=true;if(st){st.style.color='#16a34a';st.textContent='✅ Email verificado';}return true;}
-  if(st){st.style.color='#ef4444';st.textContent='Código incorrecto';}
-  return false;
+  if(!inp||!email){if(st){st.style.color='#ef4444';st.textContent='Ingresá el código';}return false;}
+  try{
+    const resp=await fetch('/api/auth/check-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code:inp})});
+    const data=await resp.json();
+    if(data.valid){_emailOk=true;if(st){st.style.color='#16a34a';st.textContent='✅ Email verificado';}return true;}
+    if(st){st.style.color='#ef4444';st.textContent=data.error||'Código incorrecto';}
+    return false;
+  }catch(e){
+    if(st){st.style.color='#ef4444';st.textContent='Error al verificar. Intentá de nuevo.';}
+    return false;
+  }
 }
 function showLogin(){
   document.getElementById('register-screen').style.display='none';
@@ -816,7 +823,7 @@ async function doRegister(){
   if(!dept||!city||!address){err.textContent='Completá departamento, ciudad y dirección';return;}
   if(!type){err.textContent='Seleccioná el tipo de negocio';return;}
   const code=document.getElementById('r-code')?.value?.trim();
-  if(code&&!_emailOk){if(!verifCode())return;}
+  if(code&&!_emailOk){if(!(await verifCode()))return;}
   const btn=document.getElementById('r-btn');btn.textContent='Creando...';btn.disabled=true;
   try{
     const fullAddr=`${address}, ${city}, ${dept}${cp?' CP '+cp:''}`;
