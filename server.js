@@ -1184,9 +1184,14 @@ app.get('/api/auth/me', auth, async (req, res) => {
 
 app.patch('/api/auth/me', auth, async (req, res) => {
   const { name, phone, address, city, department } = req.body;
+  const cleanName = name ? sanitize(name, 100) : null;
+  const cleanPhone = phone ? sanitize(phone, 30) : null;
+  const cleanAddress = address ? sanitize(address, 300) : null;
+  const cleanCity = city ? sanitize(city, 100) : null;
+  const cleanDept = department ? sanitize(department, 100) : null;
   await q('UPDATE users SET name=COALESCE($1,name),phone=COALESCE($2,phone),address=COALESCE($3,address),city=COALESCE($4,city),department=COALESCE($5,department) WHERE id=$6',
-    [name, phone, address, city, department, req.user.id]);
-  res.json(await q1('SELECT id,name,email,phone,role,address,city,department FROM users WHERE id=$1', [req.user.id]));
+    [cleanName, cleanPhone, cleanAddress, cleanCity, cleanDept, req.user.id]);
+  res.json(await q1('SELECT id,name,email,phone,role,address,city,department,avatar_url,blow_plus,blow_plus_expires FROM users WHERE id=$1', [req.user.id]));
 });
 
 // ════════════════════════════════════════════════
@@ -1663,7 +1668,8 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
     return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
   const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', ingredients='', stock=null, is_featured=false } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
-  if (parseFloat(price) < 0) return res.status(400).json({ error:'El precio no puede ser negativo' });
+  if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
+  if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
   const id = uuid();
   await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
     [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',ingredients||'',stock?parseInt(stock):null]);
@@ -1671,7 +1677,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
     try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
     catch(e) { console.error('Photo error:',e.message); }
   }
-  for (let i=0;i<variants.length;i++) {
+  for (let i=0;i<Math.min(variants.length,50);i++) {
     const v=variants[i];
     await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
       [uuid(),id,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i,Boolean(v.is_required),Boolean(v.is_multi),parseInt(v.max_selections)||1]);
@@ -1696,7 +1702,7 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
   }
   if (Array.isArray(variants)) {
     await q('DELETE FROM product_variants WHERE product_id=$1',[req.params.pid]);
-    for (let i=0;i<variants.length;i++) {
+    for (let i=0;i<Math.min(variants.length,50);i++) {
       const v=variants[i];
       await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
         [uuid(),req.params.pid,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i,Boolean(v.is_required),Boolean(v.is_multi),parseInt(v.max_selections)||1]);
@@ -3984,18 +3990,17 @@ app.get('/api/my-coupons', auth, async (req,res)=>{
 
 // ── USER PROFILE UPDATE ──
 app.patch('/api/user/profile', auth, async (req,res)=>{
-  const {name, email, phone} = req.body;
-  if (!name || !email) return res.status(400).json({error:'Nombre y email requeridos'});
+  const {name, phone} = req.body;
+  if (!name) return res.status(400).json({error:'Nombre requerido'});
+  const cleanName = sanitize(name, 100);
+  if (!cleanName) return res.status(400).json({error:'Nombre invalido'});
   try {
-    await db.query(
-      'UPDATE users SET name=$1, email=$2, phone=$3 WHERE id=$4',
-      [name.trim(), email.trim().toLowerCase(), phone||null, req.user.id]
-    );
-    const updated = await q1('SELECT id,name,email,phone,role,avatar_url FROM users WHERE id=$1',[req.user.id]);
+    await db.query('UPDATE users SET name=$1, phone=$2 WHERE id=$3',
+      [cleanName, sanitize(phone||'', 30)||null, req.user.id]);
+    const updated = await q1('SELECT id,name,email,phone,role,avatar_url,blow_plus,blow_plus_expires FROM users WHERE id=$1',[req.user.id]);
     res.json({ok:true, user: updated});
   } catch(e) {
-    if (e.code==='23505') return res.status(400).json({error:'Ese email ya está en uso'});
-    res.status(500).json({error:'Error interno. Intentá de nuevo.'});
+    res.status(500).json({error:'Error interno. Intenta de nuevo.'});
   }
 });
 
