@@ -5927,7 +5927,7 @@ async function loadTracking() {
           <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
         </div>
 
-        ${['pending','confirmed'].includes(o.status) ? `<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>` : ''}
+        ${['pending','paid'].includes(o.status) ? `<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>` : ''}
 
         ${o.status==='cancelled' ? '' : chatClosed
           ? '<div style="width:100%;margin-top:8px;background:#f8fafc;border-radius:10px;padding:10px;color:#94a3b8;font-size:12px;text-align:center;">🔒 Chat cerrado</div>'
@@ -6732,14 +6732,11 @@ function renderOwnerOrders(orders) {
 }
 
 async function changeOrderStatus(id, status) {
-  let body = { status };
-  // Al confirmar, preguntar tiempo estimado
-  if (status === 'confirmed') {
-    const mins = prompt('⏱️ ¿En cuántos minutos estará listo? (dejá en blanco para omitir)');
-    if (mins === null) return; // canceló
-    const n = parseInt(mins);
-    if (n > 0) body.estimated_minutes = n;
+  // Si está disponible el modal del owner overlay, usarlo
+  if (status === 'confirmed' && typeof ooUpdateOrder === 'function') {
+    return ooUpdateOrder(id, status);
   }
+  const body = { status };
   try {
     await api(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify(body) });
     showToast(`✅ Pedido ${STATUS_LABELS[status]}`);
@@ -9481,20 +9478,22 @@ function ooTab(tab) {
 }
 
 const STATUS_LABELS_OO = {
-  pending:   { label:'Nuevo',       color:'#f59e0b', bg:'#fffbeb', dot:'🟡' },
-  confirmed: { label:'Confirmado',  color:'#2558d4', bg:'#eff6ff', dot:'🔵' },
-  preparing: { label:'Preparando',  color:'#8b5cf6', bg:'#f5f3ff', dot:'🟣' },
-  ready:     { label:'Listo',       color:'#059669', bg:'#ecfdf5', dot:'🟢' },
-  on_way:    { label:'En camino',   color:'#0ea5e9', bg:'#f0f9ff', dot:'🔵' },
-  delivered: { label:'Entregado',   color:'#64748b', bg:'#f8fafc', dot:'⚪' },
-  cancelled: { label:'Cancelado',   color:'#ef4444', bg:'#fef2f2', dot:'🔴' },
+  pending:   { label:'Esperando pago', color:'#94a3b8', bg:'#f8fafc',  dot:'⏳' },
+  paid:      { label:'💰 ¡Nuevo pedido!', color:'#d97706', bg:'#fffbeb', dot:'🟡' },
+  confirmed: { label:'Confirmado',     color:'#2558d4', bg:'#eff6ff',  dot:'🔵' },
+  preparing: { label:'Preparando',     color:'#8b5cf6', bg:'#f5f3ff',  dot:'🟣' },
+  ready:     { label:'Listo',          color:'#059669', bg:'#ecfdf5',  dot:'🟢' },
+  on_way:    { label:'En camino',      color:'#0ea5e9', bg:'#f0f9ff',  dot:'🔵' },
+  delivered: { label:'Entregado',      color:'#64748b', bg:'#f8fafc',  dot:'⚪' },
+  cancelled: { label:'Cancelado',      color:'#ef4444', bg:'#fef2f2',  dot:'🔴' },
+  rejected:  { label:'Rechazado',      color:'#ef4444', bg:'#fef2f2',  dot:'🔴' },
 };
 const OO_NEXT_STATUS = {
-  pending:   { label:'✅ Aceptar',   next:'confirmed' },
-  confirmed: { label:'👨‍🍳 Preparar', next:'preparing' },
-  preparing: { label:'📦 Listo',     next:'ready'     },
-  ready:     { label:'🛵 En camino', next:'on_way'    },
-  on_way:    { label:'✅ Entregado', next:'delivered' },
+  paid:      { label:'✅ Aceptar pedido', next:'confirmed' },
+  confirmed: { label:'👨‍🍳 Preparar',     next:'preparing' },
+  preparing: { label:'📦 Listo',          next:'ready'     },
+  ready:     { label:'🛵 En camino',      next:'on_way'    },
+  on_way:    { label:'✅ Entregado',      next:'delivered' },
 };
 
 function ooRenderHomePedidos() {
@@ -9542,7 +9541,7 @@ function ooRenderHomePedidos() {
           style="background:#eff6ff;border:none;border-radius:10px;padding:9px 12px;color:#2558d4;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           💬
         </button>
-        <button onclick="ooUpdateOrder('${o.id}','cancelled')"
+        <button onclick="${o.status === 'paid' ? `ooRejectOrder('${o.id}')` : `ooUpdateOrder('${o.id}','cancelled')`}"
           style="background:#fef2f2;border:none;border-radius:10px;padding:9px 12px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
           ✕
         </button>
