@@ -2002,6 +2002,9 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
     if (!biz.is_open && !scheduledDate) return res.status(400).json({ error:'Este negocio está cerrado. Podés programar tu pedido para más tarde.' });
+    // Verificar que el negocio tenga suscripción activa
+    const sub = await q1("SELECT status FROM subscriptions WHERE business_id=$1",[business_id]);
+    if (sub && sub.status === 'past_due') return res.status(400).json({ error:'Este negocio no está disponible en este momento.' });
     let subtotal = 0; const lineItems = [];
     for (const item of items) {
       const p = await q1('SELECT * FROM products WHERE id=$1 AND business_id=$2 AND is_available=TRUE',[item.product_id,business_id]);
