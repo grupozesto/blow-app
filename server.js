@@ -89,8 +89,15 @@ const wss     = new WebSocketServer({ server });
 const clients = new Map(); // userId → Set of ws connections (multi-device)
 wss.on('connection', ws => {
   ws.isAlive = true;
+  ws._msgCount = 0;
+  ws._msgReset = Date.now();
   ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', msg => {
+    // Rate limit: máx 5 mensajes por minuto por conexión
+    const now = Date.now();
+    if (now - ws._msgReset > 60000) { ws._msgCount = 0; ws._msgReset = now; }
+    ws._msgCount++;
+    if (ws._msgCount > 5) { ws.close(4002, 'Rate limit'); return; }
     try {
       const { token } = JSON.parse(msg);
       const u = jwt.verify(token, JWT_SECRET);
@@ -377,6 +384,7 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_mp_id TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_free_delivery BOOLEAN DEFAULT FALSE;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS rating_count INTEGER DEFAULT 0;
     CREATE TABLE IF NOT EXISTS order_messages (
       id TEXT PRIMARY KEY,
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -1075,19 +1083,6 @@ app.post('/api/auth/login', async (req, res) => {
   } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
-// Debug: check cloudinary config (admin only)
-app.get('/api/debug/cloudinary', auth, role('admin'), (req, res) => {
-  if (!cloudinary) return res.json({ ok: false, error: 'cloudinary null' });
-  const cfg = cloudinary.config();
-  res.json({
-    ok: true,
-    cloud_name: cfg.cloud_name,
-    api_key: cfg.api_key ? cfg.api_key.slice(0,6) + '...' : null,
-    api_secret: cfg.api_secret ? cfg.api_secret.slice(0,4) + '...' : null,
-    has_url: !!process.env.CLOUDINARY_URL,
-    has_separate: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET),
-  });
-});
 
 // ── Registro de negocio desde business.html ──────────────────
 // Alias de /api/auth/register con role=owner + crea negocio
@@ -1183,22 +1178,27 @@ app.get('/api/auth/me', auth, async (req, res) => {
 });
 
 app.patch('/api/auth/me', auth, async (req, res) => {
-  const { name, phone, address, city, department } = req.body;
-  const cleanName = name ? sanitize(name, 100) : null;
-  const cleanPhone = phone ? sanitize(phone, 30) : null;
-  const cleanAddress = address ? sanitize(address, 300) : null;
-  const cleanCity = city ? sanitize(city, 100) : null;
-  const cleanDept = department ? sanitize(department, 100) : null;
-  await q('UPDATE users SET name=COALESCE($1,name),phone=COALESCE($2,phone),address=COALESCE($3,address),city=COALESCE($4,city),department=COALESCE($5,department) WHERE id=$6',
-    [cleanName, cleanPhone, cleanAddress, cleanCity, cleanDept, req.user.id]);
-  res.json(await q1('SELECT id,name,email,phone,role,address,city,department,avatar_url,blow_plus,blow_plus_expires FROM users WHERE id=$1', [req.user.id]));
+  try {
+    const { name, phone, address, city, department } = req.body;
+    const cleanName = name ? sanitize(name, 100) : null;
+    const cleanPhone = phone ? sanitize(phone, 30) : null;
+    const cleanAddress = address ? sanitize(address, 300) : null;
+    const cleanCity = city ? sanitize(city, 100) : null;
+    const cleanDept = department ? sanitize(department, 100) : null;
+    await q('UPDATE users SET name=COALESCE($1,name),phone=COALESCE($2,phone),address=COALESCE($3,address),city=COALESCE($4,city),department=COALESCE($5,department) WHERE id=$6',
+      [cleanName, cleanPhone, cleanAddress, cleanCity, cleanDept, req.user.id]);
+    res.json(await q1('SELECT id,name,email,phone,role,address,city,department,avatar_url,blow_plus,blow_plus_expires FROM users WHERE id=$1', [req.user.id]));
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ════════════════════════════════════════════════
 //  DIRECCIONES
 // ════════════════════════════════════════════════
-app.get('/api/addresses', auth, async (req, res) =>
-  res.json(await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC', [req.user.id])));
+app.get('/api/addresses', auth, async (req, res) => {
+  try {
+    res.json(await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC', [req.user.id]));
+  } catch(e) { res.status(500).json({ error:'Error interno.' }); }
+});
 
 app.post('/api/addresses', auth, async (req, res) => {
   const { label, full_address, city, department='', lat=null, lng=null } = req.body;
@@ -2382,9 +2382,13 @@ app.post('/api/orders/:id/review', auth, async (req, res) => {
     `INSERT INTO reviews (id,order_id,business_id,customer_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
     [uuid(), req.params.id, order.business_id, req.user.id, parseInt(rating), (comment||'').trim().slice(0,500)]
   );
-  // Update business average rating
+  // Update business average rating and count
   const avg = await q1('SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE business_id=$1', [order.business_id]);
-  await q('UPDATE businesses SET rating=$1 WHERE id=$2', [Math.round(parseFloat(avg.avg)*10)/10, order.business_id]);
+  await q('UPDATE businesses SET rating=$1, rating_count=$2 WHERE id=$3', [
+    Math.round(parseFloat(avg.avg)*10)/10,
+    parseInt(avg.cnt),
+    order.business_id
+  ]);
   res.json(review);
 });
 
