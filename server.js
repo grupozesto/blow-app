@@ -750,7 +750,7 @@ function uploadMiddleware(field) {
   return (req, res, next) => {
     if (!multerUpload) return res.status(503).json({ error: 'Upload no disponible' });
     multerUpload.single(field)(req, res, async (err) => {
-      if (err) return res.status(400).json({ error: err.message });
+      if (err) return res.status(400).json({ error: 'Archivo inválido. Verificá el formato y tamaño.' });
       // If we have a file buffer and cloudinary, upload now
       if (req.file && req.file.buffer && cloudinary) {
         try {
@@ -1801,13 +1801,9 @@ app.post('/api/register/initiate', async (req, res) => {
     await q('INSERT INTO pending_registrations (id,data) VALUES ($1,$2)',
       [regId, JSON.stringify({ bizName,category,address,city,department,name,email:emailLow,password:hashedPw,phone })]);
 
-    // ── MODO GRATUITO TEMPORAL — skip payment ──
-    return res.json({ reg_id: regId, demo: true });
-
-    // ── Preapproval: recurring subscription ── (desactivado temporalmente)
-    // eslint-disable-next-line no-unreachable
-    const backUrl = `${APP_URL}/owner`;
-    console.log('🔗 Preapproval back_url:', backUrl);
+    // ── Preapproval: recurring subscription ──
+    const backUrl = `${APP_URL}/business`;
+    await loadPlanPrice(); // asegurar precio actualizado
     const preapproval = await mp.preapproval.create({
       reason: `Blow — Plan mensual negocios`,
       external_reference: `reg:${regId}`,
@@ -3673,7 +3669,7 @@ app.get('/api/geocode', async (req, res) => {
     setTimeout(() => geoCache.delete(cacheKey), 30 * 60 * 1000);
     res.json(result);
   } catch(e) {
-    res.status(502).json({ error: 'No se pudo geocodificar: ' + e.message });
+    res.status(502).json({ error: 'No se pudo obtener la dirección. Intentá de nuevo.' });
   }
 });
 
@@ -3715,7 +3711,7 @@ app.delete('/api/push/unsubscribe', auth, async (req, res) => {
 // ── Health + Static ───────────────────────────
 app.get('/health', async (_,res) => {
   try { await db.query('SELECT 1'); res.json({ status:'ok',db:'postgres',mp:!!mp,cloudinary:!!cloudinary,ts:new Date().toISOString() }); }
-  catch(e) { res.status(500).json({ status:'error',db:e.message }); }
+  catch(e) { res.status(500).json({ status:'error' }); }
 });
 
 // ══════════════════════════════════════════════
