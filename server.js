@@ -417,6 +417,9 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
     CREATE INDEX IF NOT EXISTS idx_businesses_city   ON businesses(city);
     CREATE INDEX IF NOT EXISTS idx_subs_status       ON subscriptions(status);
+    CREATE INDEX IF NOT EXISTS idx_wallets_owner     ON wallets(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_subs_period_end   ON subscriptions(current_period_end) WHERE status='active';
+    CREATE INDEX IF NOT EXISTS idx_orders_pending_created ON orders(created_at) WHERE status IN ('pending','paid');
     CREATE TABLE IF NOT EXISTS app_config (
       key TEXT PRIMARY KEY,
       value TEXT,
@@ -838,7 +841,7 @@ function checkVerifyPaymentRate(userId) {
 }
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
-app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
+app.use(express.json({ limit: '15mb' })); // fotos de productos en base64 (hasta 4 x 3MB)
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1d' }));
 
 // Logo estático con cache largo (1 año)
@@ -1240,6 +1243,7 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 // ════════════════════════════════════════════════
 
 app.get('/api/businesses', async (req, res) => {
+  try {
   const { category, city, department } = req.query;
   // Lightweight query: rating is already on businesses table, count products/promos with subqueries
   const baseSql = `SELECT b.*,
@@ -1276,6 +1280,7 @@ app.get('/api/businesses', async (req, res) => {
   }
   
   res.json(rows.map(mapRow));
+  } catch(e) { console.error('businesses error:', e.message); res.status(500).json({ error:'Error al cargar negocios.' }); }
 });
 
 // ── Búsqueda global: negocios + productos ────
@@ -1310,14 +1315,15 @@ app.get('/api/search', async (req, res) => {
 
 // Public APIs
 app.get('/api/plans', async (_, res) => {
-  const plans = await qa('SELECT * FROM subscription_plans WHERE is_active=TRUE ORDER BY sort_order',[]);
-  res.json(plans.map(p => ({
-    ...p,
-    features: (() => { try { return JSON.parse(p.features||'[]'); } catch { return []; } })()
-  })));
+  try {
+    const plans = await qa('SELECT * FROM subscription_plans WHERE is_active=TRUE ORDER BY sort_order',[]);
+    res.json(plans.map(p => ({ ...p, features: (() => { try { return JSON.parse(p.features||'[]'); } catch { return []; } })() })));
+  } catch(e) { res.status(500).json({ error:'Error al cargar planes.' }); }
 });
 app.get('/api/business-categories', async (_, res) => {
-  res.json(await qa('SELECT * FROM business_categories WHERE is_active=TRUE ORDER BY sort_order',[]));
+  try {
+    res.json(await qa('SELECT * FROM business_categories WHERE is_active=TRUE ORDER BY sort_order',[]));
+  } catch(e) { res.status(500).json({ error:'Error al cargar categorías.' }); }
 });
 
 // ── Admin: business categories CRUD ──
@@ -1354,12 +1360,14 @@ app.delete('/api/admin/business-categories/:id', auth, role('admin'), async (req
 //  ADMIN: SUBCATEGORÍAS
 // ═══════════════════════════════════════════════
 app.get('/api/subcategories', async (req, res) => {
-  const { category_id } = req.query;
-  let sql = 'SELECT * FROM business_subcategories WHERE is_active=TRUE';
-  const params = [];
-  if (category_id) { sql += ' AND category_id=$1'; params.push(category_id); }
-  sql += ' ORDER BY sort_order ASC, name ASC';
-  res.json(await qa(sql, params));
+  try {
+    const { category_id } = req.query;
+    let sql = 'SELECT * FROM business_subcategories WHERE is_active=TRUE';
+    const params = [];
+    if (category_id) { sql += ' AND category_id=$1'; params.push(category_id); }
+    sql += ' ORDER BY sort_order ASC, name ASC';
+    res.json(await qa(sql, params));
+  } catch(e) { res.status(500).json({ error:'Error al cargar subcategorías.' }); }
 });
 
 app.get('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
@@ -2486,7 +2494,7 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
   }
   const msg = await q1(
     `INSERT INTO order_messages (id,order_id,sender_id,sender_role,body) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [uuid(), req.params.id, req.user.id, req.user.role, body.trim()]
+    [uuid(), req.params.id, req.user.id, req.user.role, body.trim().slice(0, 1000)]
   );
   // Notificar al otro lado via WS (incluye order_id para badge)
   if (req.user.role === 'customer') {
