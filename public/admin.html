@@ -288,7 +288,12 @@ function logout() {
 
 async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` };
-  const res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+  let res;
+  try {
+    res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+  } catch(networkErr) {
+    throw new Error('Sin conexión. Verificá tu internet.');
+  }
   if (res.status === 401) { logout(); return; }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
@@ -478,7 +483,7 @@ async function loadDashData() {
         <div style="font-size:11px;font-weight:700;color:var(--muted);width:18px;">#${i+1}</div>
         <div style="font-size:18px;">${b.logo_emoji||'🏪'}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(b.name)}</div>
           <div style="font-size:11px;color:var(--muted);">${b.city||''} · ${fmtNum(b.orders)} pedidos</div>
         </div>
         <div style="font-size:13px;font-weight:800;color:var(--green);">${fmtMoney(b.revenue)}</div>
@@ -488,9 +493,9 @@ async function loadDashData() {
     document.getElementById('top-customers').innerHTML = d.topCustomers.length ? d.topCustomers.map((u,i) => `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
         <div style="font-size:11px;font-weight:700;color:var(--muted);width:18px;">#${i+1}</div>
-        <div style="width:28px;height:28px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary);">${u.name[0].toUpperCase()}</div>
+        <div style="width:28px;height:28px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary);">${esc((u.name||"?")[0].toUpperCase())}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.name}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.name)}</div>
           <div style="font-size:11px;color:var(--muted);">${fmtNum(u.orders)} pedidos</div>
         </div>
         <div style="font-size:13px;font-weight:800;color:var(--yellow);">${fmtMoney(u.spent)}</div>
@@ -541,7 +546,7 @@ async function loadOrders() {
         <tbody>
           ${orders.map(o => `<tr>
             <td class="td-muted" style="font-family:monospace;font-size:11px;">#${o.id.slice(-8).toUpperCase()}</td>
-            <td><div class="td-name">${o.customer_name}</div></td>
+            <td><div class="td-name">${esc(o.customer_name||"")}</div></td>
             <td class="td-muted">${o.business_name}</td>
             <td style="font-weight:700;color:var(--text);">$${o.total}</td>
             <td class="td-muted">${o.payment_method || '—'}</td>
@@ -566,7 +571,7 @@ async function viewOrder(id) {
   openModal(`
     <div class="modal-title">📦 Pedido #${o.id.slice(-8).toUpperCase()}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Cliente</div><div style="font-weight:700;margin-top:3px;">${o.customer_name}</div></div>
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Cliente</div><div style="font-weight:700;margin-top:3px;">${esc(o.customer_name||"")}</div></div>
       <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Negocio</div><div style="font-weight:700;margin-top:3px;">${o.business_name}</div></div>
       <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Total</div><div style="font-weight:700;color:var(--green);margin-top:3px;">$${o.total}</div></div>
       <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Pago</div><div style="font-weight:700;margin-top:3px;">${o.payment_method || '—'}</div></div>
@@ -882,16 +887,16 @@ function renderBizTable(list) {
       <tbody>${list.map(b=>`<tr>
         <td><div style="display:flex;align-items:center;gap:8px;">
           <div class="avatar-emoji">${b.logo_emoji||'🏪'}</div>
-          <div><div class="td-name">${b.name}</div><div class="td-muted" style="font-size:11px;">${b.category||''}</div></div>
+          <div><div class="td-name">${esc(b.name)}</div><div class="td-muted" style="font-size:11px;">${esc(b.category||"")}</div></div>
         </div></td>
-        <td><div class="td-name">${b.owner_name||'—'}</div><div class="td-muted" style="font-size:11px;">${b.owner_email||''}</div></td>
+        <td><div class="td-name">${esc(b.owner_name||"—")}</div><div class="td-muted" style="font-size:11px;">${esc(b.owner_email||"")}</div></td>
         <td class="td-muted">${b.city||'—'}</td>
         <td style="font-weight:700;color:var(--green);">$${Math.round(b.total_revenue||0).toLocaleString()}</td>
         <td class="td-muted">${b.completed_orders||0}</td>
         <td><span class="badge ${b.is_open?'badge-green':'badge-red'}">${b.is_open?'● Abierto':'● Cerrado'}</span></td>
         <td><div style="display:flex;gap:5px;flex-wrap:wrap;">
           <button class="btn btn-ghost" onclick="editBusiness('${b.id}')">✏️ Editar</button>
-          <button class="btn btn-purple" onclick="impersonateOwner('${b.owner_id}','${b.owner_name}')">👤 Acceder</button>
+          <button class="btn btn-purple" onclick="impersonateOwner('${b.owner_id}','${escHtml(b.owner_name||'')}')">👤 Acceder</button>
           <button class="btn ${b.is_open?'btn-warning':'btn-success'}" onclick="toggleBizOpen('${b.id}',${b.is_open})">${b.is_open?'🔴 Cerrar':'🟢 Abrir'}</button>
         </div></td>
       </tr>`).join('')}</tbody>
@@ -1076,10 +1081,10 @@ async function loadUsers() {
         <thead><tr><th>Usuario</th><th>Email</th><th>Teléfono</th><th>Rol</th><th>Pedidos</th><th>Registro</th><th>Acciones</th></tr></thead>
         <tbody>${users.map(u=>`<tr ${u.banned?'style="opacity:.5;"':''}>
           <td><div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:30px;height:30px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary);">${u.name[0].toUpperCase()}</div>
-            <div><div class="td-name">${u.name} ${u.banned?'<span style="color:var(--red);font-size:10px;">BANEADO</span>':''}</div></div>
+            <div style="width:30px;height:30px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary);">${esc((u.name||"?")[0].toUpperCase())}</div>
+            <div><div class="td-name">${esc(u.name)} ${u.banned?'<span style="color:var(--red);font-size:10px;">BANEADO</span>':''}</div></div>
           </div></td>
-          <td class="td-muted">${u.email}</td>
+          <td class="td-muted">${esc(u.email||"")}</td>
           <td class="td-muted">${u.phone||'—'}</td>
           <td><span class="badge ${roleBadge[u.role]||'badge-gray'}">${roleLabel[u.role]||u.role}</span></td>
           <td class="td-muted">${u.order_count||0}</td>
