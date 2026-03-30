@@ -4496,7 +4496,7 @@ function renderStoreDetail(s, products) {
     pillsEl.innerHTML = `<span class="sd-pill ${isOpen?'open':'closed'}">${isOpen?'● Abierto ahora':'● Cerrado'}</span>`;
     if (s.blow_plus) pillsEl.innerHTML += `<span class="sd-pill" style="background:linear-gradient(90deg,#ea356b,#ff6b6b);color:#fff;">⚡ Blow+</span>`;
     if (s.blow_plus_free_delivery) pillsEl.innerHTML += `<span class="sd-pill" style="background:#e8f5e9;color:#27ae60;">🛵 Envío gratis Blow+</span>`;
-    if (s.category) pillsEl.innerHTML += `<span class="sd-pill">${s.category}</span>`;
+    if (s.category) pillsEl.innerHTML += `<span class="sd-pill">${esc(s.category)}</span>`;
     if (s.tags) { try { const tags = typeof s.tags === 'string' ? JSON.parse(s.tags) : s.tags; tags.forEach(t => { pillsEl.innerHTML += `<span class="sd-pill">${esc(t)}</span>`; }); } catch(e){} }
   }
 
