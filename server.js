@@ -421,6 +421,7 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_wallets_owner     ON wallets(owner_id);
     CREATE INDEX IF NOT EXISTS idx_subs_period_end   ON subscriptions(current_period_end) WHERE status='active';
     CREATE INDEX IF NOT EXISTS idx_orders_pending_created ON orders(created_at) WHERE status IN ('pending','paid');
+    CREATE INDEX IF NOT EXISTS idx_push_subs_user    ON push_subscriptions(user_id);
     CREATE TABLE IF NOT EXISTS app_config (
       key TEXT PRIMARY KEY,
       value TEXT,
@@ -1079,6 +1080,19 @@ app.post('/api/auth/verify-email', async (req, res) => {
   } catch(e) { console.error('Server error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
+// Verificar código de email para business.html (no crea cuenta, solo valida)
+app.post('/api/auth/check-verification', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error:'Email y código requeridos' });
+    const emailLow = email.toLowerCase().trim();
+    const row = await q1('SELECT * FROM email_verifications WHERE email=$1 AND expires_at > NOW()', [emailLow]);
+    if (!row) return res.status(400).json({ error:'Código expirado. Solicitá uno nuevo.' });
+    if (row.code !== code.trim()) return res.status(400).json({ error:'Código incorrecto' });
+    res.json({ valid: true });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     if (!checkLoginRate(req.ip)) return res.status(429).json({ error:'Demasiados intentos. Esperá 15 minutos.' });
@@ -1126,8 +1140,11 @@ app.post('/api/auth/send-verification', async (req, res) => {
     if (!email) return res.status(400).json({ error:'Email requerido' });
     const emailLow = email.toLowerCase().trim();
     if (!isValidEmail(emailLow)) return res.status(400).json({ error:'Email inválido' });
-    // Generate code server-side (6 digits)
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Guardar código en DB (no devolverlo en la respuesta)
+    await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
+    await q('INSERT INTO email_verifications (id,email,code,data,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL\'15 minutes\')',
+      [uuid(), emailLow, code, JSON.stringify({ biz_verify: true })]);
     const sent = await sendEmail(emailLow, 'Tu código de verificación — Blow',
       `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px;">
         <h2 style="color:#FA0050;">⚡ Blow</h2>
@@ -1135,7 +1152,8 @@ app.post('/api/auth/send-verification', async (req, res) => {
         <div style="font-size:40px;font-weight:900;letter-spacing:8px;color:#FA0050;text-align:center;padding:24px;background:#fff5f7;border-radius:12px;margin:20px 0;">${code}</div>
         <p style="color:#888;font-size:13px;">Válido por 15 minutos. Si no solicitaste este código ignorá este mensaje.</p>
       </div>`);
-    res.json({ sent: !!sent, code }); // code returned so business.html can verify it
+    // Solo devolver sent — nunca el código
+    res.json({ sent: !!sent });
   } catch(e) { res.status(500).json({ error: 'Error al enviar verificación. Intentá de nuevo.' }); }
 });
 
@@ -2733,11 +2751,12 @@ app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res)
   bcTimes.push(now);
   await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()', [bcKey, JSON.stringify(bcTimes)]);
 
-  // Obtener clientes únicos que hayan pedido en este negocio
+  // Obtener clientes únicos que hayan pedido en este negocio (máx 500)
   const customers = await qa(
     `SELECT DISTINCT o.customer_id FROM orders o
      WHERE o.business_id=$1 AND o.status NOT IN ('cancelled')
-     AND o.customer_id IS NOT NULL`,
+     AND o.customer_id IS NOT NULL
+     LIMIT 500`,
     [biz.id]
   );
 
@@ -3064,43 +3083,60 @@ app.patch('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
   res.json(await q1('SELECT id,name,email,role,phone,created_at FROM users WHERE id=$1',[req.params.id]));
 });
 app.delete('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
-  await q("DELETE FROM users WHERE id=$1 AND role!='admin'",[req.params.id]);
-  res.json({ success:true });
+  try {
+    const target = await q1('SELECT email, role FROM users WHERE id=$1', [req.params.id]);
+    if (!target) return res.status(404).json({ error:'Usuario no encontrado' });
+    if (target.role === 'admin') return res.status(403).json({ error:'No podés eliminar un admin' });
+    await q("DELETE FROM users WHERE id=$1 AND role!='admin'",[req.params.id]);
+    await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), req.user.id, 'delete_user', req.params.id, JSON.stringify({ target_email: target.email, admin_email: req.user.email })]);
+    res.json({ success:true });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req, res) => {
+  try {
   const { password }=req.body;
   if (!password||password.length<6) return res.status(400).json({ error:'Mínimo 6 caracteres' });
   await q('UPDATE users SET password=$1, password_changed_at=NOW() WHERE id=$2',[await bcrypt.hash(password,10),req.params.id]);
   res.json({ success:true });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.get('/api/admin/businesses', auth, role('admin'), async (req, res) =>
   res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id ORDER BY b.created_at DESC`,[])));
 app.patch('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
-  const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department }=req.body;
-  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE id=$12`,
-    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.params.id]);
-  res.json(await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]));
+  try {
+    const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department }=req.body;
+    await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE id=$12`,
+      [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.params.id]);
+    res.json(await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]));
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.delete('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
-  await q('DELETE FROM businesses WHERE id=$1',[req.params.id]);
-  res.json({ success:true });
+  try {
+    await q('DELETE FROM businesses WHERE id=$1',[req.params.id]);
+    res.json({ success:true });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.get('/api/admin/orders', auth, role('admin'), async (req, res) => {
-  const { status,search }=req.query;
-  let sql='SELECT o.*,u.name as customer_name,b.name as business_name FROM orders o JOIN users u ON o.customer_id=u.id JOIN businesses b ON o.business_id=b.id WHERE TRUE';
-  const params=[]; let i=1;
-  if (status) { sql+=` AND o.status=$${i++}`;params.push(status); }
-  if (search) { sql+=` AND (u.name ILIKE $${i} OR b.name ILIKE $${i++})`;params.push(`%${search}%`); }
-  const rows=await qa(sql+' ORDER BY o.created_at DESC LIMIT 200',params);
-  if (!rows.length) return res.json([]);
-  const adminOrderIds = rows.map(o=>o.id);
-  const adminAllItems = await qa('SELECT * FROM order_items WHERE order_id = ANY($1)',[adminOrderIds]);
-  const adminByOrder = {};
-  for (const it of adminAllItems) { if (!adminByOrder[it.order_id]) adminByOrder[it.order_id]=[]; adminByOrder[it.order_id].push(it); }
-  res.json(rows.map(o=>({...o, items: adminByOrder[o.id]||[]})));
+  try {
+    const { status,search }=req.query;
+    let sql='SELECT o.*,u.name as customer_name,b.name as business_name FROM orders o JOIN users u ON o.customer_id=u.id JOIN businesses b ON o.business_id=b.id WHERE TRUE';
+    const params=[]; let i=1;
+    if (status) { sql+=` AND o.status=$${i++}`;params.push(status); }
+    if (search) { sql+=` AND (u.name ILIKE $${i} OR b.name ILIKE $${i++})`;params.push(`%${search}%`); }
+    const rows=await qa(sql+' ORDER BY o.created_at DESC LIMIT 200',params);
+    if (!rows.length) return res.json([]);
+    const adminOrderIds = rows.map(o=>o.id);
+    const adminAllItems = await qa('SELECT * FROM order_items WHERE order_id = ANY($1)',[adminOrderIds]);
+    const adminByOrder = {};
+    for (const it of adminAllItems) { if (!adminByOrder[it.order_id]) adminByOrder[it.order_id]=[]; adminByOrder[it.order_id].push(it); }
+    res.json(rows.map(o=>({...o, items: adminByOrder[o.id]||[]})));
+  } catch(e) { res.status(500).json({ error:'Error al cargar pedidos.' }); }
 });
-app.get('/api/admin/withdrawals', auth, role('admin'), async (req, res) =>
-  res.json(await qa('SELECT * FROM withdrawals ORDER BY created_at DESC',[])));
+app.get('/api/admin/withdrawals', auth, role('admin'), async (req, res) => {
+  try { res.json(await qa('SELECT * FROM withdrawals ORDER BY created_at DESC',[])); }
+  catch(e) { res.status(500).json({ error:'Error al cargar retiros.' }); }
+});
 app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, res) => {
   const w = await q1('SELECT * FROM withdrawals WHERE id=$1', [req.params.id]);
   if (!w) return res.status(404).json({ error: 'No encontrado' });
@@ -3477,8 +3513,10 @@ app.post('/api/admin/users/:id/ban', auth, role('admin'), async (req, res) => {
     const { banned, reason } = req.body;
     await q('UPDATE users SET banned=$1,ban_reason=$2 WHERE id=$3', [!!banned, reason||null, req.params.id]);
     if (banned) notify(req.params.id, { type:'account_banned', message:`⛔ Tu cuenta fue suspendida${reason?': '+reason:''}` });
+    await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), req.user.id, banned ? 'ban_user' : 'unban_user', req.params.id, JSON.stringify({ reason: reason||null, admin_email: req.user.email })]);
     res.json({ success: true });
-  } catch(e) { console.error('Ban error:', e.message); res.status(500).json({ error: 'Error al actualizar estado del usuario.' }); }
+  } catch(e) { res.status(500).json({ error: 'Error al actualizar estado del usuario.' }); }
 });
 
 // Cancelar pedido desde admin
