@@ -3199,9 +3199,7 @@ function nav(pageId) {
   if (pageId === 'page-owner-dash') loadOwnerDash();
   if (pageId === 'page-cart') loadCartPromos();
   if (pageId === 'page-checkout') { if (!_chkNavFromOpen) renderCheckoutPage(); _chkNavFromOpen = false; }
-  if (pageId === 'page-home') loadBankPromoStrip();
   if (pageId === 'page-profile') { if (user?.role === 'customer') loadUserBlowPlus(); }
-  if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-delivery') loadDeliveryPanel();
   if (pageId === 'page-admin') {
     if (!user || user.role !== 'admin') { nav('page-home'); return; }
@@ -5786,22 +5784,32 @@ async function doCheckout() {
   }
 
   try {
-    const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null }));
-    const res = await api('/api/orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        business_id: bizId,
-        items,
-        address: addrToSend,
-        fulfillment_type: fulfillmentType,
-        payment_method: payMethod,
-        tip: tipAmt,
-        priority: _chkPriority,
-        notes: _chkNotes || '',
-        coupon_code: activePromo?.code || '',
-        scheduled_for: _chkScheduled || null
-      })
-    });
+    const items = cart.map(i => ({ product_id: i.id, quantity: i.qty, variant_id: i.variant_id || null, client_price: i.price }));
+    let priceChangesConfirmed = false;
+    let res;
+    try {
+      res = await api('/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          business_id: bizId, items, address: addrToSend,
+          fulfillment_type: fulfillmentType, payment_method: payMethod,
+          tip: tipAmt, priority: _chkPriority, notes: _chkNotes || '',
+          coupon_code: activePromo?.code || '', scheduled_for: _chkScheduled || null,
+          price_changes_confirmed: priceChangesConfirmed
+        })
+      });
+    } catch(priceErr) {
+      // Si hay cambio de precios, mostrar al usuario y pedir confirmación
+      if (priceErr.message && priceErr.message.includes('precios')) {
+        btn.disabled = false;
+        btn.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar · $' + calcCheckoutTotal() : '💳 Ir a pagar · $' + calcCheckoutTotal();
+        showToast('⚠️ Los precios cambiaron. Revisá tu carrito y volvé a intentar.');
+        // Recargar la tienda para actualizar precios
+        if (currentBizId) openStore(currentBizId);
+        return;
+      }
+      throw priceErr;
+    }
 
     const goingToMP = res.payment?.init_point && !res.payment.demo;
 
@@ -5854,7 +5862,11 @@ async function loadTracking() {
     const FLOW_STEPS  = ['confirmed','preparing','ready','on_way','delivered'];
     const FLOW_LABELS = ['Confirmado','Preparando','Listo para entregar','En camino','Entregado'];
 
-    body.innerHTML = orders.map(o => {
+    const activeOrders = orders.filter(o => !['delivered','cancelled','rejected'].includes(o.status));
+    const historyOrders = orders.filter(o => ['delivered','cancelled','rejected'].includes(o.status)).slice(0, 10);
+    const visibleOrders = [...activeOrders, ...historyOrders];
+
+    body.innerHTML = visibleOrders.map(o => {
       const isPending   = o.status === 'pending';
       const isPaid      = o.status === 'paid';
       const isCancelled = o.status === 'cancelled' || o.status === 'rejected';
@@ -9914,12 +9926,25 @@ async function ooConfirmEta() {
   const mins = parseInt(document.getElementById('oo-eta-input').value);
   const body = { status: 'confirmed' };
   if (mins > 0 && mins <= 240) body.estimated_minutes = mins;
+  // Deshabilitar botón para evitar doble click
+  const confirmBtn = document.querySelector('#oo-eta-modal button[onclick="ooConfirmEta()"]');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '⏳ Confirmando...'; }
   ooCloseEtaModal();
   try {
     await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify(body) });
     showToast('✅ Pedido confirmado');
     await _ooRefreshDash();
-  } catch(e) { showToast('❌ ' + e.message); }
+  } catch(e) {
+    // Si el estado ya cambió, solo refrescar sin mostrar error confuso
+    if (e.message?.includes('cambió de estado') || e.message?.includes('No podés cambiar')) {
+      showToast('ℹ️ El pedido ya fue procesado');
+      await _ooRefreshDash();
+    } else {
+      showToast('❌ ' + e.message);
+    }
+  } finally {
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = '✅ Confirmar pedido'; }
+  }
 }
 
 async function ooRejectOrder(id) {
