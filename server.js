@@ -876,13 +876,10 @@ const role = (...roles) => (req, res, next) =>
   roles.includes(req.user && req.user.role) ? next() : res.status(403).json({ error:`Rol requerido: ${roles.join('/')}` });
 
 async function getWallet(ownerId, ownerType) {
-  let w = await q1('SELECT * FROM wallets WHERE owner_id=$1', [ownerId]);
-  if (!w) {
-    const id = uuid();
-    await q('INSERT INTO wallets (id,owner_id,owner_type,balance) VALUES ($1,$2,$3,0)', [id, ownerId, ownerType]);
-    w = await q1('SELECT * FROM wallets WHERE id=$1', [id]);
-  }
-  return w;
+  // Usar ON CONFLICT para ser race-safe: si dos entregas simultáneas llaman esto, no falla
+  const id = uuid();
+  await q('INSERT INTO wallets (id,owner_id,owner_type,balance) VALUES ($1,$2,$3,0) ON CONFLICT (owner_id) DO NOTHING', [id, ownerId, ownerType]);
+  return await q1('SELECT * FROM wallets WHERE owner_id=$1', [ownerId]);
 }
 async function credit(ownerId, ownerType, amount, desc, orderId) {
   const w = await getWallet(ownerId, ownerType);
@@ -4024,7 +4021,7 @@ app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 // ── Start ─────────────────────────────────────
 initDB().then(()=>{
   server.listen(PORT,()=>{
-    console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
+    console.log(`\n⚡  Blow v4 → http://localhost:${PORT}`);
     console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
     console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
     console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
@@ -4066,12 +4063,12 @@ initDB().then(()=>{
   // ── Auto-cancel stale pending orders (cada 5 minutos) ──
   setInterval(async () => {
     try {
-      const stale = await qa(
+      // Cancelar pedidos 'pending' sin pago después de 30 minutos
+      const stalePending = await qa(
         `SELECT id, customer_id, business_id FROM orders WHERE status='pending' AND created_at < NOW() - INTERVAL '30 minutes'`, []
       );
-      for (const order of stale) {
+      for (const order of stalePending) {
         await q(`UPDATE orders SET status='cancelled', cancel_reason='Pago no completado (expirado)', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1`, [order.id]);
-        // Restore stock for cancelled items
         const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
         for (const item of items) {
           await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
@@ -4080,6 +4077,31 @@ initDB().then(()=>{
         const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
         if (biz) notify(biz.owner_id, { type:'order_cancelled', message:`Pedido #${order.id.slice(-6).toUpperCase()} cancelado (pago expirado)`, order_id:order.id });
         console.log(`🗑️ Auto-cancelled stale pending order: ${order.id}`);
+      }
+
+      // Cancelar pedidos 'paid' sin aceptar después de 2 horas + reembolso automático
+      const stalePaid = await qa(
+        `SELECT * FROM orders WHERE status='paid' AND created_at < NOW() - INTERVAL '2 hours'`, []
+      );
+      for (const order of stalePaid) {
+        await q(`UPDATE orders SET status='cancelled', cancel_reason='Negocio no respondió a tiempo', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1`, [order.id]);
+        const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
+        for (const item of items) {
+          await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
+        }
+        // Reembolso automático MP
+        if (mp && order.mp_payment_id && order.payment_method === 'mercadopago') {
+          try {
+            await mp.payment.refund(order.mp_payment_id);
+            console.log(`💸 Auto-refund for unaccepted order: ${order.id}`);
+          } catch(refundErr) {
+            console.error(`❌ Auto-refund failed for order ${order.id}:`, refundErr.message);
+          }
+        }
+        notify(order.customer_id, { type:'order_cancelled', message:`❌ Tu pedido #${order.id.slice(-6).toUpperCase()} fue cancelado porque el negocio no respondió. El reembolso se procesará automáticamente.`, order_id:order.id });
+        const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
+        if (biz) notify(biz.owner_id, { type:'order_cancelled', message:`⚠️ Pedido #${order.id.slice(-6).toUpperCase()} cancelado automáticamente por falta de respuesta.`, order_id:order.id });
+        console.log(`🗑️ Auto-cancelled unaccepted paid order: ${order.id}`);
       }
     } catch(e) { console.error('Stale orders cleanup error:', e.message); }
   }, 5 * 60000); // cada 5 minutos
