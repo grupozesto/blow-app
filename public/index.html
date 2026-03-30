@@ -2969,7 +2969,12 @@ let allStores = DEMO_STORES;
 async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+  let res;
+  try {
+    res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+  } catch (networkErr) {
+    throw new Error('Sin conexión. Verificá tu internet e intentá de nuevo.');
+  }
   // Token expirado o inválido → cerrar sesión automáticamente
   if (res.status === 401) {
     const isAuthCall = path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register') || path.startsWith('/api/auth/verify') || path.startsWith('/api/auth/reset') || path.startsWith('/api/auth/forgot');
@@ -3017,11 +3022,17 @@ function _playNotificationSound() {
   } catch(e) { /* silent fail on browsers that block audio */ }
 }
 
+let _wsRetryDelay = 2000;
+let _wsRetryTimeout = null;
+
 function connectWS() {
   if (!token || ws?.readyState === WebSocket.OPEN) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${proto}//${location.host}`);
-  ws.onopen = () => ws.send(JSON.stringify({ token }));
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ token }));
+    _wsRetryDelay = 2000; // reset backoff on successful connection
+  };
   ws.onmessage = e => {
     try {
       const msg = JSON.parse(e.data);
@@ -3089,8 +3100,21 @@ function connectWS() {
       }
     } catch {}
   };
-  ws.onclose = () => setTimeout(connectWS, 5000);
+  ws.onclose = () => {
+    if (!token) return; // no reconectar si cerró sesión
+    if (_wsRetryTimeout) clearTimeout(_wsRetryTimeout);
+    _wsRetryTimeout = setTimeout(connectWS, _wsRetryDelay);
+    _wsRetryDelay = Math.min(_wsRetryDelay * 1.5, 30000); // backoff hasta 30s máximo
+  };
 }
+
+// Reconectar cuando la pestaña vuelve a ser visible (ej: volver del background en móvil)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && token && (!ws || ws.readyState !== WebSocket.OPEN)) {
+    if (_wsRetryTimeout) clearTimeout(_wsRetryTimeout);
+    connectWS();
+  }
+});
 
 // ═══════════════════════════════════════════════
 //  NAVIGATION
@@ -5760,16 +5784,21 @@ async function doCheckout() {
       })
     });
 
-    // Limpiar estado DESPUÉS de enviar
-    cart = []; saveCart(); updateCartBadge();
-    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
-    _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
-    _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
+    const goingToMP = res.payment?.init_point && !res.payment.demo;
+
+    // Limpiar estado solo si NO vamos a MP (efectivo / demo)
+    // Si va a MP, preservamos el carrito por si el usuario vuelve sin pagar
+    if (!goingToMP) {
+      cart = []; saveCart(); updateCartBadge();
+      _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
+      _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
+      _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
+    }
 
     if (payMethod === 'cash' || res.cash) {
       showToast(_chkScheduled ? '📅 ¡Pedido programado! El negocio lo confirmará.' : '✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
       setTimeout(() => nav('page-tracking'), 800);
-    } else if (res.payment?.init_point && !res.payment.demo) {
+    } else if (goingToMP) {
       showToast('💳 Redirigiendo a MercadoPago...');
       setTimeout(() => { window.location.href = res.payment.init_point; }, 900);
     } else {
@@ -5783,10 +5812,6 @@ async function doCheckout() {
   }
 }
 
-async function checkout() {
-  // Legacy redirect — usar openCheckoutPage()
-  openCheckoutPage();
-}
 
 // ═══════════════════════════════════════════════
 //  TRACKING
@@ -9082,6 +9107,11 @@ if (payStatus) {
   const returnOrderId = urlP.get('external_reference') || urlP.get('order_id') || null;
 
   if (payStatus === 'success') {
+    // Limpiar carrito al confirmar pago exitoso desde MP
+    cart = []; saveCart(); updateCartBadge();
+    _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
+    _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
+    _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
     window.history.replaceState({}, '', '/');
     showToast('✅ Pago confirmado — cargando tu pedido...');
 
