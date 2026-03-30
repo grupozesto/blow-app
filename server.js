@@ -412,6 +412,7 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_orders_business   ON orders(business_id);
     CREATE INDEX IF NOT EXISTS idx_orders_status     ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created    ON orders(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_orders_mp_payment ON orders(mp_payment_id) WHERE mp_payment_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_products_business ON products(business_id);
     CREATE INDEX IF NOT EXISTS idx_products_avail    ON products(business_id, is_available);
     CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
@@ -424,6 +425,14 @@ async function initDB() {
       key TEXT PRIMARY KEY,
       value TEXT,
       updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target_id TEXT,
+      details JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
@@ -871,9 +880,10 @@ async function auth(req, res, next) {
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error:'Token requerido' });
   try {
     const decoded = jwt.verify(h.split(' ')[1], JWT_SECRET);
-    // Invalidar tokens emitidos antes del último cambio de contraseña
+    // Invalidar tokens emitidos antes del último cambio de contraseña + verificar ban
     if (decoded.iat) {
-      const u = await q1('SELECT password_changed_at FROM users WHERE id=$1', [decoded.id]);
+      const u = await q1('SELECT password_changed_at, banned FROM users WHERE id=$1', [decoded.id]);
+      if (u?.banned) return res.status(403).json({ error:'Tu cuenta fue suspendida. Contactá al soporte.' });
       if (u?.password_changed_at) {
         const changedAt = Math.floor(new Date(u.password_changed_at).getTime() / 1000);
         if (decoded.iat < changedAt) return res.status(401).json({ error:'Sesión expirada. Por favor iniciá sesión de nuevo.' });
@@ -1678,9 +1688,11 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
   if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
   if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
+  const parsedStock = stock != null ? parseInt(stock) : null;
+  if (parsedStock !== null && parsedStock < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
   const id = uuid();
   await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
-    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',ingredients||'',stock?parseInt(stock):null]);
+    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',ingredients||'',parsedStock]);
   for (let i=0;i<Math.min(photos.length,4);i++) {
     try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
     catch(e) { console.error('Photo error:',e.message); }
@@ -1697,8 +1709,9 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
   const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
+  if (stock != null && parseInt(stock) < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
   await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock),available_from=COALESCE($15,available_from),available_until=COALESCE($16,available_until) WHERE id=$13 AND business_id=$14`,
-    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?parseInt(stock):null,req.params.pid,b.id,available_from||null,available_until||null]);
+    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?Math.max(0,parseInt(stock)):null,req.params.pid,b.id,available_from||null,available_until||null]);
   if (Array.isArray(photos) && photos.length > 0) {
     const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
     await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
@@ -2696,8 +2709,25 @@ app.post('/api/businesses/mine/upload-logo', auth, role('owner'), uploadMiddlewa
 app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res) => {
   const { message } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
+  const cleanMsg = message.trim().slice(0, 280);
   const biz = await q1('SELECT id, name, logo_emoji FROM businesses WHERE owner_id=$1', [req.user.id]);
   if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+
+  // Rate limit: máx 3 broadcasts por día por negocio
+  const recentBroadcasts = await q1(
+    `SELECT COUNT(*) as cnt FROM transactions WHERE wallet_id IN (SELECT id FROM wallets WHERE owner_id=$1) AND description LIKE 'Broadcast%' AND created_at > NOW() - INTERVAL '24 hours'`,
+    [biz.id]
+  );
+  // Usamos una clave en app_settings para trackear el broadcast rate
+  const bcKey = `broadcast_last_${biz.id}`;
+  const bcRecord = await q1('SELECT value FROM app_settings WHERE key=$1', [bcKey]);
+  let bcTimes = [];
+  try { bcTimes = bcRecord ? JSON.parse(bcRecord.value) : []; } catch { bcTimes = []; }
+  const now = Date.now();
+  bcTimes = bcTimes.filter(t => now - t < 24 * 3600000);
+  if (bcTimes.length >= 3) return res.status(429).json({ error: 'Límite de novedades: máximo 3 por día.' });
+  bcTimes.push(now);
+  await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()', [bcKey, JSON.stringify(bcTimes)]);
 
   // Obtener clientes únicos que hayan pedido en este negocio
   const customers = await qa(
@@ -2712,7 +2742,7 @@ app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res)
     try {
       await sendPushToUser(c.customer_id, {
         title: `${biz.logo_emoji || '🏪'} ${biz.name}`,
-        body: message.trim(),
+        body: cleanMsg,
         tag: `novedad-${biz.id}`,
         url: `/?biz=${biz.id}`
       });
@@ -2721,7 +2751,7 @@ app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res)
   }
 
   console.log(`📣 Broadcast "${biz.name}": ${sent}/${customers.length} enviados`);
-  res.json({ success: true, sent, total: customers.length });
+  res.json({ success: true, sent, total: customers.length, remaining: 2 - bcTimes.length + 1 });
 });
 
 app.post('/api/businesses/mine/products/:id/upload-photo', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
@@ -3397,7 +3427,7 @@ app.get('/api/admin/stats/advanced', auth, role('admin'), async (req, res) => {
         FROM subscriptions s`, []),
     ]);
     res.json({ totals, dailyRevenue, topBusinesses, topCustomers, ordersByStatus, newUsers, subscriptionStats, dateFrom, dateTo });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // Suscripciones con detalle de vencimiento
@@ -3410,7 +3440,7 @@ app.get('/api/admin/subscriptions/detail', auth, role('admin'), async (req, res)
       FROM subscriptions s JOIN businesses b ON b.id=s.business_id JOIN users u ON u.id=s.owner_id
       ORDER BY s.current_period_end ASC`, []);
     res.json(rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // Impersonar owner — genera token temporal
@@ -3420,9 +3450,12 @@ app.post('/api/admin/impersonate/:userId', auth, role('admin'), async (req, res)
     if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (target.role === 'admin') return res.status(403).json({ error: 'No podés impersonar otro admin' });
     const impToken = jwt.sign({ id: target.id, name: target.name, email: target.email, role: target.role, impersonated_by: req.user.id }, JWT_SECRET, { expiresIn: '2h' });
+    // Audit trail en tabla
+    await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), req.user.id, 'impersonate', target.id, JSON.stringify({ target_email: target.email, target_role: target.role, admin_email: req.user.email })]);
     console.log(`🔐 IMPERSONATE: admin ${req.user.id} → ${target.email}`);
     res.json({ token: impToken, user: { id: target.id, name: target.name, email: target.email, role: target.role } });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // Banear / desbanear usuario
@@ -3506,7 +3539,7 @@ app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), asyn
     await q("UPDATE subscriptions SET status='cancelled',updated_at=NOW() WHERE id=$1",[req.params.id]);
     notify(sub.owner_id, { type:'subscription_cancelled', message:`❌ Tu suscripción fue cancelada${reason?': '+reason:''}` });
     res.json({ success: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // ── Geocoding proxy (alias) ───────────────────────────
@@ -3564,7 +3597,7 @@ app.post('/api/push/subscribe', auth, async (req, res) => {
       [uuid(), req.user.id, endpoint, keys.p256dh, keys.auth]
     );
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // Elimina suscripción push
@@ -3602,7 +3635,7 @@ app.post('/api/coupons/validate', auth, async (req, res) => {
     if (c.per_user && parseInt(used.cnt) >= c.per_user) return res.status(400).json({ error: 'Ya usaste este cupón' });
     const discount = c.discount_type === 'percent' ? Math.round(order_total * c.discount_value / 100) : Math.min(c.discount_value, order_total);
     res.json({ valid: true, coupon: { id: c.id, code: c.code, description: c.description, discount_type: c.discount_type, discount_value: c.discount_value, discount_amount: discount } });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/coupons/available', auth, async (req, res) => {
@@ -3622,22 +3655,22 @@ app.post('/api/admin/coupons', auth, role('admin'), async (req, res) => {
     await q('INSERT INTO coupons (id,code,description,discount_type,discount_value,min_order,max_uses,per_user,business_id,created_by,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
       [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, max_uses||null, per_user||1, business_id||null, req.user.id, expires_at||null]);
     res.status(201).json({ id });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/admin/coupons', auth, role('admin'), async (req, res) => {
   try { res.json(await qa('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC', [])); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.patch('/api/admin/coupons/:id', auth, role('admin'), async (req, res) => {
   try { await q('UPDATE coupons SET active=$1 WHERE id=$2', [req.body.active, req.params.id]); res.json({ ok: true }); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.delete('/api/admin/coupons/:id', auth, role('admin'), async (req, res) => {
   try { await q('DELETE FROM coupons WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/owner/coupons', auth, async (req, res) => {
@@ -3653,7 +3686,7 @@ app.post('/api/owner/coupons', auth, async (req, res) => {
     await q('INSERT INTO coupons (id,code,description,discount_type,discount_value,min_order,per_user,business_id,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
       [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, 1, biz.id, req.user.id]);
     res.status(201).json({ id });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/owner/coupons', auth, async (req, res) => {
@@ -3662,7 +3695,7 @@ app.get('/api/owner/coupons', auth, async (req, res) => {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     if (!biz) return res.json([]);
     res.json(await qa('SELECT * FROM coupons WHERE business_id=$1 ORDER BY created_at DESC', [biz.id]));
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.delete('/api/owner/coupons/:id', auth, async (req, res) => {
@@ -3671,7 +3704,7 @@ app.delete('/api/owner/coupons/:id', auth, async (req, res) => {
     const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
     await q('DELETE FROM coupons WHERE id=$1 AND business_id=$2', [req.params.id, biz?.id]);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 // ══════════════════════════════════════════════
@@ -3687,12 +3720,12 @@ app.post('/api/help', async (req, res) => {
     try { const auth = req.headers.authorization; if (auth) userId = require('jsonwebtoken').verify(auth.split(' ')[1], JWT_SECRET).id; } catch(e) {}
     await q('INSERT INTO help_messages (id,user_id,user_name,user_email,message) VALUES ($1,$2,$3,$4,$5)', [id, userId, name||'Anónimo', email, message]);
     res.status(201).json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/admin/help', auth, role('admin'), async (req, res) => {
   try { res.json(await qa('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100', [])); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
@@ -3703,7 +3736,7 @@ app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
     await q("UPDATE help_messages SET admin_reply=$1, status='resolved' WHERE id=$2", [reply, req.params.id]);
     await sendEmail(msg.user_email, 'Respuesta de soporte — Blow', '<p>Hola <b>' + escHtml(msg.user_name) + '</b>, respondimos tu consulta:</p><blockquote>' + escHtml(reply) + '</blockquote>');
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api',(_,res)=>res.json({ app:'Blow API v4',db:'PostgreSQL',status:'running' }));
@@ -3817,7 +3850,7 @@ app.post('/api/admin/banners/upload-image', auth, role('admin'), uploadMiddlewar
       imageUrl = result.secure_url;
     } else { imageUrl = req.file.path; }
     res.json({ok:true,url:imageUrl});
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.patch('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
   const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,is_active,image_url} = req.body;
@@ -3840,7 +3873,7 @@ app.post('/api/admin/banners/:id/image', auth, role('admin'), uploadMiddleware('
     } else { imageUrl = req.file.path || req.file.secure_url; }
     await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[imageUrl,req.params.id]);
     res.json({ok:true,url:imageUrl});
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // ── FEATURED SLOTS API ──
@@ -3875,7 +3908,7 @@ app.post('/api/admin/featured/:id/image', auth, role('admin'), uploadMiddleware(
     } else { imageUrl = req.file.path || req.file.secure_url; }
     await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[imageUrl,req.params.id]);
     res.json({ok:true,url:imageUrl});
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.patch('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
@@ -3923,7 +3956,7 @@ app.get('/api/admin/top-customers', auth, role('admin'), async (req,res)=>{
       ORDER BY total_spent DESC LIMIT 50
     `);
     res.json(rows.rows);
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 app.get('/api/owner/top-customers', auth, async (req,res)=>{
@@ -3943,7 +3976,7 @@ app.get('/api/owner/top-customers', auth, async (req,res)=>{
       ORDER BY total_spent DESC LIMIT 50
     `,[biz.id]);
     res.json(rows.rows);
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // ── ASSIGN COUPON TO USER ──
@@ -3958,7 +3991,7 @@ app.post('/api/admin/coupons/:id/assign', auth, role('admin'), async (req,res)=>
         [ucId, uid, req.params.id, req.user.id]);
     }
     res.json({ok:true, assigned: user_ids.length});
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 app.post('/api/owner/coupons/:id/assign', auth, async (req,res)=>{
@@ -3978,7 +4011,7 @@ app.post('/api/owner/coupons/:id/assign', auth, async (req,res)=>{
         [ucId, uid, req.params.id, req.user.id]);
     }
     res.json({ok:true, assigned: user_ids.length});
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // ── USER COUPONS (what the customer sees) ──
@@ -4032,7 +4065,7 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
     }
     await db.query('UPDATE users SET avatar_url=$1 WHERE id=$2',[url, req.user.id]);
     res.json({ok:true, url});
-  } catch(e) { res.status(500).json({error:e.message}); }
+  } catch(e) { res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 
