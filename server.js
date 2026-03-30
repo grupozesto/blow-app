@@ -2007,7 +2007,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     // Verificar que el negocio tenga suscripción activa
     const sub = await q1("SELECT status FROM subscriptions WHERE business_id=$1",[business_id]);
     if (sub && sub.status === 'past_due') return res.status(400).json({ error:'Este negocio no está disponible en este momento.' });
-    let subtotal = 0; const lineItems = [];
+    let subtotal = 0; const lineItems = []; const priceChanges = [];
     for (const item of items) {
       const p = await q1('SELECT * FROM products WHERE id=$1 AND business_id=$2 AND is_available=TRUE',[item.product_id,business_id]);
       if (!p) return res.status(400).json({ error:'Producto no disponible' });
@@ -2022,8 +2022,20 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         const v = await q1('SELECT * FROM product_variants WHERE id=$1 AND product_id=$2',[item.variant_id,p.id]);
         if (v) { unitPrice += v.price_delta; variantLabel = `${v.group_name}: ${v.option_name}`; }
       }
+      // Detectar cambio de precio respecto al carrito del cliente
+      if (item.client_price != null && Math.abs(parseFloat(item.client_price) - unitPrice) > 0.01) {
+        priceChanges.push({ name: p.name, old: parseFloat(item.client_price), new: unitPrice });
+      }
       subtotal += unitPrice * qty;
       lineItems.push({ ...p, quantity:qty, unit_price:unitPrice, variant_label:variantLabel });
+    }
+    // Si hubo cambios de precio, rechazar y devolver los cambios para que el cliente confirme
+    if (priceChanges.length > 0 && !req.body.price_changes_confirmed) {
+      return res.status(409).json({
+        error: 'Los precios de algunos productos cambiaron. Revisá tu carrito.',
+        price_changes: priceChanges,
+        code: 'PRICE_CHANGED'
+      });
     }
     const _ubp = await q1('SELECT blow_plus, blow_plus_expires FROM users WHERE id=$1',[req.user.id]);
     const userBP = _ubp && _ubp.blow_plus && (!_ubp.blow_plus_expires || new Date(_ubp.blow_plus_expires) > new Date());
@@ -2150,7 +2162,15 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
 app.get('/api/orders', auth, async (req, res) => {
   let orders;
-  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji,b.logo_url,b.delivery_time as business_delivery_time FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
+  if (req.user.role==='customer') orders=await qa(
+    `SELECT o.*,b.name as business_name,b.logo_emoji,b.logo_url,b.delivery_time as business_delivery_time
+     FROM orders o JOIN businesses b ON o.business_id=b.id
+     WHERE o.customer_id=$1
+     ORDER BY
+       CASE WHEN o.status NOT IN ('delivered','cancelled','rejected') THEN 0 ELSE 1 END,
+       o.created_at DESC
+     LIMIT 50`,
+    [req.user.id]);
   else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
   if (!orders.length) return res.json([]);
@@ -2208,7 +2228,9 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   if (!ra || (ra[order.status] !== status && !ownerDirectDelivery)) {
     return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   }
-  await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
+  const oldStatus = order.status;
+  const updated = await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2 AND status=$3 RETURNING id',[status,order.id,oldStatus]);
+  if (!updated || !updated.length) return res.status(409).json({ error:'El pedido cambió de estado mientras procesabas. Actualizá y reintentá.' });
   // Si el owner confirma, guardar tiempo estimado de entrega
   if (status === 'confirmed' && req.body.estimated_minutes) {
     const mins = parseInt(req.body.estimated_minutes);
