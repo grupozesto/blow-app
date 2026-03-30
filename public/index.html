@@ -3681,17 +3681,27 @@ async function loadStores() {
       allStores = data;
       isDemoMode = false;
     } else if (activeCity) {
-      // No hay negocios en esa ciudad — mostrar todos sin filtro de ciudad
+      // No hay negocios en esa ciudad — mostrar todos con aviso
       const allData = await api('/api/businesses').catch(() => []);
       if (allData.length > 0) {
         allStores = allData;
         isDemoMode = false;
+        // Mostrar banner avisando que son negocios de otras ciudades
+        setTimeout(() => {
+          const grid = document.getElementById('stores-grid');
+          if (grid) {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'grid-column:1/-1;background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;font-size:13px;color:#92400e;';
+            banner.innerHTML = `<span style="font-size:18px;">📍</span><span>No encontramos negocios en <strong>${esc(activeCity)}</strong>. Mostrando todos los disponibles. <button onclick="openLocModal()" style="background:none;border:none;color:#d97706;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit;padding:0;text-decoration:underline;">Cambiar ciudad</button></span>`;
+            grid.insertBefore(banner, grid.firstChild);
+          }
+        }, 100);
       } else {
         allStores = [];
         isDemoMode = false;
         g.innerHTML = `<div class="loading-state" style="grid-column:1/-1;padding:40px 20px;text-align:center;">
           <div style="font-size:48px;margin-bottom:12px;">🔍</div>
-          <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Todavía no hay negocios en ${activeCity}</div>
+          <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Todavía no hay negocios en ${esc(activeCity)}</div>
           <div style="color:var(--muted);font-size:14px;margin-bottom:16px;">¿Sos dueño de un negocio? ¡Registrate y empezá a recibir pedidos!</div>
           <button onclick="openLocModal()" style="background:none;border:2px solid var(--primary);color:var(--primary);border-radius:12px;padding:10px 20px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cambiar ciudad</button>
         </div>`;
