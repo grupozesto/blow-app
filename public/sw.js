@@ -1,18 +1,15 @@
-// Blow — Service Worker v2
+// Blow — Service Worker v3
 // Cache offline + push notifications
 
-const CACHE = 'blow-v2';
+const CACHE = 'blow-v3';
 const PRECACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap',
 ];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
+  // Solo pre-cachear iconos — NO cachear index.html ni JS para evitar versiones viejas
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(PRECACHE).catch(() => {}))
   );
@@ -29,6 +26,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
+
+  // API requests: network only, con fallback offline
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(
       fetch(e.request).catch(() =>
@@ -39,20 +38,52 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok && (url.origin === self.location.origin || url.origin.includes('fonts'))) {
-          try { const clone = res.clone(); caches.open(CACHE).then(c => c.put(e.request, clone)); } catch(err) {}
-        }
-        return res;
-      }).catch(() => {
-        if (e.request.headers.get('accept')?.includes('text/html'))
-          return caches.match('/index.html');
-      });
-    })
-  );
+
+  // index.html y assets de la app: SIEMPRE red primero, cache como fallback
+  // Esto evita que versiones viejas queden atrapadas en cache
+  if (url.origin === self.location.origin) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          // Solo cachear iconos y fuentes, NO el HTML ni JS principal
+          if (res.ok && (url.pathname.startsWith('/icons/') || url.origin.includes('fonts'))) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => {
+          // Sin red: intentar desde cache
+          return caches.match(e.request).then(cached => {
+            if (cached) return cached;
+            // Para HTML, devolver una página de error amigable
+            if (e.request.headers.get('accept')?.includes('text/html')) {
+              return new Response(
+                '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>Sin conexión</h2><p>Revisá tu internet y recargá la página.</p><button onclick="location.reload()">Reintentar</button></body></html>',
+                { headers: { 'Content-Type': 'text/html' } }
+              );
+            }
+          });
+        })
+    );
+    return;
+  }
+
+  // Fuentes externas: cache first
+  if (url.origin.includes('fonts.googleapis') || url.origin.includes('fonts.gstatic')) {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
+          }
+          return res;
+        }).catch(() => cached);
+      })
+    );
+  }
 });
 
 self.addEventListener('push', e => {

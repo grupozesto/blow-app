@@ -931,6 +931,16 @@ body.owner-mode #owner-overlay {
 ">
   <img src="/logo.png" alt="Blow" style="width:30%;max-width:160px;height:auto;">
 </div>
+<script>
+// Failsafe: si load nunca dispara, ocultar splash después de 5s
+(function() {
+  var _splashTimer = setTimeout(function() {
+    var s = document.getElementById('splash-screen');
+    if (s) { s.style.opacity='0'; setTimeout(function(){ s.style.display='none'; }, 500); }
+  }, 5000);
+  window.addEventListener('load', function() { clearTimeout(_splashTimer); }, { once: true });
+})();
+</script>
 
 <!-- ══ PORTAL TRANSITION OVERLAY ══ -->
 <div id="portal-transition" style="
@@ -3776,16 +3786,18 @@ window.addEventListener('load', () => {
   // Splash screen: mostrar 1.2s y luego fadeout
   const splash = document.getElementById('splash-screen');
   if (splash) {
-    setTimeout(() => {
+    const hideSplash = () => {
       splash.style.opacity = '0';
       setTimeout(() => {
         splash.style.display = 'none';
-        // Ensure home page starts scrolled to top
         const homeSc = document.querySelector('#page-home .sc');
         if (homeSc) homeSc.scrollTop = 0;
         window.scrollTo(0,0);
       }, 420);
-    }, 1200);
+    };
+    setTimeout(hideSplash, 1200);
+    // Safety timeout — si load tarda mucho, ocultar igual después de 3s
+    setTimeout(hideSplash, 3000);
   }
 });
 
