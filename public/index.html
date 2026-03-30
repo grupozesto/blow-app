@@ -3122,8 +3122,9 @@ document.addEventListener('visibilitychange', () => {
 // Dark mode
 // ═══════════════════════════════════════════════
 function initDarkMode() {
-  const saved = localStorage.getItem('blow_theme') || 'auto'; // auto | light | dark
-  applyDarkMode(saved);
+  const saved = localStorage.getItem('blow_theme') || 'auto';
+  const valid = ['auto','light','dark'].includes(saved) ? saved : 'auto';
+  applyDarkMode(valid);
 }
 function applyDarkMode(mode) {
   const html = document.documentElement;
@@ -5108,6 +5109,14 @@ function toggleProdLike() {
   const liked = JSON.parse(localStorage.getItem('blow_liked') || '{}');
   if (ppLiked) liked[ppProduct.id] = true; else delete liked[ppProduct.id];
   localStorage.setItem('blow_liked', JSON.stringify(liked));
+  // Sincronizar con el servidor si está logueado
+  if (user) {
+    if (ppLiked) {
+      api('/api/favorites', { method:'POST', body: JSON.stringify({ product_id: ppProduct.id, business_id: ppProduct.business_id }) }).catch(() => {});
+    } else {
+      api(`/api/favorites/${ppProduct.id}`, { method:'DELETE' }).catch(() => {});
+    }
+  }
 }
 
 function ppAddToCart() {
@@ -6301,7 +6310,8 @@ async function doLogin() {
     if (data.user.role==='admin') {
       const redirect = localStorage.getItem('post_login_redirect');
       localStorage.removeItem('post_login_redirect');
-      nav(redirect || 'page-admin');
+      const allowedPages = ['page-admin','page-home','page-profile','page-tracking'];
+      nav(allowedPages.includes(redirect) ? redirect : 'page-admin');
     } else if (data.user.role==='owner') { ownerAppSwitch(data.user); }
   } catch(e) { showAuthErr(e.message); }
 }
@@ -8255,10 +8265,9 @@ async function adminResetPw(id, name) {
   catch(e) { showToast('❌ '+e.message); }
 }
 async function adminChangeRole(id, currentRole) {
-  const roles = ['customer','owner','delivery','admin'];
-  const next  = prompt('Rol actual: '+currentRole+'\nNuevo rol (customer/owner/delivery/admin):');
+  const roles = ['customer','owner','delivery'];
+  const next  = prompt('Rol actual: '+currentRole+'\nNuevo rol (customer/owner/delivery):');
   if (!next || !roles.includes(next) || next === currentRole) return;
-  if (next === 'admin' && !confirm('⚠️ ¿Seguro que querés darle rol admin a este usuario?')) return;
   try { await api('/api/admin/users/'+id,{method:'PATCH',body:JSON.stringify({role:next})}); showToast('✅ Rol actualizado a '+next); loadAdminUsers(); }
   catch(e) { showToast('❌ '+e.message); }
 }
@@ -8266,10 +8275,19 @@ async function adminImpersonate(id, name, role) {
   if (!confirm('Vas a ver la app como '+name+' ('+role+'). Se abrirá en una nueva pestaña.')) return;
   try {
     const data = await api('/api/admin/impersonate/'+id, {method:'POST'});
-    const url  = window.location.origin + '/?impersonate='+data.token+'&role='+data.user.role;
-    window.open(url, '_blank');
+    // Abrir nueva pestaña y pasarle el token via postMessage (no en la URL)
+    const newTab = window.open(window.location.origin + '/?_imp=1', '_blank');
+    if (!newTab) { showToast('❌ Bloqueador de popups activo. Habilitalo para impersonar.'); return; }
+    // Esperar que la pestaña cargue y enviar el token
+    const payload = JSON.stringify({ type: 'blow_impersonate', token: data.token, user: data.user });
+    const sendMsg = () => { try { newTab.postMessage(payload, window.location.origin); } catch(_) {} };
+    // Intentar varias veces mientras la pestaña carga
+    setTimeout(sendMsg, 800);
+    setTimeout(sendMsg, 1500);
+    setTimeout(sendMsg, 2500);
     showToast('👁 Abriendo sesión como '+name);
   } catch(e) { showToast('❌ '+e.message); }
+}
 }
 async function adminBanUser(id, ban) {
   const reason = ban ? (prompt('Motivo del ban (opcional):') || '') : '';
@@ -9103,26 +9121,31 @@ function dismissIOSBanner() {
   localStorage.setItem('ios_banner_dismissed', Date.now());
 }
 
-// ── Impersonación desde panel admin ──
-const urlP = new URLSearchParams(window.location.search);
-const _impToken = urlP.get('imp_token');
-const _impUserStr = urlP.get('imp_user');
-if (_impToken && _impUserStr) {
+// ── Impersonación desde panel admin (via postMessage) ──
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
   try {
-    const _impUser = JSON.parse(decodeURIComponent(_impUserStr));
-    // Guardar sesión impersonada
-    localStorage.setItem('da_token', _impToken);
-    localStorage.setItem('da_user', JSON.stringify(_impUser));
-    token = _impToken;
-    user = _impUser;
-    window.history.replaceState({}, '', '/');
-    showToast(`👤 Accediendo como ${_impUser.name} (${_impUser.role})`);
+    const data = JSON.parse(event.data);
+    if (data.type !== 'blow_impersonate' || !data.token || !data.user) return;
+    localStorage.setItem('da_token', data.token);
+    localStorage.setItem('da_user', JSON.stringify(data.user));
+    token = data.token;
+    user = data.user;
+    showToast(`👤 Accediendo como ${data.user.name} (${data.user.role})`);
     renderProfile();
-    if (_impUser.role === 'owner') {
+    updateCartBadge();
+    connectWS();
+    if (data.user.role === 'owner') {
       setTimeout(() => enterOwnerOverlay(), 300);
+    } else {
+      nav('page-home');
     }
-  } catch(e) { console.error('Impersonation error:', e); }
-}
+  } catch(e) { console.error('Impersonation postMessage error:', e); }
+});
+
+// ── Limpiar parámetro _imp de la URL si viene de impersonación ──
+const urlP = new URLSearchParams(window.location.search);
+if (urlP.has('_imp')) window.history.replaceState({}, '', '/');
 
 // Detectar retorno desde MercadoPago
 const payStatus = urlP.get('payment');
