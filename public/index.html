@@ -9814,61 +9814,100 @@ async function ooRenderOrders() {
   }
 }
 
+// ── Variables para modales del owner ──
+let _ooEtaOrderId = null;
+let _ooRejectOrderId = null;
+
+function ooSetEta(mins) {
+  document.getElementById('oo-eta-input').value = mins;
+}
+function ooCloseEtaModal() {
+  const m = document.getElementById('oo-eta-modal');
+  m.style.display = 'none';
+  _ooEtaOrderId = null;
+}
+function ooSetRejectReason(reason) {
+  document.getElementById('oo-reject-reason').value = reason;
+}
+function ooCloseRejectModal() {
+  const m = document.getElementById('oo-reject-modal');
+  m.style.display = 'none';
+  _ooRejectOrderId = null;
+}
+
 async function ooUpdateOrder(id, status) {
   if (status === 'cancelled' && !confirm('¿Cancelar este pedido?')) return;
   try {
     if (status === 'cancelled') {
       await ooFetch(`/api/orders/${id}/cancel`, { method:'POST' });
+      showToast('✅ Pedido cancelado');
+      await _ooRefreshDash();
+    } else if (status === 'confirmed') {
+      // Abrir modal de ETA en vez de prompt()
+      _ooEtaOrderId = id;
+      const m = document.getElementById('oo-eta-modal');
+      document.getElementById('oo-eta-input').value = '';
+      m.style.display = 'flex';
+      return;
     } else {
-      const body = { status };
-      // Ask for ETA when confirming (accepting)
-      if (status === 'confirmed') {
-        const mins = prompt('⏱️ ¿En cuántos minutos estará listo?\n(dejá en blanco para usar el tiempo por defecto)');
-        if (mins === null) return; // canceló
-        const n = parseInt(mins);
-        if (n > 0 && n <= 240) body.estimated_minutes = n;
-      }
-      await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify(body) });
+      await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify({ status }) });
+      showToast('✅ Estado actualizado');
+      await _ooRefreshDash();
     }
-    showToast(status === 'cancelled' ? '✅ Pedido cancelado' : '✅ Estado actualizado');
-    // Refrescar datos silenciosamente
-    try {
-      const fresh = await ooFetch('/api/businesses/mine/dashboard');
-      _ooDashData = fresh;
-      if (fresh.business) _ooBiz = fresh.business;
-      const pendingPaid = (fresh.orders||[]).filter(o => ['pending','paid'].includes(o.status)).length;
-      const kpiEl = document.getElementById('oo-kpi-pending');
-      if (kpiEl) kpiEl.textContent = pendingPaid;
-    } catch(_) {}
-    // Re-renderizar el tab activo sin cambiar de sección
-    const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
-    if (activeTab === 'home') ooRenderHome();
-    else ooRenderOrders();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function ooConfirmEta() {
+  if (!_ooEtaOrderId) return;
+  const id = _ooEtaOrderId;
+  const mins = parseInt(document.getElementById('oo-eta-input').value);
+  const body = { status: 'confirmed' };
+  if (mins > 0 && mins <= 240) body.estimated_minutes = mins;
+  ooCloseEtaModal();
+  try {
+    await ooFetch(`/api/orders/${id}/status`, { method:'PATCH', body:JSON.stringify(body) });
+    showToast('✅ Pedido confirmado');
+    await _ooRefreshDash();
   } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function ooRejectOrder(id) {
-  const reason = prompt('Motivo del rechazo (opcional):');
-  if (reason === null) return; // user cancelled the prompt
+  _ooRejectOrderId = id;
+  const m = document.getElementById('oo-reject-modal');
+  document.getElementById('oo-reject-reason').value = '';
+  m.style.display = 'flex';
+}
+
+async function ooConfirmReject() {
+  if (!_ooRejectOrderId) return;
+  const id = _ooRejectOrderId;
+  const reason = document.getElementById('oo-reject-reason').value.trim();
+  ooCloseRejectModal();
   try {
     const res = await ooFetch(`/api/orders/${id}/reject`, {
       method: 'POST',
-      body: JSON.stringify({ reason: reason || '' })
+      body: JSON.stringify({ reason })
     });
     const refundInfo = res.refund
-      ? (res.refund.error ? ' (reembolso requiere revisión manual)' : ' (reembolso automático procesado)')
+      ? (res.refund.error ? ' (reembolso requiere revisión manual)' : ' · Reembolso procesado automáticamente')
       : '';
     showToast(`✅ Pedido rechazado${refundInfo}`);
-    // Refresh
-    try {
-      const fresh = await ooFetch('/api/businesses/mine/dashboard');
-      _ooDashData = fresh;
-      if (fresh.business) _ooBiz = fresh.business;
-    } catch(_) {}
-    const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
-    if (activeTab === 'home') ooRenderHome();
-    else ooRenderOrders();
+    await _ooRefreshDash();
   } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function _ooRefreshDash() {
+  try {
+    const fresh = await ooFetch('/api/businesses/mine/dashboard');
+    _ooDashData = fresh;
+    if (fresh.business) _ooBiz = fresh.business;
+    const pendingPaid = (fresh.orders||[]).filter(o => ['pending','paid'].includes(o.status)).length;
+    const kpiEl = document.getElementById('oo-kpi-pending');
+    if (kpiEl) kpiEl.textContent = pendingPaid;
+  } catch(_) {}
+  const activeTab = document.querySelector('.oo-nav-btn.active')?.dataset?.tab || 'home';
+  if (activeTab === 'home') ooRenderHome();
+  else ooRenderOrders();
 }
 
 async function ooRenderMenu() {
@@ -11695,6 +11734,49 @@ async function loadLastOrderStrip() {
 
 <!-- ══ OWNER OVERLAY ══ -->
 <div id="owner-overlay">
+
+  <!-- Modal ETA (confirmar pedido) -->
+  <div id="oo-eta-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;align-items:flex-end;justify-content:center;">
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:28px 24px 36px;width:100%;max-width:480px;box-sizing:border-box;">
+      <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px;">⏱️ ¿En cuántos minutos estará listo?</div>
+      <div style="font-size:14px;color:#64748b;margin-bottom:20px;">El cliente verá este tiempo estimado</div>
+      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+        <button onclick="ooSetEta(15)" style="flex:1;min-width:60px;background:#f1f5f9;border:none;border-radius:10px;padding:12px 8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">15 min</button>
+        <button onclick="ooSetEta(20)" style="flex:1;min-width:60px;background:#f1f5f9;border:none;border-radius:10px;padding:12px 8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">20 min</button>
+        <button onclick="ooSetEta(30)" style="flex:1;min-width:60px;background:#f1f5f9;border:none;border-radius:10px;padding:12px 8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">30 min</button>
+        <button onclick="ooSetEta(45)" style="flex:1;min-width:60px;background:#f1f5f9;border:none;border-radius:10px;padding:12px 8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">45 min</button>
+        <button onclick="ooSetEta(60)" style="flex:1;min-width:60px;background:#f1f5f9;border:none;border-radius:10px;padding:12px 8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">60 min</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <input id="oo-eta-input" type="number" min="1" max="240" placeholder="Otro tiempo..." style="flex:1;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;font-size:15px;font-family:'Inter',sans-serif;box-sizing:border-box;">
+        <span style="font-size:14px;color:#64748b;">minutos</span>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="ooConfirmEta()" style="flex:1;background:#22c55e;border:none;border-radius:12px;padding:14px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">✅ Confirmar pedido</button>
+        <button onclick="ooCloseEtaModal()" style="background:#f1f5f9;border:none;border-radius:12px;padding:14px 18px;cursor:pointer;font-size:20px;">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal rechazo -->
+  <div id="oo-reject-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:flex-end;justify-content:center;">
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:28px 24px 36px;width:100%;max-width:480px;box-sizing:border-box;">
+      <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px;">✕ Rechazar pedido</div>
+      <div style="font-size:14px;color:#64748b;margin-bottom:16px;">El cliente recibirá el reembolso automáticamente si pagó con MercadoPago</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button onclick="ooSetRejectReason('Sin stock disponible')" style="background:#fee2e2;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:#dc2626;font-family:'Inter',sans-serif;">Sin stock</button>
+        <button onclick="ooSetRejectReason('Local cerrado')" style="background:#fee2e2;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:#dc2626;font-family:'Inter',sans-serif;">Local cerrado</button>
+        <button onclick="ooSetRejectReason('No podemos entregar en esa zona')" style="background:#fee2e2;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:#dc2626;font-family:'Inter',sans-serif;">Zona sin cobertura</button>
+        <button onclick="ooSetRejectReason('Mucha demanda en este momento')" style="background:#fee2e2;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:#dc2626;font-family:'Inter',sans-serif;">Demasiada demanda</button>
+      </div>
+      <textarea id="oo-reject-reason" placeholder="Motivo (opcional, se notifica al cliente)..." rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;box-sizing:border-box;resize:none;margin-bottom:16px;"></textarea>
+      <div style="display:flex;gap:10px;">
+        <button onclick="ooConfirmReject()" style="flex:1;background:#dc2626;border:none;border-radius:12px;padding:14px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">✕ Rechazar pedido</button>
+        <button onclick="ooCloseRejectModal()" style="background:#f1f5f9;border:none;border-radius:12px;padding:14px 18px;cursor:pointer;font-size:20px;">✕</button>
+      </div>
+    </div>
+  </div>
+
   <div class="oo-header">
     <div class="oo-brand">
       <div class="oo-logo" id="oo-logo">🏪</div>
