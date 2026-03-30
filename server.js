@@ -1253,26 +1253,30 @@ app.post('/api/addresses', auth, async (req, res) => {
 });
 
 app.post('/api/addresses/:id/activate', auth, async (req, res) => {
-  const addr = await q1('SELECT * FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-  if (!addr) return res.status(404).json({ error:'Dirección no encontrada' });
-  await q('UPDATE user_addresses SET is_active=FALSE WHERE user_id=$1', [req.user.id]);
-  await q('UPDATE user_addresses SET is_active=TRUE WHERE id=$1', [req.params.id]);
-  await q('UPDATE users SET city=$1,department=$2,address=$3 WHERE id=$4', [addr.city, addr.department, addr.full_address, req.user.id]);
-  res.json({ success:true, active: await q1('SELECT * FROM user_addresses WHERE id=$1', [req.params.id]) });
+  try {
+    const addr = await q1('SELECT * FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    if (!addr) return res.status(404).json({ error:'Dirección no encontrada' });
+    await q('UPDATE user_addresses SET is_active=FALSE WHERE user_id=$1', [req.user.id]);
+    await q('UPDATE user_addresses SET is_active=TRUE WHERE id=$1', [req.params.id]);
+    await q('UPDATE users SET city=$1,department=$2,address=$3 WHERE id=$4', [addr.city, addr.department, addr.full_address, req.user.id]);
+    res.json({ success:true, active: await q1('SELECT * FROM user_addresses WHERE id=$1', [req.params.id]) });
+  } catch(e) { console.error('addresses activate error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.delete('/api/addresses/:id', auth, async (req, res) => {
-  const addr = await q1('SELECT * FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-  if (!addr) return res.status(404).json({ error:'No encontrada' });
-  await q('DELETE FROM user_addresses WHERE id=$1', [req.params.id]);
-  if (addr.is_active) {
-    const next = await q1('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1', [req.user.id]);
-    if (next) {
-      await q('UPDATE user_addresses SET is_active=TRUE WHERE id=$1', [next.id]);
-      await q('UPDATE users SET city=$1,department=$2,address=$3 WHERE id=$4', [next.city, next.department, next.full_address, req.user.id]);
+  try {
+    const addr = await q1('SELECT * FROM user_addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    if (!addr) return res.status(404).json({ error:'No encontrada' });
+    await q('DELETE FROM user_addresses WHERE id=$1', [req.params.id]);
+    if (addr.is_active) {
+      const next = await q1('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1', [req.user.id]);
+      if (next) {
+        await q('UPDATE user_addresses SET is_active=TRUE WHERE id=$1', [next.id]);
+        await q('UPDATE users SET city=$1,department=$2,address=$3 WHERE id=$4', [next.city, next.department, next.full_address, req.user.id]);
+      }
     }
-  }
-  res.json({ success:true });
+    res.json({ success:true });
+  } catch(e) { console.error('addresses DELETE error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ════════════════════════════════════════════════
@@ -2844,69 +2848,77 @@ app.patch('/api/businesses/mine/blow-plus-delivery', auth, role('owner'), async 
 
 // Owner: list own promotions
 app.get('/api/businesses/mine/promotions', auth, role('owner'), async (req, res) => {
-  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
-  const promos = await qa('SELECT * FROM promotions WHERE business_id=$1 ORDER BY created_at DESC',[biz.id]);
-  res.json(promos.map(p => ({ ...p, combo_products: safeJson(p.combo_products, []) })));
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
+    const promos = await qa('SELECT * FROM promotions WHERE business_id=$1 ORDER BY created_at DESC',[biz.id]);
+    res.json(promos.map(p => ({ ...p, combo_products: safeJson(p.combo_products, []) })));
+  } catch(e) { console.error('promotions GET error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Owner: create promotion
 app.post('/api/businesses/mine/promotions', auth, role('owner'), async (req, res) => {
-  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
-  const { name, type, value=0, min_order_amount=0, category_id=null,
-          combo_products=[], combo_price=0, code=null,
-          requires_code=false, starts_at=null, ends_at=null, blow_plus_only=false } = req.body;
-  if (!name || !type) return res.status(400).json({ error:'name y type son requeridos' });
-  const validPromoTypes = ['percent_off','fixed_off','free_delivery','bogo','combo','category_percent'];
-  if (!validPromoTypes.includes(type)) return res.status(400).json({ error:'Tipo de promoción inválido' });
-  if (['percent_off','category_percent'].includes(type) && (parseFloat(value) <= 0 || parseFloat(value) > 100))
-    return res.status(400).json({ error:'El porcentaje debe ser entre 1 y 100' });
-  if (['fixed_off','combo'].includes(type) && parseFloat(value) <= 0)
-    return res.status(400).json({ error:'El valor debe ser mayor a cero' });
-  const id = 'promo-' + uuid().slice(0,8);
-  await q(
-    `INSERT INTO promotions (id,business_id,name,type,value,min_order_amount,category_id,combo_products,combo_price,code,requires_code,starts_at,ends_at,blow_plus_only)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-    [id,biz.id,name,type,value,min_order_amount,category_id,
-     JSON.stringify(combo_products),combo_price,
-     code||null,requires_code,starts_at||null,ends_at||null,blow_plus_only]
-  );
-  res.json({ success:true, id });
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
+    const { name, type, value=0, min_order_amount=0, category_id=null,
+            combo_products=[], combo_price=0, code=null,
+            requires_code=false, starts_at=null, ends_at=null, blow_plus_only=false } = req.body;
+    if (!name || !type) return res.status(400).json({ error:'name y type son requeridos' });
+    const validPromoTypes = ['percent_off','fixed_off','free_delivery','bogo','combo','category_percent'];
+    if (!validPromoTypes.includes(type)) return res.status(400).json({ error:'Tipo de promoción inválido' });
+    if (['percent_off','category_percent'].includes(type) && (parseFloat(value) <= 0 || parseFloat(value) > 100))
+      return res.status(400).json({ error:'El porcentaje debe ser entre 1 y 100' });
+    if (['fixed_off','combo'].includes(type) && parseFloat(value) <= 0)
+      return res.status(400).json({ error:'El valor debe ser mayor a cero' });
+    const id = 'promo-' + uuid().slice(0,8);
+    await q(
+      `INSERT INTO promotions (id,business_id,name,type,value,min_order_amount,category_id,combo_products,combo_price,code,requires_code,starts_at,ends_at,blow_plus_only)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [id,biz.id,name,type,value,min_order_amount,category_id,
+       JSON.stringify(combo_products),combo_price,
+       code||null,requires_code,starts_at||null,ends_at||null,blow_plus_only]
+    );
+    res.json({ success:true, id });
+  } catch(e) { console.error('promotions POST error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Owner: update promotion
 app.patch('/api/businesses/mine/promotions/:id', auth, role('owner'), async (req, res) => {
-  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
-  const { name, type, value, min_order_amount, category_id, combo_products,
-          combo_price, code, requires_code, is_active, starts_at, ends_at, blow_plus_only } = req.body;
-  const updates=[]; const params=[]; let i=1;
-  if (name!==undefined)             { updates.push(`name=$${i++}`);             params.push(name); }
-  if (type!==undefined)             { updates.push(`type=$${i++}`);             params.push(type); }
-  if (value!==undefined)            { updates.push(`value=$${i++}`);            params.push(value); }
-  if (min_order_amount!==undefined) { updates.push(`min_order_amount=$${i++}`); params.push(min_order_amount); }
-  if (category_id!==undefined)      { updates.push(`category_id=$${i++}`);      params.push(category_id); }
-  if (combo_products!==undefined)   { updates.push(`combo_products=$${i++}`);   params.push(JSON.stringify(combo_products)); }
-  if (combo_price!==undefined)      { updates.push(`combo_price=$${i++}`);      params.push(combo_price); }
-  if (code!==undefined)             { updates.push(`code=$${i++}`);             params.push(code||null); }
-  if (requires_code!==undefined)    { updates.push(`requires_code=$${i++}`);    params.push(requires_code); }
-  if (is_active!==undefined)        { updates.push(`is_active=$${i++}`);        params.push(is_active); }
-  if (starts_at!==undefined)        { updates.push(`starts_at=$${i++}`);        params.push(starts_at||null); }
-  if (ends_at!==undefined)          { updates.push(`ends_at=$${i++}`);          params.push(ends_at||null); }
-  if (blow_plus_only!==undefined)  { updates.push(`blow_plus_only=$${i++}`);  params.push(blow_plus_only); }
-  if (!updates.length) return res.status(400).json({ error:'Nada que actualizar' });
-  params.push(req.params.id); params.push(biz.id);
-  await q(`UPDATE promotions SET ${updates.join(',')} WHERE id=$${i} AND business_id=$${i+1}`, params);
-  res.json({ success:true });
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
+    const { name, type, value, min_order_amount, category_id, combo_products,
+            combo_price, code, requires_code, is_active, starts_at, ends_at, blow_plus_only } = req.body;
+    const updates=[]; const params=[]; let i=1;
+    if (name!==undefined)             { updates.push(`name=$${i++}`);             params.push(name); }
+    if (type!==undefined)             { updates.push(`type=$${i++}`);             params.push(type); }
+    if (value!==undefined)            { updates.push(`value=$${i++}`);            params.push(value); }
+    if (min_order_amount!==undefined) { updates.push(`min_order_amount=$${i++}`); params.push(min_order_amount); }
+    if (category_id!==undefined)      { updates.push(`category_id=$${i++}`);      params.push(category_id); }
+    if (combo_products!==undefined)   { updates.push(`combo_products=$${i++}`);   params.push(JSON.stringify(combo_products)); }
+    if (combo_price!==undefined)      { updates.push(`combo_price=$${i++}`);      params.push(combo_price); }
+    if (code!==undefined)             { updates.push(`code=$${i++}`);             params.push(code||null); }
+    if (requires_code!==undefined)    { updates.push(`requires_code=$${i++}`);    params.push(requires_code); }
+    if (is_active!==undefined)        { updates.push(`is_active=$${i++}`);        params.push(is_active); }
+    if (starts_at!==undefined)        { updates.push(`starts_at=$${i++}`);        params.push(starts_at||null); }
+    if (ends_at!==undefined)          { updates.push(`ends_at=$${i++}`);          params.push(ends_at||null); }
+    if (blow_plus_only!==undefined)  { updates.push(`blow_plus_only=$${i++}`);  params.push(blow_plus_only); }
+    if (!updates.length) return res.status(400).json({ error:'Nada que actualizar' });
+    params.push(req.params.id); params.push(biz.id);
+    await q(`UPDATE promotions SET ${updates.join(',')} WHERE id=$${i} AND business_id=$${i+1}`, params);
+    res.json({ success:true });
+  } catch(e) { console.error('promotions PATCH error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Owner: delete promotion
 app.delete('/api/businesses/mine/promotions/:id', auth, role('owner'), async (req, res) => {
-  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
-  await q('DELETE FROM promotions WHERE id=$1 AND business_id=$2',[req.params.id,biz.id]);
-  res.json({ success:true });
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
+    await q('DELETE FROM promotions WHERE id=$1 AND business_id=$2',[req.params.id,biz.id]);
+    res.json({ success:true });
+  } catch(e) { console.error('promotions DELETE error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/businesses', auth, role('owner'), async (req, res) => {
@@ -3004,67 +3016,81 @@ app.post('/api/businesses/:id/promotions/validate-code', async (req, res) => {
 });
 
 app.post('/api/wallet/withdraw', auth, async (req, res) => {
-  const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
-  if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
-  const { amount,method,destination } = req.body;
-  if (!amount || typeof amount !== 'number' || amount <= 0) return res.status(400).json({ error:'Monto inválido' });
-  if (amount > 1000000) return res.status(400).json({ error:'Monto excede el límite' });
-  if (!method || typeof method !== 'string' || method.length > 100) return res.status(400).json({ error:'Método inválido' });
-  if (!destination || typeof destination !== 'string' || destination.length > 200) return res.status(400).json({ error:'Destino inválido' });
-  // Sanitize: strip HTML tags
-  const cleanMethod = method.replace(/<[^>]*>/g, '').trim();
-  const cleanDest = destination.replace(/<[^>]*>/g, '').trim();
-  const wallet=await getWallet(ownerId,req.user.role);
-  // Atomic balance check + debit to prevent race condition (double-withdraw)
-  const debitResult = await q1('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2 AND balance >= $1 RETURNING balance',[amount,wallet.id]);
-  if (!debitResult) return res.status(400).json({ error:'Saldo insuficiente' });
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${cleanMethod}`]);
-  const owner=await q1('SELECT name,email FROM users WHERE id=$1',[req.user.id]);
-  await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,cleanMethod,cleanDest]);
-  res.json({ success:true });
+  try {
+    const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
+    if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
+    const { amount,method,destination } = req.body;
+    if (!amount || typeof amount !== 'number' || amount <= 0) return res.status(400).json({ error:'Monto inválido' });
+    if (amount > 1000000) return res.status(400).json({ error:'Monto excede el límite' });
+    if (!method || typeof method !== 'string' || method.length > 100) return res.status(400).json({ error:'Método inválido' });
+    if (!destination || typeof destination !== 'string' || destination.length > 200) return res.status(400).json({ error:'Destino inválido' });
+    // Sanitize: strip HTML tags
+    const cleanMethod = method.replace(/<[^>]*>/g, '').trim();
+    const cleanDest = destination.replace(/<[^>]*>/g, '').trim();
+    const wallet=await getWallet(ownerId,req.user.role);
+    // Atomic balance check + debit to prevent race condition (double-withdraw)
+    const debitResult = await q1('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2 AND balance >= $1 RETURNING balance',[amount,wallet.id]);
+    if (!debitResult) return res.status(400).json({ error:'Saldo insuficiente' });
+    await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${cleanMethod}`]);
+    const owner=await q1('SELECT name,email FROM users WHERE id=$1',[req.user.id]);
+    await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,cleanMethod,cleanDest]);
+    res.json({ success:true });
+  } catch(e) { console.error('wallet/withdraw error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ── Cuentas bancarias guardadas ──────────────────
 app.get('/api/bank-accounts', auth, async (req, res) => {
-  const accounts = await qa('SELECT * FROM bank_accounts WHERE user_id=$1 ORDER BY is_default DESC, created_at ASC', [req.user.id]);
-  res.json(accounts);
+  try {
+    const accounts = await qa('SELECT * FROM bank_accounts WHERE user_id=$1 ORDER BY is_default DESC, created_at ASC', [req.user.id]);
+    res.json(accounts);
+  } catch(e) { console.error('bank-accounts GET error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.post('/api/bank-accounts', auth, async (req, res) => {
-  const { label, method, destination, is_default } = req.body;
-  if (!label||!method||!destination) return res.status(400).json({ error:'Faltan datos' });
-  const count = (await q1('SELECT COUNT(*) as c FROM bank_accounts WHERE user_id=$1', [req.user.id])).c;
-  if (parseInt(count) >= 3) return res.status(400).json({ error:'Máximo 3 cuentas permitidas' });
-  if (is_default) await q('UPDATE bank_accounts SET is_default=FALSE WHERE user_id=$1', [req.user.id]);
-  const id = uuid();
-  await q('INSERT INTO bank_accounts (id,user_id,label,method,destination,is_default) VALUES ($1,$2,$3,$4,$5,$6)',
-    [id, req.user.id, label, method, destination, is_default||false]);
-  res.json({ success:true, id });
+  try {
+    const { label, method, destination, is_default } = req.body;
+    if (!label||!method||!destination) return res.status(400).json({ error:'Faltan datos' });
+    const count = (await q1('SELECT COUNT(*) as c FROM bank_accounts WHERE user_id=$1', [req.user.id])).c;
+    if (parseInt(count) >= 3) return res.status(400).json({ error:'Máximo 3 cuentas permitidas' });
+    if (is_default) await q('UPDATE bank_accounts SET is_default=FALSE WHERE user_id=$1', [req.user.id]);
+    const id = uuid();
+    await q('INSERT INTO bank_accounts (id,user_id,label,method,destination,is_default) VALUES ($1,$2,$3,$4,$5,$6)',
+      [id, req.user.id, label, method, destination, is_default||false]);
+    res.json({ success:true, id });
+  } catch(e) { console.error('bank-accounts POST error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.delete('/api/bank-accounts/:id', auth, async (req, res) => {
-  await q('DELETE FROM bank_accounts WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-  res.json({ success:true });
+  try {
+    await q('DELETE FROM bank_accounts WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    res.json({ success:true });
+  } catch(e) { console.error('bank-accounts DELETE error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ════════════════════════════════════════════════
 //  FAVORITOS
 // ════════════════════════════════════════════════
 app.get('/api/favorites', auth, async (req, res) => {
-  const favs = await qa('SELECT f.*, p.name, p.price, p.emoji, p.photo_url, p.business_id, b.name as business_name FROM favorites f LEFT JOIN products p ON p.id=f.product_id LEFT JOIN businesses b ON b.id=f.business_id WHERE f.user_id=$1 ORDER BY f.created_at DESC', [req.user.id]);
-  res.json(favs);
+  try {
+    const favs = await qa('SELECT f.*, p.name, p.price, p.emoji, p.photo_url, p.business_id, b.name as business_name FROM favorites f LEFT JOIN products p ON p.id=f.product_id LEFT JOIN businesses b ON b.id=f.business_id WHERE f.user_id=$1 ORDER BY f.created_at DESC', [req.user.id]);
+    res.json(favs);
+  } catch(e) { console.error('favorites GET error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.post('/api/favorites', auth, async (req, res) => {
-  const { product_id, business_id } = req.body;
-  if (!product_id) return res.status(400).json({ error:'product_id requerido' });
-  const existing = await q1('SELECT id FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, product_id]);
-  if (existing) return res.json({ ok:true, id:existing.id });
-  const id = uuid();
-  await q('INSERT INTO favorites (id,user_id,product_id,business_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [id, req.user.id, product_id, business_id||'']);
-  res.json({ ok:true, id });
+  try {
+    const { product_id, business_id } = req.body;
+    if (!product_id) return res.status(400).json({ error:'product_id requerido' });
+    const existing = await q1('SELECT id FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, product_id]);
+    if (existing) return res.json({ ok:true, id:existing.id });
+    const id = uuid();
+    await q('INSERT INTO favorites (id,user_id,product_id,business_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [id, req.user.id, product_id, business_id||'']);
+    res.json({ ok:true, id });
+  } catch(e) { console.error('favorites POST error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.delete('/api/favorites/:productId', auth, async (req, res) => {
-  await q('DELETE FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, req.params.productId]);
-  res.json({ ok:true });
+  try {
+    await q('DELETE FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, req.params.productId]);
+    res.json({ ok:true });
+  } catch(e) { console.error('favorites DELETE error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ════════════════════════════════════════════════
@@ -3960,15 +3986,19 @@ app.post('/api/admin/banners/upload-image', auth, role('admin'), uploadMiddlewar
   } catch(e){ res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.patch('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
-  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,is_active,image_url} = req.body;
-  const activeVal = is_active !== undefined ? is_active : active;
-  await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),highlight_label=COALESCE($4,highlight_label),emoji=COALESCE($5,emoji),bg_color=COALESCE($6,bg_color),link=COALESCE($7,link),sort_order=COALESCE($8,sort_order),active=COALESCE($9,active),image_url=COALESCE($10,image_url),updated_at=NOW() WHERE id=$11",
-    [title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,activeVal,image_url,req.params.id]);
-  res.json({ok:true});
+  try {
+    const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,is_active,image_url} = req.body;
+    const activeVal = is_active !== undefined ? is_active : active;
+    await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),highlight_label=COALESCE($4,highlight_label),emoji=COALESCE($5,emoji),bg_color=COALESCE($6,bg_color),link=COALESCE($7,link),sort_order=COALESCE($8,sort_order),active=COALESCE($9,active),image_url=COALESCE($10,image_url),updated_at=NOW() WHERE id=$11",
+      [title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,activeVal,image_url,req.params.id]);
+    res.json({ok:true});
+  } catch(e){ console.error('banners PATCH error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.delete('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
-  await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
-  res.json({ok:true});
+  try {
+    await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
+    res.json({ok:true});
+  } catch(e){ console.error('banners DELETE error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.post('/api/admin/banners/:id/image', auth, role('admin'), uploadMiddleware('image'), async (req,res)=>{
   if(!req.file) return res.status(400).json({error:'No image'});
