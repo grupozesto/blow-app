@@ -5816,7 +5816,7 @@ async function doCheckout() {
 // ═══════════════════════════════════════════════
 //  TRACKING
 // ═══════════════════════════════════════════════
-const STATUS_LABELS = { pending:'Pendiente', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', on_way:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
+const STATUS_LABELS = { pending:'Pendiente', paid:'Pagado', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', on_way:'En camino', delivered:'Entregado', cancelled:'Cancelado', rejected:'Rechazado' };
 const STEPS_MAP = ['pending','confirmed','preparing','ready','on_way','delivered'];
 const STEP_LABELS = ['Pedido recibido','Confirmado','Preparando','Listo para delivery','En camino','Entregado'];
 
@@ -8349,7 +8349,7 @@ function filterAdminOrders() {
     (!status || o.status === status)
   ));
 }
-const ADMIN_STATUS_LABELS = {pending:'⏳ Pendiente',confirmed:'✅ Confirmado',preparing:'👨‍🍳 Preparando',ready:'🍳 Listo',on_way:'🛵 En camino',delivered:'✅ Entregado',cancelled:'❌ Cancelado'};
+const ADMIN_STATUS_LABELS = {pending:'⏳ Pendiente',paid:'💰 Pagado',confirmed:'✅ Confirmado',preparing:'👨‍🍳 Preparando',ready:'🍳 Listo',on_way:'🛵 En camino',delivered:'✅ Entregado',cancelled:'❌ Cancelado',rejected:'❌ Rechazado'};
 function renderAdminOrders(orders) {
   const el = document.getElementById('admin-orders-list');
   if (!orders.length) { el.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin pedidos</div>'; return; }
@@ -9139,7 +9139,8 @@ if (payStatus) {
     }
   } else if (payStatus === 'failure') {
     window.history.replaceState({}, '', '/');
-    showToast('❌ El pago fue rechazado. Intentá de nuevo.');
+    showToast('❌ El pago fue rechazado. Podés intentar de nuevo desde tus pedidos.');
+    setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1200);
   } else if (payStatus === 'pending') {
     window.history.replaceState({}, '', '/');
     showToast('⏳ Pago pendiente. Te avisamos cuando se confirme.');
@@ -11735,7 +11736,7 @@ async function loadLastOrderStrip() {
 <div id="owner-overlay">
 
   <!-- Modal ETA (confirmar pedido) -->
-  <div id="oo-eta-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:none;align-items:flex-end;justify-content:center;">
+  <div id="oo-eta-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:flex-end;justify-content:center;">
     <div style="background:#fff;border-radius:20px 20px 0 0;padding:28px 24px 36px;width:100%;max-width:480px;box-sizing:border-box;">
       <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px;">⏱️ ¿En cuántos minutos estará listo?</div>
       <div style="font-size:14px;color:#64748b;margin-bottom:20px;">El cliente verá este tiempo estimado</div>
