@@ -1232,15 +1232,22 @@ app.get('/api/addresses', auth, async (req, res) => {
 });
 
 app.post('/api/addresses', auth, async (req, res) => {
-  const { label, full_address, city, department='', lat=null, lng=null } = req.body;
-  if (!full_address || !city) return res.status(400).json({ error:'full_address y city son obligatorios' });
-  const cnt = await q1('SELECT COUNT(*) as c FROM user_addresses WHERE user_id=$1', [req.user.id]);
-  const isFirst = parseInt(cnt.c) === 0;
-  const id = uuid();
-  await q('INSERT INTO user_addresses (id,user_id,label,full_address,city,department,lat,lng,is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [id, req.user.id, label||'Mi dirección', full_address.trim(), city.trim(), department, lat, lng, isFirst]);
-  if (isFirst) await q('UPDATE users SET city=$1,department=$2 WHERE id=$3', [city.trim(), department, req.user.id]);
-  res.status(201).json(await q1('SELECT * FROM user_addresses WHERE id=$1', [id]));
+  try {
+    const { label, full_address, city, department='', lat=null, lng=null } = req.body;
+    if (!full_address || !city) return res.status(400).json({ error:'full_address y city son obligatorios' });
+    const parsedLat = lat != null ? parseFloat(lat) : null;
+    const parsedLng = lng != null ? parseFloat(lng) : null;
+    if (parsedLat !== null && (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90)) return res.status(400).json({ error:'Latitud inválida' });
+    if (parsedLng !== null && (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180)) return res.status(400).json({ error:'Longitud inválida' });
+    const cnt = await q1('SELECT COUNT(*) as c FROM user_addresses WHERE user_id=$1', [req.user.id]);
+    if (parseInt(cnt.c) >= 10) return res.status(400).json({ error:'Máximo 10 direcciones guardadas' });
+    const isFirst = parseInt(cnt.c) === 0;
+    const id = uuid();
+    await q('INSERT INTO user_addresses (id,user_id,label,full_address,city,department,lat,lng,is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, req.user.id, sanitize(label||'Mi dirección',50), sanitize(full_address,300).trim(), sanitize(city,100).trim(), sanitize(department,100), parsedLat, parsedLng, isFirst]);
+    if (isFirst) await q('UPDATE users SET city=$1,department=$2 WHERE id=$3', [city.trim(), department, req.user.id]);
+    res.status(201).json(await q1('SELECT * FROM user_addresses WHERE id=$1', [id]));
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/addresses/:id/activate', auth, async (req, res) => {
@@ -3058,29 +3065,39 @@ app.post('/api/admin/setup', async (req, res) => {
 });
 
 app.get('/api/admin/stats', auth, role('admin'), async (req, res) => {
-  const userStats  =await qa('SELECT role,COUNT(*) as c FROM users GROUP BY role',[]);
-  const orderStats =await qa('SELECT status,COUNT(*) as c FROM orders GROUP BY status',[]);
-  const revenue    =await q1("SELECT COALESCE(SUM(total),0) as total FROM orders WHERE status='delivered'",[]);
-  const today      =await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE DATE(created_at)=CURRENT_DATE AND status NOT IN ('cancelled','pending')`,[]);
-  const week       =await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE created_at>=NOW()-INTERVAL '7 days' AND status NOT IN ('cancelled','pending')`,[]);
-  const businesses =await q1('SELECT COUNT(*) as c FROM businesses',[]);
-  const pendingW   =await q1("SELECT COUNT(*) as c FROM withdrawals WHERE status='pending'",[]);
-  res.json({ userStats,orderStats,revenue:parseFloat(revenue.total),today,week,businesses:parseInt(businesses.c),pendingWithdrawals:parseInt(pendingW.c) });
+  try {
+    const userStats  =await qa('SELECT role,COUNT(*) as c FROM users GROUP BY role',[]);
+    const orderStats =await qa('SELECT status,COUNT(*) as c FROM orders GROUP BY status',[]);
+    const revenue    =await q1("SELECT COALESCE(SUM(total),0) as total FROM orders WHERE status='delivered'",[]);
+    const today      =await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE DATE(created_at)=CURRENT_DATE AND status NOT IN ('cancelled','pending')`,[]);
+    const week       =await q1(`SELECT COUNT(*) as orders,COALESCE(SUM(total),0) as revenue FROM orders WHERE created_at>=NOW()-INTERVAL '7 days' AND status NOT IN ('cancelled','pending')`,[]);
+    const businesses =await q1('SELECT COUNT(*) as c FROM businesses',[]);
+    const pendingW   =await q1("SELECT COUNT(*) as c FROM withdrawals WHERE status='pending'",[]);
+    res.json({ userStats,orderStats,revenue:parseFloat(revenue.total),today,week,businesses:parseInt(businesses.c),pendingWithdrawals:parseInt(pendingW.c) });
+  } catch(e) { res.status(500).json({ error:'Error al cargar estadísticas.' }); }
 });
 
 app.get('/api/admin/users', auth, role('admin'), async (req, res) => {
-  const { role:r,search } = req.query;
-  let sql='SELECT u.*,(SELECT COUNT(*) FROM orders WHERE customer_id=u.id) as order_count FROM users u WHERE TRUE';
-  const params=[]; let i=1;
-  if (r) { sql+=` AND u.role=$${i++}`;params.push(r); }
-  if (search) { sql+=` AND (u.name ILIKE $${i} OR u.email ILIKE $${i++})`;params.push(`%${search}%`); }
-  res.json(await qa(sql+' ORDER BY u.created_at DESC',params));
+  try {
+    const { role:r,search } = req.query;
+    let sql='SELECT u.id,u.name,u.email,u.phone,u.role,u.city,u.department,u.created_at,u.banned,u.ban_reason,u.avatar_url,u.blow_plus,(SELECT COUNT(*) FROM orders WHERE customer_id=u.id) as order_count FROM users u WHERE TRUE';
+    const params=[]; let i=1;
+    if (r) { sql+=` AND u.role=$${i++}`;params.push(r); }
+    if (search) { sql+=` AND (u.name ILIKE $${i} OR u.email ILIKE $${i++})`;params.push(`%${search}%`); }
+    res.json(await qa(sql+' ORDER BY u.created_at DESC LIMIT 500',params));
+  } catch(e) { res.status(500).json({ error:'Error al cargar usuarios.' }); }
 });
 
 app.patch('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
-  const { name,email,role:r,phone }=req.body;
-  await q('UPDATE users SET name=COALESCE($1,name),email=COALESCE($2,email),role=COALESCE($3,role),phone=COALESCE($4,phone) WHERE id=$5',[name,email,r,phone,req.params.id]);
-  res.json(await q1('SELECT id,name,email,role,phone,created_at FROM users WHERE id=$1',[req.params.id]));
+  try {
+    const { name, email, role:r, phone } = req.body;
+    // No permitir asignar role='admin' — debe hacerse con cuidado
+    if (r && !['customer','owner','delivery'].includes(r)) return res.status(400).json({ error:'Rol inválido. Usá: customer, owner o delivery.' });
+    await q('UPDATE users SET name=COALESCE($1,name),email=COALESCE($2,email),role=COALESCE($3,role),phone=COALESCE($4,phone) WHERE id=$5',[name,email,r,phone,req.params.id]);
+    if (r) await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), req.user.id, 'change_role', req.params.id, JSON.stringify({ new_role: r, admin_email: req.user.email })]);
+    res.json(await q1('SELECT id,name,email,role,phone,created_at FROM users WHERE id=$1',[req.params.id]));
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.delete('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
   try {
@@ -3389,6 +3406,7 @@ app.get('/api/geocode/reverse', async (req, res) => {
   const { lat, lng } = req.query;
   const flat = parseFloat(lat), flng = parseFloat(lng);
   if (isNaN(flat) || isNaN(flng)) return res.status(400).json({ error: 'lat y lng requeridos' });
+  if (flat < -90 || flat > 90 || flng < -180 || flng > 180) return res.status(400).json({ error: 'Coordenadas fuera de rango' });
 
   // Redondear a 3 decimales para cachear (~100m de precisión)
   const cacheKey = `${flat.toFixed(3)},${flng.toFixed(3)}`;
@@ -3420,7 +3438,7 @@ app.get('/api/geocode/reverse', async (req, res) => {
     res.json(result);
   } catch(e) {
     console.warn('Geocode error:', e.message);
-    res.status(503).json({ error: 'Servicio de geocodificación no disponible', detail: e.message });
+    res.status(503).json({ error: 'Servicio de geocodificación no disponible' });
   }
 });
 
@@ -3543,34 +3561,40 @@ app.post('/api/admin/orders/:id/cancel', auth, role('admin'), async (req, res) =
 
 // Exportar CSV
 app.get('/api/admin/export/users', auth, role('admin'), async (req, res) => {
-  const users = await qa('SELECT id,name,email,phone,role,city,department,created_at FROM users ORDER BY created_at DESC', []);
-  const csv = ['ID,Nombre,Email,Teléfono,Rol,Ciudad,Dpto,Registro',
-    ...users.map(u=>`${u.id},${JSON.stringify(u.name)},${u.email},${u.phone||''},${u.role},${u.city||''},${u.department||''},${new Date(u.created_at).toLocaleDateString('es-UY')}`)].join('\n');
-  res.setHeader('Content-Type','text/csv;charset=utf-8');
-  res.setHeader('Content-Disposition','attachment;filename="usuarios.csv"');
-  res.send('\uFEFF'+csv);
+  try {
+    const users = await qa('SELECT id,name,email,phone,role,city,department,created_at FROM users ORDER BY created_at DESC', []);
+    const csv = ['ID,Nombre,Email,Teléfono,Rol,Ciudad,Dpto,Registro',
+      ...users.map(u=>`${u.id},${JSON.stringify(u.name)},${u.email},${u.phone||''},${u.role},${u.city||''},${u.department||''},${new Date(u.created_at).toLocaleDateString('es-UY')}`)].join('\n');
+    res.setHeader('Content-Type','text/csv;charset=utf-8');
+    res.setHeader('Content-Disposition','attachment;filename="usuarios.csv"');
+    res.send('\uFEFF'+csv);
+  } catch(e) { res.status(500).json({ error:'Error al exportar usuarios.' }); }
 });
 app.get('/api/admin/export/businesses', auth, role('admin'), async (req, res) => {
-  const rows = await qa(`SELECT b.name,b.category,b.city,u.name as owner,u.email,s.status as sub,s.current_period_end,b.created_at
-    FROM businesses b JOIN users u ON b.owner_id=u.id LEFT JOIN subscriptions s ON s.business_id=b.id ORDER BY b.created_at DESC`,[]);
-  const csv = ['Negocio,Categoría,Ciudad,Dueño,Email,Suscripción,Vence,Registro',
-    ...rows.map(r=>`${JSON.stringify(r.name)},${r.category||''},${r.city||''},${JSON.stringify(r.owner)},${r.email},${r.sub||''},${r.current_period_end?new Date(r.current_period_end).toLocaleDateString('es-UY'):''},${new Date(r.created_at).toLocaleDateString('es-UY')}`)].join('\n');
-  res.setHeader('Content-Type','text/csv;charset=utf-8');
-  res.setHeader('Content-Disposition','attachment;filename="negocios.csv"');
-  res.send('\uFEFF'+csv);
+  try {
+    const rows = await qa(`SELECT b.name,b.category,b.city,u.name as owner,u.email,s.status as sub,s.current_period_end,b.created_at
+      FROM businesses b JOIN users u ON b.owner_id=u.id LEFT JOIN subscriptions s ON s.business_id=b.id ORDER BY b.created_at DESC`,[]);
+    const csv = ['Negocio,Categoría,Ciudad,Dueño,Email,Suscripción,Vence,Registro',
+      ...rows.map(r=>`${JSON.stringify(r.name)},${r.category||''},${r.city||''},${JSON.stringify(r.owner)},${r.email},${r.sub||''},${r.current_period_end?new Date(r.current_period_end).toLocaleDateString('es-UY'):''},${new Date(r.created_at).toLocaleDateString('es-UY')}`)].join('\n');
+    res.setHeader('Content-Type','text/csv;charset=utf-8');
+    res.setHeader('Content-Disposition','attachment;filename="negocios.csv"');
+    res.send('\uFEFF'+csv);
+  } catch(e) { res.status(500).json({ error:'Error al exportar negocios.' }); }
 });
 app.get('/api/admin/export/orders', auth, role('admin'), async (req, res) => {
-  const { from, to } = req.query;
-  const dateFrom = from || new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0];
-  const dateTo = to || new Date().toISOString().split('T')[0];
-  const rows = await qa(`SELECT o.id,o.status,o.total,o.platform_fee,o.payment_method,u.name as customer,u.email,b.name as business,o.created_at
-    FROM orders o JOIN users u ON o.customer_id=u.id JOIN businesses b ON o.business_id=b.id
-    WHERE DATE(o.created_at) BETWEEN $1 AND $2 ORDER BY o.created_at DESC`, [dateFrom, dateTo]);
-  const csv = ['ID,Estado,Total,Fee,Pago,Cliente,Email,Negocio,Fecha',
-    ...rows.map(r=>`${r.id.slice(-8)},${r.status},$${r.total},$${r.platform_fee||0},${r.payment_method||''},${JSON.stringify(r.customer)},${r.email},${JSON.stringify(r.business)},${new Date(r.created_at).toLocaleString('es-UY')}`)].join('\n');
-  res.setHeader('Content-Type','text/csv;charset=utf-8');
-  res.setHeader('Content-Disposition',`attachment;filename="pedidos-${dateFrom}-${dateTo}.csv"`);
-  res.send('\uFEFF'+csv);
+  try {
+    const { from, to } = req.query;
+    const dateFrom = from || new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0];
+    const dateTo = to || new Date().toISOString().split('T')[0];
+    const rows = await qa(`SELECT o.id,o.status,o.total,o.platform_fee,o.payment_method,u.name as customer,u.email,b.name as business,o.created_at
+      FROM orders o JOIN users u ON o.customer_id=u.id JOIN businesses b ON o.business_id=b.id
+      WHERE DATE(o.created_at) BETWEEN $1 AND $2 ORDER BY o.created_at DESC`, [dateFrom, dateTo]);
+    const csv = ['ID,Estado,Total,Fee,Pago,Cliente,Email,Negocio,Fecha',
+      ...rows.map(r=>`${r.id.slice(-8)},${r.status},$${r.total},$${r.platform_fee||0},${r.payment_method||''},${JSON.stringify(r.customer)},${r.email},${JSON.stringify(r.business)},${new Date(r.created_at).toLocaleString('es-UY')}`)].join('\n');
+    res.setHeader('Content-Type','text/csv;charset=utf-8');
+    res.setHeader('Content-Disposition',`attachment;filename="pedidos-${dateFrom}-${dateTo}.csv"`);
+    res.send('\uFEFF'+csv);
+  } catch(e) { res.status(500).json({ error:'Error al exportar pedidos.' }); }
 });
 
 // Toggle open/closed negocio
@@ -4244,3 +4268,12 @@ initDB().then(()=>{
   }, 30 * 60000); // cada 30 minutos
 
 }).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
+
+// ── Handlers globales para evitar crash del proceso ──
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️  Unhandled Rejection:', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('⚠️  Uncaught Exception:', err.message);
+  // No hacer process.exit — Railway reinicia si es necesario
+});
