@@ -1202,10 +1202,12 @@ app.post('/api/auth/reset-password', async (req, res) => {
 });
 
 app.get('/api/auth/me', auth, async (req, res) => {
-  const u = await q1('SELECT id,name,email,phone,role,address,city,department FROM users WHERE id=$1', [req.user.id]);
-  if (!u) return res.json({ error:'No encontrado' });
-  u.addresses = await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC', [req.user.id]);
-  res.json(u);
+  try {
+    const u = await q1('SELECT id,name,email,phone,role,address,city,department,avatar_url,blow_plus,blow_plus_expires FROM users WHERE id=$1', [req.user.id]);
+    if (!u) return res.status(404).json({ error:'No encontrado' });
+    u.addresses = await qa('SELECT * FROM user_addresses WHERE user_id=$1 ORDER BY is_active DESC,created_at DESC', [req.user.id]);
+    res.json(u);
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.patch('/api/auth/me', auth, async (req, res) => {
@@ -3093,10 +3095,9 @@ app.get('/api/admin/users', auth, role('admin'), async (req, res) => {
 
 app.patch('/api/admin/users/:id', auth, role('admin'), async (req, res) => {
   try {
-    const { name, email, role:r, phone } = req.body;
-    // No permitir asignar role='admin' — debe hacerse con cuidado
+    const { name, role:r, phone } = req.body; // email excluido — no se puede cambiar desde admin
     if (r && !['customer','owner','delivery'].includes(r)) return res.status(400).json({ error:'Rol inválido. Usá: customer, owner o delivery.' });
-    await q('UPDATE users SET name=COALESCE($1,name),email=COALESCE($2,email),role=COALESCE($3,role),phone=COALESCE($4,phone) WHERE id=$5',[name,email,r,phone,req.params.id]);
+    await q('UPDATE users SET name=COALESCE($1,name),role=COALESCE($2,role),phone=COALESCE($3,phone) WHERE id=$4',[name,r,phone,req.params.id]);
     if (r) await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
       [uuid(), req.user.id, 'change_role', req.params.id, JSON.stringify({ new_role: r, admin_email: req.user.email })]);
     res.json(await q1('SELECT id,name,email,role,phone,created_at FROM users WHERE id=$1',[req.params.id]));
