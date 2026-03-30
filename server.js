@@ -1951,6 +1951,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
     const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='', coupon_code='', scheduled_for=null } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
+    if (!Array.isArray(items) || items.length > 30) return res.status(400).json({ error:'Máximo 30 productos por pedido' });
 
     // Protección contra doble submit: si el usuario tiene un pedido pending/paid reciente (<2min) para el mismo negocio, devolver ese pedido
     if (!scheduled_for) {
@@ -2430,11 +2431,14 @@ app.patch('/api/reviews/:id/reply', auth, role('owner'), async (req, res) => {
 
 // Ver reseñas de un negocio (público)
 app.get('/api/businesses/:id/reviews', async (req, res) => {
-  const reviews = await qa(
-    `SELECT r.*, u.name as customer_name FROM reviews r JOIN users u ON u.id=r.customer_id WHERE r.business_id=$1 ORDER BY r.created_at DESC LIMIT 30`,
-    [req.params.id]
-  );
-  res.json(reviews);
+  try {
+    const reviews = await qa(
+      `SELECT r.id, r.rating, r.comment, r.owner_reply, r.owner_replied_at, r.created_at, u.name as customer_name
+       FROM reviews r JOIN users u ON u.id=r.customer_id WHERE r.business_id=$1 ORDER BY r.created_at DESC LIMIT 30`,
+      [req.params.id]
+    );
+    res.json(reviews);
+  } catch(e) { res.status(500).json({ error:'Error al cargar reseñas.' }); }
 });
 
 // Owner ve sus reseñas
@@ -2805,6 +2809,12 @@ app.post('/api/businesses/mine/promotions', auth, role('owner'), async (req, res
           combo_products=[], combo_price=0, code=null,
           requires_code=false, starts_at=null, ends_at=null, blow_plus_only=false } = req.body;
   if (!name || !type) return res.status(400).json({ error:'name y type son requeridos' });
+  const validPromoTypes = ['percent_off','fixed_off','free_delivery','bogo','combo','category_percent'];
+  if (!validPromoTypes.includes(type)) return res.status(400).json({ error:'Tipo de promoción inválido' });
+  if (['percent_off','category_percent'].includes(type) && (parseFloat(value) <= 0 || parseFloat(value) > 100))
+    return res.status(400).json({ error:'El porcentaje debe ser entre 1 y 100' });
+  if (['fixed_off','combo'].includes(type) && parseFloat(value) <= 0)
+    return res.status(400).json({ error:'El valor debe ser mayor a cero' });
   const id = 'promo-' + uuid().slice(0,8);
   await q(
     `INSERT INTO promotions (id,business_id,name,type,value,min_order_amount,category_id,combo_products,combo_price,code,requires_code,starts_at,ends_at,blow_plus_only)
@@ -2868,6 +2878,7 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 app.get('/api/businesses/:id', async (req, res) => {
+  try {
   const b = await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
   // Filter products: available + respects time window if set (Uruguay UTC-3)
@@ -2889,7 +2900,9 @@ app.get('/api/businesses/:id', async (req, res) => {
     variants: allVariants.filter(v => v.product_id === p.id),
   }));
   const cats = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
-  res.json({ ...b, products:prods, categories:cats });
+  const { owner_id, blow_plus_mp_id, ...publicBiz } = b;
+  res.json({ ...publicBiz, products:prods, categories:cats });
+  } catch(e) { res.status(500).json({ error:'Error al cargar el negocio.' }); }
 });
 
 // Public: get active promotions for a business
@@ -3649,11 +3662,16 @@ app.post('/api/admin/coupons', auth, role('admin'), async (req, res) => {
   try {
     const { code, description, discount_type, discount_value, min_order, max_uses, per_user, business_id, expires_at } = req.body;
     if (!code || !discount_value) return res.status(400).json({ error: 'Código y descuento requeridos' });
+    const dVal = parseFloat(discount_value);
+    if (isNaN(dVal) || dVal <= 0) return res.status(400).json({ error: 'El descuento debe ser mayor a cero' });
+    const dType = discount_type || 'percent';
+    if (!['percent','fixed'].includes(dType)) return res.status(400).json({ error: 'Tipo de descuento invalido' });
+    if (dType === 'percent' && dVal > 100) return res.status(400).json({ error: 'El descuento en porcentaje no puede superar 100%' });
     const existing = await q1('SELECT id FROM coupons WHERE UPPER(code)=UPPER($1)', [code.trim()]);
     if (existing) return res.status(409).json({ error: 'Ya existe ese código' });
     const id = uuid();
     await q('INSERT INTO coupons (id,code,description,discount_type,discount_value,min_order,max_uses,per_user,business_id,created_by,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-      [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, max_uses||null, per_user||1, business_id||null, req.user.id, expires_at||null]);
+      [id, code.trim().toUpperCase(), description||'', dType, dVal, min_order||0, max_uses||null, per_user||1, business_id||null, req.user.id, expires_at||null]);
     res.status(201).json({ id });
   } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
@@ -3680,11 +3698,16 @@ app.post('/api/owner/coupons', auth, async (req, res) => {
     if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
     const { code, description, discount_type, discount_value, min_order } = req.body;
     if (!code || !discount_value) return res.status(400).json({ error: 'Código y descuento requeridos' });
+    const dVal2 = parseFloat(discount_value);
+    if (isNaN(dVal2) || dVal2 <= 0) return res.status(400).json({ error: 'El descuento debe ser mayor a cero' });
+    const dType2 = discount_type || 'percent';
+    if (!['percent','fixed'].includes(dType2)) return res.status(400).json({ error: 'Tipo de descuento invalido' });
+    if (dType2 === 'percent' && dVal2 > 100) return res.status(400).json({ error: 'El descuento en porcentaje no puede superar 100%' });
     const existing = await q1('SELECT id FROM coupons WHERE UPPER(code)=UPPER($1)', [code.trim()]);
     if (existing) return res.status(409).json({ error: 'Ya existe ese código' });
     const id = uuid();
     await q('INSERT INTO coupons (id,code,description,discount_type,discount_value,min_order,per_user,business_id,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [id, code.trim().toUpperCase(), description||'', discount_type||'percent', discount_value, min_order||0, 1, biz.id, req.user.id]);
+      [id, code.trim().toUpperCase(), description||'', dType2, dVal2, min_order||0, 1, biz.id, req.user.id]);
     res.status(201).json({ id });
   } catch(e) { res.status(500).json({ error: 'Error interno. Intentá de nuevo.' }); }
 });
@@ -4092,9 +4115,9 @@ initDB().then(()=>{
     try {
       const businesses = await qa(`SELECT id, is_open, schedule FROM businesses WHERE schedule IS NOT NULL`,[]);
       const now = new Date();
-      // Uruguay = UTC-3
-      const uyOffset = -3 * 60;
-      const uyNow = new Date(now.getTime() + (uyOffset - now.getTimezoneOffset()) * 60000);
+      // Usar timezone de Montevideo correctamente en vez de offset fijo
+      const uyNowStr = now.toLocaleString('en-US', { timeZone: 'America/Montevideo' });
+      const uyNow = new Date(uyNowStr);
       const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
       const dayKey = dayNames[uyNow.getDay()];
       const currentMins = uyNow.getHours() * 60 + uyNow.getMinutes();
