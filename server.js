@@ -2029,8 +2029,10 @@ app.post('/api/admin/subscriptions/:id/activate', auth, role('admin'), async (re
 });
 // Admin — suspend a subscription
 app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req, res) => {
-  await q("UPDATE subscriptions SET status='suspended',updated_at=NOW() WHERE id=$1",[req.params.id]);
-  res.json({ success:true });
+  try {
+    await q("UPDATE subscriptions SET status='suspended',updated_at=NOW() WHERE id=$1",[req.params.id]);
+    res.json({ success:true });
+  } catch(e) { console.error('subscriptions/suspend error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ════════════════════════════════════════════════
@@ -2041,6 +2043,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='', coupon_code='', scheduled_for=null } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
     if (!Array.isArray(items) || items.length > 30) return res.status(400).json({ error:'Máximo 30 productos por pedido' });
+    if (!['mercadopago','cash'].includes(payment_method)) return res.status(400).json({ error:'Método de pago inválido' });
 
     // Protección contra doble submit: si el usuario tiene un pedido pending/paid reciente (<2min) para el mismo negocio, devolver ese pedido
     if (!scheduled_for) {
@@ -2101,12 +2104,12 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     }
     const _ubp = await q1('SELECT blow_plus, blow_plus_expires FROM users WHERE id=$1',[req.user.id]);
     const userBP = _ubp && _ubp.blow_plus && (!_ubp.blow_plus_expires || new Date(_ubp.blow_plus_expires) > new Date());
-    const fulfillment_type = req.body.fulfillment_type || 'delivery';
+    const fulfillment_type = ['delivery','pickup'].includes(req.body.fulfillment_type) ? req.body.fulfillment_type : 'delivery';
     const baseFee = fulfillment_type === 'pickup' ? 0 : (biz.custom_delivery_cost ?? biz.delivery_cost ?? 0);
     const fee = (userBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
     const priorityPct = (biz.priority_percent != null ? parseInt(biz.priority_percent) : 50) / 100;
     const priorityFee = priority ? Math.round(fee * priorityPct) : 0;
-    const tipAmt = Math.max(0, parseFloat(tip) || 0); // NEVER negative
+    const tipAmt = Math.min(Math.max(0, parseFloat(tip) || 0), 5000); // NEVER negative, max $5000
 
     // ── Apply coupon/promo discount server-side ──
     let discountAmt = 0;
@@ -2136,7 +2139,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     // Cash orders go to 'paid' immediately (owner still needs to accept)
     const initialStatus = payment_method === 'cash' ? 'paid' : 'pending';
     await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,fulfillment_type,tip,priority,priority_fee,payment_method,notes,scheduled_for) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-      [orderId,req.user.id,business_id,initialStatus,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,fulfillment_type,tipAmt,Boolean(priority),priorityFee,payment_method,notes||'',scheduledDate?scheduledDate.toISOString():null]);
+      [orderId,req.user.id,business_id,initialStatus,subtotal,fee,total,(address||cust.address||'').slice(0,500),bizAmt,fee,plat,fulfillment_type,tipAmt,Boolean(priority),priorityFee,payment_method,(notes||'').slice(0,500),scheduledDate?scheduledDate.toISOString():null]);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -3281,23 +3284,25 @@ app.get('/api/admin/withdrawals', auth, role('admin'), async (req, res) => {
   catch(e) { res.status(500).json({ error:'Error al cargar retiros.' }); }
 });
 app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, res) => {
-  const w = await q1('SELECT * FROM withdrawals WHERE id=$1', [req.params.id]);
-  if (!w) return res.status(404).json({ error: 'No encontrado' });
-  if (w.status !== 'pending') return res.status(400).json({ error: 'Este retiro ya fue procesado' });
-  await q("UPDATE withdrawals SET status='completed', processed_at=NOW() WHERE id=$1", [req.params.id]);
-  // Notificar al dueño
-  notify(w.owner_id, {
-    type: 'withdrawal_approved',
-    message: `✅ Tu retiro de $${w.amount} fue confirmado. El dinero se acredita en hasta 24hs hábiles.`
-  });
-  // Push notification si tiene suscripción
-  sendPushToOwner(w.owner_id, {
-    title: '💸 Retiro confirmado',
-    body: `$${w.amount} — acreditado en hasta 24hs hábiles`,
-    tag: 'withdrawal',
-    url: '/'
-  });
-  res.json({ success: true });
+  try {
+    const w = await q1('SELECT * FROM withdrawals WHERE id=$1', [req.params.id]);
+    if (!w) return res.status(404).json({ error: 'No encontrado' });
+    if (w.status !== 'pending') return res.status(400).json({ error: 'Este retiro ya fue procesado' });
+    await q("UPDATE withdrawals SET status='completed', processed_at=NOW() WHERE id=$1", [req.params.id]);
+    // Notificar al dueño
+    notify(w.owner_id, {
+      type: 'withdrawal_approved',
+      message: `✅ Tu retiro de ${w.amount} fue confirmado. El dinero se acredita en hasta 24hs hábiles.`
+    });
+    // Push notification si tiene suscripción
+    sendPushToOwner(w.owner_id, {
+      title: '💸 Retiro confirmado',
+      body: `${w.amount} — acreditado en hasta 24hs hábiles`,
+      tag: 'withdrawal',
+      url: '/'
+    });
+    res.json({ success: true });
+  } catch(e) { console.error('withdrawals/approve error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.post('/api/admin/withdrawals/:id/reject', auth, role('admin'), async (req, res) => {
   const w=await q1('SELECT * FROM withdrawals WHERE id=$1',[req.params.id]);
