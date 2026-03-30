@@ -1925,6 +1925,15 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const { business_id, items, address, payment_method='mercadopago', tip=0, priority=false, notes='', coupon_code='', scheduled_for=null } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
 
+    // Protección contra doble submit: si el usuario tiene un pedido pending/paid reciente (<2min) para el mismo negocio, devolver ese pedido
+    if (!scheduled_for) {
+      const recentOrder = await q1(
+        `SELECT id, status FROM orders WHERE customer_id=$1 AND business_id=$2 AND status IN ('pending','paid') AND created_at > NOW() - INTERVAL '2 minutes'`,
+        [req.user.id, business_id]
+      );
+      if (recentOrder) return res.status(409).json({ error:'Ya tenés un pedido reciente en este negocio. Revisá tus pedidos antes de crear uno nuevo.', order_id: recentOrder.id });
+    }
+
     // Validate scheduled_for if provided
     let scheduledDate = null;
     if (scheduled_for) {
@@ -3679,7 +3688,7 @@ app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
+app.get('/api',(_,res)=>res.json({ app:'Blow API v4',db:'PostgreSQL',status:'running' }));
 
 // ── SUPPORT LIVE CHAT ──
 app.get('/api/support/messages', auth, async (req, res) => {
