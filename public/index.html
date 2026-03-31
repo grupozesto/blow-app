@@ -4206,7 +4206,12 @@ function renderCatList() {
       catName = fallback[catName] || catName;
     }
   }
-  let stores = allStores.filter(s => !catName || catName === 'all' || (s.category||'').toLowerCase() === (catName||'').toLowerCase());
+  let stores = allStores.filter(s => {
+    if (!catName || catName === 'all') return true;
+    const sc = (s.category||'').toLowerCase();
+    const cn = (catName||'').toLowerCase();
+    return sc === cn || sc === cn.replace(/s$/, '') || (sc + 's') === cn;
+  });
 
   // Search filter
   const q = (_catFilter.search || document.getElementById('cat-search-input')?.value || '').toLowerCase().trim();
