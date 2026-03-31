@@ -218,6 +218,9 @@ hr{border-color:var(--border);}
     <button class="nav-item" onclick="showPage('support')" id="nav-support">
       <span class="nav-icon">🛟</span>Soporte chat
     </button>
+    <button class="nav-item" onclick="showPage('blowplus')" id="nav-blowplus">
+      <span class="nav-icon">⚡</span>Blow+
+    </button>
     <button class="nav-item" onclick="showPage('config')" id="nav-config">
       <span class="nav-icon">⚙️</span>Configuración
     </button>
@@ -329,9 +332,9 @@ function showPage(page) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   const navEl = document.getElementById('nav-' + page);
   if (navEl) navEl.classList.add('active');
-  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', categories:'Categorías & Contenido', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', config:'Configuración', export:'Exportar datos' };
+  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', categories:'Categorías & Contenido', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', blowplus:'Blow+ Members', config:'Configuración', export:'Exportar datos' };
   document.getElementById('page-title').textContent = titles[page] || page;
-  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, config: renderConfig, export: renderExport };
+  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, blowplus: renderBlowPlus, config: renderConfig, export: renderExport };
   if (pages[page]) pages[page]();
 }
 
@@ -1251,6 +1254,71 @@ async function sendAdminSupportReply() {
 }
 
 // ── CONFIGURACIÓN ──────────────────────────────
+async function renderBlowPlus() {
+  const el = document.getElementById('page-content');
+  el.innerHTML = '<div class="spinner"></div>';
+  try {
+    const d = await api('/api/admin/blowplus');
+    const { users, businesses, stats } = d;
+    el.innerHTML = `
+      <!-- Stats -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;">
+        <div class="stat-card"><div class="stat-label">Usuarios Blow+ activos</div><div class="stat-value" style="color:var(--primary)">${stats.active_users}</div></div>
+        <div class="stat-card"><div class="stat-label">Negocios Blow+ activos</div><div class="stat-value" style="color:var(--green)">${stats.active_businesses}</div></div>
+        <div class="stat-card"><div class="stat-label">Usuarios expirados</div><div class="stat-value" style="color:var(--muted)">${stats.expired_users}</div></div>
+      </div>
+
+      <!-- Usuarios -->
+      <div class="table-wrap" style="margin-bottom:24px;">
+        <div class="table-head">
+          <span class="table-title">⚡ Usuarios Blow+</span>
+          <span style="font-size:12px;color:var(--muted);margin-left:auto;">${users.length} total</span>
+        </div>
+        ${users.length ? `<table>
+          <thead><tr><th>Usuario</th><th>Email</th><th>Desde</th><th>Expira</th><th>Pedidos</th><th>Gastado</th><th>Estado</th></tr></thead>
+          <tbody>${users.map(u => {
+            const active = !u.blow_plus_expires || new Date(u.blow_plus_expires) > new Date();
+            const expires = u.blow_plus_expires ? new Date(u.blow_plus_expires).toLocaleDateString('es-UY') : 'Sin límite';
+            return `<tr>
+              <td style="font-weight:700">${esc(u.name)}</td>
+              <td style="color:var(--muted);font-size:13px">${esc(u.email)}</td>
+              <td style="font-size:13px">${u.blow_plus_since ? new Date(u.blow_plus_since).toLocaleDateString('es-UY') : '—'}</td>
+              <td style="font-size:13px">${expires}</td>
+              <td style="text-align:center">${u.orders}</td>
+              <td>$${parseFloat(u.spent||0).toLocaleString('es-UY')}</td>
+              <td><span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${active?'#dcfce7':'#fee2e2'};color:${active?'#16a34a':'#dc2626'}">${active?'Activo':'Expirado'}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>` : '<div class="empty-state"><div class="empty-icon">⚡</div>No hay usuarios Blow+</div>'}
+      </div>
+
+      <!-- Negocios -->
+      <div class="table-wrap">
+        <div class="table-head">
+          <span class="table-title">🏪 Negocios Blow+</span>
+          <span style="font-size:12px;color:var(--muted);margin-left:auto;">${businesses.length} total</span>
+        </div>
+        ${businesses.length ? `<table>
+          <thead><tr><th>Negocio</th><th>Dueño</th><th>Ciudad</th><th>Desde</th><th>Expira</th><th>Envío gratis</th><th>Prods. con desc.</th><th>Estado</th></tr></thead>
+          <tbody>${businesses.map(b => {
+            const active = !b.blow_plus_expires || new Date(b.blow_plus_expires) > new Date();
+            const expires = b.blow_plus_expires ? new Date(b.blow_plus_expires).toLocaleDateString('es-UY') : 'Sin límite';
+            return `<tr>
+              <td style="font-weight:700">${esc(b.name)}</td>
+              <td style="font-size:13px;color:var(--muted)">${esc(b.owner_name)}</td>
+              <td style="font-size:13px">${esc(b.city||'—')}</td>
+              <td style="font-size:13px">${b.blow_plus_since ? new Date(b.blow_plus_since).toLocaleDateString('es-UY') : '—'}</td>
+              <td style="font-size:13px">${expires}</td>
+              <td style="text-align:center">${b.blow_plus_free_delivery ? '✅' : '—'}</td>
+              <td style="text-align:center">${b.bp_products}</td>
+              <td><span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:${active?'#dcfce7':'#fee2e2'};color:${active?'#16a34a':'#dc2626'}">${active?'Activo':'Expirado'}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>` : '<div class="empty-state"><div class="empty-icon">🏪</div>No hay negocios Blow+</div>'}
+      </div>`;
+  } catch(e) { document.getElementById('page-content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+}
+
 async function renderConfig() {
   document.getElementById('content').innerHTML = `<div class="spinner"></div>`;
   try {

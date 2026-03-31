@@ -3746,7 +3746,12 @@ function renderStores(list) {
   if (!list.length) { g.innerHTML = '<div class="loading-state" style="padding:40px 20px;text-align:center;color:#999;grid-column:1/-1;">No hay tiendas disponibles en esta zona</div>'; return; }
   g.innerHTML = list.map(s => {
     const isFree = s.delivery_cost === 0;
-    const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>' : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
+    const userIsBP = user && user.blow_plus && (!user.blow_plus_expires || new Date(user.blow_plus_expires) > new Date());
+    const bizIsBP = s.blow_plus && (!s.blow_plus_expires || new Date(s.blow_plus_expires) > new Date());
+    const bpFreeDelivery = userIsBP && bizIsBP && s.blow_plus_free_delivery;
+    const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>'
+      : bpFreeDelivery ? '<span class="tag" style="background:#ede9fe;color:#7c3aed;">⚡ Envío gratis Blow+</span>'
+      : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
     const pickupTag = s.offers_pickup && !s.offers_delivery ? '<span class="tag" style="background:#edf4ff;color:#3b5bdb;">Retiro en tienda</span>' : '';
     const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
     const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
@@ -4773,9 +4778,17 @@ function renderStoreProducts(products, tab='all') {
 function renderProductCard(p, s) {
   const disc = parseInt(p.discount_percent)||0;
   const discPrice = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
-  const priceHtml = disc > 0
-    ? `<span class="original">$${p.price}</span>$${discPrice}`
-    : `$${p.price}`;
+  // Blow+ discount: solo si usuario y negocio son blow+
+  const bpDisc = parseInt(p.blow_plus_discount)||0;
+  const userIsBP = user && user.blow_plus && (!user.blow_plus_expires || new Date(user.blow_plus_expires) > new Date());
+  const bizIsBP = s && s.blow_plus && (!s.blow_plus_expires || new Date(s.blow_plus_expires) > new Date());
+  const showBP = userIsBP && bizIsBP && bpDisc > 0;
+  const bpPrice = showBP ? Math.round(discPrice * (1 - bpDisc/100)) : discPrice;
+  const priceHtml = showBP
+    ? `<span class="original">$${discPrice}</span><span style="color:#7c3aed;font-weight:800;">$${bpPrice}</span><span style="font-size:10px;background:#ede9fe;color:#7c3aed;border-radius:6px;padding:1px 5px;margin-left:3px;font-weight:700;">⚡Blow+</span>`
+    : disc > 0
+      ? `<span class="original">$${p.price}</span>$${discPrice}`
+      : `$${p.price}`;
   const imgHtml = p.photo_url
     ? `<img src="${p.photo_url}" alt="${p.name}" loading="lazy">`
     : `<div class="prod-emoji-bg">${p.emoji||'🍽️'}</div>`;

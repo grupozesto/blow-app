@@ -1525,7 +1525,7 @@ async function renderMenu(){
         <div style="font-size:28px;flex-shrink:0;">${p.emoji||'🍽️'}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">$${p.price}${p.discount_percent?` · <span style="color:#fca5a5;">-${p.discount_percent}%</span>`:''}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">$${p.price}${p.discount_percent?` · <span style="color:#fca5a5;">-${p.discount_percent}%</span>`:''}${p.blow_plus_discount>0?` · <span style="color:#7c3aed;font-weight:700;">⚡-${p.blow_plus_discount}% Blow+</span>`:''}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
           <span class="badge ${p.is_available!==false?'b-green':'b-red'}">${p.is_available!==false?'Activo':'Pausado'}</span>
@@ -1577,6 +1577,16 @@ function showAddProduct(editP=null){
         <div><label class="flbl">PRECIO ($) *</label><input id="np-price" type="number" value="${p.price||''}" placeholder="0" class="finp" style="font-size:16px;font-weight:700;"></div>
         <div><label class="flbl">DESCUENTO (%)</label><input id="np-discount" type="number" min="0" max="99" value="${p.discount_percent||''}" placeholder="0" class="finp"></div>
       </div>
+      ${_biz&&_biz.blow_plus?`<div style="background:linear-gradient(135deg,#fdf4ff,#ede9fe);border:1.5px solid #c4b5fd;border-radius:14px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:800;color:#7c3aed;margin-bottom:8px;">⚡ Descuento exclusivo Blow+</div>
+        <div style="font-size:12px;color:#6d28d9;margin-bottom:10px;">Solo visible para usuarios Blow+. Máximo 20%.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="flbl">DESCUENTO BLOW+ (%)</label><input id="np-bp-discount" type="number" min="0" max="20" value="${p.blow_plus_discount||''}" placeholder="0 — 20%" class="finp" style="border-color:#c4b5fd;"></div>
+          <div id="np-bp-preview" style="display:flex;align-items:flex-end;padding-bottom:4px;font-size:13px;color:#7c3aed;font-weight:700;"></div>
+        </div>
+      </div>`:''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      </div>
       <div id="np-price-preview" style="background:rgba(34,197,94,.1);border-radius:9px;padding:10px 12px;font-size:13px;color:#4ade80;display:none;"></div>
     </div>
     <div class="card" style="margin-bottom:10px;">
@@ -1611,6 +1621,8 @@ function showAddProduct(editP=null){
   `;
   const up=()=>{const price=parseFloat(document.getElementById('np-price')?.value)||0;const disc=parseInt(document.getElementById('np-discount')?.value)||0;const prev=document.getElementById('np-price-preview');if(prev&&price>0&&disc>0){const f=Math.round(price*(1-disc/100));prev.style.display='flex';prev.innerHTML=`💸 Precio final: <strong>$${f}</strong> <span style="text-decoration:line-through;color:var(--muted);font-size:12px;">$${price}</span>`;}else if(prev)prev.style.display='none';};
   document.getElementById('np-price')?.addEventListener('input',up);document.getElementById('np-discount')?.addEventListener('input',up);up();
+  const upBP=()=>{const price=parseFloat(document.getElementById('np-price')?.value)||0;const disc=parseInt(document.getElementById('np-bp-discount')?.value)||0;const prev=document.getElementById('np-bp-preview');if(prev&&price>0&&disc>0){const f=Math.round(price*(1-disc/100));prev.textContent=`⚡ $${f} para Blow+`;}else if(prev)prev.textContent='';};
+  document.getElementById('np-bp-discount')?.addEventListener('input',upBP);document.getElementById('np-price')?.addEventListener('input',upBP);upBP();
   // Cargar grupos de variantes existentes
   _npGroups = {};
   _npGroupCounter = 0;
@@ -1701,7 +1713,7 @@ async function saveProduct(editId=null){
   const photos=_npPhotos.filter(Boolean);
   btn.textContent=photos.length?'⬆️ Subiendo...':'⏳ Guardando...';btn.disabled=true;
   try{
-    const body={name,price,emoji:document.getElementById('np-emoji')?.value?.trim()||'🍽️',description:document.getElementById('np-desc')?.value?.trim()||'',discount_percent:parseInt(document.getElementById('np-discount')?.value)||0,category_id:document.getElementById('np-cat')?.value||null,preparation_time:parseInt(document.getElementById('np-preptime')?.value)||null,calories:parseInt(document.getElementById('np-calories')?.value)||null,allergens:document.getElementById('np-allergens')?.value?.trim()||'',ingredients:document.getElementById('np-ingredients')?.value?.trim()||'',stock:document.getElementById('np-stock')?.value!==''?parseInt(document.getElementById('np-stock')?.value):null,is_featured:document.getElementById('np-featured')?.checked||false,is_available:document.getElementById('np-available')?.checked!==false,available_from:document.getElementById('np-from')?.value||null,available_until:document.getElementById('np-until')?.value||null,variants:npGetVariants(),photos:photos.map(p=>({data:p.data,mime_type:p.mime_type}))};
+    const body={name,price,emoji:document.getElementById('np-emoji')?.value?.trim()||'🍽️',description:document.getElementById('np-desc')?.value?.trim()||'',discount_percent:parseInt(document.getElementById('np-discount')?.value)||0,blow_plus_discount:Math.min(20,Math.max(0,parseInt(document.getElementById('np-bp-discount')?.value)||0)),category_id:document.getElementById('np-cat')?.value||null,preparation_time:parseInt(document.getElementById('np-preptime')?.value)||null,calories:parseInt(document.getElementById('np-calories')?.value)||null,allergens:document.getElementById('np-allergens')?.value?.trim()||'',ingredients:document.getElementById('np-ingredients')?.value?.trim()||'',stock:document.getElementById('np-stock')?.value!==''?parseInt(document.getElementById('np-stock')?.value):null,is_featured:document.getElementById('np-featured')?.checked||false,is_available:document.getElementById('np-available')?.checked!==false,available_from:document.getElementById('np-from')?.value||null,available_until:document.getElementById('np-until')?.value||null,variants:npGetVariants(),photos:photos.map(p=>({data:p.data,mime_type:p.mime_type}))};
     if(editId)await api(`/api/businesses/mine/products/${editId}`,{method:'PATCH',body:JSON.stringify(body)});
     else await api('/api/businesses/mine/products',{method:'POST',body:JSON.stringify(body)});
     toast('✅ Producto '+(editId?'actualizado':'publicado'));
