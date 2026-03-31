@@ -841,7 +841,7 @@ async function doRegister(){
 // ════════════════════════════════
 // CORE APP FUNCTIONS (from preserved JS)
 // ════════════════════════════════
-function doLogout(){
+async function doLogout(){
   if(!await bizConfirm('Vas a cerrar tu sesión del portal.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false}))return;
   localStorage.removeItem('blow_biz_token');localStorage.removeItem('blow_biz_user');
   _token='';_user=null;_biz=null;_dash=null;
