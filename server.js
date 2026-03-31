@@ -920,10 +920,18 @@ async function getWallet(ownerId, ownerType) {
   return await q1('SELECT * FROM wallets WHERE owner_id=$1', [ownerId]);
 }
 async function credit(ownerId, ownerType, amount, desc, orderId) {
-  const w = await getWallet(ownerId, ownerType);
-  await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2', [amount, w.id]);
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
-    [uuid(), w.id, 'credit', amount, desc, orderId||null]);
+  try {
+    const w = await getWallet(ownerId, ownerType);
+    await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2', [amount, w.id]);
+    await q('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
+      [uuid(), w.id, 'credit', amount, desc, orderId||null]);
+  } catch(e) {
+    console.error(`❌ CRITICAL: credit() failed for ownerId=${ownerId} amount=${amount} orderId=${orderId}: ${e.message}`);
+    // Log para revisión manual — el pedido quedó delivered pero el crédito falló
+    await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), 'system', 'credit_failed', orderId||ownerId, JSON.stringify({ ownerId, ownerType, amount, desc, error: e.message })]).catch(()=>{});
+    throw e; // re-throw para que el caller sepa
+  }
 }
 async function getProductFull(pid) {
   const p = await q1('SELECT * FROM products WHERE id=$1', [pid]);
@@ -1391,10 +1399,11 @@ app.get('/api/admin/business-categories', auth, role('admin'), async (req, res) 
 });
 app.post('/api/admin/business-categories', auth, role('admin'), async (req, res) => {
   try {
-    const { name, emoji='🏪', sort_order=99 } = req.body;
+    const { name, emoji: _emoji_bc='🏪', sort_order=99 } = req.body;
     if (!name) return res.status(400).json({ error:'name requerido' });
+    const emoji_bc = (_emoji_bc||'🏪').replace(/['"<>&]/g,'').slice(0,10)||'🏪';
     const id = 'cat-' + uuid().slice(0,8);
-    await q('INSERT INTO business_categories (id,name,emoji,sort_order) VALUES ($1,$2,$3,$4)',[id,name,emoji,sort_order]);
+    await q('INSERT INTO business_categories (id,name,emoji,sort_order) VALUES ($1,$2,$3,$4)',[id,name,emoji_bc,sort_order]);
     res.json({ success:true, id });
   } catch(e) { console.error('business-categories POST error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
@@ -1448,11 +1457,12 @@ app.get('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
 
 app.post('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
   try {
-    const { category_id, name, emoji='🍽️', image_url, sort_order=0 } = req.body;
+    const { category_id, name, emoji: _emoji_sc='🍽️', image_url, sort_order=0 } = req.body;
     if (!category_id || !name) return res.status(400).json({ error:'category_id y name son obligatorios' });
+    const emoji_sc = (_emoji_sc||'🍽️').replace(/['"<>&]/g,'').slice(0,10)||'🍽️';
     const id = 'subcat-' + uuid().slice(0,8);
     await q('INSERT INTO business_subcategories (id,category_id,name,emoji,image_url,sort_order) VALUES ($1,$2,$3,$4,$5,$6)',
-      [id, category_id, name.trim(), emoji, image_url||null, sort_order]);
+      [id, category_id, name.trim(), emoji_sc, image_url||null, sort_order]);
     res.status(201).json(await q1('SELECT * FROM business_subcategories WHERE id=$1',[id]));
   } catch(e) { console.error('admin/subcategories POST error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
@@ -1732,7 +1742,8 @@ app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   try {
     const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
     if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-    const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, description, tags, offers_pickup, offers_delivery, custom_delivery_cost, schedule, offers_priority, priority_percent } = req.body;
+    const { name, category, address, phone, logo_emoji: _logo_emoji_raw, delivery_cost, is_open, plan, delivery_time, city, department, description, tags, offers_pickup, offers_delivery, custom_delivery_cost, schedule, offers_priority, priority_percent } = req.body;
+  const logo_emoji = _logo_emoji_raw ? (_logo_emoji_raw).replace(/['"<>&]/g,'').slice(0,10) || '🏪' : undefined;
     const scheduleVal = schedule !== undefined ? JSON.stringify(schedule) : null;
     await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),offers_priority=COALESCE($12,offers_priority),priority_percent=COALESCE($13,priority_percent),schedule=COALESCE($14,schedule),offers_delivery=COALESCE($16,offers_delivery),offers_pickup=COALESCE($17,offers_pickup) WHERE owner_id=$15`,
       [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,offers_priority!=null?Boolean(offers_priority):null,priority_percent!=null?parseInt(priority_percent):null,scheduleVal,req.user.id,offers_delivery!=null?Boolean(offers_delivery):null,offers_pickup!=null?Boolean(offers_pickup):null]);
@@ -1795,6 +1806,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
     return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
   const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', ingredients='', stock=null, is_featured=false } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
+  const safeEmoji = (emoji||'🍽️').replace(/['"<>&]/g,'').slice(0,10) || '🍽️';
   if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
   if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
   const parsedDiscount = Math.min(100, Math.max(0, parseInt(discount_percent) || 0));
@@ -1803,7 +1815,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   if (parsedStock !== null && parsedStock < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
   const id = uuid();
   await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
-    [id,b.id,category_id||null,emoji,name.trim(),(description||'').slice(0,1000),parseFloat(price),parsedDiscount,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,(allergens||'').slice(0,500),(ingredients||'').slice(0,1000),parsedStock]);
+    [id,b.id,category_id||null,safeEmoji,name.trim(),(description||'').slice(0,1000),parseFloat(price),parsedDiscount,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,(allergens||'').slice(0,500),(ingredients||'').slice(0,1000),parsedStock]);
   for (let i=0;i<Math.min(photos.length,4);i++) {
     try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
     catch(e) { console.error('Photo error:',e.message); }
@@ -1819,7 +1831,8 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
+  const { name, description, price, emoji: _emoji_patch, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
+  const emoji = _emoji_patch != null ? (_emoji_patch||'🍽️').replace(/['"<>&]/g,'').slice(0,10)||'🍽️' : undefined;
   if (stock != null && parseInt(stock) < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
   await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock),available_from=COALESCE($15,available_from),available_until=COALESCE($16,available_until) WHERE id=$13 AND business_id=$14`,
     [name,description!=null?description.slice(0,1000):null,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?Math.min(100,Math.max(0,parseInt(discount_percent))):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?Math.max(0,parseInt(stock)):null,req.params.pid,b.id,available_from||null,available_until||null]);
@@ -4400,7 +4413,8 @@ initDB().then(()=>{
         `SELECT id, customer_id, business_id FROM orders WHERE status='pending' AND created_at < NOW() - INTERVAL '30 minutes'`, []
       );
       for (const order of stalePending) {
-        await q(`UPDATE orders SET status='cancelled', cancel_reason='Pago no completado (expirado)', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1`, [order.id]);
+        const cancelledPending = await q(`UPDATE orders SET status='cancelled', cancel_reason='Pago no completado (expirado)', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='pending' RETURNING id`, [order.id]);
+        if (!cancelledPending || !cancelledPending.rowCount) { console.log(`⚠️  Skipping already-cancelled pending order: ${order.id}`); continue; }
         const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
         for (const item of items) {
           await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
@@ -4416,7 +4430,8 @@ initDB().then(()=>{
         `SELECT * FROM orders WHERE status='paid' AND created_at < NOW() - INTERVAL '2 hours'`, []
       );
       for (const order of stalePaid) {
-        await q(`UPDATE orders SET status='cancelled', cancel_reason='Negocio no respondió a tiempo', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1`, [order.id]);
+        const cancelledPaid = await q(`UPDATE orders SET status='cancelled', cancel_reason='Negocio no respondió a tiempo', cancelled_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='paid' RETURNING id`, [order.id]);
+        if (!cancelledPaid || !cancelledPaid.rowCount) { console.log(`⚠️  Skipping already-cancelled paid order: ${order.id}`); continue; }
         const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
         for (const item of items) {
           await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
