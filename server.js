@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════
-//  Blow — Backend v3.0
+//  Blow — Backend v3.1
 //  Node.js + Express + PostgreSQL + Cloudinary + MercadoPago + WebSockets
 // ════════════════════════════════════════════════
 require('dotenv').config();
