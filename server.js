@@ -1797,6 +1797,87 @@ app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
   await loadPlanPrice(); // reload in-memory price
   res.json({ success:true });
 });
+// ── Branding: header logo ────────────────────────
+app.post('/api/admin/branding/header-logo', auth, role('admin'), uploadMiddleware('logo'), async (req, res) => {
+  try {
+    if (!cloudinary) return res.status(503).json({ error: 'Cloudinary no configurado' });
+    if (!req.file) return res.status(400).json({ error: 'No image' });
+    const b64 = (req.file.buffer || require('fs').readFileSync(req.file.path)).toString('base64');
+    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${b64}`, {
+      folder: 'blow/branding', public_id: 'header-logo', overwrite: true,
+      transformation: [{ height: 80, crop: 'fit', quality: 'auto:best' }]
+    });
+    await q("INSERT INTO app_settings (key,value,updated_at) VALUES ('header_logo_url',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=$1,updated_at=NOW()", [result.secure_url]);
+    res.json({ url: result.secure_url });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/branding/header-logo', auth, role('admin'), async (req, res) => {
+  try {
+    await q("DELETE FROM app_settings WHERE key='header_logo_url'", []);
+    if (cloudinary) { try { await cloudinary.uploader.destroy('blow/branding/header-logo'); } catch {} }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Branding: PWA icon (genera 8 tamaños) ────────
+app.post('/api/admin/branding/pwa-icon', auth, role('admin'), uploadMiddleware('icon'), async (req, res) => {
+  try {
+    if (!cloudinary) return res.status(503).json({ error: 'Cloudinary no configurado' });
+    if (!req.file) return res.status(400).json({ error: 'No image' });
+    const b64 = (req.file.buffer || require('fs').readFileSync(req.file.path)).toString('base64');
+    const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+    const urls = {};
+    for (const size of sizes) {
+      const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${b64}`, {
+        folder: 'blow/branding/icons', public_id: `icon-${size}`, overwrite: true,
+        transformation: [{ width: size, height: size, crop: 'fill', quality: 'auto:best' }]
+      });
+      urls[size] = result.secure_url;
+    }
+    await q("INSERT INTO app_settings (key,value,updated_at) VALUES ('pwa_icon_urls',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=$1,updated_at=NOW()", [JSON.stringify(urls)]);
+    res.json({ urls });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Manifest dinámico ────────────────────────────
+app.get('/manifest.json', async (req, res) => {
+  try {
+    const iconSetting = await q1("SELECT value FROM app_settings WHERE key='pwa_icon_urls'", []);
+    const iconUrls = iconSetting ? JSON.parse(iconSetting.value) : null;
+    const manifest = {
+      name: 'Blow', short_name: 'Blow',
+      description: 'Delivery app — Pedí lo que quieras, donde quieras',
+      start_url: '/', display: 'standalone',
+      background_color: '#ea356b', theme_color: '#ea356b', orientation: 'portrait',
+      icons: iconUrls ? [
+        { src: iconUrls[72],  sizes: '72x72',   type: 'image/png' },
+        { src: iconUrls[96],  sizes: '96x96',   type: 'image/png' },
+        { src: iconUrls[128], sizes: '128x128', type: 'image/png' },
+        { src: iconUrls[144], sizes: '144x144', type: 'image/png' },
+        { src: iconUrls[152], sizes: '152x152', type: 'image/png' },
+        { src: iconUrls[192], sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: iconUrls[384], sizes: '384x384', type: 'image/png' },
+        { src: iconUrls[512], sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ] : [
+        { src: '/icon/icon-72.png',  sizes: '72x72',   type: 'image/png' },
+        { src: '/icon/icon-96.png',  sizes: '96x96',   type: 'image/png' },
+        { src: '/icon/icon-128.png', sizes: '128x128', type: 'image/png' },
+        { src: '/icon/icon-144.png', sizes: '144x144', type: 'image/png' },
+        { src: '/icon/icon-152.png', sizes: '152x152', type: 'image/png' },
+        { src: '/icon/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/icon/icon-384.png', sizes: '384x384', type: 'image/png' },
+        { src: '/icon/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ]
+    };
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(manifest);
+  } catch(e) {
+    res.sendFile(require('path').join(__dirname, 'public', 'manifest.json'));
+  }
+});
+
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
   const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);
   const txs=wallet?.id?await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]):[];
