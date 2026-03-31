@@ -1366,8 +1366,8 @@ function renderOrderCard(o,compact=false){
   const next=NEXT_STATUS[o.status];
   const time=new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
   const itemsText=(o.items||[]).map(i=>i.quantity+'\u00d7 '+i.name).join(', ')||'\u2014';
-  const pay=o.payment_method==='cash'?'\U0001f4b5 Efectivo':'\U0001f4b3 Online';
-  const typ=o.fulfillment_type==='pickup'?'\U0001f3ea Retira':'\U0001f6f5 Delivery';
+  const pay=o.payment_method==='cash'?'💵 Efectivo':'💳 Online';
+  const typ=o.fulfillment_type==='pickup'?'🏪 Retira':'🛵 Delivery';
   const oid=JSON.stringify(o.id);
   const notesVal=(o.internal_notes||'').replace(/"/g,'&quot;');
   const customerNotes=o.notes?`<div style="font-size:12px;background:rgba(251,191,36,.12);border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:var(--text);">📝 <b>Cliente:</b> ${o.notes}</div>`:'';
@@ -1403,10 +1403,10 @@ function renderOrderCard(o,compact=false){
     ${internalNotesField}`:``}
     ${next?`<div style="display:flex;gap:8px;">
       <button onclick="updateOrder('${o.id}','${next.next}')" style="flex:1;background:var(--primary);border:none;border-radius:10px;padding:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">${next.label}</button>
-      <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}')" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">\U0001f4ac</button>
-      <button onclick="printTicket(${JSON.stringify(o).replace(/'/g,'&#39;')})" style="background:rgba(255,255,255,.08);border:none;border-radius:10px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;" title="Imprimir ticket">\U0001f5a8\ufe0f</button>
+      <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}')" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">💬</button>
+      <button onclick="printTicket(${JSON.stringify(o).replace(/'/g,'&#39;')})" style="background:rgba(255,255,255,.08);border:none;border-radius:10px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;" title="Imprimir ticket">🖨️\ufe0f</button>
       <button onclick="updateOrder('${o.id}','cancelled')" style="background:rgba(239,68,68,.15);border:none;border-radius:10px;padding:10px 13px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;">\u2715</button>
-    </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\\'")}')" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">\U0001f4ac Ver chat</button>`}
+    </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\\'")}')" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">💬 Ver chat</button>`}
   </div>`;
 }
 // ════════ ORDERS TAB ════════
