@@ -5411,7 +5411,8 @@ function openCheckoutPage() {
 function calcCheckoutTotal() {
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
   const isDelivery = (_chkFulfillment || 'delivery') === 'delivery';
-  const fee = isDelivery ? (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0) : 0;
+  const baseFee = isDelivery ? (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0) : 0;
+  const fee = (userBlowPlusActive && store?.blow_plus_free_delivery && isDelivery) ? 0 : baseFee;
   const priorityFee = (_chkPriority && isDelivery) ? Math.round(fee * (store?.priority_percent||50) / 100) : 0;
   const sub = cart.reduce((a,b) => a + b.price * b.qty, 0);
   const promoDisc = activePromo?.type === 'free_delivery' ? fee : (activePromoDiscount || 0);
@@ -5432,7 +5433,8 @@ function renderCheckoutPage() {
   else if (!_chkFulfillment)          _chkFulfillment = hasDelivery ? 'delivery' : 'pickup';
   const isDelivery = _chkFulfillment === 'delivery';
 
-  const fee = isDelivery ? (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0) : 0;
+  const baseFee2 = isDelivery ? (store?.custom_delivery_cost ?? store?.delivery_cost ?? 0) : 0;
+  const fee = (userBlowPlusActive && store?.blow_plus_free_delivery && isDelivery) ? 0 : baseFee2;
   const priorityFee = (_chkPriority && isDelivery) ? Math.round(fee * priorityPercent / 100) : 0;
   const tipAmt = isDelivery ? _chkTip : 0; // sin propina si retira
   const sub = cart.reduce((a, b) => a + b.price * b.qty, 0);
@@ -9895,7 +9897,7 @@ async function ooRenderOrders() {
         <!-- Cliente -->
         <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:10px;">
           <div style="font-size:13px;font-weight:700;color:#0f172a;">👤 ${esc(o.customer_name||'Cliente')}</div>
-          ${o.customer_phone ? `<div style="font-size:12px;color:#2558d4;margin-top:2px;"><a href="tel:${o.customer_phone}" style="color:#2558d4;text-decoration:none;">📞 ${o.customer_phone}</a></div>` : ''}
+          ${o.customer_phone ? `<div style="font-size:12px;color:#2558d4;margin-top:2px;"><a href="tel:${escJS(o.customer_phone)}" style="color:#2558d4;text-decoration:none;">📞 ${esc(o.customer_phone)}</a></div>` : ''}
           ${o.address && o.fulfillment_type!=='pickup' ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">📍 ${esc(o.address)}</div>` : ''}
           <div style="display:flex;gap:6px;margin-top:6px;">
             <span style="background:${o.payment_method==='cash'?'#dcfce7':'#dbeafe'};color:${o.payment_method==='cash'?'#16a34a':'#2563eb'};border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">${o.payment_method==='cash'?'💵 Efectivo':'💳 MercadoPago'}</span>
@@ -10728,11 +10730,7 @@ async function ooSaveHours() {
   const btn = document.getElementById('ht-save-btn');
   btn.textContent = 'Guardando...'; btn.disabled = true;
   try {
-    // Store schedule as JSON in description field (v115 has no schedule column)
-    // Use PATCH with a custom field — we'll store in logo_emoji as fallback isn't right
-    // Better: store in the businesses table via a generic patch
-    // v115 PATCH doesn't support schedule — save to localStorage as fallback
-    localStorage.setItem('biz_schedule_' + (_ooBiz?.id || 'mine'), JSON.stringify(sched));
+    await ooFetch('/api/businesses/mine', { method:'PATCH', body:JSON.stringify({ schedule: sched }) });
     if (_ooBiz) _ooBiz.schedule = sched;
     btn.textContent = '✓ Guardado';
     setTimeout(() => ooRenderSettings(), 1200);
