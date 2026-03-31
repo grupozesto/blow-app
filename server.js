@@ -334,6 +334,81 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS favorites (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
+      business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, product_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS order_reviews (
+      id TEXT PRIMARY KEY,
+      order_id TEXT UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+      business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT DEFAULT '',
+      owner_reply TEXT DEFAULT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS order_messages (
+      id TEXT PRIMARY KEY,
+      order_id TEXT REFERENCES orders(id) ON DELETE CASCADE,
+      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      read_at TIMESTAMPTZ DEFAULT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS support_messages (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      is_admin BOOLEAN DEFAULT FALSE,
+      read_at TIMESTAMPTZ DEFAULT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS business_subcategories (
+      id TEXT PRIMARY KEY,
+      category_id TEXT REFERENCES business_categories(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      emoji TEXT DEFAULT '🍽️',
+      image_url TEXT DEFAULT NULL,
+      sort_order INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS category_banners (
+      id TEXT PRIMARY KEY,
+      category_id TEXT REFERENCES business_categories(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      subtitle TEXT DEFAULT '',
+      bg_color TEXT DEFAULT '#FA0050',
+      image_url TEXT DEFAULT NULL,
+      link_business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL,
+      sort_order INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS category_featured (
+      id TEXT PRIMARY KEY,
+      category_id TEXT REFERENCES business_categories(id) ON DELETE CASCADE,
+      business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+      sort_order INTEGER DEFAULT 0,
+      active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
+
     CREATE TABLE IF NOT EXISTS promo_banners (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -2306,4 +2381,406 @@ function uploadMiddleware(field) {
   };
 }
 
+
+
+// ════════════════════════════════════════════════
+//  ENDPOINTS FALTANTES — AGREGADOS
+// ════════════════════════════════════════════════
+
+// ── Search ───────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q, city } = req.query;
+    if (!q) return res.json({ businesses: [], products: [] });
+    const term = `%${q}%`;
+    const bizWhere = city ? 'AND b.city ILIKE $2' : '';
+    const bizParams = city ? [term, city] : [term];
+    const businesses = await qa(
+      `SELECT b.*, (SELECT COUNT(*) FROM products WHERE business_id=b.id AND is_available=TRUE) as product_count
+       FROM businesses b
+       WHERE (b.name ILIKE $1 OR b.category ILIKE $1 OR b.description ILIKE $1 OR b.tags ILIKE $1) ${bizWhere}
+       ORDER BY b.rating DESC LIMIT 10`, bizParams);
+    const products = await qa(
+      `SELECT p.*, b.name as business_name, b.id as business_id
+       FROM products p JOIN businesses b ON p.business_id=b.id
+       WHERE (p.name ILIKE $1 OR p.description ILIKE $1) AND p.is_available=TRUE
+       ORDER BY p.name LIMIT 10`, [term]);
+    res.json({ businesses, products });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Products ─────────────────────────────────────
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const p = await q1('SELECT p.*, b.name as business_name FROM products p JOIN businesses b ON p.business_id=b.id WHERE p.id=$1', [req.params.id]);
+    if (!p) return res.status(404).json({ error: 'No encontrado' });
+    const photos = await qa('SELECT * FROM product_photos WHERE product_id=$1 ORDER BY sort_order', [req.params.id]);
+    const variants = await qa('SELECT * FROM product_variants WHERE product_id=$1 ORDER BY sort_order', [req.params.id]);
+    res.json({ ...p, photos, variants });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Favorites ─────────────────────────────────────
+app.get('/api/favorites', auth, async (req, res) => {
+  try {
+    const favs = await qa(
+      `SELECT f.*, p.name, p.price, p.emoji, p.photo_url, b.name as business_name
+       FROM favorites f
+       JOIN products p ON f.product_id=p.id
+       JOIN businesses b ON f.business_id=b.id
+       WHERE f.user_id=$1 ORDER BY f.created_at DESC`, [req.user.id]);
+    res.json(favs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/favorites', auth, async (req, res) => {
+  try {
+    const { product_id, business_id } = req.body;
+    const id = uuid();
+    await q('INSERT INTO favorites (id,user_id,product_id,business_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING',
+      [id, req.user.id, product_id, business_id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/favorites/:product_id', auth, async (req, res) => {
+  try {
+    await q('DELETE FROM favorites WHERE user_id=$1 AND product_id=$2', [req.user.id, req.params.product_id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Reviews ──────────────────────────────────────
+app.get('/api/businesses/:id/reviews', async (req, res) => {
+  try {
+    const reviews = await qa(
+      `SELECT r.*, u.name as user_name, u.avatar_url FROM order_reviews r
+       JOIN users u ON r.user_id=u.id
+       WHERE r.business_id=$1 ORDER BY r.created_at DESC LIMIT 20`, [req.params.id]);
+    res.json(reviews);
+  } catch(e) { res.json([]); }
+});
+app.post('/api/orders/:id/review', auth, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error: 'No encontrado' });
+    if (order.status !== 'delivered') return res.status(400).json({ error: 'Solo se pueden reseñar pedidos entregados' });
+    const id = uuid();
+    await q('INSERT INTO order_reviews (id,order_id,business_id,user_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (order_id) DO UPDATE SET rating=$5,comment=$6',
+      [id, order.id, order.business_id, req.user.id, rating, comment || '']);
+    const avg = await q1('SELECT AVG(rating) as avg FROM order_reviews WHERE business_id=$1', [order.business_id]);
+    await q('UPDATE businesses SET rating=$1 WHERE id=$2', [parseFloat(avg.avg || 4.5).toFixed(1), order.business_id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/businesses/mine/reviews', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.json([]);
+    const reviews = await qa(
+      `SELECT r.*, u.name as user_name, u.avatar_url FROM order_reviews r
+       JOIN users u ON r.user_id=u.id
+       WHERE r.business_id=$1 ORDER BY r.created_at DESC`, [biz.id]);
+    res.json(reviews);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.patch('/api/reviews/:id/reply', auth, role('owner'), async (req, res) => {
+  try {
+    const { reply } = req.body;
+    await q('UPDATE order_reviews SET owner_reply=$1 WHERE id=$2', [reply, req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Order messages (chat) ────────────────────────
+app.get('/api/orders/:id/messages', auth, async (req, res) => {
+  try {
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'No encontrado' });
+    const msgs = await qa('SELECT m.*, u.name as sender_name FROM order_messages m JOIN users u ON m.sender_id=u.id WHERE m.order_id=$1 ORDER BY m.created_at ASC', [req.params.id]);
+    res.json(msgs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/orders/:id/messages', auth, async (req, res) => {
+  try {
+    const { body } = req.body;
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'No encontrado' });
+    const id = uuid();
+    await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4)', [id, req.params.id, req.user.id, body]);
+    // Notificar al otro participante
+    const targetId = req.user.id === order.customer_id ? order.business_id : order.customer_id;
+    notify(targetId, { type: 'order_message', message: '💬 Nuevo mensaje en tu pedido', order_id: order.id });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Support chat (usuario ↔ admin) ───────────────
+app.get('/api/support/messages', auth, async (req, res) => {
+  try {
+    const msgs = await qa('SELECT m.*, u.name as sender_name FROM support_messages m JOIN users u ON m.sender_id=u.id WHERE m.user_id=$1 ORDER BY m.created_at ASC', [req.user.id]);
+    res.json(msgs);
+  } catch(e) { res.json([]); }
+});
+app.post('/api/support/messages', auth, async (req, res) => {
+  try {
+    const { body } = req.body;
+    const id = uuid();
+    await q('INSERT INTO support_messages (id,user_id,sender_id,body,is_admin) VALUES ($1,$2,$3,$4,FALSE)', [id, req.user.id, req.user.id, body]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/admin/support/conversations', auth, role('admin'), async (req, res) => {
+  try {
+    const convos = await qa(
+      `SELECT u.id as user_id, u.name, u.email, u.avatar_url,
+        (SELECT body FROM support_messages WHERE user_id=u.id ORDER BY created_at DESC LIMIT 1) as last_message,
+        (SELECT created_at FROM support_messages WHERE user_id=u.id ORDER BY created_at DESC LIMIT 1) as last_at,
+        (SELECT COUNT(*) FROM support_messages WHERE user_id=u.id AND is_admin=FALSE AND read_at IS NULL) as unread
+       FROM users u WHERE EXISTS (SELECT 1 FROM support_messages WHERE user_id=u.id)
+       ORDER BY last_at DESC`, []);
+    res.json(convos);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/admin/support/messages/:userId', auth, role('admin'), async (req, res) => {
+  try {
+    await q('UPDATE support_messages SET read_at=NOW() WHERE user_id=$1 AND is_admin=FALSE AND read_at IS NULL', [req.params.userId]);
+    const msgs = await qa('SELECT m.*, u.name as sender_name FROM support_messages m JOIN users u ON m.sender_id=u.id WHERE m.user_id=$1 ORDER BY m.created_at ASC', [req.params.userId]);
+    res.json(msgs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/support/messages/:userId', auth, role('admin'), async (req, res) => {
+  try {
+    const { body } = req.body;
+    const id = uuid();
+    await q('INSERT INTO support_messages (id,user_id,sender_id,body,is_admin) VALUES ($1,$2,$3,$4,TRUE)', [id, req.params.userId, req.user.id, body]);
+    notify(req.params.userId, { type: 'support_message', message: '💬 Respuesta del equipo Blow' });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Category banners & featured ──────────────────
+app.get('/api/category-banners', async (req, res) => {
+  try {
+    const { category_id } = req.query;
+    const rows = category_id
+      ? await qa('SELECT * FROM category_banners WHERE category_id=$1 AND active=TRUE ORDER BY sort_order', [category_id])
+      : await qa('SELECT * FROM category_banners WHERE active=TRUE ORDER BY sort_order', []);
+    res.json(rows);
+  } catch(e) { res.json([]); }
+});
+app.get('/api/category-featured', async (req, res) => {
+  try {
+    const { category_id } = req.query;
+    const rows = category_id
+      ? await qa(`SELECT cf.*, b.name as business_name, b.logo_url, b.rating, b.delivery_time, b.delivery_cost
+                  FROM category_featured cf JOIN businesses b ON cf.business_id=b.id
+                  WHERE cf.category_id=$1 AND cf.active=TRUE ORDER BY cf.sort_order`, [category_id])
+      : await qa(`SELECT cf.*, b.name as business_name FROM category_featured cf JOIN businesses b ON cf.business_id=b.id WHERE cf.active=TRUE ORDER BY cf.sort_order`, []);
+    res.json(rows);
+  } catch(e) { res.json([]); }
+});
+app.get('/api/admin/category-banners', auth, role('admin'), async (req, res) => {
+  try { res.json(await qa('SELECT * FROM category_banners ORDER BY sort_order', [])); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/category-banners', auth, role('admin'), async (req, res) => {
+  try {
+    const { category_id, title, subtitle, bg_color, link_business_id, sort_order } = req.body;
+    const id = uuid();
+    await q('INSERT INTO category_banners (id,category_id,title,subtitle,bg_color,link_business_id,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [id, category_id, title||'', subtitle||'', bg_color||'#FA0050', link_business_id||null, sort_order||0]);
+    res.json({ id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.patch('/api/admin/category-banners/:id', auth, role('admin'), async (req, res) => {
+  try {
+    const { active, title, subtitle, bg_color } = req.body;
+    await q('UPDATE category_banners SET active=COALESCE($1,active),title=COALESCE($2,title),subtitle=COALESCE($3,subtitle),bg_color=COALESCE($4,bg_color) WHERE id=$5',
+      [active, title, subtitle, bg_color, req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/admin/category-banners/:id', auth, role('admin'), async (req, res) => {
+  try { await q('DELETE FROM category_banners WHERE id=$1', [req.params.id]); res.json({ success: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/category-banners/:id/upload-image', auth, role('admin'), uploadMiddleware('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image' });
+    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`, { folder: 'blow/cat-banners' });
+    await q('UPDATE category_banners SET image_url=$1 WHERE id=$2', [result.secure_url, req.params.id]);
+    res.json({ url: result.secure_url });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Category featured ────────────────────────────
+app.get('/api/admin/category-featured', auth, role('admin'), async (req, res) => {
+  try { res.json(await qa('SELECT cf.*, b.name as business_name FROM category_featured cf JOIN businesses b ON cf.business_id=b.id ORDER BY cf.sort_order', [])); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/category-featured', auth, role('admin'), async (req, res) => {
+  try {
+    const { category_id, business_id, sort_order } = req.body;
+    const id = uuid();
+    await q('INSERT INTO category_featured (id,category_id,business_id,sort_order) VALUES ($1,$2,$3,$4)',
+      [id, category_id, business_id, sort_order||0]);
+    res.json({ id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.patch('/api/admin/category-featured/:id', auth, role('admin'), async (req, res) => {
+  try {
+    const { active } = req.body;
+    await q('UPDATE category_featured SET active=$1 WHERE id=$2', [active, req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/admin/category-featured/:id', auth, role('admin'), async (req, res) => {
+  try { await q('DELETE FROM category_featured WHERE id=$1', [req.params.id]); res.json({ success: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Subcategories ────────────────────────────────
+app.get('/api/subcategories', async (req, res) => {
+  try {
+    const { category_id } = req.query;
+    const rows = category_id
+      ? await qa('SELECT * FROM business_subcategories WHERE category_id=$1 AND is_active=TRUE ORDER BY sort_order', [category_id])
+      : await qa('SELECT * FROM business_subcategories WHERE is_active=TRUE ORDER BY sort_order', []);
+    res.json(rows);
+  } catch(e) { res.json([]); }
+});
+app.get('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
+  try { res.json(await qa('SELECT * FROM business_subcategories ORDER BY sort_order', [])); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/subcategories', auth, role('admin'), async (req, res) => {
+  try {
+    const { category_id, name, emoji, sort_order } = req.body;
+    const id = uuid();
+    await q('INSERT INTO business_subcategories (id,category_id,name,emoji,sort_order) VALUES ($1,$2,$3,$4,$5)',
+      [id, category_id, name, emoji||'🍽️', sort_order||0]);
+    res.json({ id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.patch('/api/admin/subcategories/:id', auth, role('admin'), async (req, res) => {
+  try {
+    const { is_active, name, emoji } = req.body;
+    await q('UPDATE business_subcategories SET is_active=COALESCE($1,is_active),name=COALESCE($2,name),emoji=COALESCE($3,emoji) WHERE id=$4',
+      [is_active, name, emoji, req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/admin/subcategories/:id', auth, role('admin'), async (req, res) => {
+  try { await q('DELETE FROM business_subcategories WHERE id=$1', [req.params.id]); res.json({ success: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/subcategories/:id/upload-image', auth, role('admin'), uploadMiddleware('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image' });
+    const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`, { folder: 'blow/subcats' });
+    await q('UPDATE business_subcategories SET image_url=$1 WHERE id=$2', [result.secure_url, req.params.id]);
+    res.json({ url: result.secure_url });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Auth: Forgot / Reset password ────────────────
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await q1('SELECT id,name FROM users WHERE email=$1', [email]);
+    if (!user) return res.json({ success: true }); // no revelar si existe
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const id = uuid();
+    await q('DELETE FROM email_verifications WHERE email=$1', [email]);
+    await q('INSERT INTO email_verifications (id,email,code,data,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'15 minutes\')',
+      [id, email, code, JSON.stringify({ type: 'reset' })]);
+    // Enviar email con código
+    const resend = require('resend');
+    const r = new resend.Resend(process.env.RESEND_API_KEY);
+    await r.emails.send({
+      from: 'Blow <noreply@blow.uy>',
+      to: email,
+      subject: 'Resetear contraseña — Blow',
+      html: `<p>Hola ${user.name},</p><p>Tu código para resetear la contraseña es: <strong>${code}</strong></p><p>Expira en 15 minutos.</p>`
+    });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, code, new_password } = req.body;
+    const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, code]);
+    if (!ver) return res.status(400).json({ error: 'Código inválido o expirado' });
+    const bcrypt = require('bcrypt');
+    const hash = await bcrypt.hash(new_password, 10);
+    await q('UPDATE users SET password=$1 WHERE email=$2', [hash, email]);
+    await q('DELETE FROM email_verifications WHERE email=$1', [email]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: ban users ─────────────────────────────
+app.post('/api/admin/users/:id/ban', auth, role('admin'), async (req, res) => {
+  try {
+    const { banned, reason } = req.body;
+    await q('UPDATE users SET banned=$1, ban_reason=$2 WHERE id=$3', [banned, reason||'', req.params.id]);
+    if (banned) notify(req.params.id, { type: 'account_banned', message: '🚫 Tu cuenta fue suspendida' });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: toggle business open ──────────────────
+app.post('/api/admin/businesses/:id/toggle-open', auth, role('admin'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT is_open FROM businesses WHERE id=$1', [req.params.id]);
+    if (!biz) return res.status(404).json({ error: 'No encontrado' });
+    await q('UPDATE businesses SET is_open=$1 WHERE id=$2', [!biz.is_open, req.params.id]);
+    res.json({ is_open: !biz.is_open });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: impersonate ───────────────────────────
+app.post('/api/admin/impersonate/:id', auth, role('admin'), async (req, res) => {
+  try {
+    const user = await q1('SELECT * FROM users WHERE id=$1', [req.params.id]);
+    if (!user) return res.status(404).json({ error: 'No encontrado' });
+    const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: orders cancel ─────────────────────────
+app.post('/api/admin/orders/:id/cancel', auth, role('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'No encontrado' });
+    await q("UPDATE orders SET status='cancelled',cancel_reason=$2,updated_at=NOW() WHERE id=$1", [order.id, reason||'']);
+    notify(order.customer_id, { type: 'order_cancelled', message: '❌ Tu pedido fue cancelado por admin', order_id: order.id });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: subscriptions detail ──────────────────
+app.get('/api/admin/subscriptions/detail', auth, role('admin'), async (req, res) => {
+  try {
+    const subs = await qa(
+      `SELECT s.*, b.name as business_name, b.city, u.name as owner_name, u.email as owner_email
+       FROM subscriptions s
+       JOIN businesses b ON s.business_id=b.id
+       JOIN users u ON s.owner_id=u.id
+       ORDER BY s.created_at DESC`, []);
+    res.json(subs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const sub = await q1('SELECT s.*,u.email,u.name FROM subscriptions s JOIN users u ON s.owner_id=u.id WHERE s.id=$1', [req.params.id]);
+    if (!sub) return res.status(404).json({ error: 'No encontrado' });
+    await q("UPDATE subscriptions SET status='cancelled',cancelled_at=NOW() WHERE id=$1", [req.params.id]);
+    notify(sub.owner_id, { type: 'subscription_cancelled', message: `⚠️ Tu suscripción fue cancelada${reason?' — '+reason:''}` });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
