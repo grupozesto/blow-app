@@ -8353,7 +8353,6 @@ async function adminImpersonate(id, name, role) {
     showToast('👁 Abriendo sesión como '+name);
   } catch(e) { showToast('❌ '+e.message); }
 }
-}
 async function adminBanUser(id, ban) {
   let reason = '';
   if (ban) {
@@ -9493,7 +9492,7 @@ function enterOwnerOverlay() {
   }, 30000);
 }
 
-function exitOwnerOverlay() {
+async function exitOwnerOverlay() {
   if (_ooRefreshInterval) { clearInterval(_ooRefreshInterval); _ooRefreshInterval = null; }
   if (user && user.role === 'owner') {
     if (!await showConfirm('Vas a cerrar tu sesión del portal.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
