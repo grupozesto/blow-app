@@ -2067,6 +2067,7 @@ app.patch('/api/admin/help/:id', auth, async (req, res) => {
 
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
+app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business.html')));
 
 // ── PROMO BANNERS API ──
 app.get('/api/banners', async (req,res)=>{
