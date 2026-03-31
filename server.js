@@ -1798,74 +1798,83 @@ app.delete('/api/businesses/mine/categories/:cid', auth, role('owner'), async (r
 //  PRODUCTOS
 // ════════════════════════════════════════════════
 app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) => {
-  const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!b) return res.status(404).json({ error:'Registrá tu negocio primero' });
-  // Check subscription is active before adding products
-  const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
-  if (!sub || sub.status !== 'active')
-    return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
-  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', ingredients='', stock=null, is_featured=false } = req.body;
-  if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
-  const safeEmoji = (emoji||'🍽️').replace(/['"<>&]/g,'').slice(0,10) || '🍽️';
-  if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
-  if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
-  const parsedDiscount = Math.min(100, Math.max(0, parseInt(discount_percent) || 0));
-  if (description && description.length > 1000) return res.status(400).json({ error:'La descripción no puede superar 1000 caracteres' });
-  const parsedStock = stock != null ? parseInt(stock) : null;
-  if (parsedStock !== null && parsedStock < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
-  const id = uuid();
-  await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
-    [id,b.id,category_id||null,safeEmoji,name.trim(),(description||'').slice(0,1000),parseFloat(price),parsedDiscount,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,(allergens||'').slice(0,500),(ingredients||'').slice(0,1000),parsedStock]);
-  for (let i=0;i<Math.min(photos.length,4);i++) {
-    try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
-    catch(e) { console.error('Photo error:',e.message); }
-  }
-  for (let i=0;i<Math.min(variants.length,50);i++) {
-    const v=variants[i];
-    await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [uuid(),id,(v.group_name||'').slice(0,100),(v.option_name||'').slice(0,100),Math.min(99999,Math.max(-99999,parseFloat(v.price_delta)||0)),i,Boolean(v.is_required),Boolean(v.is_multi),Math.min(20,Math.max(1,parseInt(v.max_selections)||1))]);
-  }
-  res.status(201).json(await getProductFull(id));
-});
-
-app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
-  const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, description, price, emoji: _emoji_patch, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
-  const emoji = _emoji_patch != null ? (_emoji_patch||'🍽️').replace(/['"<>&]/g,'').slice(0,10)||'🍽️' : undefined;
-  if (stock != null && parseInt(stock) < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
-  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock),available_from=COALESCE($15,available_from),available_until=COALESCE($16,available_until) WHERE id=$13 AND business_id=$14`,
-    [name,description!=null?description.slice(0,1000):null,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?Math.min(100,Math.max(0,parseInt(discount_percent))):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?Math.max(0,parseInt(stock)):null,req.params.pid,b.id,available_from||null,available_until||null]);
-  if (Array.isArray(photos) && photos.length > 0) {
-    const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
-    await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
-    for (const ph of old) await deletePhoto(ph.cloudinary_id);
+  try {
+    const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!b) return res.status(404).json({ error:'Registrá tu negocio primero' });
+    // Check subscription is active before adding products
+    const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
+    if (!sub || sub.status !== 'active')
+      return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
+    const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, preparation_time=null, calories=null, allergens='', ingredients='', stock=null, is_featured=false } = req.body;
+    if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
+    const safeEmoji = (emoji||'🍽️').replace(/['"<>&]/g,'').slice(0,10) || '🍽️';
+    if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
+    if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
+    const parsedDiscount = Math.min(100, Math.max(0, parseInt(discount_percent) || 0));
+    if (description && description.length > 1000) return res.status(400).json({ error:'La descripción no puede superar 1000 caracteres' });
+    const parsedStock = stock != null ? parseInt(stock) : null;
+    if (parsedStock !== null && parsedStock < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
+    const id = uuid();
+    await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+      [id,b.id,category_id||null,safeEmoji,name.trim(),(description||'').slice(0,1000),parseFloat(price),parsedDiscount,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,(allergens||'').slice(0,500),(ingredients||'').slice(0,1000),parsedStock]);
     for (let i=0;i<Math.min(photos.length,4);i++) {
-      try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),req.params.pid,up.url,up.cloudinary_id,i]); }
+      try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
       catch(e) { console.error('Photo error:',e.message); }
     }
-  }
-  if (Array.isArray(variants)) {
-    await q('DELETE FROM product_variants WHERE product_id=$1',[req.params.pid]);
     for (let i=0;i<Math.min(variants.length,50);i++) {
       const v=variants[i];
       await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-        [uuid(),req.params.pid,(v.group_name||'').slice(0,100),(v.option_name||'').slice(0,100),Math.min(99999,Math.max(-99999,parseFloat(v.price_delta)||0)),i,Boolean(v.is_required),Boolean(v.is_multi),Math.min(20,Math.max(1,parseInt(v.max_selections)||1))]);
+        [uuid(),id,(v.group_name||'').slice(0,100),(v.option_name||'').slice(0,100),Math.min(99999,Math.max(-99999,parseFloat(v.price_delta)||0)),i,Boolean(v.is_required),Boolean(v.is_multi),Math.min(20,Math.max(1,parseInt(v.max_selections)||1))]);
     }
-  }
-  // Update ingredients if provided
-  if (req.body.ingredients !== undefined) {
-    await q('UPDATE products SET ingredients=$1 WHERE id=$2',[(req.body.ingredients||'').slice(0,1000),req.params.pid]);
-  }
-  res.json(await getProductFull(req.params.pid));
+    res.status(201).json(await getProductFull(id));
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
+});
+
+app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
+  try {
+    const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
+    const { name, description, price, emoji: _emoji_patch, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
+    const emoji = _emoji_patch != null ? (_emoji_patch||'🍽️').replace(/['"<>&]/g,'').slice(0,10)||'🍽️' : undefined;
+    if (stock != null && parseInt(stock) < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
+    await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock),available_from=COALESCE($15,available_from),available_until=COALESCE($16,available_until) WHERE id=$13 AND business_id=$14`,
+      [name,description!=null?description.slice(0,1000):null,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?Math.min(100,Math.max(0,parseInt(discount_percent))):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?Math.max(0,parseInt(stock)):null,req.params.pid,b.id,available_from||null,available_until||null]);
+    if (Array.isArray(photos) && photos.length > 0) {
+      const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
+      await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
+      for (const ph of old) await deletePhoto(ph.cloudinary_id);
+      for (let i=0;i<Math.min(photos.length,4);i++) {
+        try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),req.params.pid,up.url,up.cloudinary_id,i]); }
+        catch(e) { console.error('Photo error:',e.message); }
+      }
+    }
+    if (Array.isArray(variants)) {
+      await q('DELETE FROM product_variants WHERE product_id=$1',[req.params.pid]);
+      for (let i=0;i<Math.min(variants.length,50);i++) {
+        const v=variants[i];
+        await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+          [uuid(),req.params.pid,(v.group_name||'').slice(0,100),(v.option_name||'').slice(0,100),Math.min(99999,Math.max(-99999,parseFloat(v.price_delta)||0)),i,Boolean(v.is_required),Boolean(v.is_multi),Math.min(20,Math.max(1,parseInt(v.max_selections)||1))]);
+      }
+    }
+    // Update ingredients if provided
+    if (req.body.ingredients !== undefined) {
+      await q('UPDATE products SET ingredients=$1 WHERE id=$2',[(req.body.ingredients||'').slice(0,1000),req.params.pid]);
+    }
+    res.json(await getProductFull(req.params.pid));
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Soft-delete: marks product as unavailable (preserves order history references)
 app.delete('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
-  const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  await q('UPDATE products SET is_available=FALSE WHERE id=$1 AND business_id=$2',[req.params.pid,b.id]);
-  res.json({ success:true });
+  try {
+    const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
+    await q('UPDATE products SET is_available=FALSE WHERE id=$1 AND business_id=$2',[req.params.pid,b.id]);
+    res.json({ success:true });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // ════════════════════════════════════════════════
@@ -1976,57 +1985,63 @@ app.post('/api/register/complete', async (req, res) => {
 
 // Get subscription status (for existing owners)
 app.get('/api/subscription', auth, role('owner'), async (req, res) => {
-  const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!b) return res.status(404).json({ error:'Sin negocio' });
-  const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
-  res.json({ subscription: sub, plan_price: PLAN_PRICE });
+  try {
+    const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!b) return res.status(404).json({ error:'Sin negocio' });
+    const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
+    res.json({ subscription: sub, plan_price: PLAN_PRICE });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Renew/reactivate subscription (for suspended accounts)
 app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
-  const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
-  if (!b) return res.status(404).json({ error:'Sin negocio' });
-  const owner = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
-
-  if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
-    // Demo — reactivate immediately
-    const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
-    await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,current_period_end)
-      VALUES ($1,$2,$3,'active','active',$4)
-      ON CONFLICT (business_id) DO UPDATE SET status='active',current_period_start=NOW(),current_period_end=$4,updated_at=NOW()`,
-      [uuid(), b.id, req.user.id, periodEnd.toISOString()]);
-    return res.json({ success:true, demo:true });
-  }
-
-  // If existing preapproval, reactivate it
-  const sub = await q1('SELECT mp_preapproval_id FROM subscriptions WHERE business_id=$1',[b.id]);
-  if (sub?.mp_preapproval_id) {
-    try {
-      await mp.preapproval.update(sub.mp_preapproval_id, { status: 'authorized' });
+  try {
+    const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
+    if (!b) return res.status(404).json({ error:'Sin negocio' });
+    const owner = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
+  
+    if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
+      // Demo — reactivate immediately
       const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
-      await q(`UPDATE subscriptions SET status='active',current_period_start=NOW(),current_period_end=$1,updated_at=NOW() WHERE business_id=$2`,
-        [periodEnd.toISOString(), b.id]);
-      return res.json({ success:true, reactivated:true });
-    } catch(e) { /* fall through to new preapproval */ }
-  }
-
-  // New preapproval for first-time or expired
-  const preapproval = await mp.preapproval.create({
-    reason: `Blow — Plan mensual negocios`,
-    external_reference: `renew:${b.id}`,
-    payer_email: owner.email,
-    auto_recurring: {
-      frequency: 1,
-      frequency_type: 'months',
-      transaction_amount: PLAN_PRICE,
-      currency_id: 'UYU',
-      start_date: mpDate(Date.now()),
-      end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
-    },
-    back_url: `${APP_URL}/owner`,
-    notification_url: `${APP_URL}/api/webhooks/mp`,
-  });
-  res.json({ init_point: preapproval.body.init_point });
+      await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,current_period_end)
+        VALUES ($1,$2,$3,'active','active',$4)
+        ON CONFLICT (business_id) DO UPDATE SET status='active',current_period_start=NOW(),current_period_end=$4,updated_at=NOW()`,
+        [uuid(), b.id, req.user.id, periodEnd.toISOString()]);
+      return res.json({ success:true, demo:true });
+    }
+  
+    // If existing preapproval, reactivate it
+    const sub = await q1('SELECT mp_preapproval_id FROM subscriptions WHERE business_id=$1',[b.id]);
+    if (sub?.mp_preapproval_id) {
+      try {
+        await mp.preapproval.update(sub.mp_preapproval_id, { status: 'authorized' });
+        const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+        await q(`UPDATE subscriptions SET status='active',current_period_start=NOW(),current_period_end=$1,updated_at=NOW() WHERE business_id=$2`,
+          [periodEnd.toISOString(), b.id]);
+        return res.json({ success:true, reactivated:true });
+      } catch(e) { /* fall through to new preapproval */ }
+    }
+  
+    // New preapproval for first-time or expired
+    const preapproval = await mp.preapproval.create({
+      reason: `Blow — Plan mensual negocios`,
+      external_reference: `renew:${b.id}`,
+      payer_email: owner.email,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: 'months',
+        transaction_amount: PLAN_PRICE,
+        currency_id: 'UYU',
+        start_date: mpDate(Date.now()),
+        end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
+      },
+      back_url: `${APP_URL}/owner`,
+      notification_url: `${APP_URL}/api/webhooks/mp`,
+    });
+    res.json({ init_point: preapproval.body.init_point });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Cancel subscription
@@ -2045,11 +2060,14 @@ app.post('/api/subscription/cancel', auth, role('owner'), async (req, res) => {
 
 // Admin — view all subscriptions
 app.get('/api/admin/subscriptions', auth, role('admin'), async (req, res) => {
-  res.json(await qa(`SELECT s.*,b.name as business_name,u.email as owner_email,u.name as owner_name
-    FROM subscriptions s
-    JOIN businesses b ON s.business_id=b.id
-    JOIN users u ON s.owner_id=u.id
-    ORDER BY s.created_at DESC`,[]));
+  try {
+    res.json(await qa(`SELECT s.*,b.name as business_name,u.email as owner_email,u.name as owner_name
+      FROM subscriptions s
+      JOIN businesses b ON s.business_id=b.id
+      JOIN users u ON s.owner_id=u.id
+      ORDER BY s.created_at DESC`,[]));
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 // Admin — manually activate a subscription
 app.post('/api/admin/subscriptions/:id/activate', auth, role('admin'), async (req, res) => {
@@ -2113,7 +2131,12 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       if (p.stock !== null && p.stock !== undefined && qty > p.stock) {
         return res.status(400).json({ error:`Stock insuficiente para "${p.name}". Disponible: ${p.stock}` });
       }
-      let unitPrice = p.price; let variantLabel = '';
+      let unitPrice = p.price;
+      // Aplicar descuento del producto server-side
+      if (p.discount_percent && p.discount_percent > 0) {
+        unitPrice = Math.round(p.price * (1 - p.discount_percent / 100));
+      }
+      let variantLabel = '';
       if (item.variant_id) {
         const v = await q1('SELECT * FROM product_variants WHERE id=$1 AND product_id=$2',[item.variant_id,p.id]);
         if (v) { unitPrice += v.price_delta; variantLabel = `${v.group_name}: ${v.option_name}`; }
@@ -2413,74 +2436,77 @@ app.patch('/api/orders/:id/internal-notes', auth, async (req, res) => {
 });
 
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
-  const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
-  if (!order) return res.status(404).json({ error:'No encontrado' });
-
-  // Validación de ownership y estados permitidos por rol
-  if (req.user.role === 'customer') {
-    if (order.customer_id !== req.user.id) return res.status(403).json({ error:'No autorizado' });
-    // Cliente solo puede cancelar si todavía no fue aceptado por el negocio
-    if (!['pending','paid'].includes(order.status)) {
-      return res.status(400).json({ error:'No podés cancelar un pedido que ya fue aceptado por el negocio. Contactá al local.' });
+  try {
+    const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
+    if (!order) return res.status(404).json({ error:'No encontrado' });
+  
+    // Validación de ownership y estados permitidos por rol
+    if (req.user.role === 'customer') {
+      if (order.customer_id !== req.user.id) return res.status(403).json({ error:'No autorizado' });
+      // Cliente solo puede cancelar si todavía no fue aceptado por el negocio
+      if (!['pending','paid'].includes(order.status)) {
+        return res.status(400).json({ error:'No podés cancelar un pedido que ya fue aceptado por el negocio. Contactá al local.' });
+      }
+    } else if (req.user.role === 'owner') {
+      const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+      if (!b || b.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
+      // Owner puede cancelar hasta que esté en camino
+      if (!['paid','confirmed'].includes(order.status)) {
+        return res.status(400).json({ error:'No se puede cancelar en este estado' });
+      }
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ error:'No autorizado' });
     }
-  } else if (req.user.role === 'owner') {
-    const b = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
-    if (!b || b.id !== order.business_id) return res.status(403).json({ error:'No autorizado' });
-    // Owner puede cancelar hasta que esté en camino
-    if (!['paid','confirmed'].includes(order.status)) {
-      return res.status(400).json({ error:'No se puede cancelar en este estado' });
+  
+    await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
+  
+    // Restore stock for cancelled items
+    const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
+    for (const item of items) {
+      await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
     }
-  } else if (req.user.role !== 'admin') {
-    return res.status(403).json({ error:'No autorizado' });
-  }
-
-  await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
-
-  // Restore stock for cancelled items
-  const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
-  for (const item of items) {
-    await q('UPDATE products SET stock = stock + $1, is_available = TRUE WHERE id=$2 AND stock IS NOT NULL', [item.quantity, item.product_id]);
-  }
-
-  // ── Reembolso automático MP si el pedido fue pagado con MP ──
-  let refundResult = null;
-  if (mp && order.mp_payment_id && order.payment_method === 'mercadopago' && ['paid','confirmed'].includes(order.status)) {
-    try {
-      const refund = await mp.payment.refund(order.mp_payment_id);
-      refundResult = { status: refund.body?.status || 'processed', id: refund.body?.id };
-      await q("UPDATE orders SET internal_notes=COALESCE(internal_notes,'')||$1 WHERE id=$2",
-        [`\n[AUTO] Reembolso MP por cancelación: ${JSON.stringify(refundResult)}`, order.id]);
-      console.log(`💸 Refund on cancel for order ${order.id}: ${JSON.stringify(refundResult)}`);
-    } catch(refundErr) {
-      console.error(`❌ Refund failed on cancel for order ${order.id}:`, refundErr.message);
-      await q("UPDATE orders SET internal_notes=COALESCE(internal_notes,'')||$1 WHERE id=$2",
-        [`\n[ERROR] Reembolso MP falló al cancelar: ${refundErr.message}`, order.id]);
-      refundResult = { error: refundErr.message };
+  
+    // ── Reembolso automático MP si el pedido fue pagado con MP ──
+    let refundResult = null;
+    if (mp && order.mp_payment_id && order.payment_method === 'mercadopago' && ['paid','confirmed'].includes(order.status)) {
+      try {
+        const refund = await mp.payment.refund(order.mp_payment_id);
+        refundResult = { status: refund.body?.status || 'processed', id: refund.body?.id };
+        await q("UPDATE orders SET internal_notes=COALESCE(internal_notes,'')||$1 WHERE id=$2",
+          [`\n[AUTO] Reembolso MP por cancelación: ${JSON.stringify(refundResult)}`, order.id]);
+        console.log(`💸 Refund on cancel for order ${order.id}: ${JSON.stringify(refundResult)}`);
+      } catch(refundErr) {
+        console.error(`❌ Refund failed on cancel for order ${order.id}:`, refundErr.message);
+        await q("UPDATE orders SET internal_notes=COALESCE(internal_notes,'')||$1 WHERE id=$2",
+          [`\n[ERROR] Reembolso MP falló al cancelar: ${refundErr.message}`, order.id]);
+        refundResult = { error: refundErr.message };
+      }
     }
-  }
-
-  const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
-  const reasonText = req.body.reason ? ` Motivo: "${req.body.reason}"` : '';
-  const refundMsg = order.payment_method === 'mercadopago' && ['paid','confirmed'].includes(order.status)
-    ? ' El reembolso se procesará automáticamente.' : '';
-
-  if (biz) {
-    notify(biz.owner_id,{ type:'order_cancelled', message:`❌ Pedido #${order.id.slice(-6).toUpperCase()} cancelado${reasonText}`, order_id:order.id });
-    sendPushToOwner(biz.owner_id,{ title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado.${reasonText}`, tag:`order-${order.id}`, url:'/' });
-  }
-
-  // Notificar al cliente si cancela el owner o admin
-  if (req.user.role === 'owner' || req.user.role === 'admin') {
-    notify(order.customer_id,{ type:'order_cancelled', message:`❌ Tu pedido #${order.id.slice(-6).toUpperCase()} fue cancelado por el local.${reasonText}${refundMsg}`, order_id:order.id });
-    sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local.${refundMsg}`, tag:`order-${order.id}`, url:'/?tab=tracking' });
-  } else {
-    // Cliente canceló — notificar al owner con info de reembolso
-    if (biz) notify(biz.owner_id,{ type:'order_cancelled', message:`❌ El cliente canceló el pedido #${order.id.slice(-6).toUpperCase()}.${refundMsg}`, order_id:order.id });
-  }
-
-  // Email notification
-  sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
-  res.json({ success:true, refund: refundResult });
+  
+    const biz=await q1('SELECT owner_id,name FROM businesses WHERE id=$1',[order.business_id]);
+    const reasonText = req.body.reason ? ` Motivo: "${req.body.reason}"` : '';
+    const refundMsg = order.payment_method === 'mercadopago' && ['paid','confirmed'].includes(order.status)
+      ? ' El reembolso se procesará automáticamente.' : '';
+  
+    if (biz) {
+      notify(biz.owner_id,{ type:'order_cancelled', message:`❌ Pedido #${order.id.slice(-6).toUpperCase()} cancelado${reasonText}`, order_id:order.id });
+      sendPushToOwner(biz.owner_id,{ title:'❌ Pedido cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado.${reasonText}`, tag:`order-${order.id}`, url:'/' });
+    }
+  
+    // Notificar al cliente si cancela el owner o admin
+    if (req.user.role === 'owner' || req.user.role === 'admin') {
+      notify(order.customer_id,{ type:'order_cancelled', message:`❌ Tu pedido #${order.id.slice(-6).toUpperCase()} fue cancelado por el local.${reasonText}${refundMsg}`, order_id:order.id });
+      sendPushToUser(order.customer_id,{ title:'❌ Tu pedido fue cancelado', body:`#${order.id.slice(-6).toUpperCase()} fue cancelado por el local.${refundMsg}`, tag:`order-${order.id}`, url:'/?tab=tracking' });
+    } else {
+      // Cliente canceló — notificar al owner con info de reembolso
+      if (biz) notify(biz.owner_id,{ type:'order_cancelled', message:`❌ El cliente canceló el pedido #${order.id.slice(-6).toUpperCase()}.${refundMsg}`, order_id:order.id });
+    }
+  
+    // Email notification
+    sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
+    res.json({ success:true, refund: refundResult });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // ═══════════════════════════════════════════════
@@ -2560,40 +2586,46 @@ app.post('/api/orders/:id/reject', auth, role('owner'), async (req, res) => {
 // ════════════════════════════════════════════════
 // Cliente deja reseña (solo en pedidos entregados)
 app.post('/api/orders/:id/review', auth, async (req, res) => {
-  const { rating, comment } = req.body;
-  if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error:'Rating inválido' });
-  const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
-  if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
-  if (order.status !== 'delivered') return res.status(400).json({ error:'Solo podés reseñar pedidos entregados' });
-  const existing = await q1('SELECT id FROM reviews WHERE order_id=$1', [req.params.id]);
-  if (existing) return res.status(400).json({ error:'Ya dejaste una reseña para este pedido' });
-  const review = await q1(
-    `INSERT INTO reviews (id,order_id,business_id,customer_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [uuid(), req.params.id, order.business_id, req.user.id, parseInt(rating), (comment||'').trim().slice(0,500)]
-  );
-  // Update business average rating and count
-  const avg = await q1('SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE business_id=$1', [order.business_id]);
-  await q('UPDATE businesses SET rating=$1, rating_count=$2 WHERE id=$3', [
-    Math.round(parseFloat(avg.avg)*10)/10,
-    parseInt(avg.cnt),
-    order.business_id
-  ]);
-  res.json(review);
+  try {
+    const { rating, comment } = req.body;
+    if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error:'Rating inválido' });
+    const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
+    if (order.status !== 'delivered') return res.status(400).json({ error:'Solo podés reseñar pedidos entregados' });
+    const existing = await q1('SELECT id FROM reviews WHERE order_id=$1', [req.params.id]);
+    if (existing) return res.status(400).json({ error:'Ya dejaste una reseña para este pedido' });
+    const review = await q1(
+      `INSERT INTO reviews (id,order_id,business_id,customer_id,rating,comment) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [uuid(), req.params.id, order.business_id, req.user.id, parseInt(rating), (comment||'').trim().slice(0,500)]
+    );
+    // Update business average rating and count
+    const avg = await q1('SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE business_id=$1', [order.business_id]);
+    await q('UPDATE businesses SET rating=$1, rating_count=$2 WHERE id=$3', [
+      Math.round(parseFloat(avg.avg)*10)/10,
+      parseInt(avg.cnt),
+      order.business_id
+    ]);
+    res.json(review);
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Owner responde reseña
 app.patch('/api/reviews/:id/reply', auth, role('owner'), async (req, res) => {
-  const { reply } = req.body;
-  if (!reply?.trim()) return res.status(400).json({ error:'Respuesta vacía' });
-  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
-  if (!biz) return res.status(404).json({ error:'Sin negocio' });
-  const review = await q1('SELECT * FROM reviews WHERE id=$1 AND business_id=$2', [req.params.id, biz.id]);
-  if (!review) return res.status(404).json({ error:'Reseña no encontrada' });
-  const updated = await q1(
-    `UPDATE reviews SET owner_reply=$1, owner_replied_at=NOW() WHERE id=$2 RETURNING *`,
-    [reply.trim().slice(0,500), req.params.id]
-  );
-  res.json(updated);
+  try {
+    const { reply } = req.body;
+    if (!reply?.trim()) return res.status(400).json({ error:'Respuesta vacía' });
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error:'Sin negocio' });
+    const review = await q1('SELECT * FROM reviews WHERE id=$1 AND business_id=$2', [req.params.id, biz.id]);
+    if (!review) return res.status(404).json({ error:'Reseña no encontrada' });
+    const updated = await q1(
+      `UPDATE reviews SET owner_reply=$1, owner_replied_at=NOW() WHERE id=$2 RETURNING *`,
+      [reply.trim().slice(0,500), req.params.id]
+    );
+    res.json(updated);
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Ver reseñas de un negocio (público)
@@ -2736,11 +2768,13 @@ app.get('/api/wallet', auth, async (req, res) => {
 
 // Get user Blow+ status
 app.get('/api/user/blow-plus', auth, async (req, res) => {
-  const u = await q1('SELECT blow_plus, blow_plus_since, blow_plus_expires FROM users WHERE id=$1', [req.user.id]);
-  if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
-  const now = new Date();
-  const active = u.blow_plus && (!u.blow_plus_expires || new Date(u.blow_plus_expires) > now);
-  res.json({ active, since: u.blow_plus_since, expires: u.blow_plus_expires });
+  try {
+    const u = await q1('SELECT blow_plus, blow_plus_since, blow_plus_expires FROM users WHERE id=$1', [req.user.id]);
+    if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const now = new Date();
+    const active = u.blow_plus && (!u.blow_plus_expires || new Date(u.blow_plus_expires) > now);
+    res.json({ active, since: u.blow_plus_since, expires: u.blow_plus_expires });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Create MP preference for user Blow+
@@ -2781,19 +2815,25 @@ app.post('/api/user/blow-plus/subscribe', auth, async (req, res) => {
 
 // Cancel user Blow+
 app.post('/api/user/blow-plus/cancel', auth, async (req, res) => {
-  await q('UPDATE users SET blow_plus=FALSE WHERE id=$1', [req.user.id]);
-  res.json({ success: true });
+  try {
+    await q('UPDATE users SET blow_plus=FALSE WHERE id=$1', [req.user.id]);
+    res.json({ success: true });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Admin: toggle user Blow+
 app.patch('/api/admin/users/:id/blow-plus', auth, role('admin'), async (req, res) => {
-  const { active } = req.body;
-  if (active) {
-    await q(`UPDATE users SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [req.params.id]);
-  } else {
-    await q('UPDATE users SET blow_plus=FALSE WHERE id=$1', [req.params.id]);
-  }
-  res.json({ success: true });
+  try {
+    const { active } = req.body;
+    if (active) {
+      await q(`UPDATE users SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [req.params.id]);
+    } else {
+      await q('UPDATE users SET blow_plus=FALSE WHERE id=$1', [req.params.id]);
+    }
+    res.json({ success: true });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // ════════════════════════════════════════════════
@@ -2802,48 +2842,53 @@ app.patch('/api/admin/users/:id/blow-plus', auth, role('admin'), async (req, res
 
 // Get Blow+ status
 app.get('/api/businesses/mine/blow-plus', auth, role('owner'), async (req, res) => {
-  const biz = await q1('SELECT blow_plus, blow_plus_since, blow_plus_expires FROM businesses WHERE owner_id=$1', [req.user.id]);
-  if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
-  const now = new Date();
-  const active = biz.blow_plus && (!biz.blow_plus_expires || new Date(biz.blow_plus_expires) > now);
-  res.json({ active, since: biz.blow_plus_since, expires: biz.blow_plus_expires });
+  try {
+    const biz = await q1('SELECT blow_plus, blow_plus_since, blow_plus_expires FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const now = new Date();
+    const active = biz.blow_plus && (!biz.blow_plus_expires || new Date(biz.blow_plus_expires) > now);
+    res.json({ active, since: biz.blow_plus_since, expires: biz.blow_plus_expires });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // Create MP preference for Blow+ subscription
 app.post('/api/businesses/mine/blow-plus/subscribe', auth, role('owner'), async (req, res) => {
-  const owner = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
-  const biz = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
-  if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
-
-  // Demo mode
-  if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
-    await q(`UPDATE businesses SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [biz.id]);
-    return res.json({ demo: true, message: 'Blow+ activado en modo demo' });
-  }
-
   try {
-    const pref = await mp.preferences.create({
-      items: [{
-        title: 'Blow+ — Plan Premium mensual',
-        description: 'Aparecer primero en resultados + productos promocionados',
-        quantity: 1,
-        unit_price: BLOW_PLUS_PRICE,
-        currency_id: 'UYU'
-      }],
-      payer: { name: owner.name, email: owner.email },
-      external_reference: `blowplus:${biz.id}`,
-      back_urls: {
-        success: `${APP_URL}/?blowplus=success`,
-        failure: `${APP_URL}/?blowplus=failure`,
-        pending: `${APP_URL}/?blowplus=pending`,
-      },
-      auto_return: 'approved',
-      notification_url: `${APP_URL}/api/webhooks/mp`,
-    });
-    res.json({ init_point: pref.body.init_point, sandbox_init_point: pref.body.sandbox_init_point });
-  } catch(e) {
-    res.status(500).json({ error: 'Error al suscribir a Blow+. Intentá de nuevo.' });
-  }
+    const owner = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
+    const biz = await q1('SELECT * FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+  
+    // Demo mode
+    if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
+      await q(`UPDATE businesses SET blow_plus=TRUE, blow_plus_since=NOW(), blow_plus_expires=NOW()+INTERVAL '30 days' WHERE id=$1`, [biz.id]);
+      return res.json({ demo: true, message: 'Blow+ activado en modo demo' });
+    }
+  
+    try {
+      const pref = await mp.preferences.create({
+        items: [{
+          title: 'Blow+ — Plan Premium mensual',
+          description: 'Aparecer primero en resultados + productos promocionados',
+          quantity: 1,
+          unit_price: BLOW_PLUS_PRICE,
+          currency_id: 'UYU'
+        }],
+        payer: { name: owner.name, email: owner.email },
+        external_reference: `blowplus:${biz.id}`,
+        back_urls: {
+          success: `${APP_URL}/?blowplus=success`,
+          failure: `${APP_URL}/?blowplus=failure`,
+          pending: `${APP_URL}/?blowplus=pending`,
+        },
+        auto_return: 'approved',
+        notification_url: `${APP_URL}/api/webhooks/mp`,
+      });
+      res.json({ init_point: pref.body.init_point, sandbox_init_point: pref.body.sandbox_init_point });
+    } catch(e) {
+      res.status(500).json({ error: 'Error al suscribir a Blow+. Intentá de nuevo.' });
+    }
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 // Cancel Blow+
@@ -2876,9 +2921,7 @@ app.patch('/api/admin/businesses/:id/blow-plus', auth, role('admin'), async (req
 // Upload business cover photo
 app.post('/api/businesses/mine/upload-cover', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
-  const url = req.file.path || req.file.secure_url;
-  await q('UPDATE businesses SET cover_url=$1 WHERE owner_id=$2', [url, req.user.id]);
-  res.json({ url });
+  try { const url = req.file.path || req.file.secure_url; await q('UPDATE businesses SET cover_url=$1 WHERE owner_id=$2', [url, req.user.id]); res.json({ url }); } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/businesses/mine/upload-logo', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
@@ -2890,75 +2933,70 @@ app.post('/api/businesses/mine/upload-logo', auth, role('owner'), uploadMiddlewa
 
 // ── Broadcast novedad a todos los clientes del negocio ──
 app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res) => {
-  const { message } = req.body;
-  if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
-  const cleanMsg = message.trim().slice(0, 280);
-  const biz = await q1('SELECT id, name, logo_emoji FROM businesses WHERE owner_id=$1', [req.user.id]);
-  if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
-
-  // Rate limit: máx 3 broadcasts por día por negocio
-  const recentBroadcasts = await q1(
-    `SELECT COUNT(*) as cnt FROM transactions WHERE wallet_id IN (SELECT id FROM wallets WHERE owner_id=$1) AND description LIKE 'Broadcast%' AND created_at > NOW() - INTERVAL '24 hours'`,
-    [biz.id]
-  );
-  // Usamos una clave en app_settings para trackear el broadcast rate
-  const bcKey = `broadcast_last_${biz.id}`;
-  const bcRecord = await q1('SELECT value FROM app_settings WHERE key=$1', [bcKey]);
-  let bcTimes = [];
-  try { bcTimes = bcRecord ? JSON.parse(bcRecord.value) : []; } catch { bcTimes = []; }
-  const now = Date.now();
-  bcTimes = bcTimes.filter(t => now - t < 24 * 3600000);
-  if (bcTimes.length >= 3) return res.status(429).json({ error: 'Límite de novedades: máximo 3 por día.' });
-  bcTimes.push(now);
-  await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()', [bcKey, JSON.stringify(bcTimes)]);
-
-  // Obtener clientes únicos que hayan pedido en este negocio (máx 500)
-  const customers = await qa(
-    `SELECT DISTINCT o.customer_id FROM orders o
-     WHERE o.business_id=$1 AND o.status NOT IN ('cancelled')
-     AND o.customer_id IS NOT NULL
-     LIMIT 500`,
-    [biz.id]
-  );
-
-  let sent = 0;
-  for (const c of customers) {
-    try {
-      await sendPushToUser(c.customer_id, {
-        title: `${biz.logo_emoji || '🏪'} ${biz.name}`,
-        body: cleanMsg,
-        tag: `novedad-${biz.id}`,
-        url: `/?biz=${biz.id}`
-      });
-      sent++;
-    } catch(e) { /* continuar aunque falle uno */ }
-  }
-
-  console.log(`📣 Broadcast "${biz.name}": ${sent}/${customers.length} enviados`);
-  res.json({ success: true, sent, total: customers.length, remaining: 2 - bcTimes.length + 1 });
+  try {
+    const { message } = req.body;
+    if (!message?.trim()) return res.status(400).json({ error: 'Mensaje vacío' });
+    const cleanMsg = message.trim().slice(0, 280);
+    const biz = await q1('SELECT id, name, logo_emoji FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+  
+    // Rate limit: máx 3 broadcasts por día por negocio
+    const recentBroadcasts = await q1(
+      `SELECT COUNT(*) as cnt FROM transactions WHERE wallet_id IN (SELECT id FROM wallets WHERE owner_id=$1) AND description LIKE 'Broadcast%' AND created_at > NOW() - INTERVAL '24 hours'`,
+      [biz.id]
+    );
+    // Usamos una clave en app_settings para trackear el broadcast rate
+    const bcKey = `broadcast_last_${biz.id}`;
+    const bcRecord = await q1('SELECT value FROM app_settings WHERE key=$1', [bcKey]);
+    let bcTimes = [];
+    try { bcTimes = bcRecord ? JSON.parse(bcRecord.value) : []; } catch { bcTimes = []; }
+    const now = Date.now();
+    bcTimes = bcTimes.filter(t => now - t < 24 * 3600000);
+    if (bcTimes.length >= 3) return res.status(429).json({ error: 'Límite de novedades: máximo 3 por día.' });
+    bcTimes.push(now);
+    await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()', [bcKey, JSON.stringify(bcTimes)]);
+  
+    // Obtener clientes únicos que hayan pedido en este negocio (máx 500)
+    const customers = await qa(
+      `SELECT DISTINCT o.customer_id FROM orders o
+       WHERE o.business_id=$1 AND o.status NOT IN ('cancelled')
+       AND o.customer_id IS NOT NULL
+       LIMIT 500`,
+      [biz.id]
+    );
+  
+    let sent = 0;
+    for (const c of customers) {
+      try {
+        await sendPushToUser(c.customer_id, {
+          title: `${biz.logo_emoji || '🏪'} ${biz.name}`,
+          body: cleanMsg,
+          tag: `novedad-${biz.id}`,
+          url: `/?biz=${biz.id}`
+        });
+        sent++;
+      } catch(e) { /* continuar aunque falle uno */ }
+    }
+  
+    console.log(`📣 Broadcast "${biz.name}": ${sent}/${customers.length} enviados`);
+    res.json({ success: true, sent, total: customers.length, remaining: 2 - bcTimes.length + 1 });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 app.post('/api/businesses/mine/products/:id/upload-photo', auth, role('owner'), uploadMiddleware('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
-  const url = req.file.path || req.file.secure_url;
-  const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
-  if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
-  await q('UPDATE products SET photo_url=$1 WHERE id=$2 AND business_id=$3', [url, req.params.id, biz.id]);
-  res.json({ url });
+  try { const url = req.file.path || req.file.secure_url; const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]); if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' }); await q('UPDATE products SET photo_url=$1 WHERE id=$2 AND business_id=$3', [url, req.params.id, biz.id]); res.json({ url }); } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/admin/businesses/:id/upload-cover', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
-  const url = req.file.path || req.file.secure_url;
-  await q('UPDATE businesses SET cover_url=$1 WHERE id=$2', [url, req.params.id]);
-  res.json({ url });
+  try { const url = req.file.path || req.file.secure_url; await q('UPDATE businesses SET cover_url=$1 WHERE id=$2', [url, req.params.id]); res.json({ url }); } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/admin/businesses/:id/upload-logo', auth, role('admin'), uploadMiddleware('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibio imagen' });
-  const url = req.file.path || req.file.secure_url;
-  await q('UPDATE businesses SET logo_url=$1 WHERE id=$2', [url, req.params.id]);
-  res.json({ url });
+  try { const url = req.file.path || req.file.secure_url; await q('UPDATE businesses SET logo_url=$1 WHERE id=$2', [url, req.params.id]); res.json({ url }); } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ═══════════════════════════════════════════════
@@ -3049,15 +3087,17 @@ app.delete('/api/businesses/mine/promotions/:id', auth, role('owner'), async (re
 });
 
 app.post('/api/businesses', auth, role('owner'), async (req, res) => {
-  if (await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))
-    return res.status(409).json({ error:'Ya tenés un negocio registrado' });
-  const { name, category, address='', phone='', logo_emoji='🏪', delivery_cost=50, delivery_time='20-35', city='', department='' } = req.body;
-  if (!name || !category) return res.status(400).json({ error:'name y category son obligatorios' });
-  if (!city.trim()) return res.status(400).json({ error:'La ciudad es obligatoria' });
-  const id = uuid();
-  await q('INSERT INTO businesses (id,owner_id,name,category,address,phone,logo_emoji,delivery_cost,delivery_time,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-    [id, req.user.id, name.trim(), category, address, phone, logo_emoji, delivery_cost, delivery_time, city.trim(), department]);
-  res.status(201).json(await q1('SELECT * FROM businesses WHERE id=$1',[id]));
+  try {
+    if (await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))
+      return res.status(409).json({ error:'Ya tenés un negocio registrado' });
+    const { name, category, address='', phone='', logo_emoji='🏪', delivery_cost=50, delivery_time='20-35', city='', department='' } = req.body;
+    if (!name || !category) return res.status(400).json({ error:'name y category son obligatorios' });
+    if (!city.trim()) return res.status(400).json({ error:'La ciudad es obligatoria' });
+    const id = uuid();
+    await q('INSERT INTO businesses (id,owner_id,name,category,address,phone,logo_emoji,delivery_cost,delivery_time,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, req.user.id, name.trim(), category, address, phone, logo_emoji, delivery_cost, delivery_time, city.trim(), department]);
+    res.status(201).json(await q1('SELECT * FROM businesses WHERE id=$1',[id]));
+  } catch(e) { console.error('businesses POST error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.get('/api/products/:id', async (req, res) => {
   const p = await getProductFull(req.params.id);
@@ -3366,12 +3406,15 @@ app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, 
   } catch(e) { console.error('withdrawals/approve error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.post('/api/admin/withdrawals/:id/reject', auth, role('admin'), async (req, res) => {
-  const w=await q1('SELECT * FROM withdrawals WHERE id=$1',[req.params.id]);
-  if (!w) return res.status(404).json({ error:'No encontrado' });
-  await q("UPDATE withdrawals SET status='rejected',processed_at=NOW() WHERE id=$1",[req.params.id]);
-  await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2',[w.amount,w.wallet_id]);
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),w.wallet_id,'credit',w.amount,'Retiro rechazado — saldo devuelto']);
-  res.json({ success:true });
+  try {
+    const w=await q1('SELECT * FROM withdrawals WHERE id=$1',[req.params.id]);
+    if (!w) return res.status(404).json({ error:'No encontrado' });
+    await q("UPDATE withdrawals SET status='rejected',processed_at=NOW() WHERE id=$1",[req.params.id]);
+    await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2',[w.amount,w.wallet_id]);
+    await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),w.wallet_id,'credit',w.amount,'Retiro rechazado — saldo devuelto']);
+    res.json({ success:true });
+  
+  } catch(e) { console.error('handler error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.get('/api/admin/settings', auth, role('admin'), async (req, res) => {
   const rows=await qa('SELECT * FROM app_settings',[]);
@@ -3380,15 +3423,10 @@ app.get('/api/admin/settings', auth, role('admin'), async (req, res) => {
   res.json(obj);
 });
 app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
-  for (const [k,v] of Object.entries(req.body))
-    await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()',[k,JSON.stringify(v)]);
-  await loadPlanPrice(); // reload in-memory price
-  res.json({ success:true });
+  try { for (const [k,v] of Object.entries(req.body)) await q('INSERT INTO app_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2,updated_at=NOW()',[k,JSON.stringify(v)]); await loadPlanPrice(); res.json({ success:true }); } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
-  const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);
-  const txs=wallet?.id?await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]):[];
-  res.json({ balance:parseFloat(wallet?.balance)||0,transactions:txs,fee_percent:process.env.PLATFORM_FEE_PERCENT||0 });
+  try { const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);const txs=wallet?.id?await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]):[];res.json({ balance:parseFloat(wallet?.balance)||0,transactions:txs,fee_percent:process.env.PLATFORM_FEE_PERCENT||0 }); } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 // ════════════════════════════════════════════════
@@ -4118,13 +4156,15 @@ app.get('/api/banners/admin', auth, role('admin'), async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 app.post('/api/admin/banners', auth, role('admin'), async (req,res)=>{
-  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active,image_url,banner_type} = req.body;
-  const id = 'ban_'+Date.now();
-  const active = is_active !== false;
-  const type = banner_type || 'promo';
-  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url,banner_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
-    [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active,image_url||'',type]);
-  res.json({ok:true,id});
+  try {
+    const {title,subtitle,highlight,highlight_label,emoji,bg_color,link_url,link,sort_order,is_active,image_url,banner_type} = req.body;
+    const id = 'ban_'+Date.now();
+    const active = is_active !== false;
+    const type = banner_type || 'promo';
+    await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,highlight_label,emoji,bg_color,link,sort_order,active,image_url,banner_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+      [id,title||'',subtitle||'',highlight||'',highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,active,image_url||'',type]);
+    res.json({ok:true,id});
+  } catch(e) { console.error('banners POST error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 // Upload banner image (returns URL, doesn't require banner ID)
 app.post('/api/admin/banners/upload-image', auth, role('admin'), uploadMiddleware('photo'), async (req,res)=>{
@@ -4178,15 +4218,11 @@ app.get('/api/featured', async (req,res)=>{
 });
 app.get('/api/admin/featured', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const rows = await db.query(`SELECT fs.*, b.name as biz_name FROM featured_slots fs LEFT JOIN businesses b ON fs.business_id=b.id ORDER BY fs.sort_order ASC`);
-  res.json(rows.rows);
+  try { const rows = await db.query(`SELECT fs.*, b.name as biz_name FROM featured_slots fs LEFT JOIN businesses b ON fs.business_id=b.id ORDER BY fs.sort_order ASC`); res.json(rows.rows); } catch(e) { res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.post('/api/admin/featured', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {business_id,custom_title,sort_order} = req.body;
-  const id = 'feat_'+Date.now();
-  await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]);
-  res.json({ok:true,id});
+  try { const {business_id,custom_title,sort_order} = req.body; const id = 'feat_'+Date.now(); await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]); res.json({ok:true,id}); } catch(e) { res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.post('/api/admin/featured/:id/image', auth, role('admin'), uploadMiddleware('image'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
@@ -4203,14 +4239,11 @@ app.post('/api/admin/featured/:id/image', auth, role('admin'), uploadMiddleware(
 });
 app.patch('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {active,sort_order,custom_title} = req.body;
-  await db.query("UPDATE featured_slots SET active=COALESCE($1,active),sort_order=COALESCE($2,sort_order),custom_title=COALESCE($3,custom_title) WHERE id=$4",[active,sort_order,custom_title,req.params.id]);
-  res.json({ok:true});
+  try { const {active,sort_order,custom_title} = req.body; await db.query("UPDATE featured_slots SET active=COALESCE($1,active),sort_order=COALESCE($2,sort_order),custom_title=COALESCE($3,custom_title) WHERE id=$4",[active,sort_order,custom_title,req.params.id]); res.json({ok:true}); } catch(e) { res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 app.delete('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  await db.query("DELETE FROM featured_slots WHERE id=$1",[req.params.id]);
-  res.json({ok:true});
+  try { await db.query("DELETE FROM featured_slots WHERE id=$1",[req.params.id]); res.json({ok:true}); } catch(e) { res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 
