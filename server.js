@@ -3049,7 +3049,7 @@ app.get('/api/businesses/mine/stats', auth, role('owner'), async (req, res) => {
        FROM order_items oi JOIN orders o ON oi.order_id=o.id
        WHERE o.business_id=$1 AND o.status='delivered' AND o.created_at>=$2::date AND o.created_at<($3::date+INTERVAL '1 day')
        GROUP BY oi.name ORDER BY qty DESC LIMIT 5`, [biz.id, fromDate, toDate]);
-    res.json({ totals, daily, topProducts });
+    res.json({ totals, daily, days: daily, topProducts });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
