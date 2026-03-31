@@ -119,6 +119,7 @@ wss.on('connection', ws => {
       }
     } catch { ws.close(4000, 'Invalid token'); }
   });
+  ws.on('error', (err) => { console.error('WS error:', err.message); });
   ws.on('close', () => {
     if (ws.userId && clients.has(ws.userId)) {
       clients.get(ws.userId).delete(ws);
@@ -1061,7 +1062,7 @@ app.post('/api/auth/register', async (req, res) => {
     // Delete previous pending for same email
     await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
     await q('INSERT INTO email_verifications (id,email,code,data) VALUES ($1,$2,$3,$4)',
-      [id, emailLow, code, JSON.stringify({ name:name.trim(), email:emailLow, phone, password:hashed })]);
+      [id, emailLow, code, JSON.stringify({ name:name.trim().slice(0,100), email:emailLow, phone:(phone||'').toString().trim().slice(0,30), password:hashed })]);
 
     const emailSent = await sendEmail(emailLow, 'Tu código de verificación — Blow',
       `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:32px;">
@@ -1215,7 +1216,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const row = await q1('SELECT * FROM email_verifications WHERE email=$1 AND expires_at > NOW()', [emailLow]);
     if (!row) return res.status(400).json({ error: 'Código expirado o no encontrado. Pedí uno nuevo.' });
     if (row.code !== code.trim()) return res.status(400).json({ error: 'Código incorrecto' });
-    const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    const data = typeof row.data === 'string' ? safeJson(row.data, {}) : row.data;
     if (!data.reset) return res.status(400).json({ error: 'Código inválido' });
     const hashed = await bcrypt.hash(new_password, 10);
     await q('UPDATE users SET password=$1, password_changed_at=NOW() WHERE id=$2', [hashed, data.user_id]);
@@ -1316,12 +1317,10 @@ app.get('/api/businesses', async (req, res) => {
     (SELECT COUNT(*) FROM promotions prm WHERE prm.business_id=b.id AND (prm.ends_at IS NULL OR prm.ends_at > NOW()))::int as promo_count
     FROM businesses b`;
   
-  const mapRow = b => ({
-    ...b,
-    rating: b.rating ? parseFloat(b.rating) : null,
-    product_count: parseInt(b.product_count || 0),
-    promo_count: parseInt(b.promo_count || 0),
-  });
+  const mapRow = b => {
+    const { owner_id: _oid, ...pub } = b; // no exponer owner_id públicamente
+    return { ...pub, rating: b.rating ? parseFloat(b.rating) : null, product_count: parseInt(b.product_count || 0), promo_count: parseInt(b.promo_count || 0) };
+  };
 
   // Try with all filters first
   let sql = baseSql + ' WHERE 1=1';
@@ -1352,6 +1351,7 @@ app.get('/api/businesses', async (req, res) => {
 app.get('/api/search', async (req, res) => {
   const { q, city, department } = req.query;
   if (!q || q.trim().length < 2) return res.json({ businesses: [], products: [] });
+  if (q.length > 200) return res.json({ businesses: [], products: [] }); // limitar query length
   // Escape LIKE wildcards to prevent unintended matching
   const escaped = q.trim().toLowerCase().replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
@@ -1368,7 +1368,7 @@ app.get('/api/search', async (req, res) => {
 
   try {
     const [businesses, products] = await Promise.all([
-      qa(`SELECT b.* FROM businesses b WHERE ${bizWhere} ORDER BY b.blow_plus DESC NULLS LAST LIMIT 15`, bizParams),
+      qa(`SELECT b.id,b.name,b.category,b.address,b.phone,b.logo_emoji,b.logo_url,b.cover_url,b.delivery_cost,b.delivery_time,b.is_open,b.rating,b.rating_count,b.description,b.tags,b.city,b.department,b.blow_plus,b.offers_priority,b.priority_percent,b.blow_plus_free_delivery,b.offers_delivery,b.offers_pickup FROM businesses b WHERE ${bizWhere} ORDER BY b.blow_plus DESC NULLS LAST LIMIT 15`, bizParams),
       qa(`SELECT p.id as product_id, p.name as product_name, p.price, p.emoji, p.photo_url, p.discount_percent,
           b.id as biz_id, b.name as biz_name, b.logo_emoji, b.logo_url, b.delivery_time, b.delivery_cost, b.is_open, b.blow_plus
           FROM products p JOIN businesses b ON p.business_id=b.id
@@ -1742,8 +1742,11 @@ app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   try {
     const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
     if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-    const { name, category, address, phone, logo_emoji: _logo_emoji_raw, delivery_cost, is_open, plan, delivery_time, city, department, description, tags, offers_pickup, offers_delivery, custom_delivery_cost, schedule, offers_priority, priority_percent } = req.body;
+    const { name, category, address, phone, logo_emoji: _logo_emoji_raw, delivery_cost, is_open, plan, delivery_time, city, department, description, tags: _tags_raw, offers_pickup, offers_delivery, custom_delivery_cost, schedule, offers_priority, priority_percent } = req.body;
+  const tags = _tags_raw ? (Array.isArray(_tags_raw) ? _tags_raw.map(t => t.toString().trim().slice(0,50)).slice(0,20) : _tags_raw.toString().trim().slice(0,500)) : undefined;
   const logo_emoji = _logo_emoji_raw ? (_logo_emoji_raw).replace(/['"<>&]/g,'').slice(0,10) || '🏪' : undefined;
+  if (delivery_cost != null && (parseFloat(delivery_cost) < 0 || parseFloat(delivery_cost) > 99999)) return res.status(400).json({ error:'El costo de envío debe estar entre $0 y $99.999' });
+  if (priority_percent != null && (parseInt(priority_percent) < 0 || parseInt(priority_percent) > 200)) return res.status(400).json({ error:'El porcentaje prioritario debe ser entre 0 y 200' });
     const scheduleVal = schedule !== undefined ? JSON.stringify(schedule) : null;
     await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),offers_priority=COALESCE($12,offers_priority),priority_percent=COALESCE($13,priority_percent),schedule=COALESCE($14,schedule),offers_delivery=COALESCE($16,offers_delivery),offers_pickup=COALESCE($17,offers_pickup) WHERE owner_id=$15`,
       [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,offers_priority!=null?Boolean(offers_priority):null,priority_percent!=null?parseInt(priority_percent):null,scheduleVal,req.user.id,offers_delivery!=null?Boolean(offers_delivery):null,offers_pickup!=null?Boolean(offers_pickup):null]);
@@ -1809,6 +1812,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
     if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
     const safeEmoji = (emoji||'🍽️').replace(/['"<>&]/g,'').slice(0,10) || '🍽️';
     if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
+    if (parseFloat(price) > 999999) return res.status(400).json({ error:'El precio no puede superar $999.999' });
     if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
     const parsedDiscount = Math.min(100, Math.max(0, parseInt(discount_percent) || 0));
     if (description && description.length > 1000) return res.status(400).json({ error:'La descripción no puede superar 1000 caracteres' });
@@ -1939,7 +1943,7 @@ app.post('/api/register/complete', async (req, res) => {
     const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[reg_id]);
     if (!pending) return res.status(404).json({ error:'Registro no encontrado o expirado' });
 
-    const d = typeof pending.data === 'string' ? JSON.parse(pending.data) : pending.data;
+    const d = typeof pending.data === 'string' ? safeJson(pending.data, {}) : pending.data;
 
     // Case 1: Webhook already completed registration — just return token
     if (pending.status === 'completed') {
@@ -2458,7 +2462,7 @@ app.post('/api/orders/:id/cancel', auth, async (req, res) => {
       return res.status(403).json({ error:'No autorizado' });
     }
   
-    await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [req.body.reason||'', order.id]);
+    await q("UPDATE orders SET status='cancelled', cancel_reason=COALESCE($1,''), cancelled_at=NOW(), updated_at=NOW() WHERE id=$2", [(req.body.reason||'').toString().trim().slice(0,500), order.id]);
   
     // Restore stock for cancelled items
     const items = await qa('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [order.id]);
@@ -3164,6 +3168,7 @@ app.get('/api/businesses/:id/promotions', async (req, res) => {
 
 // Public: validate promo code
 app.post('/api/businesses/:id/promotions/validate-code', async (req, res) => {
+  try {
   const { code, cart_items, cart_total } = req.body;
   if (!code) return res.status(400).json({ error:'Código requerido' });
   const now = new Date().toISOString();
@@ -3180,6 +3185,7 @@ app.post('/api/businesses/:id/promotions/validate-code', async (req, res) => {
   }
   const discount = calcPromoDiscount(promo, cart_items||[], cart_total||0);
   res.json({ success:true, promo: { ...promo, combo_products: safeJson(promo.combo_products,[]) }, discount });
+  } catch(e) { console.error('validate-code error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.post('/api/wallet/withdraw', auth, async (req, res) => {
@@ -3264,20 +3270,21 @@ app.delete('/api/favorites/:productId', auth, async (req, res) => {
 //  ADMIN
 // ════════════════════════════════════════════════
 app.post('/api/admin/setup', async (req, res) => {
-  // In production, ALWAYS require setup key
-  const setupKey = process.env.ADMIN_SETUP_KEY;
-  if (IS_PROD) {
-    if (!setupKey) return res.status(403).json({ error:'ADMIN_SETUP_KEY no configurado en el servidor' });
-    if (req.body.setup_key !== setupKey) return res.status(403).json({ error:'Setup key inválida' });
-  }
-  if (await q1("SELECT id FROM users WHERE role='admin'",[]))
-    return res.status(403).json({ error:'Ya existe un administrador' });
-  const { name,email,password } = req.body;
-  if (!name||!email||!password) return res.status(400).json({ error:'Faltan datos' });
-  const id=uuid();
-  await q('INSERT INTO users (id,name,email,password,role) VALUES ($1,$2,$3,$4,$5)',[id,name,email.toLowerCase(),await bcrypt.hash(password,10),'admin']);
-  const user={id,name,email,role:'admin'};
-  res.status(201).json({ token:sign(user),user });
+  try {
+    const setupKey = process.env.ADMIN_SETUP_KEY;
+    if (IS_PROD) {
+      if (!setupKey) return res.status(403).json({ error:'ADMIN_SETUP_KEY no configurado en el servidor' });
+      if (req.body.setup_key !== setupKey) return res.status(403).json({ error:'Setup key inválida' });
+    }
+    if (await q1("SELECT id FROM users WHERE role='admin'",[]))
+      return res.status(403).json({ error:'Ya existe un administrador' });
+    const { name,email,password } = req.body;
+    if (!name||!email||!password) return res.status(400).json({ error:'Faltan datos' });
+    const id=uuid();
+    await q('INSERT INTO users (id,name,email,password,role) VALUES ($1,$2,$3,$4,$5)',[id,name,email.toLowerCase(),await bcrypt.hash(password,10),'admin']);
+    const user={id,name,email,role:'admin'};
+    res.status(201).json({ token:sign(user),user });
+  } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 app.get('/api/admin/stats', auth, role('admin'), async (req, res) => {
@@ -3489,7 +3496,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
         await q("UPDATE pending_registrations SET status='completed', mp_preference_id=$1 WHERE id=$2",
           [pa.id, regId]);
 
-        const d = typeof pending.data === 'string' ? JSON.parse(pending.data) : pending.data;
+        const d = typeof pending.data === 'string' ? safeJson(pending.data, {}) : pending.data;
         // Check email not already registered
         if (await q1('SELECT id FROM users WHERE email=$1',[d.email])) {
           console.log('Webhook reg: email already exists', d.email); return;
@@ -3767,7 +3774,7 @@ app.post('/api/admin/impersonate/:userId', auth, role('admin'), async (req, res)
 app.post('/api/admin/users/:id/ban', auth, role('admin'), async (req, res) => {
   try {
     const { banned, reason } = req.body;
-    await q('UPDATE users SET banned=$1,ban_reason=$2 WHERE id=$3', [!!banned, reason||null, req.params.id]);
+    await q('UPDATE users SET banned=$1,ban_reason=$2 WHERE id=$3', [!!banned, reason ? reason.toString().trim().slice(0,500) : null, req.params.id]);
     if (banned) notify(req.params.id, { type:'account_banned', message:`⛔ Tu cuenta fue suspendida${reason?': '+reason:''}` });
     await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
       [uuid(), req.user.id, banned ? 'ban_user' : 'unban_user', req.params.id, JSON.stringify({ reason: reason||null, admin_email: req.user.email })]);
@@ -4397,8 +4404,7 @@ app.post('/api/user/avatar', auth, uploadMiddleware('photo'), async (req,res)=>{
 
 // ── PUBLIC PLAN PRICE ──
 app.get('/api/public/plan-price', async (req,res)=>{
-  await loadPlanPrice(); // always fresh from DB
-  res.json({ price: PLAN_PRICE });
+  try { await loadPlanPrice(); res.json({ price: PLAN_PRICE }); } catch(e) { res.json({ price: PLAN_PRICE }); }
 });
 
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
