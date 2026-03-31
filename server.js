@@ -494,6 +494,8 @@ async function initDB() {
       order_id TEXT,
       used_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_coupon_uses_unique ON coupon_uses(coupon_id, user_id) WHERE (SELECT per_user FROM coupons WHERE id=coupon_id LIMIT 1) <= 1;
+    ALTER TABLE coupon_uses ADD COLUMN IF NOT EXISTS use_count INTEGER DEFAULT 1;
 
     CREATE TABLE IF NOT EXISTS help_messages (
       id TEXT PRIMARY KEY,
@@ -1840,7 +1842,7 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
   }
   // Update ingredients if provided
   if (req.body.ingredients !== undefined) {
-    await q('UPDATE products SET ingredients=$1 WHERE id=$2',[req.body.ingredients||'',req.params.pid]);
+    await q('UPDATE products SET ingredients=$1 WHERE id=$2',[(req.body.ingredients||'').slice(0,1000),req.params.pid]);
   }
   res.json(await getProductFull(req.params.pid));
 });
@@ -2148,7 +2150,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
     const total = Math.max(0, subtotal + fee + priorityFee + tipAmt - discountAmt);
     const _fee = await getPlatformFee();
-    const plat = parseFloat((subtotal*_fee).toFixed(2)), bizAmt = parseFloat((subtotal-plat).toFixed(2));
+    const plat = parseFloat((subtotal*_fee).toFixed(2)), bizAmt = Math.max(0, parseFloat((subtotal-plat).toFixed(2)));
     const orderId = uuid();
     const cust = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
     // All orders start as 'pending' until payment is confirmed
@@ -2179,8 +2181,9 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     }
     // Record coupon use if applied
     if (appliedCouponId) {
-      await q('INSERT INTO coupon_uses (id,coupon_id,user_id,order_id) VALUES ($1,$2,$3,$4)', [uuid(), appliedCouponId, req.user.id, orderId]);
-      await q('UPDATE coupons SET uses_count = COALESCE(uses_count,0) + 1 WHERE id=$1', [appliedCouponId]);
+      // Atómico: INSERT + UPDATE en una sola operación para evitar race conditions
+      await q('INSERT INTO coupon_uses (id,coupon_id,user_id,order_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [uuid(), appliedCouponId, req.user.id, orderId]);
+      await q('UPDATE coupons SET uses_count = uses_count + 1 WHERE id=$1 AND (max_uses IS NULL OR uses_count < max_uses)', [appliedCouponId]);
     }
 
     // ── Helper: notify owner about new paid order ──
@@ -2254,6 +2257,11 @@ app.get('/api/orders', auth, async (req, res) => {
        LIMIT 50`,
       [req.user.id]);
     else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
+    else if (req.user.role==='owner') {
+      const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+      if (!biz) { orders = []; }
+      else orders=await qa(`SELECT o.*,b.name as business_name,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.business_id=$1 ORDER BY CASE WHEN o.status NOT IN ('delivered','cancelled','rejected') THEN 0 ELSE 1 END, o.created_at DESC LIMIT 100`,[biz.id]);
+    }
     else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
     if (!orders.length) return res.json([]);
     const ids = orders.map(o=>o.id);
@@ -2689,11 +2697,13 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
 //  WALLET
 // ════════════════════════════════════════════════
 app.get('/api/wallet', auth, async (req, res) => {
-  const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
-  if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
-  const wallet=await getWallet(ownerId,req.user.role);
-  const txs=await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]);
-  res.json({ balance:parseFloat(wallet.balance)||0,transactions:txs });
+  try {
+    const ownerId=req.user.role==='owner'?(await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]))?.id:req.user.id;
+    if (!ownerId) return res.status(404).json({ error:'Sin negocio' });
+    const wallet=await getWallet(ownerId,req.user.role);
+    const txs=await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 30',[wallet.id]);
+    res.json({ balance:parseFloat(wallet.balance)||0,transactions:txs });
+  } catch(e) { console.error('wallet GET error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
 
 
@@ -3265,8 +3275,11 @@ app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req,
   res.json({ success:true });
   } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
-app.get('/api/admin/businesses', auth, role('admin'), async (req, res) =>
-  res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id ORDER BY b.created_at DESC`,[])));
+app.get('/api/admin/businesses', auth, role('admin'), async (req, res) => {
+  try {
+    res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id ORDER BY b.created_at DESC`,[]));
+  } catch(e) { console.error('admin/businesses GET error:', e.message); res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
+});
 app.patch('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
   try {
     const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department }=req.body;
@@ -4182,11 +4195,13 @@ app.get('/api/config/blowplus-banner', async (req,res)=>{
   } catch(e){ res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'}); }
 });
 app.post('/api/admin/config/blowplus-banner', auth, role('admin'), async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {title, subtitle} = req.body;
-  await db.query("INSERT INTO app_config(key,value) VALUES('blowplus_banner',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
-    [JSON.stringify({title, subtitle})]);
-  res.json({ok:true});
+  try {
+    if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+    const {title, subtitle} = req.body;
+    await db.query("INSERT INTO app_config(key,value) VALUES('blowplus_banner',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
+      [JSON.stringify({title:(title||'').slice(0,200), subtitle:(subtitle||'').slice(0,300)})]);
+    res.json({ok:true});
+  } catch(e) { console.error('blowplus-banner error:', e.message); res.status(500).json({error:'Error interno. Intentá de nuevo.'}); }
 });
 
 
