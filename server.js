@@ -2867,14 +2867,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     await q('INSERT INTO email_verifications (id,email,code,data,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'15 minutes\')',
       [id, email, code, JSON.stringify({ type: 'reset' })]);
     // Enviar email con código
-    const resend = require('resend');
-    const r = new resend.Resend(process.env.RESEND_API_KEY);
-    await r.emails.send({
-      from: 'Blow <noreply@blow.uy>',
-      to: email,
-      subject: 'Resetear contraseña — Blow',
-      html: `<p>Hola ${user.name},</p><p>Tu código para resetear la contraseña es: <strong>${code}</strong></p><p>Expira en 15 minutos.</p>`
-    });
+    await sendEmail(email, 'Resetear contraseña — Blow',
+      `<p>Hola ${user.name},</p><p>Tu código para resetear la contraseña es: <strong>${code}</strong></p><p>Expira en 15 minutos.</p>`);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3097,14 +3091,8 @@ app.post('/api/auth/send-verification', async (req, res) => {
     await q('DELETE FROM email_verifications WHERE email=$1', [email]);
     await q('INSERT INTO email_verifications (id,email,code,data,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'15 minutes\')',
       [id, email, code, JSON.stringify({ type: 'business_register' })]);
-    const resend = require('resend');
-    const r = new resend.Resend(process.env.RESEND_API_KEY);
-    await r.emails.send({
-      from: 'Blow <noreply@blow.uy>',
-      to: email,
-      subject: 'Código de verificación — Blow',
-      html: `<p>Tu código de verificación es: <strong>${code}</strong></p><p>Expira en 15 minutos.</p>`
-    });
+    await sendEmail(email, 'Código de verificación — Blow',
+      `<p>Tu código de verificación es: <strong>${code}</strong></p><p>Expira en 15 minutos.</p>`);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
