@@ -1167,12 +1167,34 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'No encontrado' });
-  if (!['pending','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
+  if (!['pending','confirmed','paid'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
   if (req.user.role==='customer'&&order.customer_id!==req.user.id) return res.status(403).json({ error:'No es tu pedido' });
-  await q("UPDATE orders SET status='cancelled',updated_at=NOW() WHERE id=$1",[order.id]);
+  const reason = req.body?.reason || '';
+  await q("UPDATE orders SET status='cancelled',cancel_reason=$2,updated_at=NOW() WHERE id=$1",[order.id, reason]);
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
   if (biz) notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
+  notify(order.customer_id,{ type:'order_cancelled',message:`❌ Tu pedido fue cancelado`,order_id:order.id });
   res.json({ success:true });
+});
+
+// Endpoint reject para panel de negocio (owner rechaza un pedido pendiente/paid)
+app.post('/api/orders/:id/reject', auth, async (req, res) => {
+  try {
+    const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
+    if (!order) return res.status(404).json({ error:'No encontrado' });
+    // Solo el owner del negocio o admin puede rechazar
+    if (req.user.role==='owner') {
+      const biz=await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
+      if (!biz || biz.id!==order.business_id) return res.status(403).json({ error:'No es tu pedido' });
+    } else if (req.user.role!=='admin') {
+      return res.status(403).json({ error:'Sin permiso' });
+    }
+    if (!['pending','paid','confirmed'].includes(order.status)) return res.status(400).json({ error:'No se puede rechazar' });
+    const reason = req.body?.reason || '';
+    await q("UPDATE orders SET status='rejected',cancel_reason=$2,updated_at=NOW() WHERE id=$1",[order.id, reason]);
+    notify(order.customer_id,{ type:'order_rejected',message:`❌ Tu pedido fue rechazado${reason?' — '+reason:''}`,order_id:order.id });
+    res.json({ success:true, refund: null });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ════════════════════════════════════════════════
