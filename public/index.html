@@ -1031,7 +1031,7 @@ body.owner-mode #owner-overlay {
       <div id="home-greeting" style="font-size:20px;font-weight:900;color:#0f172a;margin-bottom:4px;"></div>
       <div id="home-greeting-sub" style="font-size:13px;color:#64748b;margin-bottom:12px;"></div>
     </div>
-    <div id="home-reorder-section" style="display:none;padding:0 16px 8px;">
+    <div id="home-reorder-section" style="display:none;padding:0 16px 8px;" hidden>
       <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:10px;">🔄 Pedí de nuevo</div>
       <div id="home-reorder-list" style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;" class="hide-scrollbar"></div>
     </div>
@@ -4031,7 +4031,11 @@ async function openCategoryPage(cat) {
   nav('page-category');
   // Title
   const titleEl = document.getElementById('cat-page-title');
-  if (titleEl) titleEl.textContent = CAT_LABELS[cat] || 'Locales';
+  if (titleEl) {
+    const catObj = appCategories.find(c => c.id === cat);
+    const fallback = { food:'Restaurantes', market:'Mercados', pharmacy:'Farmacias', drinks:'Bebidas', desserts:'Postres', cafe:'Café', all:'Todos los locales' };
+    titleEl.textContent = (catObj && catObj.name) || CAT_LABELS[cat] || fallback[cat] || 'Locales';
+  }
   // Reset search
   const searchInput = document.getElementById('cat-search-input');
   if (searchInput) searchInput.value = '';
@@ -4118,7 +4122,8 @@ function renderCatPromos(cat) {
     });
   } else {
     // Fallback: auto-generate from promo stores
-    const promoStores = allStores.filter(s => s.category === cat && s.promo_count > 0 && s.is_open !== false);
+    const _catNamePromo = (() => { const o = appCategories.find(c => c.id === cat); if(o) return o.name.toLowerCase(); const fb={food:'restaurantes',market:'mercados',pharmacy:'farmacias',drinks:'bebidas',desserts:'postres',cafe:'café'}; return (fb[cat]||cat).toLowerCase(); })();
+    const promoStores = allStores.filter(s => (s.category||'').toLowerCase() === _catNamePromo && s.promo_count > 0 && s.is_open !== false);
     const colors = ['linear-gradient(135deg,#ea356b,#ff6b6b)','linear-gradient(135deg,#6b00cc,#9b59b6)','linear-gradient(135deg,#0369a1,#38bdf8)','linear-gradient(135deg,#15803d,#4ade80)','linear-gradient(135deg,#c2410c,#fb923c)'];
     slides = promoStores.slice(0, 6).map((s, i) => {
       const bg = s.cover_url ? '' : `background:${colors[i % colors.length]};`;
@@ -4149,8 +4154,9 @@ function renderCatFeatured(cat) {
     featured = _catFeaturedStores;
   } else {
     // Fallback: auto-generate from Blow+ / highest rated
+    const _catNameFeat = (() => { const o = appCategories.find(c => c.id === cat); if(o) return o.name.toLowerCase(); const fb={food:'restaurantes',market:'mercados',pharmacy:'farmacias',drinks:'bebidas',desserts:'postres',cafe:'café'}; return (fb[cat]||cat).toLowerCase(); })();
     featured = allStores
-      .filter(s => s.category === cat && s.is_open !== false)
+      .filter(s => (s.category||'').toLowerCase() === _catNameFeat && s.is_open !== false)
       .sort((a,b) => {
         if (a.blow_plus && !b.blow_plus) return -1;
         if (!a.blow_plus && b.blow_plus) return 1;
@@ -4189,7 +4195,18 @@ function renderCatList() {
   const countEl = document.getElementById('cat-count');
   if (!listEl) return;
 
-  let stores = allStores.filter(s => !_catFilter.category || s.category === _catFilter.category);
+  // Mapear cat ID -> nombre para comparar con businesses.category (que guarda el nombre)
+  let catName = _catFilter.category;
+  if (catName && catName !== 'all') {
+    const catObj = appCategories.find(c => c.id === catName);
+    if (catObj) catName = catObj.name;
+    // Fallback: si no hay categorías cargadas, intentar mapeo hardcoded
+    if (!catObj) {
+      const fallback = { food:'Restaurantes', market:'Mercados', pharmacy:'Farmacias', drinks:'Bebidas', desserts:'Postres', cafe:'Café' };
+      catName = fallback[catName] || catName;
+    }
+  }
+  let stores = allStores.filter(s => !catName || catName === 'all' || (s.category||'').toLowerCase() === (catName||'').toLowerCase());
 
   // Search filter
   const q = (_catFilter.search || document.getElementById('cat-search-input')?.value || '').toLowerCase().trim();
@@ -5993,34 +6010,50 @@ async function loadTracking() {
 async function cancelOrder(id) {
   // Modal con motivo de cancelación
   const reasons = ['Me equivoqué al pedir','Tardó demasiado','Ya no lo necesito','Voy a buscarlo yo','Otro motivo'];
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:0;';
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 36px;width:100%;max-width:480px;box-shadow:0 -4px 40px rgba(0,0,0,.15);">
-      <div style="width:36px;height:4px;background:#e2e8f0;border-radius:99px;margin:0 auto 20px;"></div>
-      <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:6px;">¿Cancelar pedido?</div>
-      <div style="font-size:14px;color:#64748b;margin-bottom:20px;">Contanos por qué (opcional)</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
-        ${reasons.map(r => `<button onclick="this.parentNode.querySelectorAll('button').forEach(b=>b.style.background='#f8fafc');this.style.background='#fce7ef';this.style.borderColor='var(--primary)';this.style.color='var(--primary)';window._cancelReason='${r}';"
-          style="text-align:left;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;transition:.15s;">${r}</button>`).join('')}
-      </div>
-      <div style="display:flex;gap:10px;">
-        <button onclick="this.closest('div[style*=fixed]').remove();window._cancelReason='';" style="flex:1;background:#f1f5f9;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">Volver</button>
-        <button id="confirm-cancel-btn" style="flex:1;background:var(--primary);border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar pedido</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  window._cancelReason = '';
-  await new Promise(resolve => {
-    overlay.querySelector('#confirm-cancel-btn').onclick = resolve;
-    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); window._cancelReason = ''; } });
+  let selectedReason = '';
+
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:0;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 36px;width:100%;max-width:480px;box-shadow:0 -4px 40px rgba(0,0,0,.15);">
+        <div style="width:36px;height:4px;background:#e2e8f0;border-radius:99px;margin:0 auto 20px;"></div>
+        <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:6px;">¿Cancelar pedido?</div>
+        <div style="font-size:14px;color:#64748b;margin-bottom:20px;">Contanos por qué (opcional)</div>
+        <div id="cancel-reasons" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+          ${reasons.map(r => `<button data-reason="${esc(r)}" style="text-align:left;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:14px;font-weight:600;color:#334155;cursor:pointer;font-family:'Inter',sans-serif;transition:.15s;">${esc(r)}</button>`).join('')}
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="cancel-back-btn" style="flex:1;background:#f1f5f9;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Inter',sans-serif;">Volver</button>
+          <button id="confirm-cancel-btn" style="flex:1;background:var(--primary);border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;font-family:'Inter',sans-serif;">Cancelar pedido</button>
+        </div>
+      </div>`;
+
+    const close = (confirmed) => {
+      overlay.remove();
+      resolve(confirmed ? selectedReason : null);
+    };
+
+    overlay.querySelector('#cancel-reasons').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-reason]');
+      if (!btn) return;
+      overlay.querySelectorAll('#cancel-reasons button').forEach(b => { b.style.background='#f8fafc'; b.style.borderColor='#e2e8f0'; b.style.color='#334155'; });
+      btn.style.background='#fce7ef'; btn.style.borderColor='var(--primary)'; btn.style.color='var(--primary)';
+      selectedReason = btn.dataset.reason;
+    });
+    overlay.querySelector('#confirm-cancel-btn').onclick = () => close(true);
+    overlay.querySelector('#cancel-back-btn').onclick   = () => close(false);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+
+    document.body.appendChild(overlay);
+  }).then(async reason => {
+    if (reason === null) return; // usuario canceló → no hacer nada
+    try {
+      await api(`/api/orders/${id}/cancel`, { method:'POST', body: JSON.stringify({ reason: reason || '' }) });
+      showToast('✅ Pedido cancelado');
+      loadTracking();
+    } catch(e) { showToast(`❌ ${e.message}`); }
   });
-  overlay.remove();
-  try {
-    await api(`/api/orders/${id}/cancel`, { method:'POST', body: JSON.stringify({ reason: window._cancelReason || '' }) });
-    showToast('✅ Pedido cancelado');
-    loadTracking();
-  } catch(e) { showToast(`❌ ${e.message}`); }
 }
 
 // ── Reviews ──────────────────────────────────
@@ -8974,7 +9007,7 @@ function updateHomeGreeting() {
 async function loadHomeReorder() {
   const section = document.getElementById('home-reorder-section');
   const list = document.getElementById('home-reorder-list');
-  if (!section || !list || !user || !token) { if(section) section.style.display='none'; return; }
+  if (section) section.style.display = 'none'; return; // Desactivado temporalmente
   try {
     const orders = await api('/api/orders');
     const delivered = orders.filter(o => o.status === 'delivered');
@@ -11921,7 +11954,11 @@ async function loadLastOrderStrip() {
     <div style="font-size:13px;color:#64748b;margin-bottom:20px;" id="review-modal-sub">Contanos tu experiencia</div>
     <!-- Stars -->
     <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px;" id="review-stars">
-      ${[1,2,3,4,5].map(i=>`<button onclick="setReviewStar(${i})" id="rstar-${i}" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>`).join('')}
+      <button onclick="setReviewStar(1)" id="rstar-1" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>
+      <button onclick="setReviewStar(2)" id="rstar-2" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>
+      <button onclick="setReviewStar(3)" id="rstar-3" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>
+      <button onclick="setReviewStar(4)" id="rstar-4" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>
+      <button onclick="setReviewStar(5)" id="rstar-5" style="font-size:36px;background:none;border:none;cursor:pointer;opacity:.3;transition:opacity .15s;">⭐</button>
     </div>
     <textarea id="review-comment" placeholder="¿Qué te pareció? (opcional)" rows="3"
       style="width:100%;border:1.5px solid #e2e8f0;border-radius:14px;padding:12px;font-size:14px;font-family:'Inter',sans-serif;resize:none;box-sizing:border-box;outline:none;"></textarea>
