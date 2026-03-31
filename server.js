@@ -406,6 +406,16 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS bank_accounts (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      bank_name TEXT NOT NULL,
+      account_type TEXT NOT NULL,
+      account_number TEXT NOT NULL,
+      holder_name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 
@@ -2782,6 +2792,118 @@ app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), asyn
     await q("UPDATE subscriptions SET status='cancelled',cancelled_at=NOW() WHERE id=$1", [req.params.id]);
     notify(sub.owner_id, { type: 'subscription_cancelled', message: `⚠️ Tu suscripción fue cancelada${reason?' — '+reason:''}` });
     res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// ── Bank accounts (owner retiros) ────────────────
+app.get('/api/bank-accounts', auth, role('owner'), async (req, res) => {
+  try {
+    const accounts = await qa('SELECT * FROM bank_accounts WHERE owner_id=$1 ORDER BY created_at DESC', [req.user.id]);
+    res.json(accounts);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/bank-accounts', auth, role('owner'), async (req, res) => {
+  try {
+    const { bank_name, account_type, account_number, holder_name } = req.body;
+    const id = uuid();
+    await q('INSERT INTO bank_accounts (id,owner_id,bank_name,account_type,account_number,holder_name) VALUES ($1,$2,$3,$4,$5,$6)',
+      [id, req.user.id, bank_name, account_type, account_number, holder_name]);
+    res.json({ id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/bank-accounts/:id', auth, role('owner'), async (req, res) => {
+  try {
+    await q('DELETE FROM bank_accounts WHERE id=$1 AND owner_id=$2', [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Productos públicos de un negocio ─────────────
+app.get('/api/businesses/:id/products', async (req, res) => {
+  try {
+    const products = await qa(
+      `SELECT p.*, 
+        COALESCE(json_agg(DISTINCT jsonb_build_object('id',pv.id,'group_name',pv.group_name,'option_name',pv.option_name,'price_delta',pv.price_delta)) FILTER (WHERE pv.id IS NOT NULL), '[]') as variants,
+        COALESCE(json_agg(DISTINCT jsonb_build_object('url',pp.url)) FILTER (WHERE pp.id IS NOT NULL), '[]') as photos
+       FROM products p
+       LEFT JOIN product_variants pv ON pv.product_id=p.id
+       LEFT JOIN product_photos pp ON pp.product_id=p.id
+       WHERE p.business_id=$1 AND p.is_available=TRUE
+       GROUP BY p.id ORDER BY p.created_at ASC`, [req.params.id]);
+    res.json(products);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Owner: broadcast novedad a clientes ──────────
+app.post('/api/businesses/mine/broadcast', auth, role('owner'), async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Mensaje requerido' });
+    const biz = await q1('SELECT id,name FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Sin negocio' });
+    // Obtener clientes que hayan pedido en este negocio
+    const customers = await qa(
+      'SELECT DISTINCT customer_id FROM orders WHERE business_id=$1 AND status=\'delivered\'', [biz.id]);
+    let sent = 0;
+    for (const c of customers) {
+      notify(c.customer_id, { type: 'business_broadcast', message: `📣 ${biz.name}: ${message}`, business_id: biz.id });
+      sent++;
+    }
+    res.json({ success: true, sent });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Owner: stats ──────────────────────────────────
+app.get('/api/businesses/mine/stats', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Sin negocio' });
+    const { from, to } = req.query;
+    const fromDate = from || new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+    const toDate   = to   || new Date().toISOString().split('T')[0];
+    const totals = await q1(
+      `SELECT COUNT(*) as total_orders,
+        COUNT(*) FILTER (WHERE status='delivered') as completed,
+        COUNT(*) FILTER (WHERE status='cancelled') as cancelled,
+        COALESCE(SUM(total) FILTER (WHERE status='delivered'),0) as gmv,
+        COALESCE(AVG(total) FILTER (WHERE status='delivered'),0) as avg_order
+       FROM orders WHERE business_id=$1 AND created_at>=$2::date AND created_at<($3::date+INTERVAL '1 day')`,
+      [biz.id, fromDate, toDate]);
+    const daily = await qa(
+      `SELECT DATE(created_at) as date, COUNT(*) as orders, COALESCE(SUM(total),0) as gmv
+       FROM orders WHERE business_id=$1 AND created_at>=$2::date AND created_at<($3::date+INTERVAL '1 day') AND status='delivered'
+       GROUP BY DATE(created_at) ORDER BY date ASC`, [biz.id, fromDate, toDate]);
+    const topProducts = await qa(
+      `SELECT oi.name, SUM(oi.quantity) as qty, SUM(oi.price*oi.quantity) as revenue
+       FROM order_items oi JOIN orders o ON oi.order_id=o.id
+       WHERE o.business_id=$1 AND o.status='delivered' AND o.created_at>=$2::date AND o.created_at<($3::date+INTERVAL '1 day')
+       GROUP BY oi.name ORDER BY qty DESC LIMIT 5`, [biz.id, fromDate, toDate]);
+    res.json({ totals, daily, topProducts });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Verify payment (MercadoPago) ──────────────────
+app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
+  try {
+    const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'No encontrado' });
+    if (order.customer_id !== req.user.id) return res.status(403).json({ error: 'Sin permiso' });
+    if (order.mp_payment_id) {
+      // Verificar estado en MP
+      if (mp) {
+        try {
+          const payment = await mp.payment.get(order.mp_payment_id);
+          if (payment.body.status === 'approved' && order.status === 'pending') {
+            await q("UPDATE orders SET status='paid',updated_at=NOW() WHERE id=$1", [order.id]);
+            const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
+            if (biz) notify(biz.owner_id, { type:'new_order', message:'🛍️ Nuevo pedido pagado', order_id:order.id });
+            return res.json({ status: 'paid' });
+          }
+        } catch(e) {}
+      }
+    }
+    res.json({ status: order.status });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
