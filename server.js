@@ -1577,6 +1577,58 @@ app.get('/api/admin/stats', auth, role('admin'), async (req, res) => {
   res.json({ userStats,orderStats,revenue:parseFloat(revenue.total),today,week,businesses:parseInt(businesses.c),pendingWithdrawals:parseInt(pendingW.c) });
 });
 
+app.get('/api/admin/stats/advanced', auth, role('admin'), async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const fromDate = from || new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+    const toDate   = to   || new Date().toISOString().split('T')[0];
+    const totals = await q1(`
+      SELECT
+        COALESCE(SUM(total),0) as gmv,
+        COALESCE(SUM(platform_amount),0) as platform_revenue,
+        COUNT(*) as total_orders,
+        COUNT(*) FILTER (WHERE status='cancelled') as cancelled_orders,
+        AVG(total) FILTER (WHERE status='delivered') as avg_order_value,
+        COUNT(DISTINCT customer_id) FILTER (WHERE status='delivered') as active_customers
+      FROM orders
+      WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day')
+    `, [fromDate, toDate]);
+    const daily = await qa(`
+      SELECT DATE(created_at) as date,
+        COALESCE(SUM(total),0) as gmv,
+        COUNT(*) as orders
+      FROM orders
+      WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day')
+        AND status NOT IN ('cancelled','pending')
+      GROUP BY DATE(created_at) ORDER BY date ASC
+    `, [fromDate, toDate]);
+    const byStatus = await qa(`SELECT status, COUNT(*) as c FROM orders WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day') GROUP BY status`, [fromDate, toDate]);
+    const topBiz = await qa(`
+      SELECT b.name, COUNT(o.id) as orders, COALESCE(SUM(o.total),0) as gmv
+      FROM orders o JOIN businesses b ON o.business_id=b.id
+      WHERE o.created_at >= $1::date AND o.created_at < ($2::date + INTERVAL '1 day') AND o.status='delivered'
+      GROUP BY b.id, b.name ORDER BY gmv DESC LIMIT 5
+    `, [fromDate, toDate]);
+    const topCustomers = await qa(`
+      SELECT u.name, u.email, COUNT(o.id) as orders, COALESCE(SUM(o.total),0) as spent
+      FROM orders o JOIN users u ON o.customer_id=u.id
+      WHERE o.created_at >= $1::date AND o.created_at < ($2::date + INTERVAL '1 day') AND o.status='delivered'
+      GROUP BY u.id, u.name, u.email ORDER BY spent DESC LIMIT 5
+    `, [fromDate, toDate]);
+    res.json({
+      totals: {
+        gmv: parseFloat(totals.gmv||0),
+        platform_revenue: parseFloat(totals.platform_revenue||0),
+        total_orders: parseInt(totals.total_orders||0),
+        cancelled_orders: parseInt(totals.cancelled_orders||0),
+        avg_order_value: parseFloat(totals.avg_order_value||0),
+        active_customers: parseInt(totals.active_customers||0)
+      },
+      daily, byStatus, topBiz, topCustomers
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/admin/users', auth, role('admin'), async (req, res) => {
   const { role:r,search } = req.query;
   let sql='SELECT u.*,(SELECT COUNT(*) FROM orders WHERE customer_id=u.id) as order_count FROM users u WHERE TRUE';
