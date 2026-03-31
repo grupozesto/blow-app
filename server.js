@@ -3235,12 +3235,20 @@ app.get('/api/admin/stats', auth, role('admin'), async (req, res) => {
 
 app.get('/api/admin/users', auth, role('admin'), async (req, res) => {
   try {
-    const { role:r,search } = req.query;
+    const { role:r, search } = req.query;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = 100;
+    const offset = (page - 1) * limit;
     let sql='SELECT u.id,u.name,u.email,u.phone,u.role,u.city,u.department,u.created_at,u.banned,u.ban_reason,u.avatar_url,u.blow_plus,(SELECT COUNT(*) FROM orders WHERE customer_id=u.id) as order_count FROM users u WHERE TRUE';
     const params=[]; let i=1;
     if (r) { sql+=` AND u.role=$${i++}`;params.push(r); }
     if (search) { sql+=` AND (u.name ILIKE $${i} OR u.email ILIKE $${i++})`;params.push(`%${search}%`); }
-    res.json(await qa(sql+' ORDER BY u.created_at DESC LIMIT 500',params));
+    const countSql = 'SELECT COUNT(*) as total FROM users u WHERE TRUE' + (r ? ` AND u.role=$1` : '') + (search ? ` AND (u.name ILIKE $${r?2:1} OR u.email ILIKE $${r?2:1})` : '');
+    const [users, countRow] = await Promise.all([
+      qa(sql+` ORDER BY u.created_at DESC LIMIT ${limit} OFFSET ${offset}`, params),
+      q1(countSql, params)
+    ]);
+    res.json({ users, total: parseInt(countRow?.total||0), page, limit });
   } catch(e) { res.status(500).json({ error:'Error al cargar usuarios.' }); }
 });
 
