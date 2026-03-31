@@ -561,7 +561,7 @@ async function loadOrders() {
           </tr>`).join('')}
         </tbody>
       </table>` : '<div class="empty-state"><div class="empty-icon">📦</div>No hay pedidos</div>';
-  } catch(e) { document.getElementById('orders-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('orders-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 async function viewOrder(id) {
@@ -649,7 +649,7 @@ async function loadWithdrawals() {
             <td class="td-muted" style="font-size:11px;">${w.processed_at?new Date(w.processed_at).toLocaleDateString('es-UY'):'—'}</td>
           </tr>`).join('')}</tbody></table>
         </div>` : ''}` : '<div class="empty-state"><div class="empty-icon">💸</div>No hay retiros en esta categoría</div>';
-  } catch(e) { document.getElementById('withdrawals-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('withdrawals-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 async function approveWithdrawal(id) {
@@ -795,7 +795,7 @@ async function loadBannersList() {
           <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:#dc2626;" title="Eliminar">🗑️</button>
         </td>
       </tr>`).join('') + '</tbody></table></div>';
-  } catch(e) { document.getElementById('banners-list').innerHTML = '<div style="color:#ef4444;">Error: '+e.message+'</div>'; }
+  } catch(e) { document.getElementById('banners-list').innerHTML = '<div style="color:#ef4444;">Error al cargar. Intentá de nuevo.</div>'; }
 }
 
 async function createBanner() {
@@ -872,7 +872,7 @@ async function renderBusinesses() {
   try {
     allBusinesses = await api('/api/admin/businesses');
     renderBizTable(allBusinesses);
-  } catch(e) { document.getElementById('biz-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('biz-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 function filterBiz(q) {
@@ -1033,7 +1033,7 @@ async function loadSubscriptions() {
           }).join('') : '<tr><td colspan="7" class="empty-state">Sin suscripciones</td></tr>'}</tbody>
         </table>
       </div>`;
-  } catch(e) { document.getElementById('subs-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('subs-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 async function activateSub(id) {
@@ -1096,7 +1096,7 @@ async function loadUsers() {
           </div></td>
         </tr>`).join('')}</tbody>
       </table>` : '<div class="empty-state"><div class="empty-icon">👥</div>No hay usuarios</div>';
-  } catch(e) { document.getElementById('users-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('users-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 async function editUser(id) {
@@ -1268,7 +1268,7 @@ async function renderConfig() {
         </div>
       </div>`;
     loadQuickStats();
-  } catch(e) { document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 async function loadQuickStats() {

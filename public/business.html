@@ -842,7 +842,7 @@ async function doRegister(){
 // CORE APP FUNCTIONS (from preserved JS)
 // ════════════════════════════════
 function doLogout(){
-  if(!confirm('¿Cerrar sesión del portal?'))return;
+  if(!await bizConfirm('Vas a cerrar tu sesión del portal.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false}))return;
   localStorage.removeItem('blow_biz_token');localStorage.removeItem('blow_biz_user');
   _token='';_user=null;_biz=null;_dash=null;
   if(_refreshTimer){clearInterval(_refreshTimer);_refreshTimer=null;}
@@ -1318,22 +1318,24 @@ function _bizUpdatePushBtn(active) {
 
 async function bizTogglePush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('Tu navegador no soporta notificaciones push.'); return;
+    toast('❌ Tu navegador no soporta notificaciones push.'); return;
   }
-  const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) {
-    await existing.unsubscribe();
-    await fetch('/api/push/unsubscribe', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
-      body: JSON.stringify({ endpoint: existing.endpoint })
-    }).catch(()=>{});
-    _bizUpdatePushBtn(false);
-    toast('🔕 Notificaciones desactivadas');
-  } else {
-    await bizInitPush();
-  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await existing.unsubscribe();
+      await fetch('/api/push/unsubscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _tok },
+        body: JSON.stringify({ endpoint: existing.endpoint })
+      }).catch(()=>{});
+      _bizUpdatePushBtn(false);
+      toast('🔕 Notificaciones desactivadas');
+    } else {
+      await bizInitPush();
+    }
+  } catch(e) { console.error('bizTogglePush error:', e.message); toast('❌ Error al cambiar notificaciones.'); }
 }
 
 async function _bizCheckPushStatus() {
@@ -1417,7 +1419,7 @@ async function renderOrders(){
     const data=await api('/api/orders');
     const allOrders=Array.isArray(data)?data:(data.orders||[]);
     renderOrdersUI(allOrders);
-  }catch(e){el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">${e.message}</div>`;}
+  }catch(e){ console.error(e); el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 function renderOrdersUI(allOrders) {
@@ -1465,13 +1467,14 @@ async function updateOrder(id, status) {
   let body = { status };
 
   if (status === 'cancelled') {
-    if (!confirm('¿Cancelar este pedido?')) return;
+    if (!await bizConfirm('Esta acción notificará al cliente.', {title:'¿Cancelar este pedido?', confirmLabel:'Sí, cancelar'})) return;
   }
 
   // Al confirmar, preguntar tiempo estimado
   if (status === 'confirmed') {
-    const mins = prompt('⏱️ ¿En cuántos minutos estará listo? (dejá en blanco para omitir)');
-    if (mins === null) return; // cancelaron el prompt
+    let mins;
+    try { mins = await bizPrompt('¿En cuántos minutos estará listo?', {placeholder:'Ej: 20 (opcional)', confirmLabel:'Confirmar'}); }
+    catch { return; }
     const n = parseInt(mins);
     if (n > 0) body.estimated_minutes = n;
   }
@@ -1747,7 +1750,7 @@ async function renderStats(period){
         <div class="card"><div style="font-size:10px;font-weight:700;color:#60a5fa;margin-bottom:4px;">HOY</div><div style="font-size:18px;font-weight:900;">$${Math.round(today.revenue||0)}</div><div style="font-size:12px;color:var(--muted);">${today.orders||0} pedidos</div></div>
         <div class="card"><div style="font-size:10px;font-weight:700;color:#4ade80;margin-bottom:4px;">ESTA SEMANA</div><div style="font-size:18px;font-weight:900;">$${Math.round(week.revenue||0)}</div><div style="font-size:12px;color:var(--muted);">${week.orders||0} pedidos</div></div>
       </div>`;
-  }catch(e){el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">${e.message}</div>`;}
+  }catch(e){ console.error(e); el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">Error al cargar. Intentá de nuevo.</div>`; }
 }
 
 // ════════ SETTINGS ════════
@@ -1831,8 +1834,8 @@ async function saveInfo(){const name=document.getElementById('ei-name')?.value.t
 
 // Edit Photos
 function showEditPhotos(){const b=_biz||{};document.getElementById('modal-box').innerHTML=`<div class="modal-handle"></div><div class="modal-title">🖼️ Fotos del negocio</div><div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">LOGO</div><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;"><div id="logo-prev" style="width:60px;height:60px;border-radius:12px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;flex-shrink:0;">${b.logo_url?`<img src="${b.logo_url}" style="width:100%;height:100%;object-fit:cover;">`:(b.logo_emoji||'🏪')}</div><label style="flex:1;background:rgba(255,255,255,.06);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;color:var(--primary);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:block;">📷 Cambiar logo<input type="file" accept="image/*" onchange="uploadLogo(this)" style="display:none;"></label></div><div id="logo-status" style="font-size:12px;text-align:center;margin-bottom:12px;display:none;"></div><div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">PORTADA</div><div id="cover-prev" style="width:100%;height:100px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;margin-bottom:12px;overflow:hidden;">${b.cover_url?`<img src="${b.cover_url}" style="width:100%;height:100%;object-fit:cover;">`:'<span style="color:var(--muted);font-size:13px;">Sin portada</span>'}</div><label style="display:block;width:100%;background:rgba(255,255,255,.06);border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;color:var(--primary);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:6px;">📷 Cambiar portada<input type="file" accept="image/*" onchange="uploadCover(this)" style="display:none;"></label><div id="cover-status" style="font-size:12px;text-align:center;margin-bottom:14px;display:none;"></div><button class="btn btn-g btn-f" onclick="closeMod()">Cerrar</button>`;document.getElementById('modal-ov').classList.add('show');}
-async function uploadLogo(input){const file=input.files[0];if(!file)return;const s=document.getElementById('logo-status');s.style.display='flex';s.style.color='var(--muted)';s.textContent='Subiendo...';const fd=new FormData();fd.append('photo',file);try{const r=await fetch('/api/businesses/mine/upload-logo',{method:'POST',headers:{Authorization:'Bearer '+_token},body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');if(_biz)_biz.logo_url=d.logo_url||d.url;document.getElementById('logo-prev').innerHTML=`<img src="${d.logo_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;document.getElementById('h-logo-img').innerHTML=`<img src="${d.logo_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;s.style.color='#4ade80';s.textContent='✓ Logo actualizado';}catch(e){s.style.color='var(--red)';s.textContent='Error: '+e.message;}}
-async function uploadCover(input){const file=input.files[0];if(!file)return;const s=document.getElementById('cover-status');s.style.display='flex';s.style.color='var(--muted)';s.textContent='Subiendo...';const fd=new FormData();fd.append('photo',file);try{const r=await fetch('/api/businesses/mine/upload-cover',{method:'POST',headers:{Authorization:'Bearer '+_token},body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');if(_biz)_biz.cover_url=d.cover_url||d.url;document.getElementById('cover-prev').innerHTML=`<img src="${d.cover_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;s.style.color='#4ade80';s.textContent='✓ Portada actualizada';}catch(e){s.style.color='var(--red)';s.textContent='Error: '+e.message;}}
+async function uploadLogo(input){const file=input.files[0];if(!file)return;const s=document.getElementById('logo-status');s.style.display='flex';s.style.color='var(--muted)';s.textContent='Subiendo...';const fd=new FormData();fd.append('photo',file);try{const r=await fetch('/api/businesses/mine/upload-logo',{method:'POST',headers:{Authorization:'Bearer '+_token},body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');if(_biz)_biz.logo_url=d.logo_url||d.url;document.getElementById('logo-prev').innerHTML=`<img src="${d.logo_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;document.getElementById('h-logo-img').innerHTML=`<img src="${d.logo_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;s.style.color='#4ade80';s.textContent='✓ Logo actualizado';}catch(e){ console.error(e); s.style.color='var(--red)';s.textContent='Error al subir. Intentá de nuevo.';} }
+async function uploadCover(input){const file=input.files[0];if(!file)return;const s=document.getElementById('cover-status');s.style.display='flex';s.style.color='var(--muted)';s.textContent='Subiendo...';const fd=new FormData();fd.append('photo',file);try{const r=await fetch('/api/businesses/mine/upload-cover',{method:'POST',headers:{Authorization:'Bearer '+_token},body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');if(_biz)_biz.cover_url=d.cover_url||d.url;document.getElementById('cover-prev').innerHTML=`<img src="${d.cover_url||d.url}" style="width:100%;height:100%;object-fit:cover;">`;s.style.color='#4ade80';s.textContent='✓ Portada actualizada';}catch(e){ console.error(e); s.style.color='var(--red)';s.textContent='Error al subir. Intentá de nuevo.';} }
 
 // Edit Delivery
 function showEditDelivery(){
@@ -1918,7 +1921,7 @@ async function renderReviews(){
         <div style="font-size:13px;color:var(--muted);">${reviews.length} reseña${reviews.length!==1?'s':''}</div>
       </div>
       ${reviews.map(r=>`<div class="card" style="margin-bottom:10px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div style="font-size:13px;font-weight:700;">${r.customer_name||'Cliente'}</div><div>${'⭐'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div></div>${r.comment?`<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">"${r.comment}"</div>`:''}<div style="font-size:11px;color:var(--muted2);margin-bottom:${r.owner_reply?'10':'0'}px;">${new Date(r.created_at).toLocaleDateString('es-UY',{day:'2-digit',month:'short',year:'numeric'})}</div>${r.owner_reply?`<div style="background:rgba(59,130,246,.1);border-left:3px solid var(--primary);border-radius:0 8px 8px 0;padding:8px 12px;margin-top:8px;"><div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:3px;">Tu respuesta</div><div style="font-size:13px;color:var(--muted);">${r.owner_reply}</div></div>`:`<div style="margin-top:8px;display:flex;gap:8px;"><input id="reply-${r.id}" placeholder="Escribí tu respuesta..." class="finp" style="flex:1;padding:8px 12px;font-size:13px;"><button onclick="replyReview('${r.id}')" class="btn btn-p" style="padding:8px 14px;">→</button></div>`}</div>`).join('')}`;
-  }catch(e){el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">${e.message}</div>`;}
+  }catch(e){ console.error(e); el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">Error al cargar. Intentá de nuevo.</div>`; }
 }
 async function replyReview(id){const input=document.getElementById('reply-'+id);const reply=input?.value?.trim();if(!reply){toast('Escribí una respuesta');return;}try{await api(`/api/reviews/${id}/reply`,{method:'PATCH',body:JSON.stringify({reply})});toast('✅ Respuesta publicada');renderReviews();}catch(e){toast('❌ '+e.message);}}
 
@@ -1933,14 +1936,14 @@ async function renderPromos(){
     el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:10px;"><button onclick="renderSettings()" class="btn btn-g">← Volver</button><div style="font-size:15px;font-weight:800;">Promociones</div></div><button class="btn btn-p" onclick="showAddPromo()">+ Nueva</button></div>
     ${!list.length?'<div class="empty"><div class="empty-icon">🏷️</div><div style="font-size:16px;font-weight:800;margin-bottom:6px;">Sin promociones</div><button class="btn btn-p" onclick="showAddPromo()" style="margin-top:8px;">Crear primera promo</button></div>':
     list.map(p=>`<div class="card" style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;"><div style="font-size:15px;font-weight:800;">${p.name}</div><span class="badge ${p.is_active?'b-green':'b-gray'}">${p.is_active?'Activa':'Pausada'}</span></div><div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${typeLabel[p.type]||p.type}${p.requires_code?` · Código: <b style="color:var(--text);">${p.code}</b>`:''}</div><div style="display:flex;gap:8px;"><button onclick="togglePromo('${p.id}',${p.is_active})" class="btn btn-g" style="flex:1;">${p.is_active?'Pausar':'Activar'}</button><button onclick="deletePromo('${p.id}')" class="btn btn-d">🗑</button></div></div>`).join('')}`;
-  }catch(e){el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">${e.message}</div>`;}
+  }catch(e){ console.error(e); el.innerHTML=`<div style="color:var(--red);padding:20px;text-align:center;">Error al cargar. Intentá de nuevo.</div>`; }
 }
 function showAddPromo(){const el=document.getElementById('content-area');el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;"><button onclick="renderPromos()" class="btn btn-g">← Volver</button><div style="font-size:15px;font-weight:800;">Nueva promoción</div></div><div class="card"><div style="margin-bottom:12px;"><label class="flbl">NOMBRE</label><input id="pr-name" placeholder="Ej: 20% de descuento" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">TIPO</label><select id="pr-type" onchange="promoTypeChange()" class="finp"><option value="percent_discount">% Descuento en todo el pedido</option><option value="fixed_discount">Descuento fijo ($)</option><option value="free_delivery">Envío gratis</option></select></div><div id="pr-val-wrap" style="margin-bottom:12px;"><label class="flbl">VALOR</label><input id="pr-value" type="number" placeholder="Ej: 20" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">PEDIDO MÍNIMO ($)</label><input id="pr-min" type="number" value="0" class="finp"></div><div style="margin-bottom:12px;"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="pr-needs-code" onchange="promoCodeToggle()" style="width:16px;height:16px;accent-color:var(--primary);"><span style="font-size:14px;font-weight:600;">Requiere código</span></label></div><div id="pr-code-wrap" style="display:none;margin-bottom:12px;"><label class="flbl">CÓDIGO</label><input id="pr-code" placeholder="Ej: VERANO20" class="finp" style="text-transform:uppercase;"></div><button class="btn btn-p btn-f" id="pr-save" onclick="savePromo()">Crear promoción</button></div>`;}
 function promoTypeChange(){document.getElementById('pr-val-wrap').style.display=document.getElementById('pr-type')?.value==='free_delivery'?'none':'block';}
 function promoCodeToggle(){document.getElementById('pr-code-wrap').style.display=document.getElementById('pr-needs-code')?.checked?'block':'none';}
 async function savePromo(){const name=document.getElementById('pr-name')?.value?.trim();if(!name){toast('Ingresá un nombre');return;}const btn=document.getElementById('pr-save');btn.textContent='Creando...';btn.disabled=true;try{await api('/api/businesses/mine/promotions',{method:'POST',body:JSON.stringify({name,type:document.getElementById('pr-type')?.value,value:parseFloat(document.getElementById('pr-value')?.value)||0,min_order_amount:parseFloat(document.getElementById('pr-min')?.value)||0,requires_code:document.getElementById('pr-needs-code')?.checked,code:document.getElementById('pr-needs-code')?.checked?document.getElementById('pr-code')?.value?.trim()?.toUpperCase():null})});renderPromos();}catch(e){btn.textContent='Crear promoción';btn.disabled=false;toast('❌ '+e.message);}}
 async function togglePromo(id,isActive){try{await api(`/api/businesses/mine/promotions/${id}`,{method:'PATCH',body:JSON.stringify({is_active:!isActive})});renderPromos();}catch(e){toast('❌ '+e.message);}}
-async function deletePromo(id){if(!confirm('¿Eliminar?'))return;try{await api(`/api/businesses/mine/promotions/${id}`,{method:'DELETE'});renderPromos();}catch(e){toast('❌ '+e.message);}}
+async function deletePromo(id){if(!await bizConfirm('Esta acción no se puede deshacer.',{title:'¿Eliminar promoción?',confirmLabel:'Eliminar'}))return;try{await api(`/api/businesses/mine/promotions/${id}`,{method:'DELETE'});renderPromos();}catch(e){toast('❌ '+e.message);}}
 
 // ════════ NOVEDADES ════════
 function renderNovedades(){
@@ -1955,9 +1958,7 @@ function renderNovedades(){
   ta.addEventListener('input',()=>{counter.textContent=ta.value.length+'/280';prev.textContent=ta.value||'Tu novedad aparecerá aquí...';counter.style.color=ta.value.length>240?'var(--red)':'var(--muted)';});
 }
 function addNovedadEmoji(e){const ta=document.getElementById('novedad-text');if(!ta)return;ta.value+=e;ta.dispatchEvent(new Event('input'));ta.focus();}
-async function enviarNovedad(){const ta=document.getElementById('novedad-text');const txt=ta?.value?.trim();if(!txt){toast('Escribí algo antes de publicar');return;}if(!confirm(`¿Enviar novedad a todos tus clientes?
-
-"${txt}"`))return;const btn=document.querySelector('[onclick="enviarNovedad()"]');if(btn){btn.textContent='⏳ Enviando...';btn.disabled=true;}try{const res=await api('/api/businesses/mine/broadcast',{method:'POST',body:JSON.stringify({message:txt})});toast(`✅ Novedad enviada a ${res.sent||0} clientes`);if(ta)ta.value='';document.getElementById('novedad-count').textContent='0/280';document.getElementById('novedad-preview').textContent='Tu novedad aparecerá aquí...';}catch(e){toast('❌ '+e.message);}finally{if(btn){btn.textContent='📣 Publicar novedad';btn.disabled=false;}}}
+async function enviarNovedad(){const ta=document.getElementById('novedad-text');const txt=ta?.value?.trim();if(!txt){toast('Escribí algo antes de publicar');return;}if(!await bizConfirm(`¿Enviar esta novedad a todos tus clientes?`,{title:"Publicar novedad",confirmLabel:"Sí, publicar",danger:false}))return;const btn=document.querySelector('[onclick="enviarNovedad()"]');if(btn){btn.textContent='⏳ Enviando...';btn.disabled=true;}try{const res=await api('/api/businesses/mine/broadcast',{method:'POST',body:JSON.stringify({message:txt})});toast(`✅ Novedad enviada a ${res.sent||0} clientes`);if(ta)ta.value='';document.getElementById('novedad-count').textContent='0/280';document.getElementById('novedad-preview').textContent='Tu novedad aparecerá aquí...';}catch(e){toast('❌ '+e.message);}finally{if(btn){btn.textContent='📣 Publicar novedad';btn.disabled=false;}}}
 
 // ════════ RETIRO MODAL ════════
 async function openRetiroModal(){
@@ -1990,7 +1991,7 @@ async function openRetiroModal(){
 function selectAccount(id){_selectedAccountId=id;const acc=_bankAccounts.find(a=>a.id===id);_bankAccounts.forEach(a=>{const el=document.getElementById(`rmac-${a.id}`);if(el)el.style.borderColor=a.id===id?'var(--primary)':'var(--border)';});const info=document.getElementById('rm-sel-info');const txt=document.getElementById('rm-sel-text');if(info&&txt&&acc){txt.textContent=`${acc.label} · ${acc.method} · ${acc.destination}`;info.style.display='flex';}}
 function toggleNewAccountForm(){const f=document.getElementById('rm-new-form');const b=document.getElementById('rm-add-btn');const showing=f.style.display!=='none';f.style.display=showing?'none':'block';if(b)b.textContent=showing?'+ Agregar cuenta nueva':'✕ Cancelar';}
 async function saveNewAccount(){const label=document.getElementById('rm-label')?.value?.trim();const method=document.getElementById('rm-method')?.value;const dest=document.getElementById('rm-dest')?.value?.trim();const isDef=document.getElementById('rm-default')?.checked;if(!label||!dest){toast('Completá todos los campos');return;}try{await api('/api/bank-accounts',{method:'POST',body:JSON.stringify({label,method,destination:dest,is_default:isDef})});toast('✅ Cuenta guardada');await openRetiroModal();}catch(e){toast('❌ '+e.message);}}
-async function deleteAccount(id){if(!confirm('¿Eliminar?'))return;try{await api(`/api/bank-accounts/${id}`,{method:'DELETE'});_bankAccounts=_bankAccounts.filter(a=>a.id!==id);await openRetiroModal();}catch(e){toast('❌ '+e.message);}}
+async function deleteAccount(id){if(!await bizConfirm('Esta acción no se puede deshacer.',{title:'¿Eliminar cuenta?',confirmLabel:'Eliminar'}))return;try{await api(`/api/bank-accounts/${id}`,{method:'DELETE'});_bankAccounts=_bankAccounts.filter(a=>a.id!==id);await openRetiroModal();}catch(e){toast('❌ '+e.message);}}
 async function confirmarRetiro(){const amount=parseFloat(document.getElementById('rm-amount')?.value);const balance=_dash?.balance||0;if(!amount||amount<=0){toast('Ingresá un monto válido');return;}if(amount>balance){toast('Saldo insuficiente');return;}if(!_selectedAccountId){toast('Seleccioná una cuenta destino');toggleNewAccountForm();return;}const acc=_bankAccounts.find(a=>a.id===_selectedAccountId);if(!acc)return;try{await api('/api/wallet/withdraw',{method:'POST',body:JSON.stringify({amount,method:acc.method,destination:acc.destination})});toast('✅ Solicitud enviada. Se procesará pronto.');document.getElementById('retiro-overlay')?.remove();if(_dash)_dash.balance=balance-amount;renderHome();}catch(e){toast('❌ '+e.message);}}
 
 // ════════ CHAT ════════
@@ -2047,7 +2048,29 @@ function printTicket(o) {
   <div style="display:flex;justify-content:space-between;" class="total"><span>TOTAL:</span><span>$${Math.round(o.total||0)}</span></div>
   <div class="line"></div>
   <div class="center" style="font-size:11px;margin-top:10px;">Gracias por elegir Blow ⚡<br>blow.uy</div>
-  </body></html>`);
+  
+<div id="biz-modal-confirm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface,#1e293b);border-radius:16px;padding:24px;max-width:360px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.4);">
+    <div id="bmc-title" style="font-size:16px;font-weight:800;color:var(--text,#f1f5f9);margin-bottom:8px;">¿Confirmar?</div>
+    <div id="bmc-body" style="font-size:14px;color:var(--muted,#94a3b8);margin-bottom:20px;line-height:1.5;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="_bmcDismiss()" style="padding:10px 18px;border-radius:12px;border:1.5px solid rgba(255,255,255,.12);background:transparent;color:var(--text,#f1f5f9);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button id="bmc-ok" onclick="_bmcAccept()" style="padding:10px 18px;border-radius:12px;border:none;background:#ef4444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Confirmar</button>
+    </div>
+  </div>
+</div>
+<div id="biz-modal-prompt" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface,#1e293b);border-radius:16px;padding:24px;max-width:380px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.4);">
+    <div id="bmp-title" style="font-size:16px;font-weight:800;color:var(--text,#f1f5f9);margin-bottom:16px;">Ingresá un valor</div>
+    <input id="bmp-input" style="width:100%;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--text,#f1f5f9);background:rgba(255,255,255,.05);margin-bottom:16px;box-sizing:border-box;outline:none;" placeholder="">
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="_bmpDismiss()" style="padding:10px 18px;border-radius:12px;border:1.5px solid rgba(255,255,255,.12);background:transparent;color:var(--text,#f1f5f9);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button id="bmp-ok" onclick="_bmpAccept()" style="padding:10px 18px;border-radius:12px;border:none;background:var(--primary,#3b82f6);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+</body></html>`);
   win.document.close();
   setTimeout(() => { win.print(); win.close(); }, 300);
 }
@@ -2157,6 +2180,41 @@ function clearOrdersBadge() {
 window.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('blow_biz_token')) connectBizWS();
 });
+
+let _bmcResolve = null;
+function _bmcDismiss() { document.getElementById('biz-modal-confirm').style.display='none'; if(_bmcResolve){_bmcResolve(false);_bmcResolve=null;} }
+function _bmcAccept()  { document.getElementById('biz-modal-confirm').style.display='none'; if(_bmcResolve){_bmcResolve(true);_bmcResolve=null;} }
+function bizConfirm(msg, {title='¿Confirmar?', confirmLabel='Confirmar', danger=true}={}) {
+  return new Promise(r => {
+    _bmcResolve = r;
+    document.getElementById('bmc-title').textContent = title;
+    document.getElementById('bmc-body').textContent  = msg;
+    document.getElementById('bmc-ok').textContent    = confirmLabel;
+    document.getElementById('bmc-ok').style.background = danger ? '#ef4444' : 'var(--primary,#3b82f6)';
+    document.getElementById('biz-modal-confirm').style.display = 'flex';
+  });
+}
+
+let _bmpResolve = null, _bmpReject = null;
+function _bmpDismiss() { document.getElementById('biz-modal-prompt').style.display='none'; if(_bmpReject){_bmpReject(null);_bmpReject=null;_bmpResolve=null;} }
+function _bmpAccept()  { const v=document.getElementById('bmp-input').value.trim(); document.getElementById('biz-modal-prompt').style.display='none'; if(_bmpResolve){_bmpResolve(v);_bmpResolve=null;_bmpReject=null;} }
+function bizPrompt(title, {placeholder='', defaultValue='', confirmLabel='Aceptar'}={}) {
+  return new Promise((resolve, reject) => {
+    _bmpResolve = resolve; _bmpReject = reject;
+    document.getElementById('bmp-title').textContent = title;
+    document.getElementById('bmp-ok').textContent    = confirmLabel;
+    const inp = document.getElementById('bmp-input');
+    inp.placeholder = placeholder; inp.value = defaultValue;
+    document.getElementById('biz-modal-prompt').style.display = 'flex';
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') { _bmcDismiss(); _bmpDismiss(); }
+  if (e.key==='Enter') {
+    if (document.getElementById('biz-modal-confirm')?.style.display !== 'none') _bmcAccept();
+    if (document.getElementById('biz-modal-prompt')?.style.display  !== 'none') _bmpAccept();
+  }
+});
+
 </script>
-</body>
-</html>

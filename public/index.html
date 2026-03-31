@@ -8244,9 +8244,10 @@ function exportCSV(type) {
 }
 
 // ── USERS ──────────────────────────────────────────
-async function loadAdminUsers() {
+async function loadAdminUsers(page=1) {
   try {
-    adminUsersCache = await api('/api/admin/users');
+    const data = await api('/api/admin/users?page='+page+(document.getElementById('admin-users-role-filter')?.value?'&role='+document.getElementById('admin-users-role-filter').value:'')+(document.getElementById('admin-users-search')?.value?'&search='+encodeURIComponent(document.getElementById('admin-users-search').value):''));
+    adminUsersCache = data.users || data;
     renderAdminUsers(adminUsersCache);
   } catch(e) { showToast('❌ '+e.message); }
 }
@@ -9362,24 +9363,26 @@ async function ooTogglePush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     showToast('❌ Tu navegador no soporta notificaciones push.'); return;
   }
-  const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) {
-    await existing.unsubscribe();
-    _ooPushSub = null;
-    const t = ooTok();
-    await fetch('/api/push/unsubscribe', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-      body: JSON.stringify({ endpoint: existing.endpoint })
-    }).catch(() => {});
-    ooUpdatePushBadge(false);
-    showToast('🔕 Notificaciones desactivadas');
-  } else {
-    await ooInitPush();
-    if (_ooPushSub) showToast('🔔 Notificaciones activadas');
-    else showToast('No se pudo activar. Revisá los permisos del navegador.');
-  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await existing.unsubscribe();
+      _ooPushSub = null;
+      const t = ooTok();
+      await fetch('/api/push/unsubscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+        body: JSON.stringify({ endpoint: existing.endpoint })
+      }).catch(() => {});
+      ooUpdatePushBadge(false);
+      showToast('🔕 Notificaciones desactivadas');
+    } else {
+      await ooInitPush();
+      if (_ooPushSub) showToast('🔔 Notificaciones activadas');
+      else showToast('No se pudo activar. Revisá los permisos del navegador.');
+    }
+  } catch(e) { console.error('ooTogglePush error:', e.message); showToast('❌ Error al cambiar notificaciones.'); }
 }
 
 // ── Owner app-switch transition ───────────────
