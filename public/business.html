@@ -2187,11 +2187,16 @@ function _bmcAccept()  { document.getElementById('biz-modal-confirm').style.disp
 function bizConfirm(msg, {title='¿Confirmar?', confirmLabel='Confirmar', danger=true}={}) {
   return new Promise(r => {
     _bmcResolve = r;
-    document.getElementById('bmc-title').textContent = title;
-    document.getElementById('bmc-body').textContent  = msg;
-    document.getElementById('bmc-ok').textContent    = confirmLabel;
-    document.getElementById('bmc-ok').style.background = danger ? '#ef4444' : 'var(--primary,#3b82f6)';
-    document.getElementById('biz-modal-confirm').style.display = 'flex';
+    const modal = document.getElementById('biz-modal-confirm');
+    const titleEl = document.getElementById('bmc-title');
+    const bodyEl = document.getElementById('bmc-body');
+    const okEl = document.getElementById('bmc-ok');
+    if (!modal || !titleEl || !bodyEl || !okEl) { r(true); return; }
+    titleEl.textContent = title;
+    bodyEl.textContent  = msg;
+    okEl.textContent    = confirmLabel;
+    okEl.style.background = danger ? '#ef4444' : 'var(--primary,#3b82f6)';
+    modal.style.display = 'flex';
   });
 }
 
