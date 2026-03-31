@@ -1255,7 +1255,7 @@ async function sendAdminSupportReply() {
 
 // ── CONFIGURACIÓN ──────────────────────────────
 async function renderBlowPlus() {
-  const el = document.getElementById('page-content');
+  const el = document.getElementById('content');
   el.innerHTML = '<div class="spinner"></div>';
   try {
     const d = await api('/api/admin/blowplus');
@@ -1316,7 +1316,7 @@ async function renderBlowPlus() {
           }).join('')}</tbody>
         </table>` : '<div class="empty-state"><div class="empty-icon">🏪</div>No hay negocios Blow+</div>'}
       </div>`;
-  } catch(e) { document.getElementById('page-content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
 }
 
 async function renderConfig() {
