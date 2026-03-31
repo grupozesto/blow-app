@@ -3682,6 +3682,19 @@ async function loadStores() {
         <div style="height:11px;background:#f0f0f0;border-radius:6px;width:70%;animation:skeleton-shine 1.4s infinite;"></div>
       </div>
     </div>`).join('');
+  // Sin ubicación → pedir que la activen
+  if (!activeCity) {
+    allStores = [];
+    isDemoMode = false;
+    g.innerHTML = `<div style="grid-column:1/-1;padding:48px 20px;text-align:center;">
+      <div style="font-size:52px;margin-bottom:16px;">📍</div>
+      <div style="font-weight:900;font-size:18px;margin-bottom:8px;color:var(--text);">¿Dónde estás?</div>
+      <div style="color:var(--muted);font-size:14px;margin-bottom:20px;line-height:1.6;">Activá la ubicación para ver los negocios cerca tuyo.</div>
+      <button onclick="openLocModal()" style="background:var(--primary);color:#fff;border:none;border-radius:14px;padding:12px 28px;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">📍 Activar ubicación</button>
+    </div>`;
+    return;
+  }
+
   try {
     let url = '/api/businesses';
     if (activeCity) url += `?city=${encodeURIComponent(activeCity)}`;
