@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blow — Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f0f4ff;--surface:#ffffff;--surface2:#f0f4ff;--border:#dde3f0;
+  --text:#0f1c3f;--muted:#6b7a99;--primary:#2563eb;--primary2:#1d4ed8;
+  --green:#16a34a;--yellow:#d97706;--red:#dc2626;--blue:#2563eb;--purple:#7c3aed;
+  --sidebar-bg:#1e3a8a;--sidebar-text:#e8eeff;--sidebar-muted:#93afd4;--sidebar-active:#2563eb;
+  --r:12px;
+}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+
+/* ── SIDEBAR ── */
+#sidebar{width:220px;min-height:100vh;background:var(--sidebar-bg);border-right:none;display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:100;transition:transform .3s;}
+.sb-logo{padding:20px 16px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sb-logo-icon{width:36px;height:36px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:var(--primary);}
+.sb-logo-text{font-size:16px;font-weight:900;color:#fff;}
+.sb-logo-sub{font-size:10px;color:var(--sidebar-muted);font-weight:500;}
+nav{flex:1;padding:12px 8px;overflow-y:auto;}
+.nav-section{font-size:10px;font-weight:700;color:var(--sidebar-muted);text-transform:uppercase;letter-spacing:1px;padding:12px 8px 6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--sidebar-muted);font-size:13px;font-weight:600;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.15);color:#fff;}
+.nav-item.active .nav-icon{filter:drop-shadow(0 0 4px rgba(255,255,255,.4));}
+.nav-item .nav-icon{font-size:16px;width:20px;text-align:center;}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;min-width:18px;text-align:center;}
+.sb-footer{padding:12px;border-top:1px solid rgba(255,255,255,.08);}
+.sb-user{display:flex;align-items:center;gap:8px;padding:8px;border-radius:9px;cursor:pointer;}
+.sb-user:hover{background:rgba(255,255,255,.08);}
+.sb-avatar{width:32px;height:32px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.sb-user-name{font-size:12px;font-weight:700;color:#fff;}
+.sb-user-role{font-size:10px;color:var(--sidebar-muted);}
+
+/* ── MAIN ── */
+#main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column;}
+#topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:12px;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+#page-title{font-size:16px;font-weight:800;color:var(--text);}
+.topbar-spacer{flex:1;}
+.topbar-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.topbar-btn:hover{border-color:var(--primary);color:var(--primary);}
+#content{padding:24px;flex:1;}
+
+/* ── CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.stat-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.stat-value{font-size:26px;font-weight:900;color:var(--text);line-height:1;}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.stat-trend{font-size:11px;font-weight:700;margin-top:4px;}
+.stat-trend.up{color:var(--green);}
+.stat-trend.down{color:var(--red);}
+
+/* ── TABLES ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.table-head{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.table-title{font-size:14px;font-weight:800;color:var(--text);}
+.tbl-search{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text);font-size:13px;outline:none;width:200px;}
+.tbl-search::placeholder{color:var(--muted);}
+.tbl-search:focus{border-color:var(--primary);}
+table{width:100%;border-collapse:collapse;}
+th{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;background:#f8faff;}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f8faff;}
+.td-name{font-weight:700;color:var(--text);}
+.td-muted{color:var(--muted);}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-green{background:#dcfce7;color:#16a34a;}
+.badge-red{background:#fee2e2;color:#dc2626;}
+.badge-yellow{background:#fef3c7;color:#d97706;}
+.badge-blue{background:#dbeafe;color:#2563eb;}
+.badge-purple{background:#ede9fe;color:#7c3aed;}
+.badge-gray{background:#f1f5f9;color:#64748b;}
+
+/* ── BUTTONS ── */
+.btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
+.btn:hover{opacity:.88;transform:translateY(-1px);}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.3);}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary);}
+.btn-danger{background:#fee2e2;color:#dc2626;border:1px solid #fecaca;}
+.btn-success{background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;}
+.btn-warning{background:#fef3c7;color:#d97706;border:1px solid #fde68a;}
+.btn-purple{background:#ede9fe;color:#7c3aed;border:1px solid #ddd6fe;}
+
+/* ── CHARTS ── */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.chart-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:14px;}
+.chart-full{grid-column:1/-1;}
+
+/* ── DATE FILTER ── */
+.date-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.date-filter input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;}
+.date-filter input:focus{border-color:var(--primary);}
+.date-preset{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;}
+.date-preset:hover,.date-preset.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+
+/* ── MODAL ── */
+#modal-overlay{position:fixed;inset:0;background:rgba(15,28,63,.4);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);}
+#modal-overlay.show{display:flex;}
+#modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(15,28,63,.15);}
+.modal-title{font-size:17px;font-weight:900;color:var(--text);margin-bottom:16px;}
+.modal-field{margin-bottom:14px;}
+.modal-field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;}
+.modal-field input:focus,.modal-field select:focus{border-color:var(--primary);}
+.modal-field textarea{resize:vertical;min-height:80px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 50%,#2563eb 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-card{background:#fff;border-radius:20px;padding:32px;width:100%;max-width:380px;box-shadow:0 24px 80px rgba(15,28,63,.3);}
+.login-logo{text-align:center;margin-bottom:24px;}
+.login-logo-icon{width:60px;height:60px;background:var(--primary);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 10px;box-shadow:0 8px 24px rgba(37,99,235,.4);}
+.login-title{font-size:22px;font-weight:900;color:var(--text);}
+.login-sub{font-size:13px;color:var(--muted);margin-top:4px;}
+.login-field{margin-bottom:14px;}
+.login-field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.login-field input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:11px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
+.login-field input:focus{border-color:var(--primary);}
+.login-btn{width:100%;background:var(--primary);border:none;border-radius:10px;padding:13px;color:#fff;font-size:15px;font-weight:800;cursor:pointer;margin-top:6px;box-shadow:0 4px 12px rgba(37,99,235,.3);}
+.login-btn:hover{background:var(--primary2);}
+.login-error{color:var(--red);font-size:13px;text-align:center;margin-top:8px;min-height:20px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e3a8a;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;color:#fff;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 16px rgba(30,58,138,.4);}
+#toast.show{opacity:1;}
+
+/* ── MISC ── */
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.section-title{font-size:16px;font-weight:800;color:var(--text);}
+.spacer{flex:1;}
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted);}
+.empty-state .empty-icon{font-size:40px;margin-bottom:10px;}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sub-warn{background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px;}
+.sub-expired{background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:12px;color:#991b1b;display:flex;align-items:center;gap:8px;}
+.avatar-emoji{width:32px;height:32px;background:var(--surface2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+select option{background:#fff;color:var(--text);}
+.filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.filter-select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;cursor:pointer;}
+.filter-select:focus{border-color:var(--primary);}
+hr{border-color:var(--border);}
+
+@media(max-width:768px){
+  #sidebar{transform:translateX(-100%);} #sidebar.open{transform:translateX(0);}
+  #main{margin-left:0;} #menu-btn{display:flex!important;}
+  .chart-row{grid-template-columns:1fr;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">B</div>
+      <div class="login-title">Blow Admin</div>
+      <div class="login-sub">Panel de administración</div>
+    </div>
+    <div class="login-field"><label>Email</label><input id="l-email" type="email" placeholder="admin@blow.uy" autofocus></div>
+    <div class="login-field"><label>Contraseña</label><input id="l-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+    <button class="login-btn" onclick="doAdminLogin()">Ingresar →</button>
+    <div class="login-error" id="login-err"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon">B</div>
+    <div><div class="sb-logo-text">Blow</div><div class="sb-logo-sub">Admin Panel</div></div>
+  </div>
+  <nav>
+    <div class="nav-section">Principal</div>
+    <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">📊</span>Dashboard
+    </button>
+    <button class="nav-item" onclick="showPage('orders')" id="nav-orders">
+      <span class="nav-icon">📦</span>Pedidos
+      <span class="nav-badge" id="badge-orders" style="display:none"></span>
+    </button>
+    <button class="nav-item" onclick="showPage('withdrawals')" id="nav-withdrawals">
+      <span class="nav-icon">💸</span>Retiros
+      <span class="nav-badge" id="badge-withdrawals" style="display:none"></span>
+    </button>
+
+    <div class="nav-section">Gestión</div>
+    <button class="nav-item" onclick="showPage('banners')" id="nav-banners">
+      <span class="nav-icon">🖼️</span>Banners
+    </button>
+    <button class="nav-item" onclick="showPage('categories')" id="nav-categories">
+      <span class="nav-icon">📂</span>Categorías
+    </button>
+    <button class="nav-item" onclick="showPage('businesses')" id="nav-businesses">
+      <span class="nav-icon">🏪</span>Negocios
+    </button>
+    <button class="nav-item" onclick="showPage('subscriptions')" id="nav-subscriptions">
+      <span class="nav-icon">🔄</span>Suscripciones
+    </button>
+    <button class="nav-item" onclick="showPage('users')" id="nav-users">
+      <span class="nav-icon">👥</span>Usuarios
+    </button>
+
+    <div class="nav-section">Sistema</div>
+    <button class="nav-item" onclick="showPage('support')" id="nav-support">
+      <span class="nav-icon">🛟</span>Soporte chat
+    </button>
+    <button class="nav-item" onclick="showPage('config')" id="nav-config">
+      <span class="nav-icon">⚙️</span>Configuración
+    </button>
+    <button class="nav-item" onclick="showPage('export')" id="nav-export">
+      <span class="nav-icon">📤</span>Exportar datos
+    </button>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-user" onclick="logout()">
+      <div class="sb-avatar" id="sb-avatar">A</div>
+      <div><div class="sb-user-name" id="sb-name">Admin</div><div class="sb-user-role">🔧 Administrador</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <button id="menu-btn" style="display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+    <div id="page-title">Dashboard</div>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-btn" onclick="refreshCurrent()">🔄 Actualizar</button>
+  </div>
+  <div id="content">
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+let adminToken = localStorage.getItem('blow_admin_token');
+let adminUser  = JSON.parse(localStorage.getItem('blow_admin_user') || 'null');
+let currentPage = 'dashboard';
+
+// ── AUTH ──────────────────────────────────────
+async function doAdminLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Completá todos los campos'; return; }
+  try {
+    const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass }) });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Error al iniciar sesión'; return; }
+    if (data.user.role !== 'admin') { errEl.textContent = '⛔ Esta cuenta no tiene acceso de admin'; return; }
+    adminToken = data.token;
+    adminUser  = data.user;
+    localStorage.setItem('blow_admin_token', adminToken);
+    localStorage.setItem('blow_admin_user', JSON.stringify(adminUser));
+    initAdmin();
+  } catch(e) { errEl.textContent = 'Error de conexión'; }
+}
+
+function logout() {
+  if (!await adminConfirm('Vas a cerrar tu sesión de admin.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
+  localStorage.removeItem('blow_admin_token');
+  localStorage.removeItem('blow_admin_user');
+  location.reload();
+}
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` };
+  let res;
+  try {
+    res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+  } catch(networkErr) {
+    throw new Error('Sin conexión. Verificá tu internet.');
+  }
+  if (res.status === 401) { logout(); return; }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  return data;
+}
+
+// ── INIT ──────────────────────────────────────
+function initAdmin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('sb-name').textContent = adminUser?.name || 'Admin';
+  document.getElementById('sb-avatar').textContent = (adminUser?.name || 'A')[0].toUpperCase();
+  loadBadges();
+  showPage('dashboard');
+  setInterval(loadBadges, 30000);
+}
+
+async function loadBadges() {
+  try {
+    const stats = await api('/api/admin/stats');
+    const pw = stats.pendingWithdrawals || 0;
+    const pendingOrders = (stats.orderStats || []).find(s => s.status === 'confirmed')?.c || 0;
+    const wb = document.getElementById('badge-withdrawals');
+    const ob = document.getElementById('badge-orders');
+    if (pw > 0) { wb.textContent = pw; wb.style.display = ''; } else { wb.style.display = 'none'; }
+    if (pendingOrders > 0) { ob.textContent = pendingOrders; ob.style.display = ''; } else { ob.style.display = 'none'; }
+  } catch(e) {}
+}
+
+function refreshCurrent() { showPage(currentPage); }
+
+function showPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
+  const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', categories:'Categorías & Contenido', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', config:'Configuración', export:'Exportar datos' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, config: renderConfig, export: renderExport };
+  if (pages[page]) pages[page]();
+}
+
+// ── DASHBOARD ──────────────────────────────────
+let chartRevenue = null, chartOrders = null;
+let dashFrom = fmtDate(new Date(Date.now() - 30*24*60*60*1000));
+let dashTo   = fmtDate(new Date());
+
+function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function fmtMoney(n) { return '$' + Math.round(n || 0).toLocaleString('es-UY'); }
+function fmtNum(n) { return parseInt(n || 0).toLocaleString('es-UY'); }
+
+async function renderDashboard() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Resumen de actividad</div>
+      <div class="spacer"></div>
+      <div class="date-filter">
+        <button class="date-preset" onclick="setDashPreset(7,this)">7d</button>
+        <button class="date-preset active" onclick="setDashPreset(30,this)">30d</button>
+        <button class="date-preset" onclick="setDashPreset(90,this)">90d</button>
+        <input type="date" id="dash-from" value="${dashFrom}" onchange="dashFrom=this.value;loadDashData()">
+        <input type="date" id="dash-to" value="${dashTo}" onchange="dashTo=this.value;loadDashData()">
+      </div>
+    </div>
+    <div class="stat-grid" id="dash-stats"><div class="spinner"></div></div>
+    <div class="chart-row">
+      <div class="chart-card chart-full">
+        <div class="chart-title">💰 Ingresos diarios (GMV)</div>
+        <canvas id="chart-revenue" height="80"></canvas>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-title">📦 Pedidos por estado</div>
+        <canvas id="chart-status" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">👤 Usuarios nuevos</div>
+        <canvas id="chart-users" height="200"></canvas>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-title">🏆 Top negocios (GMV)</div>
+        <div id="top-biz"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">⭐ Top clientes</div>
+        <div id="top-customers"></div>
+      </div>
+    </div>`;
+  loadDashData();
+}
+
+function setDashPreset(days, btn) {
+  document.querySelectorAll('.date-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  dashTo = fmtDate(new Date());
+  dashFrom = fmtDate(new Date(Date.now() - days*24*60*60*1000));
+  const df = document.getElementById('dash-from');
+  const dt = document.getElementById('dash-to');
+  if (df) df.value = dashFrom;
+  if (dt) dt.value = dashTo;
+  loadDashData();
+}
+
+async function loadDashData() {
+  try {
+    const d = await api(`/api/admin/stats/advanced?from=${dashFrom}&to=${dashTo}`);
+    const t = d.totals || {};
+
+    document.getElementById('dash-stats').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">GMV Total</div>
+        <div class="stat-value">${fmtMoney(t.gmv)}</div>
+        <div class="stat-sub">Pedidos entregados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ingresos Blow</div>
+        <div class="stat-value" style="color:var(--green)">${fmtMoney(t.platform_revenue)}</div>
+        <div class="stat-sub">Comisiones cobradas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pedidos</div>
+        <div class="stat-value">${fmtNum(t.total_orders)}</div>
+        <div class="stat-sub">${fmtNum(t.cancelled_orders)} cancelados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ticket Promedio</div>
+        <div class="stat-value">${fmtMoney(t.avg_order_value)}</div>
+        <div class="stat-sub">Por pedido</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Clientes activos</div>
+        <div class="stat-value">${fmtNum(t.active_customers)}</div>
+        <div class="stat-sub">Con al menos 1 pedido</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Suscripciones</div>
+        <div class="stat-value" style="color:var(--blue)">${d.subscriptionStats?.active || 0}</div>
+        <div class="stat-sub" style="color:var(--yellow)">⚠️ ${d.subscriptionStats?.expiring_soon || 0} vencen pronto</div>
+      </div>`;
+
+    // Revenue chart
+    const labels = d.dailyRevenue.map(r => new Date(r.day).toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit' }));
+    const revenues = d.dailyRevenue.map(r => parseFloat(r.revenue) || 0);
+    const fees = d.dailyRevenue.map(r => parseFloat(r.fee) || 0);
+    if (chartRevenue) chartRevenue.destroy();
+    const ctx1 = document.getElementById('chart-revenue')?.getContext('2d');
+    if (ctx1) chartRevenue = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'GMV', data: revenues, backgroundColor:'rgba(234,53,107,.3)', borderColor:'#ea356b', borderWidth:2, borderRadius:4 },
+          { label:'Fee Blow', data: fees, backgroundColor:'rgba(34,197,94,.3)', borderColor:'#22c55e', borderWidth:2, borderRadius:4 }
+        ]
+      },
+      options: { responsive:true, plugins:{ legend:{ labels:{ color:'#6b7a99', font:{size:11} } } }, scales:{ x:{ grid:{color:'#dde3f0'}, ticks:{color:'#6b7a99', font:{size:10}} }, y:{ grid:{color:'#dde3f0'}, ticks:{color:'#6b7a99', callback:v=>'$'+v.toLocaleString()} } } }
+    });
+
+    // Status donut
+    const statusLabels = { pending:'Pendiente', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', delivering:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
+    const statusColors = { pending:'#f59e0b', confirmed:'#3b82f6', preparing:'#8b5cf6', ready:'#22c55e', delivering:'#ea356b', delivered:'#22c55e', cancelled:'#ef4444' };
+    const sl = d.ordersByStatus.map(s => statusLabels[s.status] || s.status);
+    const sc = d.ordersByStatus.map(s => parseInt(s.c));
+    const scolors = d.ordersByStatus.map(s => statusColors[s.status] || '#7b8099');
+    const ctx2 = document.getElementById('chart-status')?.getContext('2d');
+    if (ctx2) new Chart(ctx2, {
+      type: 'doughnut',
+      data: { labels: sl, datasets: [{ data: sc, backgroundColor: scolors, borderWidth:2, borderColor:'#fff' }] },
+      options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#6b7a99', font:{size:11}, padding:12 } } } }
+    });
+
+    // New users line
+    const ul = d.newUsers.map(u => new Date(u.day).toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit' }));
+    const uv = d.newUsers.map(u => parseInt(u.c));
+    const ctx3 = document.getElementById('chart-users')?.getContext('2d');
+    if (ctx3) new Chart(ctx3, {
+      type: 'line',
+      data: { labels: ul, datasets: [{ label:'Nuevos usuarios', data: uv, borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,.1)', fill:true, tension:.4, pointRadius:3, pointBackgroundColor:'#8b5cf6' }] },
+      options: { responsive:true, plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{color:'#dde3f0'}, ticks:{color:'#6b7a99', font:{size:10}} }, y:{ grid:{color:'#dde3f0'}, ticks:{color:'#6b7a99'}, beginAtZero:true } } }
+    });
+
+    // Top businesses
+    document.getElementById('top-biz').innerHTML = d.topBusinesses.length ? d.topBusinesses.map((b,i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);width:18px;">#${i+1}</div>
+        <div style="font-size:18px;">${b.logo_emoji||'🏪'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(b.name)}</div>
+          <div style="font-size:11px;color:var(--muted);">${b.city||''} · ${fmtNum(b.orders)} pedidos</div>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:var(--green);">${fmtMoney(b.revenue)}</div>
+      </div>`).join('') : '<div class="empty-state"><div class="empty-icon">📊</div>Sin datos</div>';
+
+    // Top customers
+    document.getElementById('top-customers').innerHTML = d.topCustomers.length ? d.topCustomers.map((u,i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);width:18px;">#${i+1}</div>
+        <div style="width:28px;height:28px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary);">${esc((u.name||"?")[0].toUpperCase())}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.name)}</div>
+          <div style="font-size:11px;color:var(--muted);">${fmtNum(u.orders)} pedidos</div>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:var(--yellow);">${fmtMoney(u.spent)}</div>
+      </div>`).join('') : '<div class="empty-state"><div class="empty-icon">👥</div>Sin datos</div>';
+
+  } catch(e) { showToast('❌ Error cargando estadísticas: ' + e.message); }
+}
+
+// ── PEDIDOS ──────────────────────────────────
+async function renderOrders() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Pedidos</div>
+      <div class="spacer"></div>
+      <div class="filter-row">
+        <select class="filter-select" id="ord-status" onchange="loadOrders()">
+          <option value="">Todos los estados</option>
+          <option value="pending">Pendiente</option>
+          <option value="confirmed">Confirmado</option>
+          <option value="preparing">Preparando</option>
+          <option value="ready">Listo</option>
+          <option value="delivering">En camino</option>
+          <option value="delivered">Entregado</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+        <input class="tbl-search" id="ord-search" placeholder="🔍 Buscar cliente o negocio..." oninput="loadOrders()">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div id="orders-body"><div class="spinner"></div></div>
+    </div>`;
+  loadOrders();
+}
+
+async function loadOrders() {
+  const status = document.getElementById('ord-status')?.value || '';
+  const search = document.getElementById('ord-search')?.value || '';
+  try {
+    const orders = await api(`/api/admin/orders?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`);
+    const statusBadge = { pending:'badge-yellow', confirmed:'badge-blue', preparing:'badge-purple', ready:'badge-green', delivering:'badge-blue', delivered:'badge-green', cancelled:'badge-red' };
+    const statusLabel = { pending:'Pendiente', confirmed:'Confirmado', preparing:'Preparando', ready:'Listo', delivering:'En camino', delivered:'Entregado', cancelled:'Cancelado' };
+    document.getElementById('orders-body').innerHTML = orders.length ? `
+      <table>
+        <thead><tr>
+          <th>ID</th><th>Cliente</th><th>Negocio</th><th>Total</th>
+          <th>Pago</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
+        </tr></thead>
+        <tbody>
+          ${orders.map(o => `<tr>
+            <td class="td-muted" style="font-family:monospace;font-size:11px;">#${o.id.slice(-8).toUpperCase()}</td>
+            <td><div class="td-name">${esc(o.customer_name||"")}</div></td>
+            <td class="td-muted">${o.business_name}</td>
+            <td style="font-weight:700;color:var(--text);">$${o.total}</td>
+            <td class="td-muted">${o.payment_method || '—'}</td>
+            <td><span class="badge ${statusBadge[o.status]||'badge-gray'}">${statusLabel[o.status]||o.status}</span></td>
+            <td class="td-muted" style="font-size:11px;">${new Date(o.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+            <td>
+              <div style="display:flex;gap:5px;">
+                <button class="btn btn-ghost" onclick="viewOrder('${o.id}')">Ver</button>
+                ${!['delivered','cancelled'].includes(o.status) ? `<button class="btn btn-danger" onclick="cancelOrder('${o.id}')">Cancelar</button>` : ''}
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<div class="empty-state"><div class="empty-icon">📦</div>No hay pedidos</div>';
+  } catch(e) { document.getElementById('orders-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+async function viewOrder(id) {
+  const orders = await api(`/api/admin/orders?search=${id.slice(-8)}`).catch(() => []);
+  const o = orders.find(x => x.id === id);
+  if (!o) { showToast('Pedido no encontrado'); return; }
+  openModal(`
+    <div class="modal-title">📦 Pedido #${o.id.slice(-8).toUpperCase()}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Cliente</div><div style="font-weight:700;margin-top:3px;">${esc(o.customer_name||"")}</div></div>
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Negocio</div><div style="font-weight:700;margin-top:3px;">${o.business_name}</div></div>
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Total</div><div style="font-weight:700;color:var(--green);margin-top:3px;">$${o.total}</div></div>
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Pago</div><div style="font-weight:700;margin-top:3px;">${o.payment_method || '—'}</div></div>
+      <div style="grid-column:1/-1;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Dirección</div><div style="margin-top:3px;">${o.address || '—'}</div></div>
+      ${o.notes ? `<div style="grid-column:1/-1;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Notas</div><div style="margin-top:3px;">${o.notes}</div></div>` : ''}
+    </div>
+    ${o.items?.length ? `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Items</div>
+    ${o.items.map(i => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${i.name} x${i.qty}</span><span style="font-weight:700;">$${i.price * i.qty}</span></div>`).join('')}` : ''}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+      ${!['delivered','cancelled'].includes(o.status) ? `<button class="btn btn-danger" onclick="cancelOrder('${o.id}');closeModal()">Cancelar pedido</button>` : ''}
+    </div>`);
+}
+
+async function cancelOrder(id) {
+  let reason; try { reason = await adminPrompt('Motivo de cancelación', {placeholder:'Opcional — se notifica al dueño'}); } catch { return; }
+  if (reason === null) return;
+  try {
+    await api(`/api/admin/orders/${id}/cancel`, { method:'POST', body: JSON.stringify({ reason }) });
+    showToast('✅ Pedido cancelado');
+    loadOrders();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── RETIROS ──────────────────────────────────
+async function renderWithdrawals() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Retiros de billetera</div>
+      <div class="spacer"></div>
+      <select class="filter-select" id="wd-filter" onchange="loadWithdrawals()">
+        <option value="">Todos</option>
+        <option value="pending" selected>Pendientes</option>
+        <option value="completed">Completados</option>
+        <option value="rejected">Rechazados</option>
+      </select>
+    </div>
+    <div id="withdrawals-body"><div class="spinner"></div></div>`;
+  document.getElementById('wd-filter').value = 'pending';
+  loadWithdrawals();
+}
+
+async function loadWithdrawals() {
+  const filter = document.getElementById('wd-filter')?.value || '';
+  try {
+    let ws = await api('/api/admin/withdrawals');
+    if (filter) ws = ws.filter(w => w.status === filter);
+    const pending = ws.filter(w => w.status === 'pending');
+    const rest = ws.filter(w => w.status !== 'pending');
+    document.getElementById('withdrawals-body').innerHTML = ws.length ? `
+      ${pending.length ? `
+        <div style="margin-bottom:8px;"><div class="sub-warn">⏳ ${pending.length} retiro${pending.length!==1?'s':''} pendiente${pending.length!==1?'s':''} de procesamiento</div></div>
+        <div class="table-wrap" style="margin-bottom:20px;">
+          <table><thead><tr><th>Dueño</th><th>Monto</th><th>Método</th><th>Destino</th><th>Solicitado</th><th>Acciones</th></tr></thead>
+          <tbody>${pending.map(w=>`<tr>
+            <td><div class="td-name">${w.owner_name}</div><div class="td-muted" style="font-size:11px;">${w.email}</div></td>
+            <td style="font-size:18px;font-weight:900;color:var(--yellow);">$${w.amount}</td>
+            <td><span class="badge badge-blue">${w.method==='mercadopago'?'💳 MP':'🏦 Banco'}</span></td>
+            <td class="td-muted" style="font-size:12px;max-width:180px;">${w.destination}</td>
+            <td class="td-muted" style="font-size:11px;">${new Date(w.created_at).toLocaleString('es-UY',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+            <td><div style="display:flex;gap:5px;">
+              <button class="btn btn-success" onclick="approveWithdrawal('${w.id}')">✓ Confirmar</button>
+              <button class="btn btn-danger" onclick="rejectWithdrawal('${w.id}')">✕ Rechazar</button>
+            </div></td>
+          </tr>`).join('')}</tbody></table>
+        </div>` : ''}
+      ${rest.length ? `
+        <div class="table-wrap">
+          <table><thead><tr><th>Dueño</th><th>Monto</th><th>Método</th><th>Estado</th><th>Procesado</th></tr></thead>
+          <tbody>${rest.map(w=>`<tr>
+            <td><div class="td-name">${w.owner_name}</div><div class="td-muted" style="font-size:11px;">${w.email}</div></td>
+            <td style="font-weight:700;">$${w.amount}</td>
+            <td class="td-muted">${w.method==='mercadopago'?'MP':'Banco'}</td>
+            <td><span class="badge ${w.status==='completed'?'badge-green':'badge-red'}">${w.status==='completed'?'✅ Pagado':'❌ Rechazado'}</span></td>
+            <td class="td-muted" style="font-size:11px;">${w.processed_at?new Date(w.processed_at).toLocaleDateString('es-UY'):'—'}</td>
+          </tr>`).join('')}</tbody></table>
+        </div>` : ''}` : '<div class="empty-state"><div class="empty-icon">💸</div>No hay retiros en esta categoría</div>';
+  } catch(e) { document.getElementById('withdrawals-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+async function approveWithdrawal(id) {
+  if (!await adminConfirm('El dueño recibirá una notificación con el plazo de 24hs hábiles.', {title:'¿Confirmar pago procesado?', confirmLabel:'Sí, confirmar', danger:false})) return;
+  try { await api(`/api/admin/withdrawals/${id}/approve`, { method:'POST' }); showToast('✅ Retiro confirmado — notificación enviada'); loadWithdrawals(); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+async function rejectWithdrawal(id) {
+  let reason; try { reason = await adminPrompt('Motivo del rechazo', {placeholder:'Opcional — se notifica al dueño'}); } catch { return; }
+  if (reason === null) return;
+  try { await api(`/api/admin/withdrawals/${id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); showToast('✅ Rechazado — saldo devuelto'); loadWithdrawals(); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── BANNERS ──────────────────────────────────
+let allBanners = [];
+let currentBannerType = 'hero';
+
+async function renderBanners() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Banners</div>
+      <div class="spacer"></div>
+      <div style="font-size:12px;color:var(--muted);background:var(--bg);padding:6px 12px;border-radius:8px;">📐 Resolución ideal: 800×300px</div>
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <button onclick="switchBannerType('hero')" id="bn-tab-hero" class="date-preset active" style="padding:8px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">🏠 Hero (Header)</button>
+      <button onclick="switchBannerType('promo')" id="bn-tab-promo" class="date-preset" style="padding:8px 18px;border-radius:10px;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">🎯 Promo (Abajo)</button>
+    </div>
+
+    <div id="bn-type-desc" style="background:#eff6ff;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#2558d4;font-weight:600;">
+      🏠 Banners Hero: aparecen en el header rosado, integrados al encabezado de la app.
+    </div>
+
+    <!-- CREAR NUEVO BANNER -->
+    <div style="background:var(--surface);border-radius:12px;padding:20px;margin-bottom:24px;border:2px dashed var(--border);">
+      <div style="font-size:14px;font-weight:700;margin-bottom:16px;">➕ Nuevo banner <span id="bn-type-label" style="background:#eff6ff;color:#2558d4;padding:2px 8px;border-radius:8px;font-size:11px;">Hero</span></div>
+
+      <!-- Preview -->
+      <div id="bn-preview" style="height:120px;border-radius:16px;background:#ea356b;margin-bottom:16px;display:flex;align-items:stretch;overflow:hidden;">
+        <div style="flex:1;padding:18px 16px;display:flex;flex-direction:column;justify-content:center;">
+          <div id="bn-p-tag" style="display:none;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;width:fit-content;margin-bottom:6px;"></div>
+          <div id="bn-p-hl" style="font-size:24px;font-weight:900;color:#FFB800;display:none;"></div>
+          <div id="bn-p-title" style="font-size:18px;font-weight:900;color:#fff;line-height:1.2;">Título del banner</div>
+          <div id="bn-p-sub" style="font-size:12px;color:rgba(255,255,255,.8);margin-top:4px;"></div>
+        </div>
+        <div id="bn-p-right" style="width:40%;display:flex;align-items:center;justify-content:center;">
+          <span id="bn-p-emoji" style="font-size:56px;opacity:.6;"></span>
+          <img id="bn-p-img" style="display:none;width:100%;height:100%;object-fit:cover;" alt="">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="grid-column:1/-1;"><label class="cfg-label">Título *</label>
+          <input class="cfg-input" id="bn-title" placeholder="Oferta especial hoy" oninput="document.getElementById('bn-p-title').textContent=this.value||'Título del banner'">
+        </div>
+        <div style="grid-column:1/-1;"><label class="cfg-label">Subtítulo</label>
+          <input class="cfg-input" id="bn-sub" placeholder="Hasta 30% en restaurantes seleccionados" oninput="document.getElementById('bn-p-sub').textContent=this.value">
+        </div>
+        <div style="grid-column:1/-1;"><label class="cfg-label">Imagen (800×300px, JPG/PNG)</label>
+          <input class="cfg-input" id="bn-image" type="file" accept="image/jpeg,image/png,image/webp" onchange="bnPreviewImg(this)">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Aparece a la derecha del banner. Si no subís imagen, se usa el emoji.</div>
+        </div>
+        <div><label class="cfg-label">Color fondo</label>
+          <input class="cfg-input" id="bn-color" type="color" value="#ea356b" oninput="document.getElementById('bn-preview').style.background=this.value">
+        </div>
+        <div><label class="cfg-label">Emoji</label>
+          <input class="cfg-input" id="bn-emoji" placeholder="🍔" maxlength="4" oninput="document.getElementById('bn-p-emoji').textContent=this.value">
+        </div>
+        <div><label class="cfg-label">Texto highlight (grande)</label>
+          <input class="cfg-input" id="bn-highlight" placeholder="40% OFF" oninput="const el=document.getElementById('bn-p-hl');el.textContent=this.value;el.style.display=this.value?'block':'none'">
+        </div>
+        <div><label class="cfg-label">Tag/badge</label>
+          <input class="cfg-input" id="bn-label" placeholder="🔥 PROMO" oninput="const el=document.getElementById('bn-p-tag');el.textContent=this.value;el.style.display=this.value?'block':'none'">
+        </div>
+        <div><label class="cfg-label">URL destino</label>
+          <input class="cfg-input" id="bn-link" placeholder="https://..." type="url">
+        </div>
+        <div><label class="cfg-label">Orden</label>
+          <input class="cfg-input" id="bn-order" type="number" value="0" min="0">
+        </div>
+      </div>
+      <button onclick="createBanner()" style="margin-top:14px;background:var(--primary);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;">➕ Crear banner</button>
+    </div>
+
+    <!-- LISTA -->
+    <div id="banners-list"><div class="spinner"></div></div>
+  `;
+  loadBannersList();
+}
+
+function switchBannerType(type) {
+  currentBannerType = type;
+  document.getElementById('bn-tab-hero').classList.toggle('active', type === 'hero');
+  document.getElementById('bn-tab-promo').classList.toggle('active', type === 'promo');
+  const desc = document.getElementById('bn-type-desc');
+  const label = document.getElementById('bn-type-label');
+  if (type === 'hero') {
+    desc.innerHTML = '🏠 <b>Banners Hero:</b> aparecen en el header rosado, integrados al encabezado de la app.';
+    label.textContent = 'Hero';
+  } else {
+    desc.innerHTML = '🎯 <b>Banners Promo:</b> aparecen debajo de las categorías, como carrusel de promociones.';
+    label.textContent = 'Promo';
+  }
+  loadBannersList();
+}
+
+function bnPreviewImg(input) {
+  const file = input.files[0];
+  const img = document.getElementById('bn-p-img');
+  const emoji = document.getElementById('bn-p-emoji');
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; img.style.display='block'; emoji.style.display='none'; };
+    reader.readAsDataURL(file);
+  } else { img.style.display='none'; emoji.style.display=''; }
+}
+
+async function loadBannersList() {
+  try {
+    const banners = await api('/api/banners/admin?type=' + currentBannerType);
+    allBanners = banners;
+    const el = document.getElementById('banners-list');
+    const typeLabel = currentBannerType === 'hero' ? 'Hero' : 'Promo';
+    if (!banners.length) {
+      el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:40px;">No hay banners ${typeLabel} creados. Los usuarios ven los banners por defecto.</div>`;
+      return;
+    }
+    el.innerHTML = '<div class="table-wrap"><table class="table"><thead><tr><th>Preview</th><th>Título</th><th>Subtítulo</th><th>Estado</th><th>Orden</th><th>Acciones</th></tr></thead><tbody>' +
+      banners.map(b => `<tr>
+        <td><div style="width:120px;height:50px;border-radius:8px;background:${b.bg_color||'#ea356b'};display:flex;align-items:center;overflow:hidden;">
+          <div style="flex:1;padding:6px 8px;"><div style="font-size:9px;font-weight:800;color:#fff;line-height:1.2;">${esc(b.title||'')}</div></div>
+          ${b.image_url ? `<img src="${esc(b.image_url)}" style="width:45%;height:100%;object-fit:cover;">` : `<div style="font-size:20px;opacity:.5;padding-right:6px;">${b.emoji||''}</div>`}
+        </div></td>
+        <td style="font-weight:700;">${esc(b.title||'')}</td>
+        <td style="color:var(--muted);">${esc(b.subtitle||'—')}</td>
+        <td><span style="background:${b.active!==false&&b.is_active!==false?'#dcfce7':'#fee2e2'};color:${b.active!==false&&b.is_active!==false?'#16a34a':'#dc2626'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${b.active!==false&&b.is_active!==false?'Activo':'Oculto'}</span></td>
+        <td>${b.sort_order||0}</td>
+        <td style="display:flex;gap:6px;">
+          <button onclick="toggleBanner('${b.id}',${b.active!==false&&b.is_active!==false})" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;" title="${b.active!==false?'Ocultar':'Mostrar'}">${b.active!==false&&b.is_active!==false?'⏸️':'▶️'}</button>
+          <button onclick="deleteBanner('${b.id}')" style="background:#fee2e2;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:#dc2626;" title="Eliminar">🗑️</button>
+        </td>
+      </tr>`).join('') + '</tbody></table></div>';
+  } catch(e) { document.getElementById('banners-list').innerHTML = '<div style="color:#ef4444;">Error al cargar. Intentá de nuevo.</div>'; }
+}
+
+async function createBanner() {
+  const title = document.getElementById('bn-title').value.trim();
+  const subtitle = document.getElementById('bn-sub').value.trim();
+  const bg_color = document.getElementById('bn-color').value;
+  const emoji = document.getElementById('bn-emoji').value.trim();
+  const highlight = document.getElementById('bn-highlight').value.trim();
+  const highlight_label = document.getElementById('bn-label').value.trim();
+  const link = document.getElementById('bn-link').value.trim();
+  const sort_order = parseInt(document.getElementById('bn-order').value) || 0;
+  const imgInput = document.getElementById('bn-image');
+  if (!title) { adminAlert('El título es obligatorio'); return; }
+
+  let image_url = '';
+  if (imgInput?.files[0]) {
+    const fd = new FormData();
+    fd.append('photo', imgInput.files[0]);
+    try {
+      const upRes = await fetch('/api/admin/banners/upload-image', {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
+      });
+      const upData = await upRes.json();
+      if (upData.url) image_url = upData.url;
+    } catch(e) { adminAlert('Error subiendo imagen. Intentá de nuevo.'); return; }
+  }
+
+  try {
+    await api('/api/admin/banners', { method:'POST', body: JSON.stringify({title,subtitle,bg_color,emoji,highlight,highlight_label,link_url:link,sort_order,is_active:true,image_url,banner_type:currentBannerType}) });
+    ['bn-title','bn-sub','bn-emoji','bn-highlight','bn-label','bn-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('bn-order').value = '0';
+    document.getElementById('bn-color').value = '#ea356b';
+    document.getElementById('bn-preview').style.background = '#ea356b';
+    document.getElementById('bn-p-title').textContent = 'Título del banner';
+    document.getElementById('bn-p-sub').textContent = '';
+    document.getElementById('bn-p-emoji').textContent = '';
+    document.getElementById('bn-p-hl').style.display = 'none';
+    document.getElementById('bn-p-tag').style.display = 'none';
+    document.getElementById('bn-p-img').style.display = 'none';
+    document.getElementById('bn-p-emoji').style.display = '';
+    if (imgInput) imgInput.value = '';
+    loadBannersList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+async function toggleBanner(id, isActive) {
+  try {
+    await api('/api/admin/banners/' + id, { method:'PATCH', body: JSON.stringify({is_active:!isActive, active:!isActive}) });
+    loadBannersList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+async function deleteBanner(id) {
+  if (!await adminConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar banner?', confirmLabel:'Eliminar'})) return;
+  try {
+    await api('/api/admin/banners/' + id, { method:'DELETE' });
+    loadBannersList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+function esc(str) { if (typeof str !== 'string') return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+
+// ── NEGOCIOS ──────────────────────────────────
+let allBusinesses = [];
+async function renderBusinesses() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Negocios</div>
+      <div class="spacer"></div>
+      <input class="tbl-search" id="biz-search" placeholder="🔍 Buscar..." oninput="filterBiz(this.value)">
+    </div>
+    <div class="table-wrap"><div id="biz-body"><div class="spinner"></div></div></div>`;
+  try {
+    allBusinesses = await api('/api/admin/businesses');
+    renderBizTable(allBusinesses);
+  } catch(e) { document.getElementById('biz-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+function filterBiz(q) {
+  const filtered = q ? allBusinesses.filter(b => b.name.toLowerCase().includes(q.toLowerCase()) || (b.owner_name||'').toLowerCase().includes(q.toLowerCase()) || (b.city||'').toLowerCase().includes(q.toLowerCase())) : allBusinesses;
+  renderBizTable(filtered);
+}
+
+function renderBizTable(list) {
+  document.getElementById('biz-body').innerHTML = list.length ? `
+    <table>
+      <thead><tr><th>Negocio</th><th>Dueño</th><th>Ciudad</th><th>GMV</th><th>Pedidos</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>${list.map(b=>`<tr>
+        <td><div style="display:flex;align-items:center;gap:8px;">
+          <div class="avatar-emoji">${b.logo_emoji||'🏪'}</div>
+          <div><div class="td-name">${esc(b.name)}</div><div class="td-muted" style="font-size:11px;">${esc(b.category||"")}</div></div>
+        </div></td>
+        <td><div class="td-name">${esc(b.owner_name||"—")}</div><div class="td-muted" style="font-size:11px;">${esc(b.owner_email||"")}</div></td>
+        <td class="td-muted">${b.city||'—'}</td>
+        <td style="font-weight:700;color:var(--green);">$${Math.round(b.total_revenue||0).toLocaleString()}</td>
+        <td class="td-muted">${b.completed_orders||0}</td>
+        <td><span class="badge ${b.is_open?'badge-green':'badge-red'}">${b.is_open?'● Abierto':'● Cerrado'}</span></td>
+        <td><div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="editBusiness('${b.id}')">✏️ Editar</button>
+          <button class="btn btn-purple" onclick="impersonateOwner('${b.owner_id}','${escHtml(b.owner_name||'')}')">👤 Acceder</button>
+          <button class="btn ${b.is_open?'btn-warning':'btn-success'}" onclick="toggleBizOpen('${b.id}',${b.is_open})">${b.is_open?'🔴 Cerrar':'🟢 Abrir'}</button>
+        </div></td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<div class="empty-state"><div class="empty-icon">🏪</div>No hay negocios</div>';
+}
+
+async function editBusiness(id) {
+  const b = allBusinesses.find(x => x.id === id);
+  if (!b) return;
+  openModal(`
+    <div class="modal-title">✏️ Editar negocio</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="modal-field" style="grid-column:1/-1;"><label>Nombre</label><input id="eb-name" value="${escHtml(b.name)}"></div>
+      <div class="modal-field"><label>Categoría</label><input id="eb-cat" value="${escHtml(b.category||'')}"></div>
+      <div class="modal-field"><label>Emoji</label><input id="eb-emoji" value="${b.logo_emoji||'🏪'}"></div>
+      <div class="modal-field"><label>Ciudad</label><input id="eb-city" value="${escHtml(b.city||'')}"></div>
+      <div class="modal-field"><label>Departamento</label><input id="eb-dept" value="${escHtml(b.department||'')}"></div>
+      <div class="modal-field" style="grid-column:1/-1;"><label>Dirección</label><input id="eb-addr" value="${escHtml(b.address||'')}"></div>
+      <div class="modal-field"><label>Teléfono</label><input id="eb-phone" value="${escHtml(b.phone||'')}"></div>
+      <div class="modal-field"><label>Costo delivery ($)</label><input id="eb-dlv" type="number" value="${b.delivery_cost||0}"></div>
+      <div class="modal-field"><label>Tiempo delivery (min)</label><input id="eb-time" value="${escHtml(b.delivery_time||'20-35')}"></div>
+      <div class="modal-field"><label>Abierto</label>
+        <select id="eb-open"><option value="true" ${b.is_open?'selected':''}>Sí</option><option value="false" ${!b.is_open?'selected':''}>No</option></select>
+      </div>
+      <div class="modal-field" style="grid-column:1/-1;"><label>Descripción</label><textarea id="eb-desc">${escHtml(b.description||'')}</textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveBusiness('${id}')">💾 Guardar</button>
+    </div>`);
+}
+
+async function saveBusiness(id) {
+  try {
+    await api(`/api/admin/businesses/${id}`, { method:'PATCH', body: JSON.stringify({
+      name: document.getElementById('eb-name').value,
+      category: document.getElementById('eb-cat').value,
+      logo_emoji: document.getElementById('eb-emoji').value,
+      city: document.getElementById('eb-city').value,
+      department: document.getElementById('eb-dept').value,
+      address: document.getElementById('eb-addr').value,
+      phone: document.getElementById('eb-phone').value,
+      delivery_cost: parseFloat(document.getElementById('eb-dlv').value) || 0,
+      delivery_time: document.getElementById('eb-time').value,
+      is_open: document.getElementById('eb-open').value === 'true',
+      description: document.getElementById('eb-desc').value,
+    })});
+    showToast('✅ Negocio actualizado');
+    closeModal();
+    renderBusinesses();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function toggleBizOpen(id, isOpen) {
+  try {
+    await api(`/api/admin/businesses/${id}/toggle-open`, { method:'POST' });
+    showToast(isOpen ? '🔴 Negocio cerrado' : '🟢 Negocio abierto');
+    renderBusinesses();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function impersonateOwner(userId, name) {
+  if (!await adminConfirm(`Se abrirá la app con acceso a la cuenta de ${name} por 2 horas. Esta acción queda registrada.`, {title:`Acceder al portal de ${name}`, confirmLabel:"Acceder", danger:false})) return;
+  try {
+    const data = await api(`/api/admin/impersonate/${userId}`, { method:'POST' });
+    // Guardar token impersonado y abrir la app
+    localStorage.setItem('blow_imp_token', data.token);
+    localStorage.setItem('blow_imp_user', JSON.stringify(data.user));
+    // Abrir app en nueva pestaña con token temporal
+    const url = new URL('/', location.origin);
+    url.searchParams.set('imp_token', data.token);
+    url.searchParams.set('imp_user', encodeURIComponent(JSON.stringify(data.user)));
+    window.open(url.toString(), '_blank');
+    showToast(`✅ Abriendo portal de ${name} en nueva pestaña`);
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── SUSCRIPCIONES ──────────────────────────────
+async function renderSubscriptions() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Suscripciones</div>
+      <div class="spacer"></div>
+      <select class="filter-select" id="sub-filter" onchange="loadSubscriptions()">
+        <option value="">Todas</option>
+        <option value="active">Activas</option>
+        <option value="expiring">Vencen en 7 días</option>
+        <option value="expired">Vencidas</option>
+        <option value="cancelled">Canceladas</option>
+      </select>
+    </div>
+    <div id="subs-body"><div class="spinner"></div></div>`;
+  loadSubscriptions();
+}
+
+async function loadSubscriptions() {
+  const filter = document.getElementById('sub-filter')?.value || '';
+  try {
+    let subs = await api('/api/admin/subscriptions/detail');
+    const now = new Date();
+    const in7 = new Date(now.getTime() + 7*24*60*60*1000);
+    if (filter === 'active') subs = subs.filter(s => s.status === 'active' && new Date(s.current_period_end) > now);
+    else if (filter === 'expiring') subs = subs.filter(s => s.status === 'active' && new Date(s.current_period_end) <= in7 && new Date(s.current_period_end) > now);
+    else if (filter === 'expired') subs = subs.filter(s => s.status === 'active' && new Date(s.current_period_end) <= now);
+    else if (filter === 'cancelled') subs = subs.filter(s => s.status === 'cancelled');
+
+    const expiringSoon = subs.filter(s => s.status === 'active' && new Date(s.current_period_end) <= in7 && new Date(s.current_period_end) > now);
+    const expired = subs.filter(s => s.status === 'active' && new Date(s.current_period_end) <= now);
+
+    document.getElementById('subs-body').innerHTML = `
+      ${expired.length ? `<div class="sub-expired" style="margin-bottom:12px;">⛔ ${expired.length} suscripción${expired.length!==1?'es':''} vencida${expired.length!==1?'s':''} — el negocio no debería estar activo</div>` : ''}
+      ${expiringSoon.length ? `<div class="sub-warn" style="margin-bottom:12px;">⚠️ ${expiringSoon.length} suscripción${expiringSoon.length!==1?'es':''} vence${expiringSoon.length!==1?'n':''} en los próximos 7 días</div>` : ''}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Negocio</th><th>Dueño</th><th>GMV Total</th><th>Estado</th><th>Vence</th><th>Días restantes</th><th>Acciones</th></tr></thead>
+          <tbody>${subs.length ? subs.map(s => {
+            const end = new Date(s.current_period_end);
+            const days = Math.ceil((end - now) / (24*60*60*1000));
+            const daysLabel = s.status === 'cancelled' ? '—' : days < 0 ? `<span style="color:var(--red);font-weight:700;">Vencida hace ${Math.abs(days)}d</span>` : days <= 7 ? `<span style="color:var(--yellow);font-weight:700;">${days}d ⚠️</span>` : `<span style="color:var(--green);">${days}d</span>`;
+            return `<tr>
+              <td><div style="display:flex;align-items:center;gap:8px;">
+                <div class="avatar-emoji">${s.logo_emoji||'🏪'}</div>
+                <div><div class="td-name">${s.business_name}</div><div class="td-muted" style="font-size:11px;">${s.city||''} · ${s.category||''}</div></div>
+              </div></td>
+              <td><div class="td-name">${s.owner_name}</div><div class="td-muted" style="font-size:11px;">${s.owner_email}</div></td>
+              <td style="font-weight:700;color:var(--green);">$${Math.round(s.total_revenue||0).toLocaleString()}</td>
+              <td><span class="badge ${s.status==='active'?'badge-green':s.status==='cancelled'?'badge-red':'badge-gray'}">${s.status==='active'?'● Activa':s.status==='cancelled'?'Cancelada':s.status}</span></td>
+              <td class="td-muted" style="font-size:11px;">${s.current_period_end ? new Date(s.current_period_end).toLocaleDateString('es-UY') : '—'}</td>
+              <td>${daysLabel}</td>
+              <td><div style="display:flex;gap:5px;">
+                ${s.status === 'active' ? `<button class="btn btn-success" onclick="activateSub('${s.id}')">🔄 Renovar</button><button class="btn btn-danger" onclick="cancelSub('${s.id}')">✕ Cancelar</button>` : `<button class="btn btn-success" onclick="activateSub('${s.id}')">✓ Activar</button>`}
+              </div></td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="7" class="empty-state">Sin suscripciones</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  } catch(e) { document.getElementById('subs-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+async function activateSub(id) {
+  try { await api(`/api/admin/subscriptions/${id}/activate`, { method:'POST' }); showToast('✅ Suscripción activada'); loadSubscriptions(); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+async function cancelSub(id) {
+  let reason; try { reason = await adminPrompt('Motivo de cancelación', {placeholder:'Se notifica al dueño', confirmLabel:'Cancelar pedido'}); } catch { return; }
+  if (reason === null) return;
+  try { await api(`/api/admin/subscriptions/${id}/cancel-notify`, { method:'POST', body: JSON.stringify({ reason }) }); showToast('✅ Cancelada — notificación enviada'); loadSubscriptions(); }
+  catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── USUARIOS ──────────────────────────────────
+let allUsers = [];
+async function renderUsers() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">Usuarios</div>
+      <div class="spacer"></div>
+      <div class="filter-row">
+        <select class="filter-select" id="usr-role" onchange="loadUsers()">
+          <option value="">Todos los roles</option>
+          <option value="customer">Clientes</option>
+          <option value="owner">Dueños</option>
+          <option value="delivery">Delivery</option>
+          <option value="admin">Admin</option>
+        </select>
+        <input class="tbl-search" id="usr-search" placeholder="🔍 Buscar..." oninput="loadUsers()">
+      </div>
+    </div>
+    <div class="table-wrap"><div id="users-body"><div class="spinner"></div></div></div>`;
+  loadUsers();
+}
+
+async function loadUsers() {
+  const r = document.getElementById('usr-role')?.value || '';
+  const s = document.getElementById('usr-search')?.value || '';
+  try {
+    const resp = await api(`/api/admin/users?role=${encodeURIComponent(r)}&search=${encodeURIComponent(s)}`);
+    const users = resp.users || resp;
+    const roleBadge = { customer:'badge-blue', owner:'badge-purple', delivery:'badge-yellow', admin:'badge-red' };
+    const roleLabel = { customer:'Cliente', owner:'Dueño', delivery:'Delivery', admin:'Admin' };
+    document.getElementById('users-body').innerHTML = users.length ? `
+      <table>
+        <thead><tr><th>Usuario</th><th>Email</th><th>Teléfono</th><th>Rol</th><th>Pedidos</th><th>Registro</th><th>Acciones</th></tr></thead>
+        <tbody>${users.map(u=>`<tr ${u.banned?'style="opacity:.5;"':''}>
+          <td><div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:30px;height:30px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary);">${esc((u.name||"?")[0].toUpperCase())}</div>
+            <div><div class="td-name">${esc(u.name)} ${u.banned?'<span style="color:var(--red);font-size:10px;">BANEADO</span>':''}</div></div>
+          </div></td>
+          <td class="td-muted">${esc(u.email||"")}</td>
+          <td class="td-muted">${u.phone||'—'}</td>
+          <td><span class="badge ${roleBadge[u.role]||'badge-gray'}">${roleLabel[u.role]||u.role}</span></td>
+          <td class="td-muted">${u.order_count||0}</td>
+          <td class="td-muted" style="font-size:11px;">${new Date(u.created_at).toLocaleDateString('es-UY')}</td>
+          <td><div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" onclick="editUser('${u.id}')">✏️ Editar</button>
+            ${u.role === 'owner' ? `<button class="btn btn-purple" onclick="impersonateOwner('${u.id}','${escHtml(u.name)}')">👤 Acceder</button>` : ''}
+            <button class="btn ${u.banned?'btn-success':'btn-danger'}" onclick="toggleBan('${u.id}',${!!u.banned})">${u.banned?'✓ Desbanear':'⛔ Banear'}</button>
+          </div></td>
+        </tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state"><div class="empty-icon">👥</div>No hay usuarios</div>';
+  } catch(e) { document.getElementById('users-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+async function editUser(id) {
+  const resp2 = await api(`/api/admin/users?search=`).catch(()=>({}));
+  const users2 = resp2.users || resp2 || [];
+  const u = Array.isArray(users2) ? users2.find(x=>x.id===id) : null;
+  if (!u) return;
+  openModal(`
+    <div class="modal-title">✏️ Editar usuario</div>
+    <div class="modal-field"><label>Nombre</label><input id="eu-name" value="${escHtml(u.name)}"></div>
+    <div class="modal-field"><label>Email</label><input id="eu-email" type="email" value="${escHtml(u.email)}"></div>
+    <div class="modal-field"><label>Teléfono</label><input id="eu-phone" value="${escHtml(u.phone||'')}"></div>
+    <div class="modal-field"><label>Rol</label>
+      <select id="eu-role">
+        <option value="customer" ${u.role==='customer'?'selected':''}>Cliente</option>
+        <option value="owner" ${u.role==='owner'?'selected':''}>Dueño</option>
+        <option value="delivery" ${u.role==='delivery'?'selected':''}>Delivery</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      </select>
+    </div>
+    <hr style="border-color:var(--border);margin:14px 0;">
+    <div class="modal-field"><label>Nueva contraseña (opcional)</label><input id="eu-pass" type="password" placeholder="Dejar vacío para no cambiar"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUser('${id}')">💾 Guardar</button>
+    </div>`);
+}
+
+async function saveUser(id) {
+  try {
+    await api(`/api/admin/users/${id}`, { method:'PATCH', body: JSON.stringify({
+      name: document.getElementById('eu-name').value,
+      email: document.getElementById('eu-email').value,
+      phone: document.getElementById('eu-phone').value,
+      role: document.getElementById('eu-role').value,
+    })});
+    const pass = document.getElementById('eu-pass').value;
+    if (pass && pass.length >= 6) {
+      await api(`/api/admin/users/${id}/reset-password`, { method:'POST', body: JSON.stringify({ password: pass }) });
+    }
+    showToast('✅ Usuario actualizado');
+    closeModal();
+    loadUsers();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function toggleBan(id, isBanned) {
+  let reason = null; if (!isBanned) { try { reason = await adminPrompt('Motivo del baneo', {placeholder:'Opcional'}); } catch { return; } }
+  if (!isBanned && reason === null) return;
+  try {
+    await api(`/api/admin/users/${id}/ban`, { method:'POST', body: JSON.stringify({ banned: !isBanned, reason }) });
+    showToast(isBanned ? '✅ Usuario desbaneado' : '⛔ Usuario baneado');
+    loadUsers();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── SOPORTE CHAT ──────────────────────────────
+let _supportActiveUser = null;
+let _supportPollAdmin = null;
+
+async function renderSupport() {
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;gap:20px;height:calc(100vh - 120px);">
+      <!-- Conversations list -->
+      <div style="width:320px;background:var(--surface);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;">
+        <div style="padding:16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:800;">💬 Conversaciones</div>
+        <div id="support-convos" style="flex:1;overflow-y:auto;"></div>
+      </div>
+      <!-- Chat area -->
+      <div style="flex:1;background:var(--surface);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;">
+        <div id="support-chat-header" style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--muted);">Seleccioná una conversación</div>
+        <div id="support-admin-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;">
+          <div style="text-align:center;color:var(--muted);padding:60px 20px;font-size:14px;">← Elegí un usuario para responder</div>
+        </div>
+        <div id="support-admin-input-area" style="display:none;padding:12px 16px;background:#fff;border-top:1px solid var(--border);">
+          <div style="display:flex;gap:8px;">
+            <input id="support-admin-input" placeholder="Escribí tu respuesta..." style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-family:'Inter',sans-serif;outline:none;"
+              onkeydown="if(event.key==='Enter')sendAdminSupportReply()">
+            <button onclick="sendAdminSupportReply()" style="background:var(--primary);border:none;border-radius:10px;padding:10px 18px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  loadSupportConversations();
+  clearInterval(_supportPollAdmin);
+  _supportPollAdmin = setInterval(() => {
+    if (currentPage === 'support') {
+      loadSupportConversations();
+      if (_supportActiveUser) loadAdminChatMessages(_supportActiveUser);
+    } else clearInterval(_supportPollAdmin);
+  }, 6000);
+}
+
+async function loadSupportConversations() {
+  try {
+    const convos = await api('/api/admin/support/conversations');
+    const el = document.getElementById('support-convos');
+    if (!el) return;
+    if (!convos.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 16px;font-size:13px;">No hay conversaciones de soporte</div>'; return; }
+    el.innerHTML = convos.map(c => {
+      const active = _supportActiveUser === c.user_id;
+      const time = new Date(c.last_message_at).toLocaleString('es-UY', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div onclick="openAdminChat('${c.user_id}','${esc(c.user_name||'Usuario')}')" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);background:${active?'var(--surface2)':'transparent'};transition:.15s;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(c.user_name||'Usuario')}</div>
+          <div style="font-size:10px;color:var(--muted);">${time}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc((c.last_message||'').slice(0,60))}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error('loadSupportConversations:', e); }
+}
+
+async function openAdminChat(userId, userName) {
+  _supportActiveUser = userId;
+  document.getElementById('support-chat-header').innerHTML = `<div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;">${(userName||'U')[0].toUpperCase()}</div><div><div style="font-size:14px;font-weight:800;">${esc(userName)}</div><div style="font-size:11px;color:var(--muted);">ID: ${userId.slice(0,8)}...</div></div></div>`;
+  document.getElementById('support-admin-input-area').style.display = '';
+  loadAdminChatMessages(userId);
+  loadSupportConversations(); // refresh active highlight
+}
+
+async function loadAdminChatMessages(userId) {
+  const container = document.getElementById('support-admin-messages');
+  if (!container) return;
+  try {
+    const msgs = await api('/api/admin/support/messages/' + userId);
+    if (!msgs.length) { container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">Sin mensajes</div>'; return; }
+    container.innerHTML = msgs.map(m => {
+      const isAdmin = m.sender_role === 'admin';
+      const time = new Date(m.created_at).toLocaleTimeString('es-UY', {hour:'2-digit',minute:'2-digit'});
+      return `<div style="max-width:75%;${isAdmin?'align-self:flex-end;':'align-self:flex-start;'}">
+        <div style="background:${isAdmin?'var(--primary)':'#fff'};color:${isAdmin?'#fff':'var(--text)'};border-radius:${isAdmin?'12px 12px 4px 12px':'12px 12px 12px 4px'};padding:10px 14px;font-size:13px;line-height:1.4;${isAdmin?'':'border:1px solid var(--border);'}">${esc(m.body)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;${isAdmin?'text-align:right;':''}">${isAdmin?'Vos (admin)':'Cliente'} · ${time}</div>
+      </div>`;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+  } catch { container.innerHTML = '<div style="color:var(--red);padding:20px;">Error al cargar</div>'; }
+}
+
+async function sendAdminSupportReply() {
+  const input = document.getElementById('support-admin-input');
+  if (!input || !_supportActiveUser) return;
+  const body = input.value.trim();
+  if (!body) return;
+  input.value = '';
+  try {
+    await api('/api/admin/support/messages/' + _supportActiveUser, { method:'POST', body: JSON.stringify({ body }) });
+    loadAdminChatMessages(_supportActiveUser);
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+// ── CONFIGURACIÓN ──────────────────────────────
+async function renderConfig() {
+  document.getElementById('content').innerHTML = `<div class="spinner"></div>`;
+  try {
+    const cfg = await api('/api/admin/settings');
+    document.getElementById('content').innerHTML = `
+      <div class="section-title" style="margin-bottom:20px;">⚙️ Configuración de la plataforma</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="chart-card">
+          <div class="chart-title">💰 Precios y comisiones</div>
+          <div class="modal-field"><label>Precio suscripción mensual ($UYU)</label><input id="cfg-price" type="number" value="${cfg.registration_fee||2990}"></div>
+          <div class="modal-field"><label>Comisión plataforma (%)</label><input id="cfg-fee" type="number" step="0.1" value="${cfg.platform_fee_percent||0}"></div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar cambios</button>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📊 Stats rápidas</div>
+          <div id="quick-stats"><div class="spinner"></div></div>
+        </div>
+      </div>`;
+    loadQuickStats();
+  } catch(e) { document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+async function loadQuickStats() {
+  try {
+    const s = await api('/api/admin/stats');
+    const el = document.getElementById('quick-stats');
+    if (!el) return;
+    const users = s.userStats || [];
+    const orders = s.orderStats || [];
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${users.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">${{customer:'Clientes',owner:'Dueños',delivery:'Delivery',admin:'Admins'}[u.role]||u.role}</span><span style="font-weight:700;">${u.c}</span></div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--muted);">Negocios</span><span style="font-weight:700;">${s.businesses}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--muted);">GMV Total</span><span style="font-weight:700;color:var(--green);">$${Math.round(s.revenue||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--muted);">Retiros pendientes</span><span style="font-weight:700;color:${s.pendingWithdrawals>0?'var(--yellow)':'var(--green)'};">${s.pendingWithdrawals}</span></div>
+      </div>`;
+  } catch(e) {}
+}
+
+async function saveConfig() {
+  try {
+    await api('/api/admin/settings', { method:'POST', body: JSON.stringify({
+      registration_fee: parseFloat(document.getElementById('cfg-price').value) || 2990,
+      platform_fee_percent: parseFloat(document.getElementById('cfg-fee').value) || 0,
+    })});
+    showToast('✅ Configuración guardada');
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+// ── EXPORTAR ──────────────────────────────────
+function renderExport() {
+  const today = fmtDate(new Date());
+  const month = fmtDate(new Date(Date.now()-30*24*60*60*1000));
+  document.getElementById('content').innerHTML = `
+    <div class="section-title" style="margin-bottom:20px;">📤 Exportar datos</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+      <div class="chart-card">
+        <div class="chart-title">👥 Usuarios</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Todos los usuarios registrados con rol, ciudad y fecha.</p>
+        <a href="/api/admin/export/users" target="_blank" style="text-decoration:none;"><button class="btn btn-primary" style="width:100%;">⬇️ Descargar CSV</button></a>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏪 Negocios</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Negocios con dueños, estado de suscripción y ciudad.</p>
+        <a href="/api/admin/export/businesses" target="_blank" style="text-decoration:none;"><button class="btn btn-primary" style="width:100%;">⬇️ Descargar CSV</button></a>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📦 Pedidos por rango</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Pedidos filtrados por fecha con totales y fees.</p>
+        <div style="display:flex;gap:6px;margin-bottom:12px;">
+          <input type="date" id="exp-from" value="${month}" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px;color:var(--text);font-size:12px;outline:none;">
+          <input type="date" id="exp-to" value="${today}" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px;color:var(--text);font-size:12px;outline:none;">
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="exportOrders()">⬇️ Descargar CSV</button>
+      </div>
+    </div>`;
+}
+
+function exportOrders() {
+  const from = document.getElementById('exp-from').value;
+  const to   = document.getElementById('exp-to').value;
+  window.open(`/api/admin/export/orders?from=${from}&to=${to}`, '_blank');
+}
+
+// ── MODAL ──────────────────────────────────────
+function openModal(html) {
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('show'); }
+
+// ── TOAST ──────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── UTILS ──────────────────────────────────────
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Handle impersonation token from URL (for when app opens with imp_token)
+const _urlP = new URLSearchParams(window.location.search);
+const _impToken = _urlP.get('imp_token');
+const _impUser  = _urlP.get('imp_user');
+if (_impToken && _impUser) {
+  // Store in main app storage and redirect to clean URL
+  localStorage.setItem('da_token', _impToken);
+  localStorage.setItem('da_user', _impUser);
+  window.history.replaceState({}, '', '/');
+  // This page is now acting as a redirect bridge
+}
+
+// ═══════════════════════════════════════════════
+//  CATEGORÍAS & CONTENIDO — Admin Panel
+// ═══════════════════════════════════════════════
+let _adminCats = [], _adminSubs = [], _adminCatBanners = [], _adminCatFeatured = [], _adminBizList = [];
+let _catTab = 'subcategories';
+
+async function renderCategoriesPage() {
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="btn-tab active" onclick="switchCatTab('subcategories',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#0f172a;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">📂 Sub-categorías</button>
+      <button class="btn-tab" onclick="switchCatTab('catbanners',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-weight:700;cursor:pointer;font-size:13px;">🖼️ Banners de categoría</button>
+      <button class="btn-tab" onclick="switchCatTab('catfeatured',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-weight:700;cursor:pointer;font-size:13px;">⭐ Destacados</button>
+      <button class="btn-tab" onclick="switchCatTab('maincats',this)" style="padding:10px 20px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;color:#334155;font-weight:700;cursor:pointer;font-size:13px;">🏷️ Categorías principales</button>
+    </div>
+    <div id="cat-tab-content"><div class="spinner"></div></div>`;
+  // Load all data
+  try {
+    [_adminCats, _adminSubs, _adminCatBanners, _adminCatFeatured, _adminBizList] = await Promise.all([
+      api('/api/admin/business-categories'),
+      api('/api/admin/subcategories'),
+      api('/api/admin/category-banners'),
+      api('/api/admin/category-featured'),
+      api('/api/admin/businesses'),
+    ]);
+  } catch(e) { console.error(e); }
+  renderCatTabContent();
+}
+
+function switchCatTab(tab, el) {
+  _catTab = tab;
+  document.querySelectorAll('.btn-tab').forEach(b => { b.style.background='#fff'; b.style.color='#334155'; });
+  if (el) { el.style.background='#0f172a'; el.style.color='#fff'; }
+  renderCatTabContent();
+}
+
+function renderCatTabContent() {
+  const c = document.getElementById('cat-tab-content');
+  if (!c) return;
+  if (_catTab === 'subcategories') renderSubcategoriesTab(c);
+  else if (_catTab === 'catbanners') renderCatBannersTab(c);
+  else if (_catTab === 'catfeatured') renderCatFeaturedTab(c);
+  else if (_catTab === 'maincats') renderMainCatsTab(c);
+}
+
+function catSelect(selected) {
+  return _adminCats.map(c => `<option value="${c.id}" ${c.id===selected?'selected':''}>${c.emoji} ${esc(c.name)}</option>`).join('');
+}
+
+// ── SUB-CATEGORÍAS ──
+function renderSubcategoriesTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Nueva sub-categoría</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Categoría padre</label><select id="sub-cat-id" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${catSelect()}</select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Nombre</label><input id="sub-name" placeholder="Ej: Pizzas" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Emoji</label><input id="sub-emoji" value="🍽️" style="width:60px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:18px;text-align:center;"></div>
+        <button onclick="addSubcat()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Agregar</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px;">${_adminSubs.length} sub-categorías</div>
+      <div id="subcats-list"></div>
+    </div>`;
+  renderSubcatsList();
+}
+
+function renderSubcatsList() {
+  const el = document.getElementById('subcats-list');
+  if (!el) return;
+  if (!_adminSubs.length) { el.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No hay sub-categorías. Creá una arriba.</div>'; return; }
+  // Group by category
+  const grouped = {};
+  _adminSubs.forEach(s => { const k = s.category_name||s.category_id||'Sin categoría'; if(!grouped[k])grouped[k]=[]; grouped[k].push(s); });
+  el.innerHTML = Object.entries(grouped).map(([cat, items]) => `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:800;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">${esc(cat)}</div>
+      ${items.map(s => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;" data-id="${s.id}">
+          <div style="width:44px;height:44px;border-radius:12px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;">
+            ${s.image_url ? `<img src="${s.image_url}" style="width:100%;height:100%;object-fit:cover;">` : (s.emoji||'🍽️')}
+          </div>
+          <div style="flex:1;font-size:14px;font-weight:700;">${esc(s.name)}</div>
+          <span style="font-size:11px;color:#94a3b8;">orden: ${s.sort_order}</span>
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${s.is_active?'#dcfce7':'#fee2e2'};color:${s.is_active?'#16a34a':'#dc2626'};font-weight:700;">${s.is_active?'Activa':'Inactiva'}</span>
+          <button onclick="toggleSubcat('${s.id}',${!s.is_active})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${s.is_active?'Desactivar':'Activar'}</button>
+          <button onclick="uploadSubcatImg('${s.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">📷 Foto</button>
+          <button onclick="deleteSubcat('${s.id}','${escJS(s.name)}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+async function addSubcat() {
+  const category_id = document.getElementById('sub-cat-id')?.value;
+  const name = document.getElementById('sub-name')?.value?.trim();
+  const emoji = document.getElementById('sub-emoji')?.value || '🍽️';
+  if (!name) { adminAlert('El nombre es obligatorio'); return; }
+  const sort_order = _adminSubs.filter(s=>s.category_id===category_id).length;
+  try {
+    const res = await api('/api/admin/subcategories', { method:'POST', body:JSON.stringify({ category_id, name, emoji, sort_order }) });
+    _adminSubs.push(res);
+    document.getElementById('sub-name').value = '';
+    renderSubcatsList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+async function toggleSubcat(id, active) {
+  await api(`/api/admin/subcategories/${id}`, { method:'PATCH', body:JSON.stringify({ is_active:active }) });
+  const s = _adminSubs.find(x=>x.id===id); if(s) s.is_active = active;
+  renderSubcatsList();
+}
+
+async function deleteSubcat(id, name) {
+  if (!await adminConfirm(`¿Eliminar sub-categoría "${name}"? Esta acción no se puede deshacer.`, {title:"Eliminar sub-categoría", confirmLabel:"Eliminar"})) return;
+  await api(`/api/admin/subcategories/${id}`, { method:'DELETE' });
+  _adminSubs = _adminSubs.filter(x=>x.id!==id);
+  renderSubcatsList();
+}
+
+function uploadSubcatImg(id) {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange = async () => {
+    const fd = new FormData(); fd.append('photo', inp.files[0]);
+    const res = await fetch(`/api/admin/subcategories/${id}/upload-image`, { method:'POST', headers:{'Authorization':'Bearer '+adminToken}, body:fd });
+    const data = await res.json();
+    if (data.url) { const s=_adminSubs.find(x=>x.id===id); if(s) s.image_url=data.url; renderSubcatsList(); }
+  };
+  inp.click();
+}
+
+// ── BANNERS DE CATEGORÍA ──
+function renderCatBannersTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Nuevo banner de categoría</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Categoría</label><select id="catban-cat" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${catSelect()}</select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Título</label><input id="catban-title" placeholder="Ej: 2x1 en Pizzas" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Subtítulo</label><input id="catban-subtitle" placeholder="Solo hoy" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Color de fondo</label><input id="catban-color" type="color" value="#FA0050" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Negocio vinculado (opcional)</label><select id="catban-biz" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"><option value="">— Ninguno —</option>${_adminBizList.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div>
+        <button onclick="addCatBanner()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Crear</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px;">${_adminCatBanners.length} banners</div>
+      <div id="catbanners-list"></div>
+    </div>`;
+  renderCatBannersList();
+}
+
+function renderCatBannersList() {
+  const el = document.getElementById('catbanners-list');
+  if (!el) return;
+  if (!_adminCatBanners.length) { el.innerHTML='<div style="color:#94a3b8;text-align:center;padding:20px;">No hay banners de categoría.</div>'; return; }
+  el.innerHTML = _adminCatBanners.map(b => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="width:120px;height:50px;border-radius:10px;overflow:hidden;flex-shrink:0;background:${b.bg_color||'#FA0050'};display:flex;align-items:center;justify-content:center;">
+        ${b.image_url ? `<img src="${b.image_url}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="color:#fff;font-size:12px;font-weight:800;">${esc(b.title||'Banner')}</span>`}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">${esc(b.title||'Sin título')}</div>
+        <div style="font-size:11px;color:#64748b;">${esc(b.category_name||b.category_id)} ${b.business_name?'→ '+esc(b.business_name):''}</div>
+      </div>
+      <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${b.active?'#dcfce7':'#fee2e2'};color:${b.active?'#16a34a':'#dc2626'};font-weight:700;">${b.active?'Activo':'Inactivo'}</span>
+      <button onclick="toggleCatBanner('${b.id}',${!b.active})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${b.active?'Desactivar':'Activar'}</button>
+      <button onclick="uploadCatBannerImg('${b.id}')" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">📷</button>
+      <button onclick="deleteCatBanner('${b.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+}
+
+async function addCatBanner() {
+  const category_id = document.getElementById('catban-cat')?.value;
+  const title = document.getElementById('catban-title')?.value?.trim();
+  const subtitle = document.getElementById('catban-subtitle')?.value?.trim();
+  const bg_color = document.getElementById('catban-color')?.value;
+  const link_business_id = document.getElementById('catban-biz')?.value || null;
+  try {
+    const res = await api('/api/admin/category-banners', { method:'POST', body:JSON.stringify({ category_id, title, subtitle, bg_color, link_business_id, sort_order: _adminCatBanners.length }) });
+    _adminCatBanners.push(res);
+    document.getElementById('catban-title').value='';
+    document.getElementById('catban-subtitle').value='';
+    renderCatBannersList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+async function toggleCatBanner(id, active) {
+  await api(`/api/admin/category-banners/${id}`, { method:'PATCH', body:JSON.stringify({active}) });
+  const b=_adminCatBanners.find(x=>x.id===id); if(b)b.active=active;
+  renderCatBannersList();
+}
+
+async function deleteCatBanner(id) {
+  if (!await adminConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar banner?', confirmLabel:'Eliminar'})) return;
+  await api(`/api/admin/category-banners/${id}`, { method:'DELETE' });
+  _adminCatBanners = _adminCatBanners.filter(x=>x.id!==id);
+  renderCatBannersList();
+}
+
+function uploadCatBannerImg(id) {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange = async () => {
+    const fd = new FormData(); fd.append('photo', inp.files[0]);
+    const res = await fetch(`/api/admin/category-banners/${id}/upload-image`, { method:'POST', headers:{'Authorization':'Bearer '+adminToken}, body:fd });
+    const data = await res.json();
+    if (data.url) { const b=_adminCatBanners.find(x=>x.id===id); if(b)b.image_url=data.url; renderCatBannersList(); }
+  };
+  inp.click();
+}
+
+// ── DESTACADOS POR CATEGORÍA ──
+function renderCatFeaturedTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Destacar negocio en categoría</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Categoría</label><select id="catfeat-cat" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${catSelect()}</select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Negocio</label><select id="catfeat-biz" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;">${_adminBizList.map(b=>`<option value="${b.id}">${esc(b.name)} (${b.city||''})</option>`).join('')}</select></div>
+        <button onclick="addCatFeatured()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Destacar</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px;">${_adminCatFeatured.length} negocios destacados</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Aparecen en el carrusel "Descubrí locales" dentro de cada categoría</div>
+      <div id="catfeatured-list"></div>
+    </div>`;
+  renderCatFeaturedList();
+}
+
+function renderCatFeaturedList() {
+  const el = document.getElementById('catfeatured-list');
+  if (!el) return;
+  if (!_adminCatFeatured.length) { el.innerHTML='<div style="color:#94a3b8;text-align:center;padding:20px;">No hay negocios destacados.</div>'; return; }
+  el.innerHTML = _adminCatFeatured.map(f => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:20px;">${f.logo_emoji||'🏪'}</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">${esc(f.business_name||'')}</div>
+        <div style="font-size:11px;color:#64748b;">${esc(f.category_name||f.category_id)} · orden: ${f.sort_order}</div>
+      </div>
+      <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${f.active?'#dcfce7':'#fee2e2'};color:${f.active?'#16a34a':'#dc2626'};font-weight:700;">${f.active?'Activo':'Inactivo'}</span>
+      <button onclick="toggleCatFeat('${f.id}',${!f.active})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${f.active?'Quitar':'Activar'}</button>
+      <button onclick="deleteCatFeat('${f.id}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+}
+
+async function addCatFeatured() {
+  const category_id = document.getElementById('catfeat-cat')?.value;
+  const business_id = document.getElementById('catfeat-biz')?.value;
+  if (!category_id || !business_id) { adminAlert('Seleccioná categoría y negocio'); return; }
+  try {
+    const res = await api('/api/admin/category-featured', { method:'POST', body:JSON.stringify({ category_id, business_id, sort_order: _adminCatFeatured.length }) });
+    _adminCatFeatured.push(res);
+    renderCatFeaturedList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+async function toggleCatFeat(id, active) {
+  await api(`/api/admin/category-featured/${id}`, { method:'PATCH', body:JSON.stringify({active}) });
+  const f=_adminCatFeatured.find(x=>x.id===id); if(f)f.active=active;
+  renderCatFeaturedList();
+}
+
+async function deleteCatFeat(id) {
+  if (!await adminConfirm('El negocio dejará de aparecer como destacado.', {title:'¿Quitar destacado?', confirmLabel:'Quitar'})) return;
+  await api(`/api/admin/category-featured/${id}`, { method:'DELETE' });
+  _adminCatFeatured = _adminCatFeatured.filter(x=>x.id!==id);
+  renderCatFeaturedList();
+}
+
+// ── CATEGORÍAS PRINCIPALES ──
+function renderMainCatsTab(c) {
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:12px;">➕ Nueva categoría principal</div>
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Nombre</label><input id="maincat-name" placeholder="Ej: Kioscos" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#64748b;">Emoji</label><input id="maincat-emoji" value="🏪" style="width:60px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:18px;text-align:center;"></div>
+        <button onclick="addMainCat()" style="padding:9px 18px;background:#0f172a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;">Crear</button>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:16px;padding:20px;border:1px solid #e5e7eb;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:16px;">${_adminCats.length} categorías</div>
+      <div id="maincats-list"></div>
+    </div>`;
+  renderMainCatsList();
+}
+
+function renderMainCatsList() {
+  const el = document.getElementById('maincats-list');
+  if (!el) return;
+  el.innerHTML = _adminCats.map(c => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:24px;">${c.emoji||'🏪'}</div>
+      <div style="flex:1;font-size:14px;font-weight:700;">${esc(c.name)}</div>
+      <span style="font-size:11px;color:#94a3b8;">id: ${c.id}</span>
+      <span style="font-size:11px;color:#94a3b8;">orden: ${c.sort_order}</span>
+      <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:${c.is_active!==false?'#dcfce7':'#fee2e2'};color:${c.is_active!==false?'#16a34a':'#dc2626'};font-weight:700;">${c.is_active!==false?'Activa':'Inactiva'}</span>
+      <button onclick="toggleMainCat('${c.id}',${!(c.is_active!==false)})" style="padding:5px 10px;border-radius:8px;border:1px solid #e2e8f0;background:transparent;cursor:pointer;font-size:11px;">${c.is_active!==false?'Desactivar':'Activar'}</button>
+      <button onclick="deleteMainCat('${c.id}','${escJS(c.name)}')" style="padding:5px 10px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px;">🗑️</button>
+    </div>`).join('');
+}
+
+async function addMainCat() {
+  const name = document.getElementById('maincat-name')?.value?.trim();
+  const emoji = document.getElementById('maincat-emoji')?.value || '🏪';
+  if (!name) adminAlert('El nombre es obligatorio'); return;
+  try {
+    await api('/api/admin/business-categories', { method:'POST', body:JSON.stringify({ name, emoji, sort_order: _adminCats.length+1 }) });
+    _adminCats = await api('/api/admin/business-categories');
+    document.getElementById('maincat-name').value='';
+    renderMainCatsList();
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
+}
+
+async function toggleMainCat(id, active) {
+  await api(`/api/admin/business-categories/${id}`, { method:'PATCH', body:JSON.stringify({ is_active:active }) });
+  const c=_adminCats.find(x=>x.id===id); if(c)c.is_active=active;
+  renderMainCatsList();
+}
+
+async function deleteMainCat(id, name) {
+  if (!await adminConfirm(`También se eliminarán todas sus sub-categorías.`, {title:`¿Eliminar categoría "${name}"?`, confirmLabel:"Eliminar"})) return;
+  await api(`/api/admin/business-categories/${id}`, { method:'DELETE' });
+  _adminCats = _adminCats.filter(x=>x.id!==id);
+  _adminSubs = _adminSubs.filter(x=>x.category_id!==id);
+  renderMainCatsList();
+}
+
+// Helper: escJS for admin (same as in index.html)
+function escJS(str) { if(typeof str!=='string')return''; return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'\\x3c').replace(/>/g,'\\x3e'); }
+function esc(str) { if(typeof str!=='string')return''; const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
+
+// ── BOOT ──────────────────────────────────────
+if (adminToken && adminUser?.role === 'admin') {
+  initAdmin();
+}
+
+// ── Modal helpers para admin.html ──
+let _amcResolve = null;
+function _amcDismiss() {
+  const m = document.getElementById('admin-modal-confirm');
+  if (m) m.style.display = 'none';
+  if (_amcResolve) { _amcResolve(false); _amcResolve = null; }
+}
+function _amcAccept() {
+  const m = document.getElementById('admin-modal-confirm');
+  if (m) m.style.display = 'none';
+  if (_amcResolve) { _amcResolve(true); _amcResolve = null; }
+}
+function adminConfirm(msg, { title='¿Confirmar?', confirmLabel='Confirmar', danger=true } = {}) {
+  return new Promise(resolve => {
+    _amcResolve = resolve;
+    document.getElementById('amc-title').textContent = title;
+    document.getElementById('amc-body').textContent = msg;
+    document.getElementById('amc-ok').textContent = confirmLabel;
+    document.getElementById('amc-ok').style.background = danger ? '#ef4444' : '#2558d4';
+    document.getElementById('admin-modal-confirm').style.display = 'flex';
+  });
+}
+
+let _ampResolve = null, _ampRejectFn = null;
+function _ampDismiss() {
+  const m = document.getElementById('admin-modal-prompt');
+  if (m) m.style.display = 'none';
+  if (_ampRejectFn) { _ampRejectFn(null); _ampRejectFn = null; _ampResolve = null; }
+}
+function _ampAccept() {
+  const inp = document.getElementById('amp-input');
+  const val = inp ? inp.value.trim() : '';
+  const m = document.getElementById('admin-modal-prompt');
+  if (m) m.style.display = 'none';
+  if (_ampResolve) { _ampResolve(val); _ampResolve = null; _ampRejectFn = null; }
+}
+function adminPrompt(title, { placeholder='', defaultValue='', confirmLabel='Aceptar' } = {}) {
+  return new Promise((resolve, reject) => {
+    _ampResolve = resolve;
+    _ampRejectFn = reject;
+    document.getElementById('amp-title').textContent = title;
+    document.getElementById('amp-ok').textContent = confirmLabel;
+    const inp = document.getElementById('amp-input');
+    inp.placeholder = placeholder;
+    inp.value = defaultValue;
+    document.getElementById('admin-modal-prompt').style.display = 'flex';
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { _amcDismiss(); _ampDismiss(); }
+  if (e.key === 'Enter') {
+    if (document.getElementById('admin-modal-confirm')?.style.display !== 'none') _amcAccept();
+    if (document.getElementById('admin-modal-prompt')?.style.display !== 'none') _ampAccept();
+  }
+});
+function adminAlert(msg) { adminConfirm(msg, { title:'Aviso', confirmLabel:'OK', danger:false }); }
+
+</script>
