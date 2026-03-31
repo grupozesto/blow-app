@@ -279,7 +279,7 @@ async function doAdminLogin() {
   } catch(e) { errEl.textContent = 'Error de conexión'; }
 }
 
-function logout() {
+async function logout() {
   if (!await adminConfirm('Vas a cerrar tu sesión de admin.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
   localStorage.removeItem('blow_admin_token');
   localStorage.removeItem('blow_admin_user');
