@@ -953,7 +953,10 @@ body.owner-mode #owner-overlay {
 
 <!-- ══ SIDEBAR ══ -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">⚡ Blow</div>
+  <div class="sidebar-logo" id="sidebar-logo-wrap" style="display:flex;align-items:center;">
+    <img id="sidebar-logo-img" src="" alt="Blow" style="display:none;max-height:36px;max-width:140px;object-fit:contain;">
+    <span id="sidebar-logo-text">⚡ Blow</span>
+  </div>
   <button class="si active" id="si-home" onclick="nav('page-home')">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Inicio
   </button>
@@ -3633,6 +3636,13 @@ async function loadAppSettings() {
       document.querySelectorAll('.app-logo-emoji').forEach(el => el.style.display = 'none');
     } else if (s.logo_emoji) {
       document.querySelectorAll('.app-logo-emoji').forEach(el => el.textContent = s.logo_emoji);
+    }
+    // Header logo (sidebar)
+    if (s.header_logo_url) {
+      const img = document.getElementById('sidebar-logo-img');
+      const txt = document.getElementById('sidebar-logo-text');
+      if (img) { img.src = s.header_logo_url; img.style.display = 'block'; }
+      if (txt) txt.style.display = 'none';
     }
 
     // Banners

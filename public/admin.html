@@ -1325,7 +1325,7 @@ async function renderConfig() {
     const cfg = await api('/api/admin/settings');
     document.getElementById('content').innerHTML = `
       <div class="section-title" style="margin-bottom:20px;">⚙️ Configuración de la plataforma</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
         <div class="chart-card">
           <div class="chart-title">💰 Precios y comisiones</div>
           <div class="modal-field"><label>Precio suscripción mensual ($UYU)</label><input id="cfg-price" type="number" value="${cfg.registration_fee||2990}"></div>
@@ -1336,9 +1336,94 @@ async function renderConfig() {
           <div class="chart-title">📊 Stats rápidas</div>
           <div id="quick-stats"><div class="spinner"></div></div>
         </div>
+      </div>
+
+      <!-- BRANDING -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="chart-card">
+          <div class="chart-title">🖼️ Logo del header</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Aparece en el menú lateral de la app. Se recomienda formato PNG o SVG con fondo transparente, alto máximo 80px.</p>
+          <div id="header-logo-preview" style="margin-bottom:14px;min-height:48px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:10px;padding:10px;">
+            ${cfg.header_logo_url
+              ? `<img src="${cfg.header_logo_url}" style="max-height:48px;max-width:180px;object-fit:contain;" id="hlp-img">`
+              : `<span style="color:var(--muted);font-size:13px;">Sin logo personalizado — usando ⚡ Blow</span>`}
+          </div>
+          <div style="display:flex;gap:8px;">
+            <label style="flex:1;cursor:pointer;">
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadHeaderLogo(this)">
+              <div class="btn btn-primary" style="text-align:center;pointer-events:none;">📤 Subir logo</div>
+            </label>
+            ${cfg.header_logo_url ? `<button class="btn" style="background:var(--surface2);border:1px solid var(--border);" onclick="removeHeaderLogo()">🗑️ Eliminar</button>` : ''}
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">📱 Ícono PWA</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Ícono que aparece al instalar la app. Subí una imagen cuadrada de al menos 512×512px. Se generan automáticamente todos los tamaños.</p>
+          <div id="pwa-icon-preview" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+            ${cfg.pwa_icon_urls
+              ? `<img src="${JSON.parse(cfg.pwa_icon_urls||'{}')[192]||''}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.15);">
+                 <div>
+                   <div style="font-size:13px;font-weight:700;color:var(--text);">✅ Ícono personalizado activo</div>
+                   <div style="font-size:11px;color:var(--muted);margin-top:2px;">8 tamaños generados</div>
+                 </div>`
+              : `<div style="width:64px;height:64px;border-radius:14px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;">⚡</div>
+                 <span style="color:var(--muted);font-size:13px;">Usando ícono por defecto</span>`}
+          </div>
+          <label style="cursor:pointer;display:block;">
+            <input type="file" accept="image/*" id="pwa-icon-input" style="display:none;" onchange="uploadPwaIcon(this)">
+            <div class="btn btn-primary" style="text-align:center;pointer-events:none;" id="pwa-icon-btn">📤 Subir ícono</div>
+          </label>
+          <div id="pwa-upload-progress" style="display:none;margin-top:8px;font-size:12px;color:var(--muted);text-align:center;">⏳ Generando tamaños... puede tardar unos segundos</div>
+        </div>
       </div>`;
     loadQuickStats();
   } catch(e) { document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar. Intentá de nuevo.</div>`; }
+}
+
+async function uploadHeaderLogo(input) {
+  if (!input.files[0]) return;
+  const btn = input.parentElement.querySelector('div.btn');
+  if (btn) { btn.textContent = '⏳ Subiendo...'; }
+  const fd = new FormData();
+  fd.append('logo', input.files[0]);
+  try {
+    const r = await fetch('/api/admin/branding/header-logo', { method:'POST', headers:{Authorization:'Bearer '+adminToken}, body:fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showToast('✅ Logo actualizado');
+    renderConfig();
+  } catch(e) { showToast('❌ ' + e.message); if (btn) btn.textContent = '📤 Subir logo'; }
+}
+
+async function removeHeaderLogo() {
+  if (!confirm('¿Eliminar el logo personalizado?')) return;
+  try {
+    await api('/api/admin/branding/header-logo', { method:'DELETE' });
+    showToast('✅ Logo eliminado');
+    renderConfig();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function uploadPwaIcon(input) {
+  if (!input.files[0]) return;
+  const btn = document.getElementById('pwa-icon-btn');
+  const progress = document.getElementById('pwa-upload-progress');
+  if (btn) { btn.textContent = '⏳ Subiendo...'; btn.style.opacity = '0.6'; }
+  if (progress) progress.style.display = 'block';
+  const fd = new FormData();
+  fd.append('icon', input.files[0]);
+  try {
+    const r = await fetch('/api/admin/branding/pwa-icon', { method:'POST', headers:{Authorization:'Bearer '+adminToken}, body:fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showToast('✅ Ícono PWA actualizado — los cambios se ven al reinstalar la app');
+    renderConfig();
+  } catch(e) {
+    showToast('❌ ' + e.message);
+    if (btn) { btn.textContent = '📤 Subir ícono'; btn.style.opacity = '1'; }
+    if (progress) progress.style.display = 'none';
+  }
 }
 
 async function loadQuickStats() {
