@@ -4106,7 +4106,7 @@ function renderCatPromos(cat) {
   if (_catBanners.length) {
     slides = _catBanners.map(b => {
       const bg = b.image_url ? '' : `background:${b.bg_color||'linear-gradient(135deg,var(--primary),#ff6b6b)'};`;
-      const onclick = b.link_business_id ? `openStore('${b.link_business_id}')` : '';
+      const onclick = b.link_business_id ? `openStore('${escJS(b.link_business_id)}')` : '';
       return `
       <div class="cat-promo-slide" ${onclick ? `onclick="${onclick}"` : ''} style="${bg}${onclick?'':'cursor:default;'}">
         ${b.image_url ? `<img src="${b.image_url}" onerror="this.style.display='none'">` : ''}
