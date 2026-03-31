@@ -308,6 +308,8 @@ async function initDB() {
     );
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS banner_type TEXT DEFAULT 'hero';
+    ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
@@ -1946,12 +1948,35 @@ app.get('/api/banners', async (req,res)=>{
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
+// Admin banner list con filtro por tipo
+app.get('/api/banners/admin', auth, async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  try {
+    const type = req.query.type || 'hero';
+    const rows = await db.query("SELECT * FROM promo_banners WHERE banner_type=$1 ORDER BY sort_order ASC, created_at DESC",[type]);
+    res.json(rows.rows);
+  } catch(e){ res.json([]); }
+});
+// Upload imagen de banner (sin ID previo)
+app.post('/api/admin/banners/upload-image', auth, uploadMiddleware('photo'), async (req,res)=>{
+  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+  if(!req.file) return res.status(400).json({error:'No image'});
+  try {
+    const result = await cloudinary.uploader.upload(
+      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
+      {folder:'blow_banners',transformation:[{width:800,height:300,crop:'fill'}]}
+    );
+    res.json({ok:true,url:result.secure_url});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
 app.post('/api/admin/banners', auth, async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
-  const {title,subtitle,highlight,emoji,bg_color,link,sort_order} = req.body;
+  const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,link_url,sort_order,is_active,image_url,banner_type} = req.body;
   const id = 'ban_'+Date.now();
-  await db.query("INSERT INTO promo_banners(id,title,subtitle,highlight,emoji,bg_color,link,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
-    [id,title||'',subtitle||'',highlight||'',emoji||'🍔',bg_color||'#FA0050',link||'',sort_order||0]);
+  await db.query(
+    "INSERT INTO promo_banners(id,title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url,banner_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+    [id,title||'',subtitle||'',highlight||highlight_label||'',emoji||'🍔',bg_color||'#FA0050',link_url||link||'',sort_order||0,is_active!==false,image_url||'',banner_type||'hero']
+  );
   res.json({ok:true,id});
 });
 app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
