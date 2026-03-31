@@ -1822,9 +1822,19 @@ app.post('/api/admin/settings', auth, role('admin'), async (req, res) => {
 // ── Branding: header logo ────────────────────────
 app.post('/api/admin/branding/header-logo', auth, role('admin'), uploadMiddleware('logo'), async (req, res) => {
   try {
-    if (!cloudinary) return res.status(503).json({ error: 'Cloudinary no configurado' });
     if (!req.file) return res.status(400).json({ error: 'No image' });
-    const b64 = (req.file.buffer || require('fs').readFileSync(req.file.path)).toString('base64');
+    // Si multer-storage-cloudinary ya subió el archivo, req.file.path es la URL
+    let imageUrl = req.file.path;
+    if (imageUrl && imageUrl.startsWith('http')) {
+      // Ya está en Cloudinary — guardar directamente
+      await q("INSERT INTO app_settings (key,value,updated_at) VALUES ('header_logo_url',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=$1,updated_at=NOW()", [imageUrl]);
+      return res.json({ url: imageUrl });
+    }
+    // Fallback: subir manualmente desde buffer o disk
+    if (!cloudinary) return res.status(503).json({ error: 'Cloudinary no configurado' });
+    const b64 = req.file.buffer
+      ? req.file.buffer.toString('base64')
+      : require('fs').readFileSync(req.file.path).toString('base64');
     const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${b64}`, {
       folder: 'blow/branding', public_id: 'header-logo', overwrite: true,
       transformation: [{ height: 80, crop: 'fit', quality: 'auto:best' }]
@@ -1847,11 +1857,32 @@ app.post('/api/admin/branding/pwa-icon', auth, role('admin'), uploadMiddleware('
   try {
     if (!cloudinary) return res.status(503).json({ error: 'Cloudinary no configurado' });
     if (!req.file) return res.status(400).json({ error: 'No image' });
-    const b64 = (req.file.buffer || require('fs').readFileSync(req.file.path)).toString('base64');
+    // Obtener la imagen como base64 independientemente del storage
+    let b64, mimeType = req.file.mimetype;
+    if (req.file.buffer) {
+      b64 = req.file.buffer.toString('base64');
+    } else if (req.file.path && req.file.path.startsWith('http')) {
+      // Ya está en Cloudinary — usar URL como fuente para generar tamaños
+      const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+      const baseUrl = req.file.path;
+      const urls = {};
+      for (const size of sizes) {
+        // Transformar via URL de Cloudinary
+        const transformed = await cloudinary.uploader.upload(baseUrl, {
+          folder: 'blow/branding/icons', public_id: `icon-${size}`, overwrite: true,
+          transformation: [{ width: size, height: size, crop: 'fill', quality: 'auto:best' }]
+        });
+        urls[size] = transformed.secure_url;
+      }
+      await q("INSERT INTO app_settings (key,value,updated_at) VALUES ('pwa_icon_urls',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=$1,updated_at=NOW()", [JSON.stringify(urls)]);
+      return res.json({ urls });
+    } else {
+      b64 = require('fs').readFileSync(req.file.path).toString('base64');
+    }
     const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
     const urls = {};
     for (const size of sizes) {
-      const result = await cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${b64}`, {
+      const result = await cloudinary.uploader.upload(`data:${mimeType};base64,${b64}`, {
         folder: 'blow/branding/icons', public_id: `icon-${size}`, overwrite: true,
         transformation: [{ width: size, height: size, crop: 'fill', quality: 'auto:best' }]
       });
