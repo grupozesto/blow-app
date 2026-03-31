@@ -2080,7 +2080,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
 // ── Public settings (no auth) ────────────────
 app.get('/api/public-settings', async (_, res) => {
   try {
-    const rows = await qa("SELECT * FROM app_settings WHERE key IN ('bank_promo','app_appearance','logo_url','logo_emoji','banners','text_appname','color_primary','color_bg','color_accent','color_success')", []);
+    const rows = await qa("SELECT * FROM app_settings WHERE key IN ('bank_promo','app_appearance','logo_url','logo_emoji','banners','text_appname','color_primary','color_bg','color_accent','color_success','header_logo_url')", []);
     const obj = {};
     rows.forEach(r => { try { obj[r.key] = JSON.parse(r.value); } catch { obj[r.key] = r.value; } });
     res.json(obj);
