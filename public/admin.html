@@ -1361,14 +1361,7 @@ async function renderConfig() {
           <div class="chart-title">📱 Ícono PWA</div>
           <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Ícono que aparece al instalar la app. Subí una imagen cuadrada de al menos 512×512px. Se generan automáticamente todos los tamaños.</p>
           <div id="pwa-icon-preview" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;">
-            ${cfg.pwa_icon_urls
-              ? `<img src="${JSON.parse(cfg.pwa_icon_urls||'{}')[192]||''}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.15);">
-                 <div>
-                   <div style="font-size:13px;font-weight:700;color:var(--text);">✅ Ícono personalizado activo</div>
-                   <div style="font-size:11px;color:var(--muted);margin-top:2px;">8 tamaños generados</div>
-                 </div>`
-              : `<div style="width:64px;height:64px;border-radius:14px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;">⚡</div>
-                 <span style="color:var(--muted);font-size:13px;">Usando ícono por defecto</span>`}
+            ${(()=>{ const ic = typeof cfg.pwa_icon_urls==='string' ? JSON.parse(cfg.pwa_icon_urls||'{}') : (cfg.pwa_icon_urls||null); return ic && ic[192] ? `<img src="${ic[192]}" style="width:64px;height:64px;border-radius:14px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.15);"><div><div style="font-size:13px;font-weight:700;color:var(--text);">✅ Ícono personalizado activo</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">8 tamaños generados</div></div>` : `<div style="width:64px;height:64px;border-radius:14px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;">⚡</div><span style="color:var(--muted);font-size:13px;">Usando ícono por defecto</span>`; })()}
           </div>
           <label style="cursor:pointer;display:block;">
             <input type="file" accept="image/*" id="pwa-icon-input" style="display:none;" onchange="uploadPwaIcon(this)">
