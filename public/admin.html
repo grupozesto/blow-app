@@ -1073,7 +1073,8 @@ async function loadUsers() {
   const r = document.getElementById('usr-role')?.value || '';
   const s = document.getElementById('usr-search')?.value || '';
   try {
-    const users = await api(`/api/admin/users?role=${encodeURIComponent(r)}&search=${encodeURIComponent(s)}`);
+    const resp = await api(`/api/admin/users?role=${encodeURIComponent(r)}&search=${encodeURIComponent(s)}`);
+    const users = resp.users || resp;
     const roleBadge = { customer:'badge-blue', owner:'badge-purple', delivery:'badge-yellow', admin:'badge-red' };
     const roleLabel = { customer:'Cliente', owner:'Dueño', delivery:'Delivery', admin:'Admin' };
     document.getElementById('users-body').innerHTML = users.length ? `
@@ -1100,8 +1101,9 @@ async function loadUsers() {
 }
 
 async function editUser(id) {
-  const users = await api(`/api/admin/users?search=`).catch(()=>[]);
-  const u = users.find(x=>x.id===id);
+  const resp2 = await api(`/api/admin/users?search=`).catch(()=>({}));
+  const users2 = resp2.users || resp2 || [];
+  const u = Array.isArray(users2) ? users2.find(x=>x.id===id) : null;
   if (!u) return;
   openModal(`
     <div class="modal-title">✏️ Editar usuario</div>
