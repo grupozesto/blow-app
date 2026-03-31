@@ -3561,7 +3561,7 @@ app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
     // Consultar MP directamente
     const payment = (await mp.payment.get(order.mp_payment_id)).body;
     if (payment.status === 'approved') {
-      await q("UPDATE orders SET status='paid', updated_at=NOW() WHERE id=$1", [order.id]);
+      await q("UPDATE orders SET status='paid', updated_at=NOW() WHERE id=$1 AND status='pending'", [order.id]);
       const biz = await q1('SELECT * FROM businesses WHERE id=$1', [order.business_id]);
       if (biz) {
         notify(biz.owner_id, { type:'new_order', message:`💰 Nuevo pedido pagado #${order.id.slice(-6).toUpperCase()} — Aceptar o rechazar`, order_id:order.id, total:order.total });
