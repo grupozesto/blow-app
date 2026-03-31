@@ -3641,8 +3641,11 @@ async function loadAppSettings() {
     if (s.header_logo_url) {
       const img = document.getElementById('sidebar-logo-img');
       const txt = document.getElementById('sidebar-logo-text');
+      const wrap = document.getElementById('sidebar-logo-wrap');
       if (img) { img.src = s.header_logo_url; img.style.display = 'block'; }
       if (txt) txt.style.display = 'none';
+      // Ocultar cualquier emoji o texto extra dentro del wrap
+      if (wrap) wrap.querySelectorAll(':not(#sidebar-logo-img)').forEach(el => el.style.display = 'none');
     }
 
     // Banners
