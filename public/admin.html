@@ -280,7 +280,7 @@ async function doAdminLogin() {
 }
 
 function logout() {
-  if (!confirm('¿Cerrar sesión?')) return;
+  if (!await adminConfirm('Vas a cerrar tu sesión de admin.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
   localStorage.removeItem('blow_admin_token');
   localStorage.removeItem('blow_admin_user');
   location.reload();
@@ -587,7 +587,7 @@ async function viewOrder(id) {
 }
 
 async function cancelOrder(id) {
-  const reason = prompt('Motivo de cancelación (opcional):');
+  let reason; try { reason = await adminPrompt('Motivo de cancelación', {placeholder:'Opcional — se notifica al dueño'}); } catch { return; }
   if (reason === null) return;
   try {
     await api(`/api/admin/orders/${id}/cancel`, { method:'POST', body: JSON.stringify({ reason }) });
@@ -653,12 +653,12 @@ async function loadWithdrawals() {
 }
 
 async function approveWithdrawal(id) {
-  if (!confirm('¿Confirmar que ya procesaste el pago?\n⏱ El dueño recibirá una notificación con el plazo de 24hs hábiles.')) return;
+  if (!await adminConfirm('El dueño recibirá una notificación con el plazo de 24hs hábiles.', {title:'¿Confirmar pago procesado?', confirmLabel:'Sí, confirmar', danger:false})) return;
   try { await api(`/api/admin/withdrawals/${id}/approve`, { method:'POST' }); showToast('✅ Retiro confirmado — notificación enviada'); loadWithdrawals(); }
   catch(e) { showToast('❌ ' + e.message); }
 }
 async function rejectWithdrawal(id) {
-  const reason = prompt('Motivo del rechazo (opcional):');
+  let reason; try { reason = await adminPrompt('Motivo del rechazo', {placeholder:'Opcional — se notifica al dueño'}); } catch { return; }
   if (reason === null) return;
   try { await api(`/api/admin/withdrawals/${id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); showToast('✅ Rechazado — saldo devuelto'); loadWithdrawals(); }
   catch(e) { showToast('❌ ' + e.message); }
@@ -808,7 +808,7 @@ async function createBanner() {
   const link = document.getElementById('bn-link').value.trim();
   const sort_order = parseInt(document.getElementById('bn-order').value) || 0;
   const imgInput = document.getElementById('bn-image');
-  if (!title) return alert('El título es obligatorio');
+  if (!title) { adminAlert('El título es obligatorio'); return; }
 
   let image_url = '';
   if (imgInput?.files[0]) {
@@ -820,7 +820,7 @@ async function createBanner() {
       });
       const upData = await upRes.json();
       if (upData.url) image_url = upData.url;
-    } catch(e) { return alert('Error subiendo imagen: ' + e.message); }
+    } catch(e) { adminAlert('Error subiendo imagen. Intentá de nuevo.'); return; }
   }
 
   try {
@@ -838,22 +838,22 @@ async function createBanner() {
     document.getElementById('bn-p-emoji').style.display = '';
     if (imgInput) imgInput.value = '';
     loadBannersList();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 async function toggleBanner(id, isActive) {
   try {
     await api('/api/admin/banners/' + id, { method:'PATCH', body: JSON.stringify({is_active:!isActive, active:!isActive}) });
     loadBannersList();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 async function deleteBanner(id) {
-  if (!confirm('¿Eliminar este banner?')) return;
+  if (!await adminConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar banner?', confirmLabel:'Eliminar'})) return;
   try {
     await api('/api/admin/banners/' + id, { method:'DELETE' });
     loadBannersList();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 function esc(str) { if (typeof str !== 'string') return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
@@ -959,7 +959,7 @@ async function toggleBizOpen(id, isOpen) {
 }
 
 async function impersonateOwner(userId, name) {
-  if (!confirm(`¿Acceder al portal de "${name}"?\n\nSe abrirá la app principal con acceso a su cuenta por 2 horas. Esta acción queda registrada.`)) return;
+  if (!await adminConfirm(`Se abrirá la app con acceso a la cuenta de ${name} por 2 horas. Esta acción queda registrada.`, {title:`Acceder al portal de ${name}`, confirmLabel:"Acceder", danger:false})) return;
   try {
     const data = await api(`/api/admin/impersonate/${userId}`, { method:'POST' });
     // Guardar token impersonado y abrir la app
@@ -1041,7 +1041,7 @@ async function activateSub(id) {
   catch(e) { showToast('❌ ' + e.message); }
 }
 async function cancelSub(id) {
-  const reason = prompt('Motivo de cancelación (se notifica al dueño):');
+  let reason; try { reason = await adminPrompt('Motivo de cancelación', {placeholder:'Se notifica al dueño', confirmLabel:'Cancelar pedido'}); } catch { return; }
   if (reason === null) return;
   try { await api(`/api/admin/subscriptions/${id}/cancel-notify`, { method:'POST', body: JSON.stringify({ reason }) }); showToast('✅ Cancelada — notificación enviada'); loadSubscriptions(); }
   catch(e) { showToast('❌ ' + e.message); }
@@ -1143,7 +1143,7 @@ async function saveUser(id) {
 }
 
 async function toggleBan(id, isBanned) {
-  const reason = isBanned ? null : prompt('Motivo del baneo (opcional):');
+  let reason = null; if (!isBanned) { try { reason = await adminPrompt('Motivo del baneo', {placeholder:'Opcional'}); } catch { return; } }
   if (!isBanned && reason === null) return;
   try {
     await api(`/api/admin/users/${id}/ban`, { method:'POST', body: JSON.stringify({ banned: !isBanned, reason }) });
@@ -1245,7 +1245,7 @@ async function sendAdminSupportReply() {
   try {
     await api('/api/admin/support/messages/' + _supportActiveUser, { method:'POST', body: JSON.stringify({ body }) });
     loadAdminChatMessages(_supportActiveUser);
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 // ── CONFIGURACIÓN ──────────────────────────────
@@ -1462,14 +1462,14 @@ async function addSubcat() {
   const category_id = document.getElementById('sub-cat-id')?.value;
   const name = document.getElementById('sub-name')?.value?.trim();
   const emoji = document.getElementById('sub-emoji')?.value || '🍽️';
-  if (!name) return alert('Nombre requerido');
+  if (!name) { adminAlert('El nombre es obligatorio'); return; }
   const sort_order = _adminSubs.filter(s=>s.category_id===category_id).length;
   try {
     const res = await api('/api/admin/subcategories', { method:'POST', body:JSON.stringify({ category_id, name, emoji, sort_order }) });
     _adminSubs.push(res);
     document.getElementById('sub-name').value = '';
     renderSubcatsList();
-  } catch(e) { alert(e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 async function toggleSubcat(id, active) {
@@ -1479,7 +1479,7 @@ async function toggleSubcat(id, active) {
 }
 
 async function deleteSubcat(id, name) {
-  if (!confirm(`¿Eliminar sub-categoría "${name}"?`)) return;
+  if (!await adminConfirm(`¿Eliminar sub-categoría "${name}"? Esta acción no se puede deshacer.`, {title:"Eliminar sub-categoría", confirmLabel:"Eliminar"})) return;
   await api(`/api/admin/subcategories/${id}`, { method:'DELETE' });
   _adminSubs = _adminSubs.filter(x=>x.id!==id);
   renderSubcatsList();
@@ -1551,7 +1551,7 @@ async function addCatBanner() {
     document.getElementById('catban-title').value='';
     document.getElementById('catban-subtitle').value='';
     renderCatBannersList();
-  } catch(e) { alert(e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 async function toggleCatBanner(id, active) {
@@ -1561,7 +1561,7 @@ async function toggleCatBanner(id, active) {
 }
 
 async function deleteCatBanner(id) {
-  if (!confirm('¿Eliminar este banner?')) return;
+  if (!await adminConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar banner?', confirmLabel:'Eliminar'})) return;
   await api(`/api/admin/category-banners/${id}`, { method:'DELETE' });
   _adminCatBanners = _adminCatBanners.filter(x=>x.id!==id);
   renderCatBannersList();
@@ -1617,12 +1617,12 @@ function renderCatFeaturedList() {
 async function addCatFeatured() {
   const category_id = document.getElementById('catfeat-cat')?.value;
   const business_id = document.getElementById('catfeat-biz')?.value;
-  if (!category_id || !business_id) return alert('Seleccioná categoría y negocio');
+  if (!category_id || !business_id) { adminAlert('Seleccioná categoría y negocio'); return; }
   try {
     const res = await api('/api/admin/category-featured', { method:'POST', body:JSON.stringify({ category_id, business_id, sort_order: _adminCatFeatured.length }) });
     _adminCatFeatured.push(res);
     renderCatFeaturedList();
-  } catch(e) { alert(e.message||'Error'); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 async function toggleCatFeat(id, active) {
@@ -1632,7 +1632,7 @@ async function toggleCatFeat(id, active) {
 }
 
 async function deleteCatFeat(id) {
-  if (!confirm('¿Quitar de destacados?')) return;
+  if (!await adminConfirm('El negocio dejará de aparecer como destacado.', {title:'¿Quitar destacado?', confirmLabel:'Quitar'})) return;
   await api(`/api/admin/category-featured/${id}`, { method:'DELETE' });
   _adminCatFeatured = _adminCatFeatured.filter(x=>x.id!==id);
   renderCatFeaturedList();
@@ -1674,13 +1674,13 @@ function renderMainCatsList() {
 async function addMainCat() {
   const name = document.getElementById('maincat-name')?.value?.trim();
   const emoji = document.getElementById('maincat-emoji')?.value || '🏪';
-  if (!name) return alert('Nombre requerido');
+  if (!name) adminAlert('El nombre es obligatorio'); return;
   try {
     await api('/api/admin/business-categories', { method:'POST', body:JSON.stringify({ name, emoji, sort_order: _adminCats.length+1 }) });
     _adminCats = await api('/api/admin/business-categories');
     document.getElementById('maincat-name').value='';
     renderMainCatsList();
-  } catch(e) { alert(e.message); }
+  } catch(e) { adminAlert('Error. Intentá de nuevo.'); }
 }
 
 async function toggleMainCat(id, active) {
@@ -1690,7 +1690,7 @@ async function toggleMainCat(id, active) {
 }
 
 async function deleteMainCat(id, name) {
-  if (!confirm(`¿Eliminar categoría "${name}"? También se eliminarán sus sub-categorías.`)) return;
+  if (!await adminConfirm(`También se eliminarán todas sus sub-categorías.`, {title:`¿Eliminar categoría "${name}"?`, confirmLabel:"Eliminar"})) return;
   await api(`/api/admin/business-categories/${id}`, { method:'DELETE' });
   _adminCats = _adminCats.filter(x=>x.id!==id);
   _adminSubs = _adminSubs.filter(x=>x.category_id!==id);
@@ -1705,6 +1705,63 @@ function esc(str) { if(typeof str!=='string')return''; const d=document.createEl
 if (adminToken && adminUser?.role === 'admin') {
   initAdmin();
 }
+
+// ── Modal helpers para admin.html ──
+let _amcResolve = null;
+function _amcDismiss() {
+  const m = document.getElementById('admin-modal-confirm');
+  if (m) m.style.display = 'none';
+  if (_amcResolve) { _amcResolve(false); _amcResolve = null; }
+}
+function _amcAccept() {
+  const m = document.getElementById('admin-modal-confirm');
+  if (m) m.style.display = 'none';
+  if (_amcResolve) { _amcResolve(true); _amcResolve = null; }
+}
+function adminConfirm(msg, { title='¿Confirmar?', confirmLabel='Confirmar', danger=true } = {}) {
+  return new Promise(resolve => {
+    _amcResolve = resolve;
+    document.getElementById('amc-title').textContent = title;
+    document.getElementById('amc-body').textContent = msg;
+    document.getElementById('amc-ok').textContent = confirmLabel;
+    document.getElementById('amc-ok').style.background = danger ? '#ef4444' : '#2558d4';
+    document.getElementById('admin-modal-confirm').style.display = 'flex';
+  });
+}
+
+let _ampResolve = null, _ampRejectFn = null;
+function _ampDismiss() {
+  const m = document.getElementById('admin-modal-prompt');
+  if (m) m.style.display = 'none';
+  if (_ampRejectFn) { _ampRejectFn(null); _ampRejectFn = null; _ampResolve = null; }
+}
+function _ampAccept() {
+  const inp = document.getElementById('amp-input');
+  const val = inp ? inp.value.trim() : '';
+  const m = document.getElementById('admin-modal-prompt');
+  if (m) m.style.display = 'none';
+  if (_ampResolve) { _ampResolve(val); _ampResolve = null; _ampRejectFn = null; }
+}
+function adminPrompt(title, { placeholder='', defaultValue='', confirmLabel='Aceptar' } = {}) {
+  return new Promise((resolve, reject) => {
+    _ampResolve = resolve;
+    _ampRejectFn = reject;
+    document.getElementById('amp-title').textContent = title;
+    document.getElementById('amp-ok').textContent = confirmLabel;
+    const inp = document.getElementById('amp-input');
+    inp.placeholder = placeholder;
+    inp.value = defaultValue;
+    document.getElementById('admin-modal-prompt').style.display = 'flex';
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+  });
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { _amcDismiss(); _ampDismiss(); }
+  if (e.key === 'Enter') {
+    if (document.getElementById('admin-modal-confirm')?.style.display !== 'none') _amcAccept();
+    if (document.getElementById('admin-modal-prompt')?.style.display !== 'none') _ampAccept();
+  }
+});
+function adminAlert(msg) { adminConfirm(msg, { title:'Aviso', confirmLabel:'OK', danger:false }); }
+
 </script>
-</body>
-</html>

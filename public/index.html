@@ -9305,20 +9305,22 @@ async function _getPushVapidKey() {
 }
 
 async function _registerPushSub(key, authHeader) {
-  const reg = await navigator.serviceWorker.ready;
-  let sub = await reg.pushManager.getSubscription();
-  if (!sub) {
-    if (Notification.permission === 'denied') return null;
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return null;
-    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _vapidB64ToUint8(key) });
-  }
-  await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
-    body: JSON.stringify(sub.toJSON())
-  });
-  return sub;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      if (Notification.permission === 'denied') return null;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return null;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _vapidB64ToUint8(key) });
+    }
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) },
+      body: JSON.stringify(sub.toJSON())
+    });
+    return sub;
+  } catch(e) { console.error('push sub error:', e.message); }
 }
 
 // ── Push para clientes ─────────────────────────
@@ -9358,7 +9360,7 @@ function ooUpdatePushBadge(active) {
 
 async function ooTogglePush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('Tu navegador no soporta notificaciones push.'); return;
+    showToast('❌ Tu navegador no soporta notificaciones push.'); return;
   }
   const reg = await navigator.serviceWorker.ready;
   const existing = await reg.pushManager.getSubscription();
@@ -10986,7 +10988,7 @@ async function ooSavePromo() {
   const min   = parseFloat(document.getElementById('pr-min')?.value)   || 0;
   const needsCode = document.getElementById('pr-needs-code')?.checked;
   const code  = document.getElementById('pr-code')?.value?.trim()?.toUpperCase() || null;
-  if (!name) { alert('Ingresá un nombre'); return; }
+  if (!name) { showToast('❌ Ingresá un nombre'); return; }
 
   // Combo data
   let combo_products = [];
@@ -10995,8 +10997,8 @@ async function ooSavePromo() {
     const selects = document.querySelectorAll('#pr-combo-list [data-combo-item] select');
     combo_products = [...selects].map(s => s.value).filter(Boolean);
     combo_price = parseFloat(document.getElementById('pr-combo-price')?.value) || 0;
-    if (!combo_products.length) { alert('Agregá al menos un producto al combo'); return; }
-    if (!combo_price) { alert('Ingresá el precio especial del combo'); return; }
+    if (!combo_products.length) { showToast('❌ Agregá al menos un producto al combo'); return; }
+    if (!combo_price) { showToast('❌ Ingresá el precio especial del combo'); return; }
   }
 
   const btn = document.getElementById('pr-save-btn');
