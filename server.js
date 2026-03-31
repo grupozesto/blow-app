@@ -2354,14 +2354,21 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
       // Si el delivery_id es el owner del negocio (maneja su propio delivery), acreditar también el delivery_amount al negocio
       const deliveryBiz = await q1('SELECT id, owner_id FROM businesses WHERE id=$1',[order.business_id]);
       const ownerHandledDelivery = !order.delivery_id || (deliveryBiz && order.delivery_id === deliveryBiz.owner_id);
+      const tipAmt = parseFloat(order.tip||0);
+      const priorityFee = parseFloat(order.priority_fee||0);
       if (ownerHandledDelivery) {
-        // Todo va al negocio: subtotal + delivery - comisión plataforma
-        await credit(order.business_id,'business', parseFloat((order.business_amount + (order.delivery_amount||0)).toFixed(2)), `Pedido #${order.id.slice(-6).toUpperCase()}`, order.id);
+        // Todo va al negocio: subtotal + delivery + tip - comisión plataforma
+        const bizTotal = parseFloat((order.business_amount + (order.delivery_amount||0) + tipAmt).toFixed(2));
+        await credit(order.business_id,'business', Math.max(0, bizTotal), `Pedido #${order.id.slice(-6).toUpperCase()}`, order.id);
       } else {
         await credit(order.business_id,'business',order.business_amount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
-        await credit(order.delivery_id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
+        // Tip va al repartidor
+        const deliveryTotal = parseFloat((order.delivery_amount + tipAmt).toFixed(2));
+        await credit(order.delivery_id,'delivery', Math.max(0, deliveryTotal),`Delivery + propina #${order.id.slice(-6).toUpperCase()}`,order.id);
       }
-      await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
+      // Platform: comisión + envío prioritario
+      const platTotal = parseFloat((order.platform_amount + priorityFee).toFixed(2));
+      await credit('platform','platform', Math.max(0, platTotal),`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
     }
     // Push al cliente con mensaje según estado
     const PUSH_MSG = {
