@@ -2512,18 +2512,9 @@ app.get('/api/public/plan-price', async (req,res)=>{
   res.json({ price: PLAN_PRICE });
 });
 
-app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
-// ── Start ─────────────────────────────────────
-initDB().then(()=>{
-  server.listen(PORT,()=>{
-    console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
-    console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
-    console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
-    console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
-    console.log(`🔐  JWT         : ${process.env.JWT_SECRET!=='dev_secret_cambiar_en_prod'?'✅ OK':'⚠️  cambiar'}\n`);
-  });
-}).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });// ════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════
 //  MULTER + CLOUDINARY UPLOAD
 // ════════════════════════════════════════════════
 let multerUpload = null;
@@ -3168,3 +3159,15 @@ app.get('/api/push/vapid-public-key', (req, res) => res.json({ key: process.env.
 app.post('/api/push/subscribe', auth, async (req, res) => res.json({ success: true }));
 app.post('/api/push/unsubscribe', auth, async (req, res) => res.json({ success: true }));
 
+app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+
+// ── Start ─────────────────────────────────────
+initDB().then(()=>{
+  server.listen(PORT,()=>{
+    console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
+    console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
+    console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
+    console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
+    console.log(`🔐  JWT         : ${process.env.JWT_SECRET!=='dev_secret_cambiar_en_prod'?'✅ OK':'⚠️  cambiar'}\n`);
+  });
+}).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
