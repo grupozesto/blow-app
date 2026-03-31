@@ -1690,28 +1690,46 @@ app.get('/api/admin/stats/advanced', auth, role('admin'), async (req, res) => {
       FROM orders
       WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day')
     `, [fromDate, toDate]);
-    const daily = await qa(`
-      SELECT DATE(created_at) as date,
-        COALESCE(SUM(total),0) as gmv,
+    // dailyRevenue: alias que espera el admin
+    const dailyRevenue = await qa(`
+      SELECT DATE(created_at) as day,
+        COALESCE(SUM(total),0) as revenue,
+        COALESCE(SUM(platform_amount),0) as fee,
         COUNT(*) as orders
       FROM orders
       WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day')
         AND status NOT IN ('cancelled','pending')
-      GROUP BY DATE(created_at) ORDER BY date ASC
+      GROUP BY DATE(created_at) ORDER BY day ASC
     `, [fromDate, toDate]);
-    const byStatus = await qa(`SELECT status, COUNT(*) as c FROM orders WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day') GROUP BY status`, [fromDate, toDate]);
-    const topBiz = await qa(`
-      SELECT b.name, COUNT(o.id) as orders, COALESCE(SUM(o.total),0) as gmv
+    // ordersByStatus
+    const ordersByStatus = await qa(`SELECT status, COUNT(*) as c FROM orders WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day') GROUP BY status`, [fromDate, toDate]);
+    // newUsers por día
+    const newUsers = await qa(`
+      SELECT DATE(created_at) as day, COUNT(*) as c
+      FROM users WHERE created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day')
+      GROUP BY DATE(created_at) ORDER BY day ASC
+    `, [fromDate, toDate]);
+    // topBusinesses
+    const topBusinesses = await qa(`
+      SELECT b.name, b.logo_emoji, b.city, COUNT(o.id) as orders, COALESCE(SUM(o.total),0) as revenue
       FROM orders o JOIN businesses b ON o.business_id=b.id
       WHERE o.created_at >= $1::date AND o.created_at < ($2::date + INTERVAL '1 day') AND o.status='delivered'
-      GROUP BY b.id, b.name ORDER BY gmv DESC LIMIT 5
+      GROUP BY b.id, b.name, b.logo_emoji, b.city ORDER BY revenue DESC LIMIT 5
     `, [fromDate, toDate]);
+    // topCustomers
     const topCustomers = await qa(`
       SELECT u.name, u.email, COUNT(o.id) as orders, COALESCE(SUM(o.total),0) as spent
       FROM orders o JOIN users u ON o.customer_id=u.id
       WHERE o.created_at >= $1::date AND o.created_at < ($2::date + INTERVAL '1 day') AND o.status='delivered'
       GROUP BY u.id, u.name, u.email ORDER BY spent DESC LIMIT 5
     `, [fromDate, toDate]);
+    // subscriptionStats
+    const subStats = await q1(`
+      SELECT
+        COUNT(*) FILTER (WHERE status='active') as active,
+        COUNT(*) FILTER (WHERE status='active' AND current_period_end <= NOW() + INTERVAL '7 days') as expiring_soon
+      FROM subscriptions
+    `, []);
     res.json({
       totals: {
         gmv: parseFloat(totals.gmv||0),
@@ -1721,7 +1739,11 @@ app.get('/api/admin/stats/advanced', auth, role('admin'), async (req, res) => {
         avg_order_value: parseFloat(totals.avg_order_value||0),
         active_customers: parseInt(totals.active_customers||0)
       },
-      daily, byStatus, topBiz, topCustomers
+      dailyRevenue, ordersByStatus, newUsers, topBusinesses, topCustomers,
+      subscriptionStats: {
+        active: parseInt(subStats?.active||0),
+        expiring_soon: parseInt(subStats?.expiring_soon||0)
+      }
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
