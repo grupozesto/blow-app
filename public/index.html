@@ -4951,14 +4951,20 @@ function openProduct(p) {
 
   // ── Precio ──
   const disc = parseInt(p.discount_percent) || 0;
-  const basePrice = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
-  document.getElementById('pp-price-main').textContent = '$ ' + basePrice;
+  let basePrice = disc > 0 ? Math.round(p.price * (1 - disc/100)) : p.price;
+  const _openBpDisc = parseInt(p.blow_plus_discount)||0;
+  const _openUserBP = user && user.blow_plus && (!user.blow_plus_expires || new Date(user.blow_plus_expires) > new Date());
+  const _openStore = allStores.find(s => s.id === (p.biz_id || currentBizId));
+  const _openBizBP = _openStore && _openStore.blow_plus && (!_openStore.blow_plus_expires || new Date(_openStore.blow_plus_expires) > new Date());
+  const _showBP = _openUserBP && _openBizBP && _openBpDisc > 0;
+  const displayPrice = _showBP ? Math.round(basePrice * (1 - _openBpDisc/100)) : basePrice;
+  document.getElementById('pp-price-main').textContent = '$ ' + displayPrice;
   const origEl = document.getElementById('pp-orig-price');
-  origEl.style.display = disc > 0 ? '' : 'none';
-  if (disc > 0) origEl.textContent = '$ ' + p.price;
+  if (_showBP) { origEl.style.display = ''; origEl.textContent = '$ ' + basePrice; }
+  else { origEl.style.display = disc > 0 ? '' : 'none'; if (disc > 0) origEl.textContent = '$ ' + p.price; }
   const badgeEl = document.getElementById('pp-discount-badge');
-  badgeEl.style.display = disc > 0 ? '' : 'none';
-  if (disc > 0) badgeEl.textContent = disc + '% OFF';
+  if (_showBP) { badgeEl.style.display = ''; badgeEl.textContent = '⚡ Blow+ -' + _openBpDisc + '%'; badgeEl.style.background = '#7c3aed'; }
+  else { badgeEl.style.display = disc > 0 ? '' : 'none'; if (disc > 0) { badgeEl.textContent = disc + '% OFF'; badgeEl.style.background = ''; } }
 
   // ── Ingredientes ──
   const ingWrap = document.getElementById('pp-ingredients-wrap');
@@ -5147,7 +5153,13 @@ function ppChangeQty(d) {
 function ppUpdatePrice() {
   if (!ppProduct) return;
   const disc = parseInt(ppProduct.discount_percent)||0;
-  const base = disc > 0 ? Math.round(ppProduct.price * (1 - disc/100)) : ppProduct.price;
+  let base = disc > 0 ? Math.round(ppProduct.price * (1 - disc/100)) : ppProduct.price;
+  // Aplicar descuento Blow+ si corresponde
+  const bpDisc = parseInt(ppProduct.blow_plus_discount)||0;
+  const userIsBP = user && user.blow_plus && (!user.blow_plus_expires || new Date(user.blow_plus_expires) > new Date());
+  const currentStore = allStores.find(s => s.id === (ppProduct.biz_id || currentBizId));
+  const bizIsBP = currentStore && currentStore.blow_plus && (!currentStore.blow_plus_expires || new Date(currentStore.blow_plus_expires) > new Date());
+  if (userIsBP && bizIsBP && bpDisc > 0) base = Math.round(base * (1 - bpDisc/100));
   const delta = Object.values(ppSelections).reduce((sum, grp) =>
     sum + Object.values(grp).reduce((s, v) => s + (v.delta||0), 0), 0);
   const unit = base + delta;
@@ -5192,7 +5204,13 @@ function ppAddToCart() {
     }
   }
   const hasDiscount = ppProduct.discount_percent > 0;
-  const base = hasDiscount ? Math.round(ppProduct.price * (1 - ppProduct.discount_percent/100)) : ppProduct.price;
+  let base = hasDiscount ? Math.round(ppProduct.price * (1 - ppProduct.discount_percent/100)) : ppProduct.price;
+  // Aplicar descuento Blow+ si corresponde
+  const _bpDisc = parseInt(ppProduct.blow_plus_discount)||0;
+  const _userIsBP = user && user.blow_plus && (!user.blow_plus_expires || new Date(user.blow_plus_expires) > new Date());
+  const _currentStore = allStores.find(s => s.id === (ppProduct.biz_id || currentBizId));
+  const _bizIsBP = _currentStore && _currentStore.blow_plus && (!_currentStore.blow_plus_expires || new Date(_currentStore.blow_plus_expires) > new Date());
+  if (_userIsBP && _bizIsBP && _bpDisc > 0) base = Math.round(base * (1 - _bpDisc/100));
   const delta = Object.values(ppSelections).reduce((sum, grp) =>
     sum + Object.values(grp).reduce((s, v) => s + (v.delta||0), 0), 0);
   const finalPrice = base + delta;
