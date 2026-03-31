@@ -418,6 +418,7 @@ async function initDB() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS promo_banners (
@@ -2585,6 +2586,7 @@ app.get('/api/admin/support/conversations', auth, role('admin'), async (req, res
     res.json(convos);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+app.get('/api/admin/support/messages/', auth, role('admin'), async (req, res) => res.json([]));
 app.get('/api/admin/support/messages/:userId', auth, role('admin'), async (req, res) => {
   try {
     await q('UPDATE support_messages SET read_at=NOW() WHERE user_id=$1 AND is_admin=FALSE AND read_at IS NULL', [req.params.userId]);
@@ -2939,4 +2941,95 @@ app.post('/api/orders/:id/verify-payment', auth, async (req, res) => {
     res.json({ status: order.status });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+
+// ── Geocode reverse (GPS → ciudad) ───────────────
+app.get('/api/geocode/reverse', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: 'lat y lng requeridos' });
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`, {
+      headers: { 'User-Agent': 'BlowApp/1.0' }
+    });
+    const data = await r.json();
+    const addr = data.address || {};
+    const city = addr.city || addr.town || addr.village || addr.county || '';
+    const department = addr.state || addr.region || '';
+    res.json({ city, department, display_name: data.display_name || '' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Business registration auth ────────────────────
+app.post('/api/auth/send-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+    const existing = await q1('SELECT id FROM users WHERE email=$1', [email]);
+    if (existing) return res.status(400).json({ error: 'Este email ya está registrado' });
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const id = uuid();
+    await q('DELETE FROM email_verifications WHERE email=$1', [email]);
+    await q('INSERT INTO email_verifications (id,email,code,data,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'15 minutes\')',
+      [id, email, code, JSON.stringify({ type: 'business_register' })]);
+    const resend = require('resend');
+    const r = new resend.Resend(process.env.RESEND_API_KEY);
+    await r.emails.send({
+      from: 'Blow <noreply@blow.uy>',
+      to: email,
+      subject: 'Código de verificación — Blow',
+      html: `<p>Tu código de verificación es: <strong>${code}</strong></p><p>Expira en 15 minutos.</p>`
+    });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/auth/check-verification', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, code]);
+    if (!ver) return res.status(400).json({ error: 'Código inválido o expirado' });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/auth/register-business', async (req, res) => {
+  try {
+    const { business_name, name, email, phone, password, address, city, department, postal_code, description, business_type } = req.body;
+    if (!email || !password || !name || !business_name) return res.status(400).json({ error: 'Faltan campos requeridos' });
+    const existing = await q1('SELECT id FROM users WHERE email=$1', [email]);
+    if (existing) return res.status(400).json({ error: 'Email ya registrado' });
+    const bcrypt = require('bcrypt');
+    const hash = await bcrypt.hash(password, 10);
+    const userId = uuid();
+    const bizId = uuid();
+    await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,\'owner\',$6,$7)',
+      [userId, name, email, phone||'', hash, city||'', department||'']);
+    await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department,description) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [bizId, userId, business_name, business_type||'food', address||'', city||'', department||'', description||'']);
+    // Crear suscripción activa (modo gratuito)
+    const subId = uuid();
+    await q('INSERT INTO subscriptions (id,business_id,owner_id,plan,status,current_period_start,current_period_end) VALUES ($1,$2,$3,\'active\',\'active\',NOW(),NOW()+INTERVAL \'30 days\')',
+      [subId, bizId, userId]);
+    // Limpiar verificación
+    await q('DELETE FROM email_verifications WHERE email=$1', [email]);
+    const token = jwt.sign({ id: userId, role: 'owner', email }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ success: true, token, user: { id: userId, name, email, role: 'owner' }, business: { id: bizId, name: business_name } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Order internal notes ──────────────────────────
+app.patch('/api/orders/:id/internal-notes', auth, role('owner'), async (req, res) => {
+  try {
+    const { internal_notes } = req.body;
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Sin negocio' });
+    await q('UPDATE orders SET internal_notes=$1 WHERE id=$2 AND business_id=$3', [internal_notes||'', req.params.id, biz.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Push notifications (stubs — no bloquean) ─────
+app.get('/api/push/vapid-public-key', (req, res) => res.json({ key: process.env.VAPID_PUBLIC_KEY || '' }));
+app.post('/api/push/subscribe', auth, async (req, res) => res.json({ success: true }));
+app.post('/api/push/unsubscribe', auth, async (req, res) => res.json({ success: true }));
 
