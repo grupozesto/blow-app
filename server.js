@@ -435,6 +435,11 @@ async function initDB() {
       details JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS processed_webhooks (
+      id TEXT PRIMARY KEY,
+      processed_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_processed_webhooks_ts ON processed_webhooks(processed_at);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -822,6 +827,15 @@ if (rateLimit) {
   app.use('/api/auth/', authLimiter);
   app.use('/api/auth/forgot-password', passwordResetLimiter);
   app.use('/api/auth/reset-password', passwordResetLimiter);
+  // Limiter para endpoints públicos pesados (búsqueda y listado de negocios)
+  const publicHeavyLimiter = rateLimit({
+    windowMs: 60 * 1000, max: 30,
+    message: { error: 'Demasiadas búsquedas. Esperá un momento.' },
+    standardHeaders: true, legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+  });
+  app.use('/api/search', publicHeavyLimiter);
+  app.use('/api/businesses', publicHeavyLimiter);
 }
 
 // 🔒 Fallback login rate limiting (works even if express-rate-limit not installed)
@@ -1781,11 +1795,13 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
   if (parseFloat(price) <= 0) return res.status(400).json({ error:'El precio debe ser mayor a cero' });
   if (name.length > 200) return res.status(400).json({ error:'El nombre no puede superar 200 caracteres' });
+  const parsedDiscount = Math.min(100, Math.max(0, parseInt(discount_percent) || 0));
+  if (description && description.length > 1000) return res.status(400).json({ error:'La descripción no puede superar 1000 caracteres' });
   const parsedStock = stock != null ? parseInt(stock) : null;
   if (parsedStock !== null && parsedStock < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
   const id = uuid();
   await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price,discount_percent,is_featured,preparation_time,calories,allergens,ingredients,stock) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
-    [id,b.id,category_id||null,emoji,name.trim(),description,parseFloat(price),parseInt(discount_percent)||0,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,allergens||'',ingredients||'',parsedStock]);
+    [id,b.id,category_id||null,emoji,name.trim(),(description||'').slice(0,1000),parseFloat(price),parsedDiscount,Boolean(is_featured),preparation_time?parseInt(preparation_time):null,calories?parseInt(calories):null,(allergens||'').slice(0,500),(ingredients||'').slice(0,1000),parsedStock]);
   for (let i=0;i<Math.min(photos.length,4);i++) {
     try { const up=await uploadPhoto(photos[i].data,photos[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),id,up.url,up.cloudinary_id,i]); }
     catch(e) { console.error('Photo error:',e.message); }
@@ -1793,7 +1809,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   for (let i=0;i<Math.min(variants.length,50);i++) {
     const v=variants[i];
     await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [uuid(),id,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i,Boolean(v.is_required),Boolean(v.is_multi),parseInt(v.max_selections)||1]);
+      [uuid(),id,(v.group_name||'').slice(0,100),(v.option_name||'').slice(0,100),Math.min(99999,Math.max(-99999,parseFloat(v.price_delta)||0)),i,Boolean(v.is_required),Boolean(v.is_multi),Math.min(20,Math.max(1,parseInt(v.max_selections)||1))]);
   }
   res.status(201).json(await getProductFull(id));
 });
@@ -1804,7 +1820,7 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
   const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants, preparation_time, calories, allergens, stock, available_from, available_until } = req.body;
   if (stock != null && parseInt(stock) < 0) return res.status(400).json({ error:'El stock no puede ser negativo' });
   await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),preparation_time=COALESCE($9,preparation_time),calories=COALESCE($10,calories),allergens=COALESCE($11,allergens),stock=COALESCE($12,stock),available_from=COALESCE($15,available_from),available_until=COALESCE($16,available_until) WHERE id=$13 AND business_id=$14`,
-    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?Math.max(0,parseInt(stock)):null,req.params.pid,b.id,available_from||null,available_until||null]);
+    [name,description!=null?description.slice(0,1000):null,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?Math.min(100,Math.max(0,parseInt(discount_percent))):null,preparation_time!=null?parseInt(preparation_time):null,calories!=null?parseInt(calories):null,allergens!=null?allergens:null,stock!=null?Math.max(0,parseInt(stock)):null,req.params.pid,b.id,available_from||null,available_until||null]);
   if (Array.isArray(photos) && photos.length > 0) {
     const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
     await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
@@ -1819,7 +1835,7 @@ app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req,
     for (let i=0;i<Math.min(variants.length,50);i++) {
       const v=variants[i];
       await q('INSERT INTO product_variants (id,product_id,group_name,option_name,price_delta,sort_order,is_required,is_multi,max_selections) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-        [uuid(),req.params.pid,v.group_name,v.option_name,parseFloat(v.price_delta)||0,i,Boolean(v.is_required),Boolean(v.is_multi),parseInt(v.max_selections)||1]);
+        [uuid(),req.params.pid,(v.group_name||'').slice(0,100),(v.option_name||'').slice(0,100),Math.min(99999,Math.max(-99999,parseFloat(v.price_delta)||0)),i,Boolean(v.is_required),Boolean(v.is_multi),Math.min(20,Math.max(1,parseInt(v.max_selections)||1))]);
     }
   }
   // Update ingredients if provided
@@ -3244,6 +3260,8 @@ app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req,
   const { password }=req.body;
   if (!password||password.length<6) return res.status(400).json({ error:'Mínimo 6 caracteres' });
   await q('UPDATE users SET password=$1, password_changed_at=NOW() WHERE id=$2',[await bcrypt.hash(password,10),req.params.id]);
+  await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+    [uuid(), req.user.id, 'admin_reset_password', req.params.id, JSON.stringify({ admin: req.user.email })]);
   res.json({ success:true });
   } catch(e) { res.status(500).json({ error:'Error interno. Intentá de nuevo.' }); }
 });
@@ -3289,6 +3307,8 @@ app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, 
     if (!w) return res.status(404).json({ error: 'No encontrado' });
     if (w.status !== 'pending') return res.status(400).json({ error: 'Este retiro ya fue procesado' });
     await q("UPDATE withdrawals SET status='completed', processed_at=NOW() WHERE id=$1", [req.params.id]);
+    await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), req.user.id, 'admin_approve_withdrawal', req.params.id, JSON.stringify({ amount: w.amount, owner_id: w.owner_id })]);
     // Notificar al dueño
     notify(w.owner_id, {
       type: 'withdrawal_approved',
@@ -3361,6 +3381,14 @@ app.post('/api/webhooks/mp', async (req, res) => {
     const resourceId = data?.id || id;
     console.log('🔔 WEBHOOK RECEIVED:', JSON.stringify({ type, topic, id, data, resourceId }));
     if (!resourceId || !mp) { console.log('❌ No resourceId or no mp'); return; }
+
+    // ── Idempotencia: evitar procesar el mismo evento dos veces (replay attack) ──
+    const webhookKey = `${type||topic||'payment'}:${resourceId}`;
+    const alreadyProcessed = await q1('SELECT id FROM processed_webhooks WHERE id=$1', [webhookKey]);
+    if (alreadyProcessed) { console.log('⚠️ Webhook ya procesado, ignorando:', webhookKey); return; }
+    await q('INSERT INTO processed_webhooks (id) VALUES ($1) ON CONFLICT DO NOTHING', [webhookKey]);
+    // Limpiar webhooks viejos (>7 días) en 1% de requests
+    if (Math.random() < 0.01) await q("DELETE FROM processed_webhooks WHERE processed_at < NOW() - INTERVAL '7 days'", []);
 
     // ── Preapproval (suscripción recurrente) ────────────────────────────
     if (type === 'subscription_preapproval' || topic === 'preapproval') {
@@ -3686,6 +3714,8 @@ app.post('/api/admin/orders/:id/cancel', auth, role('admin'), async (req, res) =
     // Email notification
     const biz = await q1('SELECT name FROM businesses WHERE id=$1', [order.business_id]);
     sendOrderStatusEmail(order, 'cancelled', biz?.name).catch(() => {});
+    await q('INSERT INTO audit_log (id,admin_id,action,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+      [uuid(), req.user.id, 'admin_cancel_order', req.params.id, JSON.stringify({ reason: reason||'Cancelado por administración', order_total: order.total })]);
     res.json({ success: true });
   } catch(e) { console.error('Admin cancel error:', e.message); res.status(500).json({ error: 'Error interno al cancelar pedido.' }); }
 });
