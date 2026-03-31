@@ -679,6 +679,7 @@ app.post('/api/auth/login', async (req, res) => {
       console.warn(`⚠️  Login fallido: ${emailLow} — IP: ${req.ip}`);
       return res.status(401).json({ error:'Email o contraseña incorrectos' });
     }
+    if (u.banned) return res.status(403).json({ error:'Tu cuenta fue suspendida. Contactá a soporte.' });
     res.json({ token:sign(u), user:{ id:u.id, name:u.name, email:u.email, role:u.role } });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
