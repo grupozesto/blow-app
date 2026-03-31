@@ -3589,7 +3589,7 @@ async function activateAddress(id) {
 }
 
 async function deleteAddress(id) {
-  if (!confirm('¿Eliminar esta dirección?')) return;
+  if (!await showConfirm('¿Eliminar esta dirección?', {title:'Eliminar dirección', confirmLabel:'Eliminar'})) return;
   try {
     await api(`/api/addresses/${id}`, { method:'DELETE' });
     savedAddrs = savedAddrs.filter(a => a.id !== id);
@@ -5213,7 +5213,7 @@ function addToCart(item) {
   if (cart.length > 0 && cart[0].biz_id && item.biz_id && cart[0].biz_id !== item.biz_id) {
     const otherStore = allStores.find(s => s.id === cart[0].biz_id);
     const storeName = otherStore?.name || 'otro negocio';
-    if (!confirm(`Ya tenés productos de "${storeName}" en el carrito.\n\n¿Vaciar el carrito y agregar de este negocio?`)) return;
+    if (!await showConfirm(`Tenés productos de "${storeName}" en el carrito. ¿Vaciarlo y agregar de este negocio?`, {title:"Vaciar carrito", confirmLabel:"Vaciar y agregar"})) return;
     cart = [];
     saveCart();
     updateCartBadge();
@@ -5986,7 +5986,7 @@ async function loadTracking() {
         </div>` : ''}
       </div>`;
     }).join('');
-  } catch(e) { body.innerHTML=`<div class="loading-state">Error: ${e.message}</div>`; }
+  } catch(e) { body.innerHTML=`<div class="loading-state">Ocurrió un error. Intentá de nuevo.</div>`; }
 }
 
 
@@ -6237,7 +6237,7 @@ function renderProfile() {
 }
 
 
-function handleSession() { user ? (confirm(`¿Cerrar sesión de ${user.name}?`) && doLogout()) : openAuth(); }
+function handleSession() { user ? (await showConfirm(`¿Cerrar sesión de ${user.name}?`, {title:'Cerrar sesión', confirmLabel:'Cerrar sesión', danger:false}) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
   // Transición animada antes de ir al portal
   const overlay = document.getElementById('portal-transition');
@@ -6698,7 +6698,7 @@ async function renewSubscription() {
 }
 
 async function cancelSubscription() {
-  if (!confirm('¿Cancelar la suscripción? Tu negocio seguirá activo hasta fin del período actual.')) return;
+  if (!await showConfirm('Tu negocio seguirá activo hasta fin del período actual.', {title:'¿Cancelar suscripción?', confirmLabel:'Sí, cancelar'})) return;
   try {
     await api('/api/subscription/cancel', { method:'POST' });
     showToast('✅ Cancelada. Tu negocio sigue activo hasta fin del período.');
@@ -6870,7 +6870,7 @@ async function toggleProduct(id, current) {
   catch(e) { showToast(`❌ ${e.message}`); }
 }
 async function deleteProduct(id) {
-  if (!confirm('¿Eliminar este producto?')) return;
+  if (!await showConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar producto?', confirmLabel:'Eliminar'})) return;
   try { await api(`/api/businesses/mine/products/${id}`,{method:'DELETE'}); showToast('🗑️ Eliminado'); loadOwnerDash(); }
   catch(e) { showToast(`❌ ${e.message}`); }
 }
@@ -7021,7 +7021,7 @@ async function addSubCategory() {
   } catch(e) { showToast('❌ '+e.message); }
 }
 async function deleteCat(id) {
-  if (!confirm('¿Eliminar esta categoría? Los productos quedarán sin categoría.')) return;
+  if (!await showConfirm('Los productos quedarán sin categoría.', {title:'¿Eliminar categoría?', confirmLabel:'Eliminar'})) return;
   try {
     await api(`/api/businesses/mine/categories/${id}`,{method:'DELETE'});
     ownerCategories = ownerCategories.filter(c=>c.id!==id);
@@ -7320,7 +7320,7 @@ async function loadPromos() {
         </div>
       </div>`;
     }).join('');
-  } catch(e) { el.innerHTML = `<div style="color:red;padding:20px;">Error: ${e.message}</div>`; }
+  } catch(e) { el.innerHTML = `<div style="color:red;padding:20px;">Ocurrió un error. Intentá de nuevo.</div>`; }
 }
 
 function openPromoModal(promo=null) {
@@ -7471,7 +7471,7 @@ async function togglePromo(id, active) {
 }
 
 async function deletePromo(id) {
-  if (!confirm('¿Eliminar esta promoción?')) return;
+  if (!await showConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar promoción?', confirmLabel:'Eliminar'})) return;
   try {
     await api(`/api/businesses/mine/promotions/${id}`, { method:'DELETE' });
     showToast('🗑️ Promoción eliminada');
@@ -7723,7 +7723,7 @@ async function subscribeUserBlowPlus() {
 }
 
 async function cancelUserBlowPlus() {
-  if (!confirm('¿Cancelar Blow+? Seguirás teniendo acceso hasta el vencimiento.')) return;
+  if (!await showConfirm('Seguirás teniendo acceso hasta el vencimiento.', {title:'¿Cancelar Blow+?', confirmLabel:'Sí, cancelar'})) return;
   try {
     await api('/api/user/blow-plus/cancel', { method: 'POST' });
     userBlowPlusActive = false;
@@ -7906,7 +7906,7 @@ async function loadBlowPlus() {
         </div>`;
     }
   } catch(e) {
-    el.innerHTML = `<div style="color:red;padding:20px;">Error: ${e.message}</div>`;
+    el.innerHTML = `<div style="color:red;padding:20px;">Ocurrió un error. Intentá de nuevo.</div>`;
   }
 }
 
@@ -7932,7 +7932,7 @@ async function subscribeBlowPlus() {
 }
 
 async function cancelBlowPlus() {
-  if (!confirm('¿Cancelar Blow+? Tu suscripción seguirá activa hasta la fecha de vencimiento.')) return;
+  if (!await showConfirm('Tu suscripción seguirá activa hasta la fecha de vencimiento.', {title:'¿Cancelar Blow+?', confirmLabel:'Sí, cancelar'})) return;
   try {
     await api('/api/businesses/mine/blow-plus/cancel', { method: 'POST' });
     showToast('✅ Blow+ cancelado. Seguirá activo hasta el vencimiento.');
@@ -8224,7 +8224,7 @@ async function loadAdminReports() {
             </div>`).join('')}
         </div>
       </div>`;
-  } catch(e) { el.innerHTML = `<div style="color:var(--muted);padding:20px;">Error: ${e.message}</div>`; }
+  } catch(e) { el.innerHTML = `<div style="color:var(--muted);padding:20px;">Ocurrió un error. Intentá de nuevo.</div>`; }
 }
 
 function exportCSV(type) {
@@ -8283,20 +8283,25 @@ function renderAdminUsers(users) {
     </div>`).join('');
 }
 async function adminResetPw(id, name) {
-  const newPw = prompt('Nueva contraseña para '+name+' (mín 6 caracteres):');
-  if (!newPw || newPw.length < 6) return;
+  let newPw;
+  try { newPw = await showInputModal({ title: 'Nueva contraseña para ' + name, placeholder: 'Mínimo 6 caracteres', inputType: 'password', confirmLabel: 'Cambiar contraseña' }); }
+  catch { return; }
+  if (!newPw || newPw.length < 6) { showToast('❌ Mínimo 6 caracteres'); return; }
   try { await api('/api/admin/users/'+id+'/reset-password',{method:'POST',body:JSON.stringify({password:newPw})}); showToast('✅ Contraseña actualizada'); }
   catch(e) { showToast('❌ '+e.message); }
 }
 async function adminChangeRole(id, currentRole) {
   const roles = ['customer','owner','delivery'];
-  const next  = prompt('Rol actual: '+currentRole+'\nNuevo rol (customer/owner/delivery):');
-  if (!next || !roles.includes(next) || next === currentRole) return;
+  let next;
+  try { next = await showInputModal({ title: 'Cambiar rol', placeholder: 'customer / owner / delivery', defaultValue: currentRole, confirmLabel: 'Cambiar rol' }); }
+  catch { return; }
+  if (!next || !roles.includes(next.trim().toLowerCase()) || next.trim().toLowerCase() === currentRole) return;
+  next = next.trim().toLowerCase();
   try { await api('/api/admin/users/'+id,{method:'PATCH',body:JSON.stringify({role:next})}); showToast('✅ Rol actualizado a '+next); loadAdminUsers(); }
   catch(e) { showToast('❌ '+e.message); }
 }
 async function adminImpersonate(id, name, role) {
-  if (!confirm('Vas a ver la app como '+name+' ('+role+'). Se abrirá en una nueva pestaña.')) return;
+  if (!await showConfirm(`Ver la app como ${name} (${role}). Se abrirá en una nueva pestaña.`, {title:'Impersonar usuario', confirmLabel:'Abrir', danger:false})) return;
   try {
     const data = await api('/api/admin/impersonate/'+id, {method:'POST'});
     // Abrir nueva pestaña y pasarle el token via postMessage (no en la URL)
@@ -8314,8 +8319,11 @@ async function adminImpersonate(id, name, role) {
 }
 }
 async function adminBanUser(id, ban) {
-  const reason = ban ? (prompt('Motivo del ban (opcional):') || '') : '';
-  if (ban && reason === null) return; // canceló
+  let reason = '';
+  if (ban) {
+    try { reason = await showInputModal({ title: 'Motivo del ban (opcional)', placeholder: 'Dejar vacío si no aplica', confirmLabel: 'Banear usuario' }) || ''; }
+    catch { return; }
+  }
   try {
     await api('/api/admin/users/'+id+'/ban',{method:'POST',body:JSON.stringify({banned:ban,reason})});
     showToast(ban ? '🚫 Usuario baneado' : '✅ Ban removido');
@@ -8323,7 +8331,7 @@ async function adminBanUser(id, ban) {
   } catch(e) { showToast('❌ '+e.message); }
 }
 async function adminDeleteUser(id, name) {
-  if (!confirm('¿Eliminar al usuario '+name+'? Esta acción no se puede deshacer.')) return;
+  if (!await showConfirm(`¿Eliminar al usuario ${name}? Esta acción no se puede deshacer.`, {title:'Eliminar usuario', confirmLabel:'Eliminar'})) return;
   try { await api('/api/admin/users/'+id,{method:'DELETE'}); showToast('✅ Usuario eliminado'); loadAdminUsers(); }
   catch(e) { showToast('❌ '+e.message); }
 }
@@ -8380,18 +8388,19 @@ async function adminToggleOpen(id, isOpen) {
 async function adminEditBiz(id) {
   const biz = adminBizCache.find(b=>b.id===id);
   if (!biz) return;
-  const name = prompt('Nombre:', biz.name);
-  if (name === null) return;
-  const city = prompt('Ciudad:', biz.city||'');
+  let name, city, phone;
+  try { name = await showInputModal({ title: 'Nombre del negocio', defaultValue: biz.name, confirmLabel: 'Siguiente' }); } catch { return; }
+  if (!name) return;
+  try { city = await showInputModal({ title: 'Ciudad', defaultValue: biz.city||'', confirmLabel: 'Siguiente' }); } catch { return; }
   if (city === null) return;
-  const phone = prompt('Teléfono:', biz.phone||'');
+  try { phone = await showInputModal({ title: 'Teléfono', defaultValue: biz.phone||'', confirmLabel: 'Guardar' }); } catch { return; }
   if (phone === null) return;
   try { await api('/api/admin/businesses/'+id,{method:'PATCH',body:JSON.stringify({name,city,phone})}); showToast('✅ Guardado'); loadAdminBusinesses(); }
   catch(e) { showToast('❌ '+e.message); }
 }
 async function adminToggleBlowPlus(id, current, type) {
   const action = current ? 'quitar' : 'activar';
-  if (!confirm(`¿${action.charAt(0).toUpperCase()+action.slice(1)} Blow+ a este ${type==='biz'?'negocio':'usuario'}?`)) return;
+  if (!await showConfirm(`¿${action.charAt(0).toUpperCase()+action.slice(1)} Blow+ a este ${type==='biz'?'negocio':'usuario'}?`, {title:'Blow+', confirmLabel:'Confirmar', danger:false})) return;
   try {
     if (type==='biz') await api('/api/admin/businesses/'+id+'/blow-plus',{method:'PATCH',body:JSON.stringify({blow_plus:!current})});
     else              await api('/api/admin/users/'+id+'/blow-plus',{method:'PATCH',body:JSON.stringify({blow_plus:!current})});
@@ -8399,7 +8408,7 @@ async function adminToggleBlowPlus(id, current, type) {
   } catch(e) { showToast('❌ '+e.message); }
 }
 async function adminDeleteBiz(id, name) {
-  if (!confirm('¿Eliminar el negocio "'+name+'"? Esta acción es irreversible.')) return;
+  if (!await showConfirm(`¿Eliminar el negocio "${name}"? Esta acción es irreversible.`, {title:'Eliminar negocio', confirmLabel:'Eliminar'})) return;
   try { await api('/api/admin/businesses/'+id,{method:'DELETE'}); showToast('✅ Negocio eliminado'); loadAdminBusinesses(); }
   catch(e) { showToast('❌ '+e.message); }
 }
@@ -8444,8 +8453,10 @@ function renderAdminOrders(orders) {
     </div>`).join('');
 }
 async function adminCancelOrder(id) {
-  const reason = prompt('Motivo de la cancelación (se notifica al cliente):');
-  if (reason === null) return;
+  let reason;
+  try { reason = await showInputModal({ title: 'Motivo de cancelación', placeholder: 'Se notifica al cliente (obligatorio)', confirmLabel: 'Cancelar pedido', textarea: true }); }
+  catch { return; }
+  if (!reason?.trim()) { showToast('❌ El motivo es obligatorio'); return; }
   try { await api('/api/admin/orders/'+id+'/cancel',{method:'POST',body:JSON.stringify({reason})}); showToast('✅ Pedido cancelado'); loadAdminOrders(); }
   catch(e) { showToast('❌ '+e.message); }
 }
@@ -8584,16 +8595,18 @@ async function loadAdminWithdrawals() {
         <div class="awc-info">💳 ${w.method==='mercadopago'?'MercadoPago':'Transferencia'}: ${w.destination}<br>📅 ${w.processed_at?new Date(w.processed_at).toLocaleString('es-UY'):'—'}</div>
       </div>`).join('')}
     `;
-  } catch(e) { document.getElementById('admin-withdrawals-list').innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px;">Error: ${e.message}</div>`; }
+  } catch(e) { document.getElementById('admin-withdrawals-list').innerHTML=`<div style="text-align:center;color:var(--muted);padding:20px;">Ocurrió un error. Intentá de nuevo.</div>`; }
 }
 async function approveWithdraw(id) {
-  if (!confirm('¿Confirmar que ya procesaste el pago?')) return;
+  if (!await showConfirm('¿Confirmar que ya procesaste el pago externamente?', {title:'Aprobar retiro', confirmLabel:'Sí, aprobado', danger:false})) return;
   try { await api('/api/admin/withdrawals/'+id+'/approve',{method:'POST'}); showToast('✅ Retiro aprobado'); loadAdminWithdrawals(); }
   catch(e) { showToast('❌ '+e.message); }
 }
 async function rejectWithdraw(id) {
-  const reason = prompt('Motivo del rechazo:');
-  if (reason === null) return;
+  let reason;
+  try { reason = await showInputModal({ title: 'Motivo del rechazo', placeholder: 'Se notifica al dueño', confirmLabel: 'Rechazar retiro' }); }
+  catch { return; }
+  if (!reason?.trim()) { showToast('❌ El motivo es obligatorio'); return; }
   try { await api('/api/admin/withdrawals/'+id+'/reject',{method:'POST',body:JSON.stringify({reason})}); showToast('✅ Retiro rechazado'); loadAdminWithdrawals(); }
   catch(e) { showToast('❌ '+e.message); }
 }
@@ -8633,7 +8646,7 @@ async function createAdminCoupon() {
   } catch(e) { showToast('❌ '+e.message); }
 }
 async function adminDeleteCoupon(id) {
-  if (!confirm('¿Eliminar este cupón?')) return;
+  if (!await showConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar cupón?', confirmLabel:'Eliminar'})) return;
   try { await api('/api/admin/coupons/'+id,{method:'DELETE'}); showToast('✅ Cupón eliminado'); loadAdminCoupons(); }
   catch(e) { showToast('❌ '+e.message); }
 }
@@ -8794,7 +8807,7 @@ function adminUploadBannerImage(id) {
 }
 
 async function adminDeleteBanner(id) {
-  if (!confirm('¿Eliminar este banner? Esta acción no se puede deshacer.')) return;
+  if (!await showConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar banner?', confirmLabel:'Eliminar'})) return;
   try {
     await api('/api/admin/banners/'+id,{method:'DELETE'});
     showToast('✅ Banner eliminado');
@@ -9443,7 +9456,7 @@ function enterOwnerOverlay() {
 function exitOwnerOverlay() {
   if (_ooRefreshInterval) { clearInterval(_ooRefreshInterval); _ooRefreshInterval = null; }
   if (user && user.role === 'owner') {
-    if (!confirm('¿Querés cerrar sesión del portal?')) return;
+    if (!await showConfirm('Vas a cerrar tu sesión del portal.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
     doLogout();
     return;
   }
@@ -9534,7 +9547,7 @@ async function ooLoadData() {
     _ooDashData = d;
     ooRenderHome();
   } catch(e) {
-    if (el) el.innerHTML = `<div style="color:#ef4444;padding:30px;text-align:center;font-size:14px;">Error al cargar: ${e.message}</div>`;
+    if (el) el.innerHTML = `<div style="color:#ef4444;padding:30px;text-align:center;font-size:14px;">Error al cargar. Intentá de nuevo.</div>`;
   }
 }
 
@@ -9796,7 +9809,7 @@ async function ooToggleOpen() {
     if (btn) btn.classList.toggle('on', d.is_open);
     const sub = document.getElementById('oo-toggle-sub');
     if (sub) sub.textContent = d.is_open ? 'Estás recibiendo pedidos' : 'No estás recibiendo pedidos';
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { showToast('❌ Error. Intentá de nuevo.'); }
 }
 
 async function ooRenderOrders() {
@@ -9885,7 +9898,7 @@ async function ooRenderOrders() {
       </div>`;
     }).join('');
   } catch(e) {
-    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Ocurrió un error. Intentá de nuevo.</div>`;
   }
 }
 
@@ -9911,7 +9924,7 @@ function ooCloseRejectModal() {
 }
 
 async function ooUpdateOrder(id, status) {
-  if (status === 'cancelled' && !confirm('¿Cancelar este pedido?')) return;
+  if (status === 'cancelled' && !await showConfirm('Esta acción notificará al cliente.', {title:'¿Cancelar pedido?', confirmLabel:'Cancelar pedido'})) return;
   try {
     if (status === 'cancelled') {
       await ooFetch(`/api/orders/${id}/cancel`, { method:'POST' });
@@ -10066,7 +10079,7 @@ async function ooRenderMenu() {
     });
     el.innerHTML = html;
   } catch(e) {
-    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Ocurrió un error. Intentá de nuevo.</div>`;
   }
 }
 
@@ -10313,7 +10326,7 @@ async function ooToggleProduct(productId, currentlyAvailable) {
       if (p) p.available = !currentlyAvailable;
     }
     ooRenderMenu();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { showToast('❌ Error. Intentá de nuevo.'); }
 }
 
 function ooRenderSettings() {
@@ -10687,7 +10700,7 @@ async function ooSaveHours() {
     setTimeout(() => ooRenderSettings(), 1200);
   } catch(e) {
     btn.textContent = 'Guardar horarios'; btn.disabled = false;
-    alert('Error: ' + e.message);
+    showToast('❌ Error. Intentá de nuevo.');
   }
 }
 
@@ -10731,7 +10744,7 @@ async function ooSaveDelivery() {
     setTimeout(() => ooRenderSettings(), 1200);
   } catch(e) {
     btn.textContent = 'Guardar'; btn.disabled = false;
-    alert('Error: ' + e.message);
+    showToast('❌ Error. Intentá de nuevo.');
   }
 }
 
@@ -10830,7 +10843,7 @@ async function ooSaveEmoji() {
     const headerLogo = document.getElementById('oo-logo');
     if (headerLogo && !_ooBiz?.logo_url) headerLogo.textContent = emoji;
     showToast('✓ Emoji actualizado');
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { showToast('❌ Error. Intentá de nuevo.'); }
 }
 
 // ── PROMOCIONES ────────────────────────────────────────────────
@@ -10869,7 +10882,7 @@ async function ooRenderPromos() {
       }
     `;
   } catch(e) {
-    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+    el.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Ocurrió un error. Intentá de nuevo.</div>`;
   }
 }
 
@@ -10996,7 +11009,7 @@ async function ooSavePromo() {
     ooRenderPromos();
   } catch(e) {
     btn.textContent = 'Crear promoción'; btn.disabled = false;
-    alert('Error: ' + e.message);
+    showToast('❌ Error. Intentá de nuevo.');
   }
 }
 
@@ -11004,15 +11017,15 @@ async function ooTogglePromo(id, isActive) {
   try {
     await ooFetch(`/api/businesses/mine/promotions/${id}`, { method:'PATCH', body:JSON.stringify({ is_active: !isActive }) });
     ooRenderPromos();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { showToast('❌ Error. Intentá de nuevo.'); }
 }
 
 async function ooDeletePromo(id) {
-  if (!confirm('¿Eliminar esta promoción?')) return;
+  if (!await showConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar promoción?', confirmLabel:'Eliminar'})) return;
   try {
     await ooFetch(`/api/businesses/mine/promotions/${id}`, { method:'DELETE' });
     ooRenderPromos();
-  } catch(e) { alert('Error: ' + e.message); }
+  } catch(e) { showToast('❌ Error. Intentá de nuevo.'); }
 }
 
 
@@ -11207,7 +11220,7 @@ async function ooShowStats(period) {
     `;
   } catch(e) {
     const statsEl = document.getElementById('oo-stats-content');
-    if (statsEl) statsEl.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+    if (statsEl) statsEl.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Ocurrió un error. Intentá de nuevo.</div>`;
   }
 }
 
@@ -11259,7 +11272,7 @@ async function ooShowReviews() {
     `;
   } catch(e) {
     const listEl = document.getElementById('oo-reviews-list');
-    if (listEl) listEl.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Error: ${e.message}</div>`;
+    if (listEl) listEl.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">Ocurrió un error. Intentá de nuevo.</div>`;
   }
 }
 
@@ -11344,7 +11357,7 @@ async function ooEnviarNovedad() {
   const ta = document.getElementById('novedad-text');
   const txt = ta?.value?.trim();
   if (!txt) { showToast('Escribí algo antes de publicar'); return; }
-  if (!confirm(`¿Enviar esta novedad a todos tus clientes?\n\n"${txt}"`)) return;
+  if (!await showConfirm(`¿Enviar esta novedad a todos tus clientes? No se puede deshacer.`, {title:"Enviar novedad", confirmLabel:"Enviar", danger:false})) return;
 
   const btn = document.querySelector('[onclick="ooEnviarNovedad()"]');
   if (btn) { btn.textContent = '⏳ Enviando...'; btn.disabled = true; }
@@ -11593,7 +11606,7 @@ async function ooSaveNewAccount() {
 }
 
 async function ooDeleteAccount(id) {
-  if (!confirm('¿Eliminar esta cuenta?')) return;
+  if (!await showConfirm('Esta acción no se puede deshacer.', {title:'¿Eliminar cuenta?', confirmLabel:'Eliminar'})) return;
   try {
     await ooFetch(`/api/bank-accounts/${id}`, { method:'DELETE' });
     _bankAccounts = _bankAccounts.filter(a => a.id !== id);
@@ -11643,7 +11656,7 @@ async function repeatOrder(orderId, bizId) {
     // Si hay carrito de otro negocio, preguntar primero
     if (cart.length > 0 && cart[0].biz_id && cart[0].biz_id !== (bizId || order.business_id)) {
       const otherStore = allStores.find(s => s.id === cart[0].biz_id);
-      if (!confirm(`Ya tenés productos de "${otherStore?.name || 'otro negocio'}" en el carrito.\n\n¿Vaciar el carrito y pedir de nuevo?`)) return;
+      if (!await showConfirm(`Tenés productos de "${otherStore?.name || 'otro negocio'}" en el carrito. ¿Vaciarlo y pedir de aquí?`, {title:'Vaciar carrito', confirmLabel:'Vaciar y pedir'})) return;
       cart = []; saveCart(); updateCartBadge();
     }
     // Open the store
@@ -11936,5 +11949,34 @@ async function loadLastOrderStrip() {
 </div>
 
 </script>
+
+<!-- ══ MODAL PROMPT GENÉRICO (reemplaza prompt() nativo) ══ -->
+<div class="modal-overlay" id="modal-prompt" style="display:none;z-index:9999;" onclick="if(event.target===this)_mpReject()">
+  <div class="modal-box" style="max-width:420px;width:92%;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:800;color:var(--text);" id="mp-title">Ingresá un valor</div>
+      <button onclick="_mpReject()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">×</button>
+    </div>
+    <div id="mp-body" style="margin-bottom:16px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="_mpReject()" style="padding:10px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button id="mp-confirm" onclick="_mpConfirm()" style="padding:10px 18px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ MODAL CONFIRMACIÓN GENÉRICO (reemplaza confirm() nativo) ══ -->
+<div class="modal-overlay" id="modal-confirm" style="display:none;z-index:9999;" onclick="if(event.target===this)_mcReject()">
+  <div class="modal-box" style="max-width:380px;width:92%;">
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;" id="mc-title">¿Confirmar?</div>
+    <div style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5;" id="mc-body"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="_mcReject()" style="padding:10px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;" id="mc-cancel">Cancelar</button>
+      <button onclick="_mcConfirm()" style="padding:10px 18px;border-radius:12px;border:none;background:#ef4444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;" id="mc-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
