@@ -308,6 +308,7 @@ async function initDB() {
     );
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS blow_plus_discount INTEGER DEFAULT 0;
     ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS banner_type TEXT DEFAULT 'hero';
     ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
@@ -906,7 +907,7 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
   const sub = await q1('SELECT * FROM subscriptions WHERE business_id=$1',[b.id]);
   if (!sub || sub.status !== 'active')
     return res.status(403).json({ error:'Tu suscripción está suspendida. Renovála para agregar productos.' });
-  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0 } = req.body;
+  const { name, description='', price, emoji='🍽️', category_id=null, photos=[], variants=[], discount_percent=0, blow_plus_discount=0 } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error:'name y price son obligatorios' });
   const id = uuid();
   await q('INSERT INTO products (id,business_id,category_id,emoji,name,description,price) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -924,9 +925,9 @@ app.post('/api/businesses/mine/products', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine/products/:pid', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, description, price, emoji, is_available, is_featured, discount_percent, category_id, photos, variants } = req.body;
-  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent) WHERE id=$9 AND business_id=$10`,
-    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,req.params.pid,b.id]);
+  const { name, description, price, emoji, is_available, is_featured, discount_percent, blow_plus_discount, category_id, photos, variants } = req.body;
+  await q(`UPDATE products SET name=COALESCE($1,name),description=COALESCE($2,description),price=COALESCE($3,price),emoji=COALESCE($4,emoji),is_available=COALESCE($5,is_available),category_id=COALESCE($6,category_id),is_featured=COALESCE($7,is_featured),discount_percent=COALESCE($8,discount_percent),blow_plus_discount=COALESCE($9,blow_plus_discount) WHERE id=$10 AND business_id=$11`,
+    [name,description,price!=null?parseFloat(price):null,emoji,is_available!=null?Boolean(is_available):null,category_id||null,is_featured!=null?Boolean(is_featured):null,discount_percent!=null?parseInt(discount_percent):null,blow_plus_discount!=null?Math.min(20,Math.max(0,parseInt(blow_plus_discount))):null,req.params.pid,b.id]);
   if (Array.isArray(photos) && photos.length > 0) {
     const old = await qa('SELECT cloudinary_id FROM product_photos WHERE product_id=$1',[req.params.pid]);
     await q('DELETE FROM product_photos WHERE product_id=$1',[req.params.pid]);
@@ -1171,6 +1172,14 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         const v = await q1('SELECT * FROM product_variants WHERE id=$1 AND product_id=$2',[item.variant_id,p.id]);
         if (v) { unitPrice += v.price_delta; variantLabel = `${v.group_name}: ${v.option_name}`; }
       }
+      // Aplicar descuento Blow+ si ambos (usuario y negocio) son Blow+
+      const _ubpCheck = await q1('SELECT blow_plus, blow_plus_expires FROM users WHERE id=$1',[req.user.id]);
+      const _userBPCheck = _ubpCheck && _ubpCheck.blow_plus && (!_ubpCheck.blow_plus_expires || new Date(_ubpCheck.blow_plus_expires) > new Date());
+      const _bizBPCheck = biz.blow_plus && (!biz.blow_plus_expires || new Date(biz.blow_plus_expires) > new Date());
+      if (_userBPCheck && _bizBPCheck && p.blow_plus_discount > 0) {
+        const disc = Math.min(20, Math.max(0, p.blow_plus_discount));
+        unitPrice = parseFloat((unitPrice * (1 - disc/100)).toFixed(2));
+      }
       subtotal += unitPrice * qty;
       lineItems.push({ ...p, quantity:qty, unit_price:unitPrice, variant_label:variantLabel });
     }
@@ -1178,7 +1187,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const userBP = _ubp && _ubp.blow_plus && (!_ubp.blow_plus_expires || new Date(_ubp.blow_plus_expires) > new Date());
     const fulfillment_type = req.body.fulfillment_type || 'delivery';
     const baseFee = fulfillment_type === 'pickup' ? 0 : (biz.custom_delivery_cost ?? biz.delivery_cost ?? 0);
-    const fee = (userBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
+    const bizBP = biz.blow_plus && (!biz.blow_plus_expires || new Date(biz.blow_plus_expires) > new Date());
+    const fee = (userBP && bizBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
     const total=subtotal+fee;
     const _fee=await getPlatformFee();
       const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
@@ -2208,6 +2218,29 @@ app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
 
 
 // ── TOP CUSTOMERS (admin: all app, owner: their business) ──
+// ── Admin: Blow+ members ─────────────────────────
+app.get('/api/admin/blowplus', auth, role('admin'), async (req, res) => {
+  try {
+    const users = await qa(
+      `SELECT u.id, u.name, u.email, u.avatar_url, u.blow_plus_since, u.blow_plus_expires,
+        (SELECT COUNT(*) FROM orders WHERE customer_id=u.id AND status='delivered') as orders,
+        (SELECT COALESCE(SUM(total),0) FROM orders WHERE customer_id=u.id AND status='delivered') as spent
+       FROM users u WHERE u.blow_plus=TRUE ORDER BY u.blow_plus_since DESC`, []);
+    const businesses = await qa(
+      `SELECT b.id, b.name, b.logo_url, b.city, b.category, b.blow_plus_since, b.blow_plus_expires, b.blow_plus_free_delivery,
+        u.name as owner_name, u.email as owner_email,
+        (SELECT COUNT(*) FROM products WHERE business_id=b.id AND blow_plus_discount > 0) as bp_products
+       FROM businesses b JOIN users u ON b.owner_id=u.id
+       WHERE b.blow_plus=TRUE ORDER BY b.blow_plus_since DESC`, []);
+    const stats = {
+      active_users: users.filter(u => !u.blow_plus_expires || new Date(u.blow_plus_expires) > new Date()).length,
+      expired_users: users.filter(u => u.blow_plus_expires && new Date(u.blow_plus_expires) <= new Date()).length,
+      active_businesses: businesses.filter(b => !b.blow_plus_expires || new Date(b.blow_plus_expires) > new Date()).length,
+    };
+    res.json({ users, businesses, stats });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/admin/top-customers', auth, async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   try {
