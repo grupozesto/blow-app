@@ -12,6 +12,12 @@ const { v4: uuid } = require('uuid');
 function safeJson(val, def=[]) { try { return typeof val==='string' ? JSON.parse(val) : (val||def); } catch { return def; } }
 function calcPromoDiscount(promo, items, cartTotal) {
   const now = new Date();
+  // Validar rango horario si está configurado
+  if (promo.time_from && promo.time_until) {
+    const nowUY = new Date(now.toLocaleString('en-US', { timeZone: 'America/Montevideo' }));
+    const hhmm = nowUY.getHours().toString().padStart(2,'0') + ':' + nowUY.getMinutes().toString().padStart(2,'0');
+    if (hhmm < promo.time_from || hhmm > promo.time_until) return 0;
+  }
   if (promo.min_order_amount > 0 && cartTotal < promo.min_order_amount) return 0;
   if (promo.type === 'percent_off') return Math.round(cartTotal * promo.value / 100);
   if (promo.type === 'free_delivery') return 0; // handled in checkout
@@ -83,8 +89,38 @@ wss.on('connection', ws => {
   ws.on('close', () => { if (ws.userId) clients.delete(ws.userId); });
 });
 function notify(userId, payload) {
+  if (!userId) return;
+  // WebSocket en tiempo real
   const ws = clients.get(userId);
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
+  // También buscar en wsClients (Map de Sets)
+  const targets = typeof wsClients !== 'undefined' ? wsClients.get(String(userId)) : null;
+  if (targets) targets.forEach(w => { if (w.readyState === 1) w.send(JSON.stringify(payload)); });
+  // Push notification
+  if (webpush) {
+    q('SELECT endpoint,p256dh,auth FROM push_subscriptions WHERE user_id=$1', [String(userId)])
+      .then(async subs => {
+        if (!subs || !subs.length) return;
+        const notifPayload = JSON.stringify({
+          title: 'Blow',
+          body: payload.message || 'Tenés una notificación',
+          tag: payload.type || 'blow-notif',
+          url: payload.order_id ? `/?order=${payload.order_id}` : '/',
+        });
+        for (const sub of subs) {
+          try {
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              notifPayload
+            );
+          } catch(e) {
+            if (e.statusCode === 410 || e.statusCode === 404) {
+              await q('DELETE FROM push_subscriptions WHERE endpoint=$1', [sub.endpoint]).catch(()=>{});
+            }
+          }
+        }
+      }).catch(() => {});
+  }
 }
 
 // ── PostgreSQL ─────────────────────────────────
@@ -308,6 +344,8 @@ async function initDB() {
     );
 
     ALTER TABLE promotions ADD COLUMN IF NOT EXISTS blow_plus_only BOOLEAN DEFAULT FALSE;
+    ALTER TABLE promotions ADD COLUMN IF NOT EXISTS time_from TEXT DEFAULT NULL;
+    ALTER TABLE promotions ADD COLUMN IF NOT EXISTS time_until TEXT DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS blow_plus_discount INTEGER DEFAULT 0;
     ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS banner_type TEXT DEFAULT 'hero';
     ALTER TABLE promo_banners ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
@@ -418,6 +456,15 @@ async function initDB() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, endpoint)
+    );
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 
@@ -493,6 +540,21 @@ async function deletePhoto(cloudinaryId) {
     try { await cloudinary.uploader.destroy(cloudinaryId); } catch {}
   }
 }
+
+// ── Web Push (VAPID) ─────────────────────────
+let webpush = null;
+try {
+  webpush = require('web-push');
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+  if (vapidPublic && vapidPrivate) {
+    webpush.setVapidDetails('mailto:admin@blow.uy', vapidPublic, vapidPrivate);
+    console.log('✅ Web Push listo');
+  } else {
+    console.warn('⚠️  VAPID keys no configuradas — push notifications desactivadas');
+    webpush = null;
+  }
+} catch(e) { console.warn('⚠️  web-push no instalado'); webpush = null; }
 
 // ── MercadoPago ───────────────────────────────
 let mp = null;
@@ -1552,15 +1614,17 @@ app.post('/api/businesses/mine/promotions', auth, role('owner'), async (req, res
   if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
   const { name, type, value=0, min_order_amount=0, category_id=null,
           combo_products=[], combo_price=0, code=null,
-          requires_code=false, starts_at=null, ends_at=null, blow_plus_only=false } = req.body;
+          requires_code=false, starts_at=null, ends_at=null, blow_plus_only=false,
+          time_from=null, time_until=null } = req.body;
   if (!name || !type) return res.status(400).json({ error:'name y type son requeridos' });
   const id = 'promo-' + uuid().slice(0,8);
   await q(
-    `INSERT INTO promotions (id,business_id,name,type,value,min_order_amount,category_id,combo_products,combo_price,code,requires_code,starts_at,ends_at,blow_plus_only)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    `INSERT INTO promotions (id,business_id,name,type,value,min_order_amount,category_id,combo_products,combo_price,code,requires_code,starts_at,ends_at,blow_plus_only,time_from,time_until)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
     [id,biz.id,name,type,value,min_order_amount,category_id,
      JSON.stringify(combo_products),combo_price,
-     code||null,requires_code,starts_at||null,ends_at||null,blow_plus_only]
+     code||null,requires_code,starts_at||null,ends_at||null,blow_plus_only,
+     time_from||null,time_until||null]
   );
   res.json({ success:true, id });
 });
@@ -3143,8 +3207,27 @@ app.patch('/api/orders/:id/internal-notes', auth, role('owner'), async (req, res
 
 // ── Push notifications (stubs — no bloquean) ─────
 app.get('/api/push/vapid-public-key', (req, res) => res.json({ key: process.env.VAPID_PUBLIC_KEY || '' }));
-app.post('/api/push/subscribe', auth, async (req, res) => res.json({ success: true }));
-app.post('/api/push/unsubscribe', auth, async (req, res) => res.json({ success: true }));
+
+app.post('/api/push/subscribe', auth, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ error: 'Suscripción inválida' });
+    const id = uuid();
+    await q(`INSERT INTO push_subscriptions (id,user_id,endpoint,p256dh,auth)
+      VALUES ($1,$2,$3,$4,$5) ON CONFLICT (user_id,endpoint) DO UPDATE SET p256dh=$4,auth=$5`,
+      [id, req.user.id, endpoint, keys.p256dh, keys.auth]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/push/unsubscribe', auth, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (endpoint) await q('DELETE FROM push_subscriptions WHERE user_id=$1 AND endpoint=$2', [req.user.id, endpoint]);
+    else await q('DELETE FROM push_subscriptions WHERE user_id=$1', [req.user.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
