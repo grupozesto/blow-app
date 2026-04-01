@@ -3178,6 +3178,7 @@ function nav(pageId) {
   if (pageId === 'page-user-blowplus') renderUserBlowPlusPage();
   if (pageId === 'page-help') { try { initHelpPage(); } catch(e) {} }
   if (pageId === 'page-favorites') loadFavorites();
+  if (pageId === 'page-wallet') { if (user?.role === 'customer') loadCustomerWallet(); }
   if (pageId === 'page-terms' || pageId === 'page-privacy') {}
   if (pageId === 'page-tracking') {
     loadTracking();
@@ -5500,7 +5501,7 @@ function renderCheckoutPage() {
   const td = document.getElementById('checkout-total-display');
   if (td) td.textContent = `$${total}`;
   const pb = document.getElementById('checkout-pay-btn');
-  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar · $' + total : '💳 Ir a pagar · $' + total;
+  if (pb) pb.textContent = _chkPayMethod === 'cash' ? '💵 Confirmar · $' + total : _chkPayMethod === 'wallet' ? '💰 Pagar con billetera · $' + total : '💳 Ir a pagar · $' + total;
 
   const tipOptions = [0, 20, 30, 40, 50, 70];
   const isCustomTip = tipAmt > 0 && !tipOptions.includes(tipAmt);
@@ -5555,19 +5556,25 @@ function renderCheckoutPage() {
     <!-- MÉTODO DE PAGO -->
     <div style="margin-top:16px;margin-bottom:14px;">
       <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;">¿Cómo querés pagar?</div>
-      <div style="display:flex;gap:10px;">
-        <div onclick="chkSetPay('mercadopago')" style="flex:1;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div onclick="chkSetPay('mercadopago')" style="flex:1;min-width:120px;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
           <div style="font-size:22px;margin-bottom:6px;">💳</div>
           <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
           <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Tarjeta, saldo, QR</div>
           ${_chkPayMethod==='mercadopago'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
-        <div onclick="chkSetPay('cash')" style="flex:1;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
+        <div onclick="chkSetPay('cash')" style="flex:1;min-width:120px;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
           <div style="font-size:22px;margin-bottom:6px;">💵</div>
           <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo</div>
           <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Pagás al recibir</div>
           ${_chkPayMethod==='cash'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
+        ${(()=>{ const bal=_walletData?parseFloat(_walletData.balance)||0:0; const total=_chkTotal||0; const hasBalance=bal>=total; return `<div onclick="chkSetPay('wallet')" style="flex:1;min-width:120px;background:${_chkPayMethod==='wallet'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='wallet'?'#16a34a':'#e2e8f0'};${!hasBalance?'opacity:.5;pointer-events:none;':''}">
+          <div style="font-size:22px;margin-bottom:6px;">💰</div>
+          <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='wallet'?'#fff':'#0f172a'};">Billetera Blow</div>
+          <div style="font-size:11px;color:${_chkPayMethod==='wallet'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">${hasBalance?'Saldo: $'+bal.toLocaleString('es-UY'):'Saldo insuficiente'}</div>
+          ${_chkPayMethod==='wallet'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+        </div>`; })()}
       </div>
     </div>
 
@@ -5909,6 +5916,13 @@ async function doCheckout() {
       _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
     }
 
+    if (payMethod === 'wallet' && res.wallet) {
+      cart = []; updateCartUI();
+      showToast('✅ Pedido pagado con billetera');
+      await loadCustomerWallet();
+      nav('page-tracking');
+      return;
+    }
     if (payMethod === 'cash' || res.cash) {
       showToast(_chkScheduled ? '📅 ¡Pedido programado! El negocio lo confirmará.' : '✅ ¡Pedido recibido! El negocio lo confirmará pronto.');
       setTimeout(() => nav('page-tracking'), 800);
@@ -6007,12 +6021,19 @@ async function loadTracking() {
         </div>` : ''}
 
         ${o.status === 'rejected' ? `
-        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
-          <div style="font-size:22px;">❌</div>
-          <div>
-            <div style="font-size:13px;font-weight:800;color:#991b1b;">Pedido rechazado por el local</div>
-            <div style="font-size:12px;color:#b91c1c;margin-top:2px;">${o.cancel_reason ? esc(o.cancel_reason) : 'El negocio no pudo aceptar tu pedido.'}${o.payment_method==='mercadopago'?' El reembolso se procesará automáticamente.':''}</div>
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px 14px;margin:10px 0;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:${(o.payment_method==='mercadopago'||o.payment_method==='wallet')&&!o.refunded_at?'10px':'0'}">
+            <div style="font-size:22px;">❌</div>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:#991b1b;">Pedido rechazado por el local</div>
+              <div style="font-size:12px;color:#b91c1c;margin-top:2px;">${o.cancel_reason ? esc(o.cancel_reason) : 'El negocio no pudo aceptar tu pedido.'}</div>
+            </div>
           </div>
+          ${(o.payment_method==='mercadopago'||o.payment_method==='wallet')&&!o.refunded_at ? `
+          <button onclick="requestRefund('${o.id}',${o.total})" style="width:100%;background:#991b1b;color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+            💰 Solicitar reembolso — $${parseFloat(o.total).toLocaleString('es-UY')}
+          </button>` : ''}
+          ${o.refunded_at ? `<div style="font-size:12px;color:#16a34a;font-weight:600;text-align:center;padding:4px;">✅ Reembolso procesado</div>` : ''}
         </div>` : ''}
 
         ${(!isCancelled && !isPending && !isPaid) ? (() => {
