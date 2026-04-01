@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="color-scheme" content="light">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Blow</title>
@@ -38,12 +39,7 @@
   --bg:#0f0f0f;--surface:#1a1a1a;--text:#f0f0f0;--text2:#c0c0c0;--muted:#666;
   --border:#2a2a2a;--shadow:0 1px 6px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--shadow-lg:0 8px 32px rgba(0,0,0,.5);
 }
-@media(prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#0f0f0f;--surface:#1a1a1a;--text:#f0f0f0;--text2:#c0c0c0;--muted:#666;
-    --border:#2a2a2a;--shadow:0 1px 6px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--shadow-lg:0 8px 32px rgba(0,0,0,.5);
-  }
-}
+/* dark mode desactivado */
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{margin:0;padding:0;touch-action:pan-x pan-y;}body{font-family:'Inter',sans-serif;background:#fff;color:var(--text);min-height:100vh;min-height:-webkit-fill-available;overflow-x:hidden;}
 /* iPhone safe area (notch / dynamic island / home bar) */
@@ -865,20 +861,7 @@ body.owner-mode #owner-overlay {
 
 /* ── Dark mode overrides ── */
 [data-theme="dark"] body { background:var(--bg); color:var(--text); }
-@media(prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) body { background:var(--bg); color:var(--text); }
-  :root:not([data-theme="light"]) .page,
-  :root:not([data-theme="light"]) .nav-bar { background:var(--bg); }
-  :root:not([data-theme="light"]) .store-card,
-  :root:not([data-theme="light"]) .prod-card,
-  :root:not([data-theme="light"]) .order-card,
-  :root:not([data-theme="light"]) .mpc,
-  :root:not([data-theme="light"]) .menu-list,
-  :root:not([data-theme="light"]) .menu-item { background:var(--surface); border-color:var(--border); }
-  :root:not([data-theme="light"]) input,
-  :root:not([data-theme="light"]) textarea,
-  :root:not([data-theme="light"]) select { background:var(--surface); color:var(--text); border-color:var(--border); }
-}
+/* dark mode desactivado */
 
 [data-theme="dark"] .page,
 [data-theme="dark"] .nav-bar,
@@ -3137,18 +3120,15 @@ document.addEventListener('visibilitychange', () => {
 function initDarkMode() {
   const saved = localStorage.getItem('blow_theme') || 'auto';
   const valid = ['auto','light','dark'].includes(saved) ? saved : 'auto';
-  applyDarkMode(valid);
+  applyDarkMode('light'); // siempre light
 }
 function applyDarkMode(mode) {
+  // Dark mode desactivado — siempre modo claro
   const html = document.documentElement;
-  if (mode === 'dark')  { html.setAttribute('data-theme','dark'); }
-  else if (mode === 'light') { html.setAttribute('data-theme','light'); }
-  else { html.removeAttribute('data-theme'); } // auto = respects OS
-  localStorage.setItem('blow_theme', mode);
-  // Update chip in profile
+  html.setAttribute('data-theme','light');
+  localStorage.setItem('blow_theme', 'light');
   const chip = document.getElementById('dark-mode-chip');
-  const labels = { auto:'Auto', light:'☀️ Claro', dark:'🌙 Oscuro' };
-  if (chip) chip.textContent = labels[mode] || 'Auto';
+  if (chip) chip.textContent = '☀️ Claro';
 }
 function cycleDarkMode() {
   const current = localStorage.getItem('blow_theme') || 'auto';
