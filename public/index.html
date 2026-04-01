@@ -1395,6 +1395,10 @@ body.owner-mode #owner-overlay {
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
         <div class="mi-text"><span>Favoritos</span></div><span class="mi-arrow">›</span>
       </div>
+      <div class="menu-item" onclick="nav('page-wallet');loadCustomerWallet()" id="wallet-menu-item">
+        <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+        <div class="mi-text"><span>Mi Billetera</span><small id="wallet-balance-label" style="color:#16a34a;font-weight:700;margin-left:4px;"></small></div><span class="mi-arrow">›</span>
+      </div>
       <div class="menu-item" onclick="showToast('👨‍👩‍👧 Próximamente — grupo familiar')">
         <div class="mi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
         <div class="mi-text"><span>Grupo familiar</span><small style="color:var(--primary);font-weight:700;">Nuevo</small></div><span class="mi-arrow">›</span>
@@ -2698,6 +2702,25 @@ body.owner-mode #owner-overlay {
 
 
 <!-- ══ PAGE: FAVORITES ══ -->
+<div class="page page-wrap" id="page-wallet">
+  <div class="page-hdr">
+    <button class="back-btn" onclick="nav('page-profile')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15,18 9,12 15,6"/></svg></button>
+    <span class="page-title">Mi Billetera</span>
+  </div>
+  <div style="padding:20px 16px;">
+    <div style="background:linear-gradient(135deg,#16a34a,#15803d);border-radius:20px;padding:24px;color:#fff;margin-bottom:20px;box-shadow:0 4px 20px rgba(22,163,74,.3);">
+      <div style="font-size:13px;font-weight:600;opacity:.8;margin-bottom:8px;">Saldo disponible</div>
+      <div id="wallet-balance-display" style="font-size:36px;font-weight:900;letter-spacing:-1px;">$0</div>
+      <div style="font-size:12px;opacity:.7;margin-top:4px;">Solo para pedidos en Blow</div>
+    </div>
+    <button onclick="openLoadWallet()" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px;">
+      💳 Cargar saldo
+    </button>
+    <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:12px;">Historial de movimientos</div>
+    <div id="wallet-transactions"><div style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Cargando...</div></div>
+  </div>
+</div>
+
 <div class="page page-wrap" id="page-favorites">
   <div class="page-hdr" style="display:flex;align-items:center;gap:12px;">
     <button class="back-btn-inline" onclick="nav('page-profile')" style="flex-shrink:0;">
@@ -11835,6 +11858,90 @@ async function repeatOrder(orderId, bizId) {
 // ═══════════════════════════════════════════
 // FAVORITOS
 // ═══════════════════════════════════════════
+// ══════════════════════════════════════════════
+// BILLETERA CLIENTE
+// ══════════════════════════════════════════════
+let _walletData = null;
+
+async function loadCustomerWallet() {
+  if (!user || user.role !== 'customer') return;
+  try {
+    const data = await api('/api/customer/wallet');
+    _walletData = data;
+    const balance = parseFloat(data.balance) || 0;
+    const balEl = document.getElementById('wallet-balance-display');
+    if (balEl) balEl.textContent = '$' + balance.toLocaleString('es-UY');
+    const labelEl = document.getElementById('wallet-balance-label');
+    if (labelEl) labelEl.textContent = balance > 0 ? '$' + balance.toLocaleString('es-UY') : '';
+    const badgeEl = document.getElementById('wallet-badge-quick');
+    if (badgeEl) { badgeEl.textContent = '$' + balance.toLocaleString('es-UY'); badgeEl.style.display = balance > 0 ? '' : 'none'; }
+    const txEl = document.getElementById('wallet-transactions');
+    if (txEl) {
+      if (!data.transactions || !data.transactions.length) {
+        txEl.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Sin movimientos aún</div>';
+      } else {
+        txEl.innerHTML = data.transactions.map(tx => {
+          const isCredit = tx.type === 'credit';
+          const date = new Date(tx.created_at).toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit', year:'numeric' });
+          return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="width:36px;height:36px;border-radius:10px;background:${isCredit?'#f0fdf4':'#fff5f5'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${isCredit?'💰':'💸'}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(tx.description||'Movimiento')}</div>
+              <div style="font-size:11px;color:#94a3b8;">${date}</div>
+            </div>
+            <div style="font-size:15px;font-weight:800;color:${isCredit?'#16a34a':'#ef4444'};">${isCredit?'+':'-'}$${parseFloat(tx.amount).toLocaleString('es-UY')}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch(e) { console.error('loadCustomerWallet:', e.message); }
+}
+
+async function openLoadWallet() {
+  const amountStr = prompt('¿Cuánto querés cargar? (mínimo $50)');
+  if (!amountStr) return;
+  const amount = parseFloat(amountStr);
+  if (!amount || amount < 50) { showToast('Monto mínimo $50'); return; }
+  try {
+    const data = await api('/api/customer/wallet/load', { method: 'POST', body: JSON.stringify({ amount }) });
+    if (data.demo) { showToast('✅ Saldo cargado (modo demo)'); loadCustomerWallet(); return; }
+    if (data.payment?.init_point) window.location.href = data.payment.init_point;
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
+async function requestRefund(orderId, orderTotal) {
+  if (!user || user.role !== 'customer') return;
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML = `<div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 20px 40px;width:100%;max-width:480px;">
+    <div style="font-size:18px;font-weight:900;color:#0f172a;margin-bottom:6px;">¿Cómo querés el reembolso?</div>
+    <div style="font-size:14px;color:#64748b;margin-bottom:20px;">Monto: <strong>$${parseFloat(orderTotal).toLocaleString('es-UY')}</strong></div>
+    <button onclick="confirmRefund('${orderId}','wallet');this.closest('.refund-modal').remove()" class="refund-opt-btn" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">
+      ⚡ Instantáneo — a mi billetera Blow
+    </button>
+    <button onclick="confirmRefund('${orderId}','bank');this.closest('.refund-modal').remove()" style="width:100%;background:#f1f5f9;color:#334155;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;">
+      🏦 Al banco — 1 a 3 días hábiles
+    </button>
+    <button onclick="this.closest('.refund-modal').remove()" style="width:100%;background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;font-family:inherit;padding:8px;">Cancelar</button>
+  </div>`;
+  modal.classList.add('refund-modal');
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+async function confirmRefund(orderId, method) {
+  try {
+    await api(`/api/orders/${orderId}/refund`, { method: 'POST', body: JSON.stringify({ method }) });
+    if (method === 'wallet') {
+      showToast('💰 Reembolso acreditado en tu billetera');
+      loadCustomerWallet();
+    } else {
+      showToast('🏦 Reembolso solicitado — llegará en 1-3 días hábiles');
+    }
+    loadOrders();
+  } catch(e) { showToast('❌ ' + e.message); }
+}
+
 async function loadFavorites() {
   const body = document.getElementById('favorites-body');
   if (!body) return;
