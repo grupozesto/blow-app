@@ -267,6 +267,7 @@ async function initDB() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percent INTEGER DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_type TEXT DEFAULT 'delivery';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'cash';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_init_point TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
@@ -404,12 +405,12 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     -- Eliminar FK de sender_id si existe (por upgrades anteriores)
-
+    ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey;
 
     CREATE TABLE IF NOT EXISTS support_messages (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-      sender_id TEXT,
+      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE,
       body TEXT NOT NULL,
       is_admin BOOLEAN DEFAULT FALSE,
       read_at TIMESTAMPTZ DEFAULT NULL,
@@ -1335,8 +1336,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       return res.json({ order_id: orderId, wallet: true });
     }
 
-    // Solo crear preferencia MP si el cliente eligió pagar online
-    if (payment_method === 'mercadopago' && mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
+    if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
       const pref = await mp.preferences.create({
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
         payer: { name:cust.name,email:cust.email },
@@ -1345,13 +1345,14 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         auto_return:'approved',
         notification_url:`${APP_URL}/api/webhooks/mp`,
       });
+      // Guardar init_point en DB para poder reintentar el pago desde tracking
+      await q('UPDATE orders SET mp_init_point=$1 WHERE id=$2', [pref.body.init_point, orderId]).catch(()=>{});
       res.json({ order_id:orderId,payment:{ id:pref.body.id,init_point:pref.body.init_point } });
     } else {
-      // Efectivo o sin MP configurado: confirmar directo
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
-      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido en efectivo #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
-      notify(req.user.id,{ type:'status_change',message:'✅ Pedido recibido',status:'confirmed',order_id:orderId });
-      res.json({ order_id:orderId,cash:true });
+      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido confirmado #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total });
+      notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
+      res.json({ order_id:orderId,demo:true });
     }
   } catch(e) { console.error(e); res.status(500).json({ error:e.message }); }
 });
@@ -1397,16 +1398,37 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
 });
 
 app.post('/api/orders/:id/cancel', auth, async (req, res) => {
-  const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
-  if (!order) return res.status(404).json({ error:'No encontrado' });
-  if (!['pending','confirmed','paid'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
-  if (req.user.role==='customer'&&order.customer_id!==req.user.id) return res.status(403).json({ error:'No es tu pedido' });
-  const reason = req.body?.reason || '';
-  await q("UPDATE orders SET status='cancelled',cancel_reason=$2,updated_at=NOW() WHERE id=$1",[order.id, reason]);
-  const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
-  if (biz) notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
-  notify(order.customer_id,{ type:'order_cancelled',message:`❌ Tu pedido fue cancelado`,order_id:order.id });
-  res.json({ success:true });
+  try {
+    const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
+    if (!order) return res.status(404).json({ error:'No encontrado' });
+    if (!['pending','confirmed','paid'].includes(order.status)) return res.status(400).json({ error:'No se puede cancelar' });
+    if (req.user.role==='customer'&&order.customer_id!==req.user.id) return res.status(403).json({ error:'No es tu pedido' });
+    const reason = req.body?.reason || '';
+    await q("UPDATE orders SET status='cancelled',cancel_reason=$2,updated_at=NOW() WHERE id=$1",[order.id, reason]);
+    // Si el pedido fue pagado (MP o billetera), reembolsar automáticamente
+    if (order.status === 'paid') {
+      if (order.payment_method === 'wallet') {
+        // Reembolso a billetera inmediato
+        const wallet = await getWallet(order.customer_id, 'customer');
+        await credit(order.customer_id, 'customer', order.total, `Reembolso pedido #${order.id.slice(-6).toUpperCase()}`, order.id);
+        await q("UPDATE orders SET refund_method='wallet',refunded_at=NOW() WHERE id=$1", [order.id]);
+        notify(order.customer_id, { type:'refund', message:`💰 Reembolso de $${order.total} acreditado en tu billetera`, order_id:order.id });
+      } else if (order.payment_method === 'mercadopago' && order.mp_payment_id && mp) {
+        // Reembolso via MP (best-effort)
+        try {
+          await mp.payment.refund(order.mp_payment_id);
+          await q("UPDATE orders SET refund_method='mercadopago',refunded_at=NOW() WHERE id=$1", [order.id]);
+          notify(order.customer_id, { type:'refund', message:`💳 Reembolso de $${order.total} procesado. Puede demorar 1-3 días hábiles.`, order_id:order.id });
+        } catch(refundErr) {
+          console.error('MP refund error:', refundErr.message);
+        }
+      }
+    }
+    const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
+    if (biz) notify(biz.owner_id,{ type:'order_cancelled',message:`❌ Pedido cancelado`,order_id:order.id });
+    notify(order.customer_id,{ type:'order_cancelled',message:`❌ Tu pedido fue cancelado`,order_id:order.id });
+    res.json({ success:true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Endpoint reject para panel de negocio (owner rechaza un pedido pendiente/paid)
