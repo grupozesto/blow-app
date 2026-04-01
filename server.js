@@ -277,6 +277,7 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_mp_id TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS blow_plus_free_delivery BOOLEAN DEFAULT FALSE;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus BOOLEAN DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_since TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS blow_plus_expires TIMESTAMPTZ DEFAULT NULL;
@@ -961,9 +962,9 @@ app.get('/api/businesses/mine/dashboard', auth, role('owner'), async (req, res) 
 app.patch('/api/businesses/mine', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'No tenés ningún negocio' });
-  const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department } = req.body;
-  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE owner_id=$12`,
-    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id]);
+  const { name, category, address, phone, logo_emoji, delivery_cost, is_open, plan, delivery_time, city, department, schedule } = req.body;
+  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department),schedule=COALESCE($13,schedule) WHERE owner_id=$12`,
+    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.user.id,schedule?JSON.stringify(schedule):null]);
   res.json(await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]));
 });
 
@@ -3315,10 +3316,69 @@ app.post('/api/orders/:id/refund', auth, role('customer'), async (req, res) => {
 
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
+
+// ── Cron: auto abrir/cerrar negocios según horario ────────────────────────
+function checkBusinessSchedules() {
+  const now = new Date();
+  // Hora en Uruguay (UTC-3)
+  const uy = new Date(now.toLocaleString('en-US', { timeZone: 'America/Montevideo' }));
+  const dayKeys = ['sun','mon','tue','wed','thu','fri','sat'];
+  const dayKey = dayKeys[uy.getDay()];
+  const currentMinutes = uy.getHours() * 60 + uy.getMinutes();
+
+  function inRange(open, close) {
+    const [oh, om] = open.split(':').map(Number);
+    const [ch, cm] = close.split(':').map(Number);
+    const openMin = oh * 60 + om;
+    const closeMin = ch * 60 + cm;
+    if (closeMin <= openMin) {
+      // Franja que cruza medianoche
+      return currentMinutes >= openMin || currentMinutes < closeMin;
+    }
+    return currentMinutes >= openMin && currentMinutes < closeMin;
+  }
+
+  q('SELECT id, is_open, schedule FROM businesses WHERE schedule IS NOT NULL')
+    .then(rows => {
+      for (const biz of rows) {
+        let sched;
+        try { sched = typeof biz.schedule === 'string' ? JSON.parse(biz.schedule) : biz.schedule; }
+        catch(_) { continue; }
+        const day = sched[dayKey];
+        if (!day) continue;
+
+        let shouldBeOpen = false;
+
+        // Franja mañana
+        if (day.morning?.enabled) {
+          shouldBeOpen = shouldBeOpen || inRange(day.morning.open || '09:00', day.morning.close || '13:00');
+        }
+        // Franja noche
+        if (day.night?.enabled) {
+          shouldBeOpen = shouldBeOpen || inRange(day.night.open || '19:00', day.night.close || '23:00');
+        }
+        // Compatibilidad con formato viejo (una sola franja)
+        if (!day.morning && !day.night && day.enabled) {
+          shouldBeOpen = inRange(day.open || '09:00', day.close || '21:00');
+        }
+
+        if (shouldBeOpen !== biz.is_open) {
+          q('UPDATE businesses SET is_open=$1 WHERE id=$2', [shouldBeOpen, biz.id])
+            .then(() => console.log(`⏰ ${biz.id.slice(-6)}: ${shouldBeOpen ? 'abierto' : 'cerrado'} automáticamente`))
+            .catch(e => console.error('Schedule update error:', e.message));
+        }
+      }
+    })
+    .catch(e => console.error('Schedule check error:', e.message));
+}
+
 // ── Start ─────────────────────────────────────
 initDB().then(()=>{
   server.listen(PORT,()=>{
     console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
+    // Cron de horarios: ejecutar cada minuto
+    setInterval(checkBusinessSchedules, 60 * 1000);
+    checkBusinessSchedules(); // ejecutar al arrancar también
     console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
     console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
     console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
