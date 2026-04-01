@@ -1159,7 +1159,7 @@ function renderHome(){
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:14px;font-weight:900;color:#0f172a;">$${Math.round(parseFloat(o.total)||0)}</span>
-              <button onclick="event.stopPropagation();updateOrder(${o.id},'confirmed')" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">Aceptar</button>
+              <button onclick="event.stopPropagation();updateOrder('${o.id}','confirmed')" style="background:#1e40af;color:#fff;border:none;border-radius:8px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">Aceptar</button>
             </div>
           </div>`;
         }).join('')}
@@ -1406,10 +1406,10 @@ function renderOrderCard(o,compact=false){
     ${internalNotesField}`:``}
     ${next?`<div style="display:flex;gap:8px;">
       <button onclick="updateOrder('${o.id}','${next.next}')" style="flex:1;background:var(--primary);border:none;border-radius:10px;padding:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">${next.label}</button>
-      <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\'")}')" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">💬</button>
+      <button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,'&#39;')}')" style="background:rgba(59,130,246,.15);border:none;border-radius:10px;padding:10px 13px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;">💬</button>
       <button onclick="printTicket(${JSON.stringify(o).replace(/'/g,'&#39;')})" style="background:rgba(255,255,255,.08);border:none;border-radius:10px;padding:10px 13px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;" title="Imprimir ticket">🖨️\ufe0f</button>
       <button onclick="updateOrder('${o.id}','cancelled')" style="background:rgba(239,68,68,.15);border:none;border-radius:10px;padding:10px 13px;color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;">\u2715</button>
-    </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,"\\'")}')" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">💬 Ver chat</button>`}
+    </div>`:`<button onclick="openChat('${o.id}','${(o.customer_name||'Cliente').replace(/'/g,'&#39;')}')" style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">💬 Ver chat</button>`}
   </div>`;
 }
 // ════════ ORDERS TAB ════════
