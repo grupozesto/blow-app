@@ -1009,7 +1009,7 @@ body.owner-mode #owner-overlay {
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)" onfocus="showRecentSearches()" onblur="setTimeout(hideRecentSearches,200)" onkeydown="if(event.key==='Enter'){saveRecentSearch(this.value);doServerSearch(this.value);this.blur();}">
-      <button class="sbtn" onclick="const v=document.getElementById('search-input').value;saveRecentSearch(v);doServerSearch(v)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      <button class="sbtn" onclick="hideRecentSearches();const v=document.getElementById('search-input').value;saveRecentSearch(v);doServerSearch(v)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
     <div id="recent-searches-panel" style="display:none;position:absolute;left:14px;right:14px;top:calc(100% - 8px);background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:200;overflow:hidden;"></div>
   </div>
