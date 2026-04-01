@@ -2894,28 +2894,72 @@ body.owner-mode #owner-overlay {
 <div class="loc-overlay" id="loc-modal">
   <div class="loc-sheet">
     <div class="loc-handle"></div>
-    <div class="loc-title">📍 ¿Dónde estás?</div>
-    <div class="loc-sub">Vamos a mostrarte solo los negocios que hacen delivery en tu zona.</div>
 
-    <!-- Mis direcciones guardadas -->
-    <div id="saved-addresses-section" style="display:none;">
-      <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">Mis direcciones</div>
-      <div class="addr-list" id="addr-list"></div>
-      <button class="add-addr-btn" onclick="showAddAddress()">+ Agregar nueva dirección</button>
-      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
-    </div>
-
-    <!-- GPS only -->
-    <div id="add-address-section">
+    <!-- Vista principal: mis direcciones -->
+    <div id="loc-view-main">
+      <div class="loc-title">📍 ¿Dónde estás?</div>
+      <div class="loc-sub">Vamos a mostrarte solo los negocios que hacen delivery en tu zona.</div>
+      <div id="saved-addresses-section" style="display:none;">
+        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;">Mis direcciones</div>
+        <div class="addr-list" id="addr-list"></div>
+        <button class="add-addr-btn" onclick="showAddAddressForm()">+ Agregar nueva dirección</button>
+        <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+      </div>
       <button class="loc-gps-btn" id="gps-btn" onclick="detectGPS()">
         <span>📡</span> Detectar mi ubicación
       </button>
       <div class="loc-status" id="gps-status"></div>
-      <!-- hidden inputs kept for saveAddress() compatibility -->
+    </div>
+
+    <!-- Vista formulario: agregar dirección -->
+    <div id="loc-view-form" style="display:none;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <button onclick="showLocViewMain()" style="background:none;border:none;cursor:pointer;padding:4px;font-size:20px;line-height:1;">←</button>
+        <div class="loc-title" style="margin:0;">Nueva dirección</div>
+      </div>
+
+      <!-- Detectar ciudad con GPS -->
+      <button class="loc-gps-btn" id="gps-btn-form" onclick="detectGPSForForm()" style="margin-bottom:14px;">
+        <span>📡</span> Detectar mi ubicación
+      </button>
+      <div class="loc-status" id="gps-status-form" style="margin-bottom:12px;"></div>
+
+      <!-- Campos del formulario -->
+      <div style="display:grid;gap:10px;margin-bottom:16px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Ciudad / Localidad *</label>
+          <input id="loc-city" type="text" placeholder="Ej: Mercedes" class="form-input" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;background:#fff;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Calle</label>
+          <input id="loc-street" type="text" placeholder="Ej: Av. 18 de Julio" class="form-input" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;background:#fff;box-sizing:border-box;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Número</label>
+            <input id="loc-number" type="text" placeholder="Ej: 1234" class="form-input" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;background:#fff;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Apto / Piso</label>
+            <input id="loc-apt" type="text" placeholder="Ej: Apto 3B" class="form-input" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;background:#fff;box-sizing:border-box;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Referencias (opcional)</label>
+          <input id="loc-refs" type="text" placeholder="Ej: Portón verde, timbre 3" class="form-input" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;background:#fff;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Nombre de la dirección</label>
+          <input id="loc-label" type="text" placeholder="Ej: Mi casa, Trabajo, Casa de mamá" class="form-input" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;background:#fff;box-sizing:border-box;" value="Mi casa">
+        </div>
+      </div>
+      <!-- Inputs ocultos para compatibilidad -->
       <input type="hidden" id="loc-full-address" value="">
-      <input type="hidden" id="loc-city" value="">
       <input type="hidden" id="loc-dept" value="">
-      <input type="hidden" id="loc-label" value="Mi ubicación">
+
+      <button onclick="saveAddressFromForm()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+        📍 Guardar dirección
+      </button>
     </div>
   </div>
 </div>
@@ -3462,9 +3506,84 @@ function renderSavedAddresses() {
     </div>`).join('');
 }
 
-function showAddAddress() {
-  document.getElementById('add-address-section').style.display = 'block';
+function showAddAddressForm() {
+  document.getElementById('loc-view-main').style.display = 'none';
+  document.getElementById('loc-view-form').style.display = 'block';
+  // Limpiar campos
+  ['loc-city','loc-street','loc-number','loc-apt','loc-refs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('loc-label').value = 'Mi casa';
   document.getElementById('loc-city').focus();
+}
+
+function showLocViewMain() {
+  document.getElementById('loc-view-form').style.display = 'none';
+  document.getElementById('loc-view-main').style.display = 'block';
+}
+
+// GPS para el formulario (detecta ciudad pero no guarda automáticamente)
+async function detectGPSForForm() {
+  const btn = document.getElementById('gps-btn-form');
+  const status = document.getElementById('gps-status-form');
+  if (!navigator.geolocation) { status.textContent = '❌ GPS no disponible'; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Detectando...';
+  status.textContent = '';
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      status.textContent = '⏳ Identificando ciudad...';
+      const geo = await geocodeCoords(lat, lng);
+      btn.disabled = false;
+      btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
+      if (!geo || !geo.city) { status.textContent = '⚠️ No pudimos detectar la ciudad. Ingresala manualmente.'; return; }
+      document.getElementById('loc-city').value = geo.city;
+      document.getElementById('loc-dept').value = geo.dept || '';
+      if (geo.street && !document.getElementById('loc-street').value) {
+        document.getElementById('loc-street').value = geo.street;
+      }
+      document.getElementById('gps-btn-form').dataset.lat = lat;
+      document.getElementById('gps-btn-form').dataset.lng = lng;
+      status.textContent = `✅ Ciudad detectada: ${geo.city}`;
+    },
+    (err) => {
+      btn.disabled = false;
+      btn.innerHTML = '<span>📡</span> Detectar mi ubicación';
+      status.textContent = '❌ No se pudo detectar la ubicación.';
+    },
+    { timeout: 10000, enableHighAccuracy: false }
+  );
+}
+
+async function saveAddressFromForm() {
+  const city = document.getElementById('loc-city').value.trim();
+  if (!city) { showToast('Ingresá la ciudad'); document.getElementById('loc-city').focus(); return; }
+  const street = document.getElementById('loc-street').value.trim();
+  const number = document.getElementById('loc-number').value.trim();
+  const apt = document.getElementById('loc-apt').value.trim();
+  const refs = document.getElementById('loc-refs').value.trim();
+  const label = document.getElementById('loc-label').value.trim() || 'Mi casa';
+  const dept = document.getElementById('loc-dept').value.trim();
+  const lat = parseFloat(document.getElementById('gps-btn-form').dataset?.lat) || null;
+  const lng = parseFloat(document.getElementById('gps-btn-form').dataset?.lng) || null;
+
+  // Armar dirección completa
+  let fullParts = [];
+  if (street) fullParts.push(street);
+  if (number) fullParts.push(number);
+  if (apt) fullParts.push(apt);
+  if (refs) fullParts.push(`(${refs})`);
+  const full = fullParts.length ? fullParts.join(' ') + ', ' + city : city;
+
+  document.getElementById('loc-full-address').value = full;
+  document.getElementById('loc-city').value = city;
+  document.getElementById('loc-dept').value = dept;
+  document.getElementById('loc-label').value = label;
+
+  await saveAddress();
+  showLocViewMain();
 }
 
 // Geocoding con 3 niveles de fallback
@@ -5433,6 +5552,7 @@ function renderCart() {
 }
 
 // ── Estado del checkout ──────────────────────────
+let _walletData = null; // datos de billetera del cliente
 let _chkPayMethod = 'mercadopago'; // 'mercadopago' | 'cash'
 let _chkTip = 0;
 let _chkPriority = false;
@@ -5499,10 +5619,14 @@ function calcCheckoutTotal() {
   return Math.max(0, sub + fee + priorityFee + (_chkTip||0) - promoDisc);
 }
 
-function renderCheckoutPage() {
+async function renderCheckoutPage() {
   const body = document.getElementById('checkout-body');
   if (!body) return;
   if (!cart.length) { body.innerHTML='<div style="text-align:center;padding:40px 20px;color:#94a3b8;font-size:15px;">Tu carrito está vacío.</div>'; return; }
+  // Cargar datos de billetera en background si no están
+  if (!_walletData && user?.role === 'customer') {
+    try { const d = await api('/api/customer/wallet'); _walletData = d; } catch(_) {}
+  }
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
   const hasPickup   = store?.offers_pickup === true;
   const hasDelivery = store?.offers_delivery !== false;
@@ -11861,7 +11985,6 @@ async function repeatOrder(orderId, bizId) {
 // ══════════════════════════════════════════════
 // BILLETERA CLIENTE
 // ══════════════════════════════════════════════
-let _walletData = null;
 
 async function loadCustomerWallet() {
   if (!user || user.role !== 'customer') return;
