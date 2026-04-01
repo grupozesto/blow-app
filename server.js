@@ -406,6 +406,14 @@ async function initDB() {
     );
     -- Eliminar FK de sender_id si existe (por upgrades anteriores)
     ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey;
+    ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_order_id_fkey;
+    ALTER TABLE order_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ DEFAULT NULL;
+    -- Re-crear FK de order_id de forma segura
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='order_messages_order_id_fkey') THEN
+        ALTER TABLE order_messages ADD CONSTRAINT order_messages_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
+      END IF;
+    END $$;
 
     CREATE TABLE IF NOT EXISTS support_messages (
       id TEXT PRIMARY KEY,
@@ -1336,7 +1344,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       return res.json({ order_id: orderId, wallet: true });
     }
 
-    if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
+    // Solo crear preferencia MP si el cliente eligió pagar online
+    if (payment_method === 'mercadopago' && mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
       const pref = await mp.preferences.create({
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
         payer: { name:cust.name,email:cust.email },
@@ -1349,10 +1358,11 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       await q('UPDATE orders SET mp_init_point=$1 WHERE id=$2', [pref.body.init_point, orderId]).catch(()=>{});
       res.json({ order_id:orderId,payment:{ id:pref.body.id,init_point:pref.body.init_point } });
     } else {
+      // Efectivo: confirmar directo sin pasar por MP
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
-      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido confirmado #${orderId.slice(-6).toUpperCase()}`,order_id:orderId,total });
-      notify(req.user.id,{ type:'status_change',message:'✅ Pedido confirmado (modo demo)',status:'confirmed',order_id:orderId });
-      res.json({ order_id:orderId,demo:true });
+      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido en efectivo #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
+      notify(req.user.id,{ type:'status_change',message:'✅ Pedido recibido',status:'confirmed',order_id:orderId });
+      res.json({ order_id:orderId,cash:true });
     }
   } catch(e) { console.error(e); res.status(500).json({ error:e.message }); }
 });
