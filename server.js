@@ -451,13 +451,22 @@ async function initDB() {
 
     CREATE TABLE IF NOT EXISTS bank_accounts (
       id TEXT PRIMARY KEY,
-      owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-      bank_name TEXT NOT NULL,
-      account_type TEXT NOT NULL,
-      account_number TEXT NOT NULL,
-      holder_name TEXT NOT NULL,
+      owner_id TEXT,
+      label TEXT,
+      method TEXT,
+      destination TEXT,
+      is_default BOOLEAN DEFAULT FALSE,
+      bank_name TEXT,
+      account_type TEXT,
+      account_number TEXT,
+      holder_name TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_owner_id_fkey;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS label TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS method TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS destination TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE;
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_method TEXT DEFAULT NULL;
@@ -3055,11 +3064,14 @@ app.get('/api/bank-accounts', auth, role('owner'), async (req, res) => {
 });
 app.post('/api/bank-accounts', auth, role('owner'), async (req, res) => {
   try {
-    const { bank_name, account_type, account_number, holder_name } = req.body;
+    const { label, method, destination, is_default, bank_name, account_type, account_number, holder_name } = req.body;
     const id = uuid();
-    await q('INSERT INTO bank_accounts (id,owner_id,bank_name,account_type,account_number,holder_name) VALUES ($1,$2,$3,$4,$5,$6)',
-      [id, req.user.id, bank_name, account_type, account_number, holder_name]);
-    res.json({ id });
+    const lbl = label || holder_name || 'Cuenta';
+    const mth = method || account_type || 'transferencia';
+    const dst = destination || account_number || '';
+    await q('INSERT INTO bank_accounts (id,owner_id,label,method,destination,is_default,bank_name,account_number,holder_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, req.user.id, lbl, mth, dst, is_default||false, bank_name||lbl, dst, holder_name||lbl]);
+    res.json({ id, label:lbl, method:mth, destination:dst });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/bank-accounts/:id', auth, role('owner'), async (req, res) => {
