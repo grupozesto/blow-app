@@ -2750,20 +2750,31 @@ app.get('/api/orders/:id/messages', auth, async (req, res) => {
   try {
     const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
     if (!order) return res.status(404).json({ error: 'No encontrado' });
-    const msgs = await qa('SELECT m.*, u.name as sender_name FROM order_messages m JOIN users u ON m.sender_id=u.id WHERE m.order_id=$1 ORDER BY m.created_at ASC', [req.params.id]);
+    // Verificar acceso: solo customer del pedido, owner del negocio, o admin
+    const isCustomer = req.user.id === order.customer_id;
+    const biz = isCustomer ? null : await q1('SELECT id FROM businesses WHERE id=$1 AND owner_id=$2', [order.business_id, req.user.id]);
+    if (!isCustomer && !biz && req.user.role !== 'admin') return res.status(403).json({ error: 'Sin acceso' });
+    const msgs = await qa('SELECT m.*, u.name as sender_name, (m.read_at IS NOT NULL) as seen FROM order_messages m LEFT JOIN users u ON m.sender_id=u.id WHERE m.order_id=$1 ORDER BY m.created_at ASC', [req.params.id]);
+    // Marcar como leidos los mensajes del otro
+    await q('UPDATE order_messages SET read_at=NOW() WHERE order_id=$1 AND sender_id!=$2 AND read_at IS NULL', [req.params.id, req.user.id]);
     res.json(msgs);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/orders/:id/messages', auth, async (req, res) => {
   try {
     const { body } = req.body;
+    if (!body || !body.trim()) return res.status(400).json({ error: 'Mensaje vacio' });
     const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
     if (!order) return res.status(404).json({ error: 'No encontrado' });
+    // Verificar acceso
+    const isCustomer = req.user.id === order.customer_id;
+    const biz = isCustomer ? null : await q1('SELECT id FROM businesses WHERE id=$1 AND owner_id=$2', [order.business_id, req.user.id]);
+    if (!isCustomer && !biz && req.user.role !== 'admin') return res.status(403).json({ error: 'Sin acceso' });
     const id = uuid();
-    await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4)', [id, req.params.id, req.user.id, body]);
+    await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4)', [id, req.params.id, req.user.id, body.trim()]);
     // Notificar al otro participante
-    const targetId = req.user.id === order.customer_id ? order.business_id : order.customer_id;
-    notify(targetId, { type: 'order_message', message: '💬 Nuevo mensaje en tu pedido', order_id: order.id });
+    const targetId = isCustomer ? order.business_id : order.customer_id;
+    notify(targetId, { type: 'order_message', message: 'Nuevo mensaje en tu pedido', order_id: order.id });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
