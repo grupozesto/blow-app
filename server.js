@@ -464,10 +464,15 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_owner_id_fkey;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_id TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS label TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS method TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS destination TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS bank_name TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_type TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_number TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS holder_name TEXT;
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_method TEXT DEFAULT NULL;
