@@ -9537,7 +9537,8 @@ function enterOwnerOverlay() {
 async function exitOwnerOverlay() {
   if (_ooRefreshInterval) { clearInterval(_ooRefreshInterval); _ooRefreshInterval = null; }
   if (user && user.role === 'owner') {
-    if (!await showConfirm('Vas a cerrar tu sesión del portal.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
+    const _confirmFn = typeof showConfirm === 'function' ? showConfirm : (msg) => Promise.resolve(confirm(msg));
+    if (!await _confirmFn('Vas a cerrar tu sesión del portal.', {title:'¿Cerrar sesión?', confirmLabel:'Cerrar sesión', danger:false})) return;
     doLogout();
     return;
   }
