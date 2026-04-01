@@ -1835,15 +1835,80 @@ function renderSettings(){
     </div>
     <div class="sec">HORARIOS AUTOMÁTICOS</div>
     <div class="card" style="margin-bottom:10px;">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">El negocio se abre y cierra solo según este horario.</div>
-      ${OO_DAYS.map(d=>{const day=sched[d.key]||{enabled:['mon','tue','wed','thu','fri'].includes(d.key),open:'09:00',close:'21:00'};return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);"><div style="width:72px;font-size:13px;font-weight:600;">${d.label}</div><button onclick="schedToggle('${d.key}',this)" data-enabled="${day.enabled}" style="width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;background:${day.enabled?'var(--primary)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;"><div style="width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;${day.enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.3);"></div></button><input type="time" id="sc-open-${d.key}" value="${day.open||'09:00'}" class="finp" style="flex:1;padding:5px 8px;font-size:12px;${day.enabled?'':'opacity:.3;'}"><span style="font-size:11px;color:var(--muted);">a</span><input type="time" id="sc-close-${d.key}" value="${day.close||'21:00'}" class="finp" style="flex:1;padding:5px 8px;font-size:12px;${day.enabled?'':'opacity:.3;'}"></div>`;}).join('')}
-      <button class="btn btn-p btn-f" style="margin-top:14px;" onclick="saveSchedule()">💾 Guardar horarios</button>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">El negocio se abre y cierra automáticamente. Podés configurar una o dos franjas por día.</div>
+      ${OO_DAYS.map(d=>{
+        const day=sched[d.key]||{};
+        const morning = day.morning || {enabled:['mon','tue','wed','thu','fri'].includes(d.key), open:'09:00', close:'13:00'};
+        const night   = day.night   || {enabled:['mon','tue','wed','thu','fri'].includes(d.key), open:'19:00', close:'23:00'};
+        const anyEnabled = morning.enabled || night.enabled;
+        return `<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:${anyEnabled?'rgba(59,130,246,.05)':'rgba(255,255,255,.02)'};transition:background .2s;">
+          <div style="font-size:13px;font-weight:800;margin-bottom:8px;color:var(--text);">${d.label}</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onclick="schedToggle2('${d.key}','morning',this)" data-enabled="${morning.enabled}" style="flex-shrink:0;width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;background:${morning.enabled?'var(--primary)':'rgba(255,255,255,.15)'};position:relative;"><div style="width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;${morning.enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.3);"></div></button>
+              <span style="font-size:12px;color:var(--muted);width:44px;flex-shrink:0;">☀️ Mañana</span>
+              <input type="time" id="sc-morning-open-${d.key}"  value="${morning.open||'09:00'}"  class="finp" style="flex:1;padding:4px 8px;font-size:12px;${morning.enabled?'':'opacity:.3;'}">
+              <span style="font-size:11px;color:var(--muted);">a</span>
+              <input type="time" id="sc-morning-close-${d.key}" value="${morning.close||'13:00'}" class="finp" style="flex:1;padding:4px 8px;font-size:12px;${morning.enabled?'':'opacity:.3;'}">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onclick="schedToggle2('${d.key}','night',this)" data-enabled="${night.enabled}" style="flex-shrink:0;width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;background:${night.enabled?'var(--primary)':'rgba(255,255,255,.15)'};position:relative;"><div style="width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;${night.enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.3);"></div></button>
+              <span style="font-size:12px;color:var(--muted);width:44px;flex-shrink:0;">🌙 Noche</span>
+              <input type="time" id="sc-night-open-${d.key}"  value="${night.open||'19:00'}"  class="finp" style="flex:1;padding:4px 8px;font-size:12px;${night.enabled?'':'opacity:.3;'}">
+              <span style="font-size:11px;color:var(--muted);">a</span>
+              <input type="time" id="sc-night-close-${d.key}" value="${night.close||'23:00'}" class="finp" style="flex:1;padding:4px 8px;font-size:12px;${night.enabled?'':'opacity:.3;'}">
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+      <button class="btn btn-p btn-f" style="margin-top:6px;" onclick="saveSchedule()">💾 Guardar horarios</button>
     </div>
     <button onclick="doLogout()" class="btn btn-d btn-f">🚪 Cerrar sesión</button>
   `;
 }
-function schedToggle(key,btn){const enabled=btn.dataset.enabled!=='true';btn.dataset.enabled=enabled;btn.style.background=enabled?'var(--primary)':'rgba(255,255,255,.15)';btn.children[0].style.cssText=`width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;${enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.3);`;['open','close'].forEach(t=>{const e=document.getElementById(`sc-${t}-${key}`);if(e)e.style.opacity=enabled?'1':'0.3';});}
-async function saveSchedule(){const OO_DAYS=['mon','tue','wed','thu','fri','sat','sun'];const sched={};OO_DAYS.forEach(d=>{const btn=document.querySelector(`button[onclick="schedToggle('${d}',this)"]`);sched[d]={enabled:btn?btn.dataset.enabled==='true':false,open:document.getElementById(`sc-open-${d}`)?.value||'09:00',close:document.getElementById(`sc-close-${d}`)?.value||'21:00'};});try{await api('/api/businesses/mine',{method:'PATCH',body:JSON.stringify({schedule:sched})});if(_biz)_biz.schedule=sched;toast('✅ Horarios guardados');}catch(e){toast('❌ '+e.message);}}
+function schedToggle2(key, shift, btn) {
+  const enabled = btn.dataset.enabled !== 'true';
+  btn.dataset.enabled = enabled;
+  btn.style.background = enabled ? 'var(--primary)' : 'rgba(255,255,255,.15)';
+  btn.children[0].style.cssText = `width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;${enabled?'right:3px':'left:3px'};box-shadow:0 1px 3px rgba(0,0,0,.3);`;
+  ['open','close'].forEach(t => {
+    const e = document.getElementById(`sc-${shift}-${t}-${key}`);
+    if (e) e.style.opacity = enabled ? '1' : '0.3';
+  });
+  // Actualizar fondo del card según si alguna franja está activa
+  const card = btn.closest('div[style*="border-radius:12px"]');
+  if (card) {
+    const morningBtn = document.querySelector(`button[onclick="schedToggle2('${key}','morning',this)"]`);
+    const nightBtn   = document.querySelector(`button[onclick="schedToggle2('${key}','night',this)"]`);
+    const anyEnabled = morningBtn?.dataset.enabled === 'true' || nightBtn?.dataset.enabled === 'true';
+    card.style.background = anyEnabled ? 'rgba(59,130,246,.05)' : 'rgba(255,255,255,.02)';
+  }
+}
+async function saveSchedule() {
+  const OO_DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+  const sched = {};
+  OO_DAYS.forEach(d => {
+    const morningBtn = document.querySelector(`button[onclick="schedToggle2('${d}','morning',this)"]`);
+    const nightBtn   = document.querySelector(`button[onclick="schedToggle2('${d}','night',this)"]`);
+    sched[d] = {
+      morning: {
+        enabled: morningBtn ? morningBtn.dataset.enabled === 'true' : false,
+        open:    document.getElementById(`sc-morning-open-${d}`)?.value  || '09:00',
+        close:   document.getElementById(`sc-morning-close-${d}`)?.value || '13:00',
+      },
+      night: {
+        enabled: nightBtn ? nightBtn.dataset.enabled === 'true' : false,
+        open:    document.getElementById(`sc-night-open-${d}`)?.value  || '19:00',
+        close:   document.getElementById(`sc-night-close-${d}`)?.value || '23:00',
+      }
+    };
+  });
+  try {
+    await api('/api/businesses/mine', { method:'PATCH', body: JSON.stringify({ schedule: sched }) });
+    if (_biz) _biz.schedule = sched;
+    toast('✅ Horarios guardados');
+  } catch(e) { toast('❌ ' + e.message); }
+}
 
 // Edit Info
 function showEditInfo(){const b=_biz||{};document.getElementById('modal-box').innerHTML=`<div class="modal-handle"></div><div class="modal-title">✏️ Datos del negocio</div><div style="margin-bottom:12px;"><label class="flbl">NOMBRE</label><input id="ei-name" value="${b.name||''}" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">DESCRIPCIÓN</label><textarea id="ei-desc" class="finp" style="height:70px;">${b.description||''}</textarea></div><div style="margin-bottom:12px;"><label class="flbl">DIRECCIÓN</label><input id="ei-address" value="${b.address||''}" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">TELÉFONO</label><input id="ei-phone" type="tel" value="${b.phone||''}" placeholder="09X XXX XXX" class="finp"></div><div style="margin-bottom:20px;"><label class="flbl">EMOJI</label><input id="ei-emoji" value="${b.logo_emoji||'🏪'}" maxlength="4" class="finp" style="font-size:22px;"></div><div style="display:flex;gap:8px;"><button class="btn btn-g" style="flex:1;" onclick="closeMod()">Cancelar</button><button class="btn btn-p" style="flex:2;" onclick="saveInfo()">💾 Guardar</button></div>`;document.getElementById('modal-ov').classList.add('show');}
