@@ -2877,7 +2877,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
     const { email, code, new_password } = req.body;
     const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, code]);
     if (!ver) return res.status(400).json({ error: 'Código inválido o expirado' });
-    const bcrypt = require('bcrypt');
     const hash = await bcrypt.hash(new_password, 10);
     await q('UPDATE users SET password=$1 WHERE email=$2', [hash, email]);
     await q('DELETE FROM email_verifications WHERE email=$1', [email]);
@@ -3112,7 +3111,6 @@ app.post('/api/auth/register-business', async (req, res) => {
     if (!email || !password || !name || !business_name) return res.status(400).json({ error: 'Faltan campos requeridos' });
     const existing = await q1('SELECT id FROM users WHERE email=$1', [email]);
     if (existing) return res.status(400).json({ error: 'Email ya registrado' });
-    const bcrypt = require('bcrypt');
     const hash = await bcrypt.hash(password, 10);
     const userId = uuid();
     const bizId = uuid();
