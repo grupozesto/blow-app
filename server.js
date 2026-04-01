@@ -464,15 +464,14 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_owner_id_fkey;
+    ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_user_id_fkey;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_id TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS user_id TEXT;
+    ALTER TABLE bank_accounts ALTER COLUMN user_id DROP NOT NULL;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS label TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS method TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS destination TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS bank_name TEXT;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_type TEXT;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_number TEXT;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS holder_name TEXT;
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_method TEXT DEFAULT NULL;
@@ -3087,7 +3086,7 @@ app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), asyn
 // ── Bank accounts (owner retiros) ────────────────
 app.get('/api/bank-accounts', auth, role('owner'), async (req, res) => {
   try {
-    const accounts = await qa('SELECT * FROM bank_accounts WHERE owner_id=$1 ORDER BY created_at DESC', [req.user.id]);
+    const accounts = await qa('SELECT * FROM bank_accounts WHERE owner_id=$1 OR user_id=$1 ORDER BY created_at DESC', [req.user.id]);
     res.json(accounts);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3098,14 +3097,14 @@ app.post('/api/bank-accounts', auth, role('owner'), async (req, res) => {
     const lbl = label || holder_name || 'Cuenta';
     const mth = method || account_type || 'transferencia';
     const dst = destination || account_number || '';
-    await q('INSERT INTO bank_accounts (id,owner_id,label,method,destination,is_default,bank_name,account_number,holder_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    await q('INSERT INTO bank_accounts (id,owner_id,user_id,label,method,destination,is_default,bank_name,account_number,holder_name) VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,$9)',
       [id, req.user.id, lbl, mth, dst, is_default||false, bank_name||lbl, dst, holder_name||lbl]);
     res.json({ id, label:lbl, method:mth, destination:dst });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/bank-accounts/:id', auth, role('owner'), async (req, res) => {
   try {
-    await q('DELETE FROM bank_accounts WHERE id=$1 AND owner_id=$2', [req.params.id, req.user.id]);
+    await q('DELETE FROM bank_accounts WHERE id=$1 AND (owner_id=$2 OR user_id=$2)', [req.params.id, req.user.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
