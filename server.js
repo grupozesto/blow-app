@@ -543,6 +543,44 @@ if (rateLimit) {
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
 app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
+// ── Manifest dinámico ────────────────────────────
+app.get('/manifest.json', async (req, res) => {
+  try {
+    const iconSetting = await q1("SELECT value FROM app_settings WHERE key='pwa_icon_urls'", []);
+    const iconUrls = iconSetting ? JSON.parse(iconSetting.value) : null;
+    const manifest = {
+      name: 'Blow', short_name: 'Blow',
+      description: 'Delivery app — Pedí lo que quieras, donde quieras',
+      start_url: '/', display: 'standalone',
+      background_color: '#ea356b', theme_color: '#ea356b', orientation: 'portrait',
+      icons: iconUrls ? [
+        { src: iconUrls[72],  sizes: '72x72',   type: 'image/png' },
+        { src: iconUrls[96],  sizes: '96x96',   type: 'image/png' },
+        { src: iconUrls[128], sizes: '128x128', type: 'image/png' },
+        { src: iconUrls[144], sizes: '144x144', type: 'image/png' },
+        { src: iconUrls[152], sizes: '152x152', type: 'image/png' },
+        { src: iconUrls[192], sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: iconUrls[384], sizes: '384x384', type: 'image/png' },
+        { src: iconUrls[512], sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ] : [
+        { src: '/icon/icon-72.png',  sizes: '72x72',   type: 'image/png' },
+        { src: '/icon/icon-96.png',  sizes: '96x96',   type: 'image/png' },
+        { src: '/icon/icon-128.png', sizes: '128x128', type: 'image/png' },
+        { src: '/icon/icon-144.png', sizes: '144x144', type: 'image/png' },
+        { src: '/icon/icon-152.png', sizes: '152x152', type: 'image/png' },
+        { src: '/icon/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/icon/icon-384.png', sizes: '384x384', type: 'image/png' },
+        { src: '/icon/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ]
+    };
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(manifest);
+  } catch(e) {
+    res.sendFile(require('path').join(__dirname, 'public', 'manifest.json'));
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Helpers ───────────────────────────────────
@@ -1893,43 +1931,6 @@ app.post('/api/admin/branding/pwa-icon', auth, role('admin'), uploadMiddleware('
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Manifest dinámico ────────────────────────────
-app.get('/manifest.json', async (req, res) => {
-  try {
-    const iconSetting = await q1("SELECT value FROM app_settings WHERE key='pwa_icon_urls'", []);
-    const iconUrls = iconSetting ? JSON.parse(iconSetting.value) : null;
-    const manifest = {
-      name: 'Blow', short_name: 'Blow',
-      description: 'Delivery app — Pedí lo que quieras, donde quieras',
-      start_url: '/', display: 'standalone',
-      background_color: '#ea356b', theme_color: '#ea356b', orientation: 'portrait',
-      icons: iconUrls ? [
-        { src: iconUrls[72],  sizes: '72x72',   type: 'image/png' },
-        { src: iconUrls[96],  sizes: '96x96',   type: 'image/png' },
-        { src: iconUrls[128], sizes: '128x128', type: 'image/png' },
-        { src: iconUrls[144], sizes: '144x144', type: 'image/png' },
-        { src: iconUrls[152], sizes: '152x152', type: 'image/png' },
-        { src: iconUrls[192], sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-        { src: iconUrls[384], sizes: '384x384', type: 'image/png' },
-        { src: iconUrls[512], sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-      ] : [
-        { src: '/icon/icon-72.png',  sizes: '72x72',   type: 'image/png' },
-        { src: '/icon/icon-96.png',  sizes: '96x96',   type: 'image/png' },
-        { src: '/icon/icon-128.png', sizes: '128x128', type: 'image/png' },
-        { src: '/icon/icon-144.png', sizes: '144x144', type: 'image/png' },
-        { src: '/icon/icon-152.png', sizes: '152x152', type: 'image/png' },
-        { src: '/icon/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-        { src: '/icon/icon-384.png', sizes: '384x384', type: 'image/png' },
-        { src: '/icon/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-      ]
-    };
-    res.setHeader('Content-Type', 'application/manifest+json');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.json(manifest);
-  } catch(e) {
-    res.sendFile(require('path').join(__dirname, 'public', 'manifest.json'));
-  }
-});
 
 app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
   const wallet=await q1("SELECT * FROM wallets WHERE owner_id='platform'",[]);
