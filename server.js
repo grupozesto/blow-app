@@ -398,11 +398,13 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS order_messages (
       id TEXT PRIMARY KEY,
       order_id TEXT REFERENCES orders(id) ON DELETE CASCADE,
-      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      sender_id TEXT,
       body TEXT NOT NULL,
       read_at TIMESTAMPTZ DEFAULT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    -- Eliminar FK de sender_id si existe (por upgrades anteriores)
+    ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey;
 
     CREATE TABLE IF NOT EXISTS support_messages (
       id TEXT PRIMARY KEY,
