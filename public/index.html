@@ -2429,7 +2429,7 @@ body.owner-mode #owner-overlay {
         <div style="font-size:15px;font-weight:800;margin-bottom:4px;">Revisá tu email</div>
         <div style="font-size:13px;color:var(--muted);" id="fp-email-hint">Ingresá el código y tu nueva contraseña.</div>
       </div>
-      <div class="form-group"><label class="form-label">Código de 6 dígitos</label><input class="form-input" id="fp-code" type="number" placeholder="123456" style="text-align:center;font-size:22px;font-weight:800;letter-spacing:4px;" maxlength="6"></div>
+      <div class="form-group"><label class="form-label">Código de 6 dígitos</label><input class="form-input" id="fp-code" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="123456" style="text-align:center;font-size:22px;font-weight:800;letter-spacing:4px;" maxlength="6"></div>
       <div class="form-group"><label class="form-label">Nueva contraseña</label><input class="form-input" id="fp-newpass" type="password" placeholder="Mínimo 6 caracteres"></div>
       <button class="primary-btn" onclick="doResetPassword()">Cambiar contraseña →</button>
       <div style="text-align:center;margin-top:12px;"><button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('auth-forgot-form').style.display='block';document.getElementById('auth-reset-form').style.display='none';">← Reenviar código</button></div>
@@ -6567,7 +6567,7 @@ async function doForgotPassword() {
 }
 async function doResetPassword() {
   const email = document.getElementById('fp-email').value.trim();
-  const code = document.getElementById('fp-code').value.trim();
+  const code = document.getElementById('fp-code').value.trim().replace(/\D/g,''); // solo dígitos
   const newPass = document.getElementById('fp-newpass').value;
   if (!code || !newPass) return showAuthErr('Completá todos los campos');
   if (newPass.length < 6) return showAuthErr('La contraseña debe tener al menos 6 caracteres');
