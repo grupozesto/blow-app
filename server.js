@@ -1343,7 +1343,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
 app.get('/api/orders', auth, async (req, res) => {
   let orders;
-  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
+  if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji,b.logo_url FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
   else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
   const result=await Promise.all(orders.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])})));
@@ -1351,7 +1351,7 @@ app.get('/api/orders', auth, async (req, res) => {
 });
 
 app.get('/api/orders/:id', auth, async (req, res) => {
-  const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,u.name as customer_name FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
+  const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,b.logo_url,u.name as customer_name FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
   if (!o) return res.status(404).json({ error:'Pedido no encontrado' });
   o.items=await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id]);
   res.json(o);
@@ -2958,14 +2958,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, code, new_password } = req.body;
-    const codeStr = String(code || '').trim().replace(/\D/g, ''); // sanitizar: solo dígitos
-    const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, codeStr]);
-    if (!ver) {
-      // Debug: ver si el código existe pero está expirado
-      const anyVer = await q1('SELECT code, expires_at, NOW() as now FROM email_verifications WHERE email=$1 ORDER BY created_at DESC LIMIT 1', [email]);
-      console.log('Reset fail - email:', email, 'code enviado:', codeStr, 'DB:', anyVer);
-      return res.status(400).json({ error: 'Código inválido o expirado' });
-    }
+    const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, code]);
+    if (!ver) return res.status(400).json({ error: 'Código inválido o expirado' });
     const hash = await bcrypt.hash(new_password, 10);
     await q('UPDATE users SET password=$1 WHERE email=$2', [hash, email]);
     await q('DELETE FROM email_verifications WHERE email=$1', [email]);
