@@ -464,10 +464,6 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_owner_id_fkey;
-    ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_user_id_fkey;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_id TEXT;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS user_id TEXT;
-    ALTER TABLE bank_accounts ALTER COLUMN user_id DROP NOT NULL;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS label TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS method TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS destination TEXT;
@@ -1391,9 +1387,14 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   await q('UPDATE orders SET status=$1,updated_at=NOW() WHERE id=$2',[status,order.id]);
   if (status==='on_way') await q('UPDATE orders SET delivery_id=$1 WHERE id=$2',[req.user.id,order.id]);
   if (status==='delivered') {
-    await credit(order.business_id,'business',order.business_amount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
-    await credit(order.delivery_id||req.user.id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
-    await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
+    // Solo acreditar wallet para pagos online (MP o billetera)
+    // Los pagos en efectivo el negocio los cobra directamente
+    const isOnlinePayment = order.payment_method === 'mercadopago' || order.payment_method === 'wallet' || (order.mp_payment_id && order.mp_status === 'approved');
+    if (isOnlinePayment) {
+      await credit(order.business_id,'business',order.business_amount,`Pedido #${order.id.slice(-6).toUpperCase()}`,order.id);
+      await credit(order.delivery_id||req.user.id,'delivery',order.delivery_amount,`Delivery #${order.id.slice(-6).toUpperCase()}`,order.id);
+      await credit('platform','platform',order.platform_amount,`Comisión #${order.id.slice(-6).toUpperCase()}`,order.id);
+    }
   }
   notify(order.customer_id,{ type:'status_change',message:`Tu pedido: ${status}`,status,order_id:order.id });
   const biz=await q1('SELECT owner_id FROM businesses WHERE id=$1',[order.business_id]);
@@ -3086,7 +3087,7 @@ app.post('/api/admin/subscriptions/:id/cancel-notify', auth, role('admin'), asyn
 // ── Bank accounts (owner retiros) ────────────────
 app.get('/api/bank-accounts', auth, role('owner'), async (req, res) => {
   try {
-    const accounts = await qa('SELECT * FROM bank_accounts WHERE owner_id=$1 OR user_id=$1 ORDER BY created_at DESC', [req.user.id]);
+    const accounts = await qa('SELECT * FROM bank_accounts WHERE owner_id=$1 ORDER BY created_at DESC', [req.user.id]);
     res.json(accounts);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3097,14 +3098,14 @@ app.post('/api/bank-accounts', auth, role('owner'), async (req, res) => {
     const lbl = label || holder_name || 'Cuenta';
     const mth = method || account_type || 'transferencia';
     const dst = destination || account_number || '';
-    await q('INSERT INTO bank_accounts (id,owner_id,user_id,label,method,destination,is_default,bank_name,account_number,holder_name) VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,$9)',
+    await q('INSERT INTO bank_accounts (id,owner_id,label,method,destination,is_default,bank_name,account_number,holder_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
       [id, req.user.id, lbl, mth, dst, is_default||false, bank_name||lbl, dst, holder_name||lbl]);
     res.json({ id, label:lbl, method:mth, destination:dst });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/bank-accounts/:id', auth, role('owner'), async (req, res) => {
   try {
-    await q('DELETE FROM bank_accounts WHERE id=$1 AND (owner_id=$2 OR user_id=$2)', [req.params.id, req.user.id]);
+    await q('DELETE FROM bank_accounts WHERE id=$1 AND owner_id=$2', [req.params.id, req.user.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
