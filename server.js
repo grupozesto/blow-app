@@ -2958,8 +2958,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, code, new_password } = req.body;
-    const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, code]);
-    if (!ver) return res.status(400).json({ error: 'Código inválido o expirado' });
+    const codeStr = String(code || '').trim().replace(/\D/g, ''); // sanitizar: solo dígitos
+    const ver = await q1('SELECT * FROM email_verifications WHERE email=$1 AND code=$2 AND expires_at>NOW()', [email, codeStr]);
+    if (!ver) {
+      // Debug: ver si el código existe pero está expirado
+      const anyVer = await q1('SELECT code, expires_at, NOW() as now FROM email_verifications WHERE email=$1 ORDER BY created_at DESC LIMIT 1', [email]);
+      console.log('Reset fail - email:', email, 'code enviado:', codeStr, 'DB:', anyVer);
+      return res.status(400).json({ error: 'Código inválido o expirado' });
+    }
     const hash = await bcrypt.hash(new_password, 10);
     await q('UPDATE users SET password=$1 WHERE email=$2', [hash, email]);
     await q('DELETE FROM email_verifications WHERE email=$1', [email]);
