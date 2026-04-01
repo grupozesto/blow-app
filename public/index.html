@@ -6060,14 +6060,14 @@ async function doCheckout() {
     // Limpiar estado solo si NO vamos a MP (efectivo / demo)
     // Si va a MP, preservamos el carrito por si el usuario vuelve sin pagar
     if (!goingToMP) {
-      cart = []; saveCart(); updateCartBadge();
+      cart = []; saveCart(); updateCartBadge(); renderCart();
       _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
       _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
       _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
     }
 
     if (payMethod === 'wallet' && res.wallet) {
-      cart = []; updateCartUI();
+      cart = []; saveCart(); updateCartBadge(); renderCart();
       showToast('✅ Pedido pagado con billetera');
       await loadCustomerWallet();
       nav('page-tracking');
@@ -9492,7 +9492,7 @@ if (payStatus) {
 
   if (payStatus === 'success') {
     // Limpiar carrito al confirmar pago exitoso desde MP
-    cart = []; saveCart(); updateCartBadge();
+    cart = []; saveCart(); updateCartBadge(); renderCart();
     _chkTip = 0; _chkPriority = false; _chkPayMethod = 'mercadopago';
     _chkNotes = ''; _chkFulfillment = null; _chkAddress = '';
     _chkAltAddress = ''; _chkShowAltAddr = false; _chkScheduled = null;
