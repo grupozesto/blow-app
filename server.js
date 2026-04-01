@@ -398,22 +398,18 @@ async function initDB() {
 
     CREATE TABLE IF NOT EXISTS order_messages (
       id TEXT PRIMARY KEY,
-      order_id TEXT REFERENCES orders(id) ON DELETE CASCADE,
+      order_id TEXT,
       sender_id TEXT,
       body TEXT NOT NULL,
       read_at TIMESTAMPTZ DEFAULT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
-    -- Eliminar FK de sender_id si existe (por upgrades anteriores)
+    -- Limpiar todos los constraints que puedan causar problemas
     ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey;
     ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_order_id_fkey;
+    ALTER TABLE order_messages ALTER COLUMN order_id DROP NOT NULL;
+    ALTER TABLE order_messages ALTER COLUMN sender_id DROP NOT NULL;
     ALTER TABLE order_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ DEFAULT NULL;
-    -- Re-crear FK de order_id de forma segura
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name='order_messages_order_id_fkey') THEN
-        ALTER TABLE order_messages ADD CONSTRAINT order_messages_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
-      END IF;
-    END $$;
 
     CREATE TABLE IF NOT EXISTS support_messages (
       id TEXT PRIMARY KEY,
