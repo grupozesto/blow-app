@@ -3,8 +3,8 @@
 
 const CACHE = 'blow-v3';
 const PRECACHE = [
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/icon/icon-192.png',
+  '/icon/icon-512.png',
 ];
 
 self.addEventListener('install', e => {
@@ -91,7 +91,7 @@ self.addEventListener('push', e => {
   let data = {};
   try { data = e.data.json(); } catch { data = { title: 'Blow', body: e.data.text() }; }
   e.waitUntil(self.registration.showNotification(data.title || 'Blow', {
-    body: data.body || '', icon: '/icons/icon-192.png', badge: '/icons/icon-72.png',
+    body: data.body || '', icon: '/icon/icon-192.png', badge: '/icon/icon-72.png',
     tag: data.tag || 'blow-notif', data: { url: data.url || '/' },
     vibrate: [200, 100, 200], requireInteraction: false,
   }));

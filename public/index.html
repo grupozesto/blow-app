@@ -991,7 +991,7 @@ body.owner-mode #owner-overlay {
     </div>
     <div class="search-bar">
       <svg viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)" onfocus="showRecentSearches()" onblur="setTimeout(hideRecentSearches,200)" onkeydown="if(event.key==='Enter'){saveRecentSearch(this.value);doServerSearch(this.value);this.blur();}">
+      <input type="text" placeholder="Locales, platos y productos" id="search-input" oninput="searchStores(this.value)" onfocus="showRecentSearches()" onblur="setTimeout(hideRecentSearches,200)" onkeydown="if(event.key==='Enter'){hideRecentSearches();saveRecentSearch(this.value);doServerSearch(this.value);this.blur();}">
       <button class="sbtn" onclick="hideRecentSearches();const v=document.getElementById('search-input').value;saveRecentSearch(v);doServerSearch(v)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     </div>
     <div id="recent-searches-panel" style="display:none;position:absolute;left:14px;right:14px;top:calc(100% - 8px);background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:200;overflow:hidden;"></div>
@@ -2070,9 +2070,9 @@ body.owner-mode #owner-overlay {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
     <span class="nb-label">Inicio</span>
   </button>
-  <button class="nb" id="nb-market" onclick="filterCat('market');nav('page-home')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-    <span class="nb-label">Mercados</span>
+  <button class="nb" id="nb-favorites" onclick="nav('page-favorites')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    <span class="nb-label">Favoritos</span>
   </button>
   <button class="nb" id="nb-cart" onclick="nav('page-cart')" style="position:relative;">
     <div class="nw">
@@ -2112,6 +2112,7 @@ body.owner-mode #owner-overlay {
 
     <!-- Botón ❤ favorito -->
     <button id="pp-like-btn" onclick="toggleProdLike()" style="position:absolute;top:max(16px,env(safe-area-inset-top,16px));right:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.93);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:16px;z-index:5;">🤍</button>
+    <button onclick="shareProduct()" style="position:absolute;top:max(16px,env(safe-area-inset-top,16px));right:60px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.93);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.15);z-index:5;"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2.2" width="16" height="16"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
   </div>
 
   <!-- ══ SCROLL BODY ══ -->
@@ -3159,8 +3160,8 @@ function nav(pageId) {
   document.getElementById(pageId)?.classList.add('active');
 
   // Mobile nav
-  ['nb-home','nb-cart','nb-tracking','nb-profile'].forEach(id => document.getElementById(id)?.classList.remove('active'));
-  const mMap = {'page-home':'nb-home','page-cart':'nb-cart','page-checkout':'nb-cart','page-tracking':'nb-tracking','page-profile':'nb-profile'};
+  ['nb-home','nb-cart','nb-tracking','nb-profile','nb-favorites'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+  const mMap = {'page-home':'nb-home','page-cart':'nb-cart','page-checkout':'nb-cart','page-tracking':'nb-tracking','page-profile':'nb-profile','page-favorites':'nb-favorites'};
   if (mMap[pageId]) document.getElementById(mMap[pageId])?.classList.add('active');
 
   // Sidebar
@@ -5163,6 +5164,19 @@ function ppUpdatePrice() {
   const totalEl = document.getElementById('pp-footer-total');
   if (countEl) countEl.textContent = ppQty === 1 ? '1 producto' : ppQty + ' productos';
   if (totalEl) totalEl.textContent = '$ ' + total;
+}
+
+function shareProduct() {
+  if (!ppProduct) return;
+  const name = ppProduct.name || 'Producto';
+  const biz = allStores.find(s => s.id === (ppProduct.biz_id || currentBizId));
+  const bizName = biz?.name || 'Blow';
+  const url = window.location.origin + '/?biz=' + (ppProduct.biz_id || currentBizId);
+  if (navigator.share) {
+    navigator.share({ title: name, text: `Mirá ${name} en ${bizName} 🛵`, url }).catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(url).then(() => showToast('🔗 Link copiado')).catch(() => showToast('🔗 ' + url));
+  }
 }
 
 function toggleProdLike() {
@@ -9168,9 +9182,46 @@ if (token) connectWS();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registrado:', reg.scope))
+      .then(reg => {
+        console.log('SW registrado:', reg.scope);
+        // Intentar suscribirse a push notifications si hay token
+        initPushSubscription(reg);
+      })
       .catch(err => console.log('SW error:', err));
   });
+}
+
+async function initPushSubscription(reg) {
+  try {
+    const token = localStorage.getItem('da_token');
+    if (!token) return;
+    const keyRes = await fetch('/api/push/vapid-public-key');
+    const { key } = await keyRes.json();
+    if (!key) return; // VAPID no configurado
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      // Ya suscrito — registrar en server por si cambió
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ endpoint: existing.endpoint, keys: { p256dh: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('p256dh')))), auth: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('auth')))) } })
+      });
+      return;
+    }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: key
+    });
+    const p256dh = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh'))));
+    const auth = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth'))));
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh, auth } })
+    });
+  } catch(e) { console.warn('Push init error:', e.message); }
 }
 
 // Banner de instalación Android (Chrome muestra el evento beforeinstallprompt)
