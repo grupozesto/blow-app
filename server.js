@@ -1362,7 +1362,7 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const { status } = req.body;
   const order=await q1('SELECT * FROM orders WHERE id=$1',[req.params.id]);
   if (!order) return res.status(404).json({ error:'Pedido no encontrado' });
-  const allowed={ owner:{confirmed:'preparing',preparing:'ready'},delivery:{ready:'on_way',on_way:'delivered'},admin:{pending:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'} };
+  const allowed={ owner:{pending:'confirmed',paid:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way'},delivery:{ready:'on_way',on_way:'delivered'},admin:{pending:'confirmed',paid:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'} };
   const ra=allowed[req.user.role];
   if (!ra || ra[order.status]!==status) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
   if (req.user.role==='owner') {
