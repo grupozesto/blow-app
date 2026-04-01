@@ -6203,8 +6203,9 @@ async function loadTracking() {
 
         ${(!isPending && !isPaid && !isCancelled) ? `
         <div class="track-steps">${FLOW_STEPS.map((s,i) => {
-          const done = i < stepIdx;
-          const cur  = i === stepIdx;
+          const isDelivered = o.status === 'delivered';
+          const done = isDelivered ? true : i < stepIdx;
+          const cur  = !isDelivered && i === stepIdx;
           return `<div class="track-step ${done?'done':''}">
             <div class="step-dot ${done?'done':''} ${cur?'cur':''}">${done?'✓':cur?'●':'○'}</div>
             <div class="step-info"><div class="step-label ${done||cur?'done':''}">${FLOW_LABELS[i]}</div></div>

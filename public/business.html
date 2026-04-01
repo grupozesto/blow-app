@@ -1252,10 +1252,15 @@ function loadWalletData(){
   const d=_dash||{};
   const balance=parseFloat(d.balance)||0;
   const orders=d.orders||[];
-  const todayO=orders.filter(o=>{const dt=new Date(o.created_at);return dt.toDateString()===new Date().toDateString()&&o.status!=='cancelled';});
-  const todayRev=todayO.reduce((s,o)=>s+(parseFloat(o.total)||0),0);
+  const today=new Date().toDateString();
+  const todayO=orders.filter(o=>{const dt=new Date(o.created_at);return dt.toDateString()===today&&o.status!=='cancelled';});
+  const todayOnline=todayO.filter(o=>o.payment_method==='mercadopago'||o.payment_method==='wallet').reduce((s,o)=>s+(parseFloat(o.total)||0),0);
+  const todayCash=todayO.filter(o=>o.payment_method==='cash').reduce((s,o)=>s+(parseFloat(o.total)||0),0);
+  const totalCash=orders.filter(o=>o.payment_method==='cash'&&o.status!=='cancelled').reduce((s,o)=>s+(parseFloat(o.total)||0),0);
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent='$'+Math.round(v);};
-  s('w-mp-val',balance);s('w-mp-today',todayRev);s('w-cash-val',0);s('w-cash-today',0);s('w-total-val',balance);s('w-month-val',Math.round(parseFloat((d.week||{}).revenue)||0));
+  s('w-mp-val',balance);s('w-mp-today',todayOnline);
+  s('w-cash-val',totalCash);s('w-cash-today',todayCash);
+  s('w-total-val',balance+totalCash);s('w-month-val',Math.round(parseFloat((d.week||{}).revenue)||0));
 }
 
 async function changeDeliveryTime(delta){
