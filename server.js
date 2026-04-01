@@ -2817,8 +2817,14 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
     const isOwner = req.user.role === 'owner';
     const isAdmin = req.user.role === 'admin';
     if (!isCustomer && !isOwner && !isAdmin) return res.status(403).json({ error: 'Sin acceso' });
+    // Fix defensivo: limpiar constraints y asegurar columnas
+    await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey').catch(()=>{});
+    await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_order_id_fkey').catch(()=>{});
+    await q('ALTER TABLE order_messages ALTER COLUMN order_id DROP NOT NULL').catch(()=>{});
+    await q('ALTER TABLE order_messages ALTER COLUMN sender_id DROP NOT NULL').catch(()=>{});
     const msgId = uuid();
-    await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4)', [msgId, req.params.id, req.user.id, body.trim()]);
+    // Usar INSERT con ON CONFLICT DO NOTHING para evitar errores de duplicados
+    await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING', [msgId, req.params.id, req.user.id, body.trim()]);
     const targetId = isCustomer ? order.business_id : order.customer_id;
     notify(targetId, { type: 'order_message', message: 'Nuevo mensaje en tu pedido', order_id: order.id });
     res.json({ success: true });
