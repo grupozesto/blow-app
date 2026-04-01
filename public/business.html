@@ -846,8 +846,11 @@ async function doLogout(){
   localStorage.removeItem('blow_biz_token');localStorage.removeItem('blow_biz_user');
   _token='';_user=null;_biz=null;_dash=null;
   if(_refreshTimer){clearInterval(_refreshTimer);_refreshTimer=null;}
-  document.getElementById('shell').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
+  const shell = document.getElementById('shell');
+  const loginScreen = document.getElementById('login-screen');
+  if(shell) shell.style.display='none';
+  if(loginScreen) loginScreen.style.display='flex';
+  else location.reload();
 }
 function volverABlow(){
   localStorage.removeItem('blow_biz_token');localStorage.removeItem('blow_biz_user');
