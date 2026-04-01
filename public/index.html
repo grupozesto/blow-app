@@ -6153,12 +6153,19 @@ async function loadTracking() {
         ${schedHtml}
 
         ${isPending ? `
-        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;align-items:center;gap:10px;">
-          <div style="font-size:22px;">⏳</div>
-          <div>
-            <div style="font-size:13px;font-weight:800;color:#92400e;">Confirmando pago con MercadoPago</div>
-            <div style="font-size:12px;color:#b45309;margin-top:2px;">Esto puede demorar unos segundos. No cerrés la app.</div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin:10px 0;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:${o.mp_payment_id?'10px':'0'};">
+            <div style="font-size:22px;">⏳</div>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:#92400e;">${o.payment_method==='mercadopago'?'Pago pendiente con MercadoPago':'Esperando confirmación'}</div>
+              <div style="font-size:12px;color:#b45309;margin-top:2px;">${o.payment_method==='mercadopago'?'Tu pago no fue completado. Podés reintentar o cancelar el pedido.':'Esto puede demorar unos segundos.'}</div>
+            </div>
           </div>
+          ${o.payment_method==='mercadopago'&&o.mp_init_point?`
+          <div style="display:flex;gap:8px;">
+            <a href="${o.mp_init_point}" style="flex:1;background:#009EE3;color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;display:block;">💳 Reintentar pago</a>
+            <button onclick="cancelOrder('${o.id}')" style="flex:1;background:#fee2e2;color:#991b1b;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">✕ Cancelar pedido</button>
+          </div>`:``}
         </div>` : ''}
 
         ${isPaid ? `
@@ -9527,11 +9534,18 @@ if (payStatus) {
     }
   } else if (payStatus === 'failure') {
     window.history.replaceState({}, '', '/');
-    showToast('❌ El pago fue rechazado. Podés intentar de nuevo desde tus pedidos.');
+    // Cancelar el pedido automáticamente — el usuario no pagó
+    if (returnOrderId) {
+      api(`/api/orders/${returnOrderId}/cancel`, { method: 'POST', body: JSON.stringify({ reason: 'Pago rechazado por MercadoPago' }) }).catch(() => {});
+    }
+    // Limpiar carrito preservado para este pedido fallido
+    cart = []; saveCart(); updateCartBadge(); renderCart();
+    showToast('❌ El pago no se completó. El pedido fue cancelado.');
     setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1200);
   } else if (payStatus === 'pending') {
     window.history.replaceState({}, '', '/');
-    showToast('⏳ Pago pendiente. Te avisamos cuando se confirme.');
+    // Pago pendiente — dejar el pedido en pending y avisar al usuario
+    showToast('⏳ Tu pago está siendo procesado. Te avisamos cuando se confirme.');
     setTimeout(() => { nav('page-tracking'); loadTracking(); }, 1500);
   }
 }
