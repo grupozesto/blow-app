@@ -456,6 +456,9 @@ async function initDB() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_method TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'owner_withdraw';
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
@@ -1259,7 +1262,7 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
-    const { business_id, items, address } = req.body;
+    const { business_id, items, address, payment_method } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
@@ -1304,6 +1307,21 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
     }
     notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
+    // Pago con billetera Blow
+    if (payment_method === 'wallet') {
+      const customerWallet = await getWallet(req.user.id, 'customer');
+      if (parseFloat(customerWallet.balance) < total) {
+        return res.status(400).json({ error: `Saldo insuficiente. Tu billetera tiene $${parseFloat(customerWallet.balance).toFixed(0)}` });
+      }
+      await q('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2', [total, customerWallet.id]);
+      await q('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
+        [uuid(), customerWallet.id, 'debit', total, `Pedido #${orderId.slice(-6).toUpperCase()}`, orderId]);
+      await q("UPDATE orders SET status='paid',mp_status='wallet',updated_at=NOW() WHERE id=$1", [orderId]);
+      notify(biz.owner_id, { type:'new_order', message:`🛍️ Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`, order_id:orderId, total });
+      notify(req.user.id, { type:'order_confirmed', message:'✅ Pedido pagado con billetera Blow', status:'paid', order_id:orderId });
+      return res.json({ order_id: orderId, wallet: true });
+    }
+
     if (mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
       const pref = await mp.preferences.create({
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
@@ -3226,6 +3244,63 @@ app.post('/api/push/unsubscribe', auth, async (req, res) => {
     if (endpoint) await q('DELETE FROM push_subscriptions WHERE user_id=$1 AND endpoint=$2', [req.user.id, endpoint]);
     else await q('DELETE FROM push_subscriptions WHERE user_id=$1', [req.user.id]);
     res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ════════════════════════════════════════════════
+//  BILLETERA CLIENTE
+// ════════════════════════════════════════════════
+
+app.get('/api/customer/wallet', auth, role('customer'), async (req, res) => {
+  try {
+    const wallet = await getWallet(req.user.id, 'customer');
+    const txs = await qa('SELECT * FROM transactions WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 50', [wallet.id]);
+    res.json({ balance: parseFloat(wallet.balance)||0, transactions: txs });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/customer/wallet/load', auth, role('customer'), async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || amount < 50) return res.status(400).json({ error: 'Monto mínimo $50' });
+    if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
+      await credit(req.user.id, 'customer', parseFloat(amount), 'Carga de saldo (demo)', null);
+      const wallet = await getWallet(req.user.id, 'customer');
+      return res.json({ success: true, demo: true, balance: parseFloat(wallet.balance)||0 });
+    }
+    const cust = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
+    const pref = await mp.preferences.create({
+      items: [{ title: 'Carga de saldo Blow', quantity: 1, unit_price: parseFloat(amount), currency_id: 'UYU' }],
+      payer: { name: cust.name, email: cust.email },
+      external_reference: `wallet_load:${req.user.id}`,
+      back_urls: { success: `${process.env.APP_URL}/?wallet=success`, failure: `${process.env.APP_URL}/?wallet=failure` },
+      notification_url: `${process.env.APP_URL}/api/webhooks/mp`,
+    });
+    res.json({ payment: { id: pref.body.id, init_point: pref.body.init_point } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/orders/:id/refund', auth, role('customer'), async (req, res) => {
+  try {
+    const { method } = req.body;
+    if (!['wallet','bank'].includes(method)) return res.status(400).json({ error: 'Método inválido' });
+    const order = await q1('SELECT * FROM orders WHERE id=$1 AND customer_id=$2', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (!['cancelled','rejected'].includes(order.status)) return res.status(400).json({ error: 'Solo se pueden reembolsar pedidos cancelados o rechazados' });
+    if (order.refunded_at) return res.status(400).json({ error: 'Este pedido ya fue reembolsado' });
+    await q('UPDATE orders SET refund_method=$1, refunded_at=NOW() WHERE id=$2', [method, order.id]);
+    if (method === 'wallet') {
+      await credit(req.user.id, 'customer', order.total, `Reembolso pedido #${order.id.slice(-6).toUpperCase()}`, order.id);
+      notify(req.user.id, { type:'refund_wallet', message:`💰 Reembolso de $${order.total} acreditado en tu billetera` });
+      res.json({ success: true, method: 'wallet', amount: order.total });
+    } else {
+      const wallet = await getWallet(req.user.id, 'customer');
+      const cust = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
+      await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination,type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [uuid(), wallet.id, req.user.id, cust.name, cust.email, order.total, 'bank', 'A coordinar', 'customer_refund']);
+      notify(req.user.id, { type:'refund_bank', message:`🏦 Reembolso de $${order.total} solicitado — 1-3 días hábiles` });
+      res.json({ success: true, method: 'bank', amount: order.total });
+    }
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
