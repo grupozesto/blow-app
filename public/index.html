@@ -5554,6 +5554,7 @@ function renderCart() {
 
 // ── Estado del checkout ──────────────────────────
 let _walletData = null; // datos de billetera del cliente
+let _chkTotal = 0; // total actual del checkout
 let _chkPayMethod = 'mercadopago'; // 'mercadopago' | 'cash'
 let _chkTip = 0;
 let _chkPriority = false;
@@ -5628,6 +5629,7 @@ async function renderCheckoutPage() {
   if (!_walletData && user?.role === 'customer') {
     try { const d = await api('/api/customer/wallet'); _walletData = d; } catch(_) {}
   }
+  _chkTotal = calcCheckoutTotal(); // actualizar total global para la opción billetera
   const store = currentStoreForCart || allStores.find(s => s.id === cart[0]?.biz_id);
   const hasPickup   = store?.offers_pickup === true;
   const hasDelivery = store?.offers_delivery !== false;
