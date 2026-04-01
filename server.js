@@ -266,6 +266,7 @@ async function initDB() {
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS custom_delivery_cost INTEGER DEFAULT NULL;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percent INTEGER DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_type TEXT DEFAULT 'delivery';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'cash';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
@@ -1300,8 +1301,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
     const orderId=uuid();
     const cust=await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10)`,
-      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat]);
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,payment_method) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,payment_method||'cash']);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
