@@ -5707,12 +5707,20 @@ async function renderCheckoutPage() {
     <div style="margin-top:16px;margin-bottom:14px;">
       <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;">¿Cómo querés pagar?</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <div onclick="chkSetPay('mercadopago')" style="flex:1;min-width:120px;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
-          <div style="font-size:22px;margin-bottom:6px;">💳</div>
-          <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
-          <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Tarjeta, saldo, QR</div>
-          ${_chkPayMethod==='mercadopago'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
-        </div>
+        ${(()=>{
+          const bizHasMp = _currentStore?.mp_connected || false;
+          if (!bizHasMp) return `<div style="flex:1;min-width:120px;background:#f1f5f9;border-radius:14px;padding:14px 12px;border:2px solid #e2e8f0;opacity:.5;cursor:not-allowed;">
+            <div style="font-size:22px;margin-bottom:6px;">💳</div>
+            <div style="font-size:13px;font-weight:800;color:#0f172a;">MercadoPago</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">No disponible en este negocio</div>
+          </div>`;
+          return `<div onclick="chkSetPay('mercadopago')" style="flex:1;min-width:120px;background:${_chkPayMethod==='mercadopago'?'linear-gradient(135deg,#009ee3,#0067b5)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='mercadopago'?'#009ee3':'#e2e8f0'};">
+            <div style="font-size:22px;margin-bottom:6px;">💳</div>
+            <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='mercadopago'?'#fff':'#0f172a'};">MercadoPago</div>
+            <div style="font-size:11px;color:${_chkPayMethod==='mercadopago'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Tarjeta, saldo, QR</div>
+            ${_chkPayMethod==='mercadopago'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
+          </div>`;
+        })()}
         <div onclick="chkSetPay('cash')" style="flex:1;min-width:120px;background:${_chkPayMethod==='cash'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='cash'?'#16a34a':'#e2e8f0'};">
           <div style="font-size:22px;margin-bottom:6px;">💵</div>
           <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='cash'?'#fff':'#0f172a'};">Efectivo</div>
@@ -12039,10 +12047,13 @@ async function loadCustomerWallet() {
 }
 
 async function openLoadWallet() {
-  const amountStr = prompt('¿Cuánto querés cargar? (mínimo $50)');
-  if (!amountStr) return;
-  const amount = parseFloat(amountStr);
-  if (!amount || amount < 50) { showToast('Monto mínimo $50'); return; }
+  let amount;
+  try {
+    const amountStr = await showPrompt('¿Cuánto querés cargar a tu billetera?', { placeholder: 'Ej: 500 (mínimo $50)', confirmLabel: 'Cargar' });
+    if (!amountStr) return;
+    amount = parseFloat(amountStr);
+    if (!amount || amount < 50) { showToast('Monto mínimo $50'); return; }
+  } catch { return; }
   try {
     const data = await api('/api/customer/wallet/load', { method: 'POST', body: JSON.stringify({ amount }) });
     if (data.demo) { showToast('✅ Saldo cargado (modo demo)'); loadCustomerWallet(); return; }
