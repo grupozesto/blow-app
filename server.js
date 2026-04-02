@@ -2872,7 +2872,7 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
     await q('ALTER TABLE order_messages ALTER COLUMN sender_id DROP NOT NULL').catch(()=>{});
     await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_order_id_fkey').catch(()=>{});
     await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey').catch(()=>{});
-    await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING', [msgId, req.params.id, req.user.id, body.trim()]);
+    await q('INSERT INTO order_messages (id,order_id,sender_id,sender_role,body) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING', [msgId, req.params.id, req.user.id, req.user.role, body.trim()]);
     // Notificar al destinatario correcto (customer_id o owner user_id)
     if (isCustomer) {
       const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
