@@ -117,9 +117,6 @@ function notify(userId, payload) {
   // WebSocket en tiempo real
   const ws = clients.get(userId);
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
-  // También buscar en wsClients (Map de Sets)
-  const targets = typeof wsClients !== 'undefined' ? wsClients.get(String(userId)) : null;
-  if (targets) targets.forEach(w => { if (w.readyState === 1) w.send(JSON.stringify(payload)); });
   // Push notification
   if (webpush) {
     q('SELECT endpoint,p256dh,auth FROM push_subscriptions WHERE user_id=$1', [String(userId)])
@@ -2261,6 +2258,16 @@ app.post('/api/webhooks/mp', async (req, res) => {
     const extRef = payment.external_reference;
     if (!extRef) return;
 
+    if (extRef.startsWith('wallet_load:') && payment.status === 'approved') {
+      const userId = extRef.replace('wallet_load:','');
+      const alreadyCredited = await q1('SELECT id FROM transactions WHERE description=$1', [`wallet_mp:${payment.id}`]);
+      if (!alreadyCredited) {
+        await credit(userId, 'customer', parseFloat(payment.transaction_amount), `wallet_mp:${payment.id}`, null);
+        notify(userId, { type:'wallet_loaded', message:`💰 Saldo acreditado: $${payment.transaction_amount}` });
+      }
+      return;
+    }
+
     if (extRef.startsWith('blowplus:') && payment.status === 'approved') {
       const bizId = extRef.replace('blowplus:','');
       await q(`UPDATE businesses SET blow_plus=TRUE, blow_plus_since=NOW(),
@@ -2500,7 +2507,7 @@ app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async 
       imageUrl = result.secure_url;
     } else { imageUrl = req.file.path || req.file.secure_url; }
     await db.query("UPDATE promo_banners SET image_url=$1 WHERE id=$2",[imageUrl,req.params.id]);
-    res.json({ok:true,url:result.secure_url});
+    res.json({ok:true,url:imageUrl});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
@@ -2535,7 +2542,7 @@ app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async
       imageUrl = result.secure_url;
     } else { imageUrl = req.file.path || req.file.secure_url; }
     await db.query("UPDATE featured_slots SET custom_image=$1 WHERE id=$2",[imageUrl,req.params.id]);
-    res.json({ok:true,url:result.secure_url});
+    res.json({ok:true,url:imageUrl});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 app.patch('/api/admin/featured/:id', auth, async (req,res)=>{
@@ -2554,7 +2561,7 @@ app.delete('/api/admin/featured/:id', auth, async (req,res)=>{
 // ── BLOW+ BANNER CONFIG ──
 app.get('/api/config/blowplus-banner', async (req,res)=>{
   try {
-    const row = await q1("SELECT value FROM app_config WHERE key='blowplus_banner'", []);
+    const row = await q1("SELECT value FROM app_settings WHERE key='blowplus_banner'", []);
     if (row) res.json(JSON.parse(row.value));
     else res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'});
   } catch(e){ res.json({title:'¡Ahorrá $ 2.000 al mes!', subtitle:'Es lo que ahorran, en promedio, las personas que ya son Plus. ¡Suscribite!'}); }
@@ -2562,7 +2569,7 @@ app.get('/api/config/blowplus-banner', async (req,res)=>{
 app.post('/api/admin/config/blowplus-banner', auth, async (req,res)=>{
   if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
   const {title, subtitle} = req.body;
-  await db.query("INSERT INTO app_config(key,value) VALUES('blowplus_banner',$1) ON CONFLICT(key) DO UPDATE SET value=$1",
+  await db.query("INSERT INTO app_settings(key,value,updated_at) VALUES('blowplus_banner',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=$1,updated_at=NOW()",
     [JSON.stringify({title, subtitle})]);
   res.json({ok:true});
 });
