@@ -37,6 +37,9 @@ const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
 const JWT_SECRET   = process.env.JWT_SECRET || 'dev_secret_cambiar_en_prod';
 const PLATFORM_FEE_DEFAULT = parseFloat(process.env.PLATFORM_FEE_PERCENT || 0) / 100;
+const MP_CLIENT_ID = process.env.MP_CLIENT_ID || '4480881798298621';
+const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET || 'q0hx86KBm8xs8uEcTH9TUQyw2fdHmaWf';
+const MP_REDIRECT_URI = `${process.env.APP_URL || 'https://blow.uy'}/api/mp/callback`;
 async function getPlatformFee() {
   try {
     const row = await q1("SELECT value FROM app_settings WHERE key='platform_fee_percent'");
@@ -267,6 +270,10 @@ async function initDB() {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percent INTEGER DEFAULT 0;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_type TEXT DEFAULT 'delivery';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'cash';
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS mp_access_token TEXT DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS mp_refresh_token TEXT DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS mp_user_id TEXT DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS mp_token_expires TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_init_point TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT NULL;
@@ -1342,17 +1349,30 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 
     // Solo crear preferencia MP si el cliente eligió pagar online
     if (payment_method === 'mercadopago' && mp && process.env.MP_ACCESS_TOKEN && process.env.MP_ACCESS_TOKEN.startsWith('APP_USR-')) {
-      const pref = await mp.preferences.create({
+      // Usar token del negocio si está conectado, sino usar token global de Blow
+      const bizMpToken = biz.mp_access_token;
+      let mpClient = mp;
+      if (bizMpToken) {
+        const { MercadoPagoConfig, Preference } = require('mercadopago');
+        const bizMpConfig = new MercadoPagoConfig({ accessToken: bizMpToken });
+        mpClient = { preferences: new Preference(bizMpConfig) };
+      }
+      const prefData = {
         items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
         payer: { name:cust.name,email:cust.email },
         external_reference: orderId,
         back_urls:{ success:`${APP_URL}/?payment=success`,failure:`${APP_URL}/?payment=failure`,pending:`${APP_URL}/?payment=pending` },
         auto_return:'approved',
         notification_url:`${APP_URL}/api/webhooks/mp`,
-      });
+      };
+      const pref = bizMpToken
+        ? await mpClient.preferences.create({ body: prefData })
+        : await mp.preferences.create(prefData);
+      const initPoint = pref.body?.init_point || pref.init_point;
+      const prefId = pref.body?.id || pref.id;
       // Guardar init_point en DB para poder reintentar el pago desde tracking
-      await q('UPDATE orders SET mp_init_point=$1 WHERE id=$2', [pref.body.init_point, orderId]).catch(()=>{});
-      res.json({ order_id:orderId,payment:{ id:pref.body.id,init_point:pref.body.init_point } });
+      await q('UPDATE orders SET mp_init_point=$1 WHERE id=$2', [initPoint, orderId]).catch(()=>{});
+      res.json({ order_id:orderId,payment:{ id:prefId,init_point:initPoint } });
     } else {
       // Efectivo: confirmar directo sin pasar por MP
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
@@ -3371,6 +3391,87 @@ app.post('/api/orders/:id/refund', auth, role('customer'), async (req, res) => {
       notify(req.user.id, { type:'refund_bank', message:`🏦 Reembolso de $${order.total} solicitado — 1-3 días hábiles` });
       res.json({ success: true, method: 'bank', amount: order.total });
     }
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// ══════════════════════════════════════════════════════════
+//  MP OAUTH — Conexión de cuenta MP del negocio
+// ══════════════════════════════════════════════════════════
+
+// Iniciar OAuth: redirige al negocio a MP para autorizar
+app.get('/api/mp/connect', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    const state = Buffer.from(JSON.stringify({ bizId: biz.id, userId: req.user.id })).toString('base64');
+    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${MP_CLIENT_ID}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${encodeURIComponent(MP_REDIRECT_URI)}`;
+    res.json({ url: authUrl });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Callback OAuth: MP redirige acá con el code
+app.get('/api/mp/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    if (!code || !state) return res.redirect('/?mp_connect=error');
+    let bizId, userId;
+    try {
+      const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
+      bizId = decoded.bizId;
+      userId = decoded.userId;
+    } catch(e) { return res.redirect('/?mp_connect=error'); }
+
+    // Intercambiar code por access_token
+    const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: MP_CLIENT_ID,
+        client_secret: MP_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: MP_REDIRECT_URI,
+      })
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) {
+      console.error('MP OAuth error:', tokenData);
+      return res.redirect('/business?mp_connect=error');
+    }
+
+    const expiresAt = new Date(Date.now() + (tokenData.expires_in || 15552000) * 1000);
+    await q('UPDATE businesses SET mp_access_token=$1, mp_refresh_token=$2, mp_user_id=$3, mp_token_expires=$4 WHERE id=$5',
+      [tokenData.access_token, tokenData.refresh_token, String(tokenData.user_id), expiresAt, bizId]);
+
+    console.log(`✅ MP OAuth conectado para negocio ${bizId}`);
+    res.redirect('/business?mp_connect=success');
+  } catch(e) {
+    console.error('MP callback error:', e.message);
+    res.redirect('/business?mp_connect=error');
+  }
+});
+
+// Desconectar cuenta MP
+app.post('/api/mp/disconnect', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    await q('UPDATE businesses SET mp_access_token=NULL, mp_refresh_token=NULL, mp_user_id=NULL, mp_token_expires=NULL WHERE id=$1', [biz.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Status de conexión MP del negocio
+app.get('/api/mp/status', auth, role('owner'), async (req, res) => {
+  try {
+    const biz = await q1('SELECT mp_access_token, mp_user_id, mp_token_expires FROM businesses WHERE owner_id=$1', [req.user.id]);
+    if (!biz) return res.status(404).json({ error: 'Negocio no encontrado' });
+    res.json({
+      connected: !!biz.mp_access_token,
+      mp_user_id: biz.mp_user_id,
+      expires_at: biz.mp_token_expires,
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
