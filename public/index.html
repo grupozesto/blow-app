@@ -6237,7 +6237,7 @@ async function loadTracking() {
 
         ${o.status==='cancelled' ? '' : chatClosed
           ? '<div style="width:100%;margin-top:8px;background:#f8fafc;border-radius:10px;padding:10px;color:#94a3b8;font-size:12px;text-align:center;">🔒 Chat cerrado</div>'
-          : `<button id="chat-btn-${o.id}" onclick="openOrderChat(${JSON.stringify(o.id)},${JSON.stringify(o.business_name||'')});clearChatBadge(${JSON.stringify(o.id)})"
+          : `<button id="chat-btn-${o.id}" onclick="openOrderChat('${escJS(o.id)}','${escJS(o.business_name||'')}');clearChatBadge('${escJS(o.id)}')"
               style="width:100%;margin-top:8px;background:${hasUnread?'#2558d4':'#f8fafc'};border:1.5px solid ${hasUnread?'#2558d4':'#e2e8f0'};border-radius:10px;padding:10px;color:${hasUnread?'#fff':'#0f172a'};font-family:Inter,sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
               💬 Chat con el negocio${hasUnread?' <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">● nuevo</span>':''}
             </button>`}
