@@ -31,7 +31,12 @@ const path         = require('path');
 const http         = require('http');
 const { Pool }     = require('pg');
 
+// Compresión gzip — reduce index.html de 742KB a ~150KB
+let compression = null;
+try { compression = require('compression'); } catch(e) { console.warn('⚠️  compression no instalado'); }
+
 const app    = express();
+if (compression) app.use(compression());
 app.set('trust proxy', 1); // Railway runs behind a proxy
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
@@ -545,6 +550,31 @@ async function initDB() {
   const planCount = await q1('SELECT COUNT(*) as c FROM subscription_plans',[]);
   if (parseInt(planCount.c) === 0)
     await q("INSERT INTO subscription_plans (id,name,price,description,sort_order) VALUES ('plan-default','Plan Activo',2990,'Acceso completo a la plataforma',1) ON CONFLICT DO NOTHING",[]);
+  // ── Índices para performance bajo carga ──────────
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_users_email          ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_banned         ON users(banned) WHERE banned = TRUE;
+    CREATE INDEX IF NOT EXISTS idx_businesses_owner     ON businesses(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_businesses_city      ON businesses(city);
+    CREATE INDEX IF NOT EXISTS idx_businesses_category  ON businesses(category);
+    CREATE INDEX IF NOT EXISTS idx_products_business    ON products(business_id);
+    CREATE INDEX IF NOT EXISTS idx_products_available   ON products(business_id, is_available);
+    CREATE INDEX IF NOT EXISTS idx_orders_customer      ON orders(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_business      ON orders(business_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_status        ON orders(status);
+    CREATE INDEX IF NOT EXISTS idx_orders_created       ON orders(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_order_items_order    ON order_items(order_id);
+    CREATE INDEX IF NOT EXISTS idx_order_messages_order ON order_messages(order_id);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_biz    ON subscriptions(business_id);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+    CREATE INDEX IF NOT EXISTS idx_transactions_wallet  ON transactions(wallet_id);
+    CREATE INDEX IF NOT EXISTS idx_wallets_owner        ON wallets(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_email_verif_email    ON email_verifications(email);
+    CREATE INDEX IF NOT EXISTS idx_push_subs_user       ON push_subscriptions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_favorites_user       ON favorites(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_business     ON order_reviews(business_id);
+    CREATE INDEX IF NOT EXISTS idx_support_user         ON support_messages(user_id);
+  `);
   console.log('✅ PostgreSQL — tablas listas');
 }
 
