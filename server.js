@@ -468,6 +468,10 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_owner_id_fkey;
+    ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_user_id_fkey;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_id TEXT;
+    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS user_id TEXT;
+    ALTER TABLE bank_accounts ALTER COLUMN user_id DROP NOT NULL;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS label TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS method TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS destination TEXT;
