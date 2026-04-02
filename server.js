@@ -3617,6 +3617,57 @@ app.get('/api/admin/subscription-revenue', auth, role('admin'), async (req, res)
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── PWA Manifest dinámico para Portal de Negocios ──────────────
+// El token llega como query param porque los <link rel="manifest"> no soportan Authorization headers.
+// Se acepta también por header para llamadas programáticas.
+app.get('/business-manifest.json', async (req, res) => {
+  try {
+    const rawToken = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
+    let biz = null;
+
+    if (rawToken) {
+      try {
+        const decoded = jwt.verify(rawToken, JWT_SECRET);
+        if (decoded.role === 'owner') {
+          biz = await q1('SELECT name, logo_url, logo_emoji, city FROM businesses WHERE owner_id=$1', [decoded.id]);
+        }
+      } catch(_) { /* token inválido o expirado — devolvemos manifest genérico */ }
+    }
+
+    const bizName   = biz?.name  || 'Portal de Negocios';
+    const shortName = biz?.name  ? (biz.name.length > 12 ? biz.name.slice(0, 12) + '…' : biz.name) : 'Negocios';
+    const logoUrl   = biz?.logo_url || null;
+
+    // Íconos: si tiene logo propio lo usamos en todos los tamaños; si no, caemos en los íconos default de Blow
+    const icons = logoUrl ? [
+      { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ] : [
+      { src: '/icon/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icon/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ];
+
+    const manifest = {
+      name:             bizName,
+      short_name:       shortName,
+      description:      `Panel de gestión — ${bizName}`,
+      start_url:        '/business',
+      scope:            '/business',
+      display:          'standalone',
+      background_color: '#ea356b',
+      theme_color:      '#ea356b',
+      orientation:      'portrait',
+      icons,
+    };
+
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'no-store'); // no cachear: el logo puede cambiar
+    res.json(manifest);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 
