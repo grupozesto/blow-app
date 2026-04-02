@@ -5708,7 +5708,8 @@ async function renderCheckoutPage() {
       <div style="font-size:16px;font-weight:900;color:#0f172a;margin-bottom:12px;">¿Cómo querés pagar?</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         ${(()=>{
-          const bizHasMp = _currentStore?.mp_connected || false;
+          const _chkStore = allStores?.find(s=>s.id===currentBizId);
+          const bizHasMp = _chkStore?.mp_connected || false;
           if (!bizHasMp) return `<div style="flex:1;min-width:120px;background:#f1f5f9;border-radius:14px;padding:14px 12px;border:2px solid #e2e8f0;opacity:.5;cursor:not-allowed;">
             <div style="font-size:22px;margin-bottom:6px;">💳</div>
             <div style="font-size:13px;font-weight:800;color:#0f172a;">MercadoPago</div>
