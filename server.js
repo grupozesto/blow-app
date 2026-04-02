@@ -679,7 +679,13 @@ const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role },
 function auth(req, res, next) {
   const h = req.headers.authorization;
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error:'Token requerido' });
-  try { req.user = jwt.verify(h.split(' ')[1], JWT_SECRET); next(); }
+  try {
+    req.user = jwt.verify(h.split(' ')[1], JWT_SECRET);
+    q1('SELECT banned FROM users WHERE id=$1', [req.user.id]).then(u => {
+      if (u && u.banned) return res.status(403).json({ error:'Tu cuenta fue suspendida. Contactá a soporte.' });
+      next();
+    }).catch(() => next());
+  }
   catch { res.status(401).json({ error:'Token inválido' }); }
 }
 const role = (...roles) => (req, res, next) =>
