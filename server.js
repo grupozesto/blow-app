@@ -468,10 +468,6 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_owner_id_fkey;
-    ALTER TABLE bank_accounts DROP CONSTRAINT IF EXISTS bank_accounts_user_id_fkey;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS owner_id TEXT;
-    ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS user_id TEXT;
-    ALTER TABLE bank_accounts ALTER COLUMN user_id DROP NOT NULL;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS label TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS method TEXT;
     ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS destination TEXT;
@@ -1390,6 +1386,10 @@ app.patch('/api/orders/:id/status', auth, async (req, res) => {
   const allowed={ owner:{pending:'confirmed',paid:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'},delivery:{ready:'on_way',on_way:'delivered'},admin:{pending:'confirmed',paid:'confirmed',confirmed:'preparing',preparing:'ready',ready:'on_way',on_way:'delivered'} };
   const ra=allowed[req.user.role];
   if (!ra || ra[order.status]!==status) return res.status(400).json({ error:`No podés cambiar de ${order.status} a ${status}` });
+  // Bloquear: owner no puede confirmar un pedido pending de MP que no fue pagado
+  if (req.user.role==='owner' && order.status==='pending' && order.payment_method==='mercadopago') {
+    return res.status(400).json({ error:'Este pedido está esperando el pago por MercadoPago. No podés confirmarlo hasta que el cliente pague.' });
+  }
   if (req.user.role==='owner') {
     const b=await q1('SELECT id FROM businesses WHERE owner_id=$1',[req.user.id]);
     if (!b||b.id!==order.business_id) return res.status(403).json({ error:'No es tu pedido' });
