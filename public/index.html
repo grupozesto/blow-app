@@ -792,6 +792,24 @@ body.owner-mode #owner-overlay {
 }
 .oo-tab.active { color:#2558d4; }
 .oo-tab svg { width:22px; height:22px; }
+.oo-tab-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; }
+.oo-tab-badge {
+  position:absolute; top:-4px; right:-6px;
+  background:#ef4444; color:#fff;
+  font-size:9px; font-weight:800;
+  min-width:16px; height:16px;
+  border-radius:8px; padding:0 4px;
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid #fff;
+  animation:badgePop .2s ease;
+}
+@keyframes badgePop { from{transform:scale(0)} to{transform:scale(1)} }
+.chat-dot {
+  position:absolute; top:-3px; right:-3px;
+  width:10px; height:10px; border-radius:50%;
+  background:#ef4444; border:2px solid #fff;
+  animation:badgePop .2s ease;
+}
 /* Cards & UI */
 .oo-card    { background:#fff; border-radius:16px; padding:16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
 .oo-dark-card { background:linear-gradient(135deg,#1e3a5f,#0f172a); border-radius:16px; padding:18px; margin-bottom:12px; border:1px solid #1e40af; }
@@ -3151,15 +3169,18 @@ function connectWS() {
             clientBtn.style.background = '#2558d4';
             clientBtn.style.border = '1.5px solid #2558d4';
             clientBtn.style.color = '#fff';
-            clientBtn.innerHTML = '💬 Chat con el negocio <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">● nuevo</span>';
+            clientBtn.innerHTML = '💬 Chat con el negocio <span style="background:rgba(255,255,255,.3);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:800;">1 nuevo</span>';
           }
           // Actualizar botón owner en panel de pedidos si está visible
           const ownerBtn = document.getElementById('oo-chat-btn-' + msg.order_id);
           if (ownerBtn) {
             ownerBtn.style.background = '#2558d4';
             ownerBtn.style.color = '#fff';
-            ownerBtn.innerHTML = '💬 nuevo';
+            const dot = document.getElementById('oo-chat-dot-' + msg.order_id);
+            if (dot) { dot.style.display = 'block'; dot.style.background = '#fff'; }
           }
+          // Badge en tab de Pedidos del owner
+          _updateOoOrdersBadge();
           showToast(`💬 Nuevo mensaje en pedido #${msg.order_id.slice(-6).toUpperCase()}`);
         }
       }
@@ -6307,12 +6328,25 @@ const _chatUnread = new Set(); // order_ids with unread messages
 
 function clearChatBadge(orderId) {
   _chatUnread.delete(orderId);
-  // Also update owner-side badge if visible
-  const ownerBtn = document.querySelector(`button[id="oo-chat-btn-${orderId}"]`);
+  const ownerBtn = document.getElementById('oo-chat-btn-' + orderId);
   if (ownerBtn) {
     ownerBtn.style.background = '#eff6ff';
     ownerBtn.style.color = '#2558d4';
-    ownerBtn.innerHTML = '💬';
+    const dot = document.getElementById('oo-chat-dot-' + orderId);
+    if (dot) dot.style.display = 'none';
+  }
+  _updateOoOrdersBadge();
+}
+
+function _updateOoOrdersBadge() {
+  const badge = document.getElementById('oo-orders-badge');
+  if (!badge) return;
+  const count = _chatUnread.size;
+  if (count > 0) {
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
   }
 }
 let _reviewOrderId = null;
@@ -9955,8 +9989,8 @@ function ooRenderHomePedidos() {
         </button>
         <button onclick="ooOpenOrderChat('${o.id}','${escJS(o.customer_name||'Cliente')}')"
           id="oo-chat-btn-${o.id}"
-          style="background:#eff6ff;border:none;border-radius:10px;padding:9px 12px;color:#2558d4;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
-          💬
+          style="position:relative;background:#eff6ff;border:none;border-radius:10px;padding:9px 12px;color:#2558d4;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          💬<span id="oo-chat-dot-${o.id}" style="display:none;" class="chat-dot"></span>
         </button>
         <button onclick="${o.status === 'paid' ? `ooRejectOrder('${o.id}')` : `ooUpdateOrder('${o.id}','cancelled')`}"
           style="background:#fef2f2;border:none;border-radius:10px;padding:9px 12px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
@@ -9964,8 +9998,9 @@ function ooRenderHomePedidos() {
         </button>
       </div>` : `
       <button onclick="ooOpenOrderChat('${o.id}','${escJS(o.customer_name||'Cliente')}')"
-        style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px;">
-        💬 Ver chat
+        id="oo-chat-btn-${o.id}"
+        style="position:relative;width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-top:4px;">
+        💬 Ver chat<span id="oo-chat-dot-${o.id}" style="display:none;" class="chat-dot"></span>
       </button>`}
     </div>`;
   };
@@ -12312,7 +12347,7 @@ async function loadLastOrderStrip() {
   <div class="oo-body" id="oo-body"></div>
   <div class="oo-bottom-nav">
     <button class="oo-tab active" id="oo-tab-home"     onclick="ooTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</button>
-    <button class="oo-tab"        id="oo-tab-orders"   onclick="ooTab('orders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>Pedidos</button>
+    <button class="oo-tab"        id="oo-tab-orders"   onclick="ooTab('orders')"><span class="oo-tab-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><span id="oo-orders-badge" style="display:none;" class="oo-tab-badge">0</span></span>Pedidos</button>
     <button class="oo-tab"        id="oo-tab-menu"     onclick="ooTab('menu')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>Menú</button>
     <button class="oo-tab"        id="oo-tab-stats"    onclick="ooTab('stats')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Stats</button>
     <button class="oo-tab"        id="oo-tab-settings" onclick="ooTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Config</button>
