@@ -102,8 +102,9 @@ function notify(userId, payload) {
   // Push notification
   if (webpush) {
     q('SELECT endpoint,p256dh,auth FROM push_subscriptions WHERE user_id=$1', [String(userId)])
-      .then(async subs => {
-        if (!subs || !subs.length) return;
+      .then(async result => {
+        const subs = result.rows || [];
+        if (!subs.length) return;
         const notifPayload = JSON.stringify({
           title: 'Blow',
           body: payload.message || 'Tenés una notificación',
@@ -3500,7 +3501,8 @@ function checkBusinessSchedules() {
   }
 
   q('SELECT id, is_open, schedule FROM businesses WHERE schedule IS NOT NULL')
-    .then(rows => {
+    .then(result => {
+      const rows = result.rows || [];
       for (const biz of rows) {
         let sched;
         try { sched = typeof biz.schedule === 'string' ? JSON.parse(biz.schedule) : biz.schedule; }
