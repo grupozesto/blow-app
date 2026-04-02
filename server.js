@@ -80,7 +80,23 @@ const PLANS = {
 const { WebSocketServer } = require('ws');
 const wss     = new WebSocketServer({ server });
 const clients = new Map();
+
+// Heartbeat: limpiar conexiones zombie cada 30 segundos
+const WS_HEARTBEAT_INTERVAL = 30000;
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) {
+      if (ws.userId) clients.delete(ws.userId);
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, WS_HEARTBEAT_INTERVAL);
+
 wss.on('connection', ws => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', msg => {
     try {
       const { token } = JSON.parse(msg);
@@ -3569,10 +3585,27 @@ initDB().then(()=>{
     console.log(`\n⚡  Blow v3 → http://localhost:${PORT}`);
     // Cron de horarios: ejecutar cada minuto
     setInterval(checkBusinessSchedules, 60 * 1000);
-    checkBusinessSchedules(); // ejecutar al arrancar también
+    checkBusinessSchedules();
+
+    // Limpieza de basura en DB cada 1 hora
+    setInterval(async () => {
+      try {
+        await db.query("DELETE FROM email_verifications WHERE expires_at < NOW()");
+        await db.query("DELETE FROM pending_registrations WHERE created_at < NOW() - INTERVAL '24 hours'");
+        console.log('🧹 Limpieza DB completada');
+      } catch(e) { console.error('Limpieza DB error:', e.message); }
+    }, 60 * 60 * 1000);
     console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
     console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
     console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
     console.log(`🔐  JWT         : ${process.env.JWT_SECRET!=='dev_secret_cambiar_en_prod'?'✅ OK':'⚠️  cambiar'}\n`);
   });
 }).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
+
+// ── Red de seguridad global ──────────────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('💥 uncaughtException (servidor sigue activo):', err.message, err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('💥 unhandledRejection (servidor sigue activo):', reason);
+});
