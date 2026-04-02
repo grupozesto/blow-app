@@ -37,8 +37,8 @@ const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
 const JWT_SECRET   = process.env.JWT_SECRET || 'dev_secret_cambiar_en_prod';
 const PLATFORM_FEE_DEFAULT = parseFloat(process.env.PLATFORM_FEE_PERCENT || 0) / 100;
-const MP_CLIENT_ID = process.env.MP_CLIENT_ID || '4480881798298621';
-const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET || 'q0hx86KBm8xs8uEcTH9TUQyw2fdHmaWf';
+const MP_CLIENT_ID = process.env.MP_CLIENT_ID || '';
+const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET || '';
 const MP_REDIRECT_URI = `${process.env.APP_URL || 'https://blow.uy'}/api/mp/callback`;
 async function getPlatformFee() {
   try {
