@@ -1,7 +1,7 @@
-// Blow — Service Worker v4
+// Blow — Service Worker v5
 // Cache offline + push notifications
 
-const CACHE = 'blow-v4';
+const CACHE = 'blow-v5';
 const PRECACHE = [
   '/icon/icon-192.png',
   '/icon/icon-512.png',
