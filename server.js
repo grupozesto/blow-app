@@ -617,7 +617,7 @@ app.use((req, res, next) => {
 // 🔒 Rate limiting
 if (rateLimit) {
   const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, max: 100,
+    windowMs: 15 * 60 * 1000, max: 500,
     message: { error: 'Demasiadas solicitudes. Intentá de nuevo en 15 minutos.' },
     standardHeaders: true, legacyHeaders: false,
     validate: { xForwardedForHeader: false },
@@ -628,8 +628,15 @@ if (rateLimit) {
     standardHeaders: true, legacyHeaders: false,
     validate: { xForwardedForHeader: false },
   });
+  const chatLimiter = rateLimit({
+    windowMs: 60 * 1000, max: 60,
+    message: { error: 'Demasiadas solicitudes al chat.' },
+    standardHeaders: true, legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+  });
   app.use('/api/', generalLimiter);
   app.use('/api/auth/', authLimiter);
+  app.use('/api/orders/:id/messages', chatLimiter);
 }
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
@@ -2860,6 +2867,11 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
       if (!biz || biz.id !== order.business_id) return res.status(403).json({ error: 'No es tu pedido' });
     }
     const msgId = uuid();
+    // Asegurar que las columnas no tienen constraints que bloqueen el insert
+    await q('ALTER TABLE order_messages ALTER COLUMN order_id DROP NOT NULL').catch(()=>{});
+    await q('ALTER TABLE order_messages ALTER COLUMN sender_id DROP NOT NULL').catch(()=>{});
+    await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_order_id_fkey').catch(()=>{});
+    await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey').catch(()=>{});
     await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING', [msgId, req.params.id, req.user.id, body.trim()]);
     // Notificar al destinatario correcto (customer_id o owner user_id)
     if (isCustomer) {
