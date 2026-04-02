@@ -1124,10 +1124,10 @@ function renderHome(){
           <div class="w-label">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".6"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             BALANCE TOTAL
-            <span class="w-label-today">Este mes <span id="w-month-val">$0</span></span>
+            <span class="w-label-today">Esta semana <span id="w-month-val">$0</span></span>
           </div>
           <div class="w-amount" id="w-total-val">$0</div>
-          <div class="w-sub">Online + efectivo</div>
+          <div class="w-sub">Facturado hoy</div>
           <div style="margin-top:auto;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px;color:rgba(255,255,255,.4);font-size:12px;font-weight:600;text-align:center;">📊 Total acumulado del período</div>
         </div></div>
       </div>
@@ -1263,9 +1263,13 @@ function loadWalletData(){
   const weekStart=new Date();weekStart.setDate(weekStart.getDate()-weekStart.getDay());weekStart.setHours(0,0,0,0);
   const weekCash=orders.filter(o=>isCash(o)&&o.status!=='cancelled'&&new Date(o.created_at)>=weekStart).reduce((s,o)=>s+(parseFloat(o.total)||0),0);
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent='$'+Math.round(v);};
+  // Facturado hoy (independiente de retiros)
+  const todayTotal = todayOnline + todayCash;
+  const weekOnline = orders.filter(o=>isOnline(o)&&o.status!=='cancelled'&&new Date(o.created_at)>=weekStart).reduce((s,o)=>s+(parseFloat(o.total)||0),0);
+  const weekTotal = weekOnline + weekCash;
   s('w-mp-val',balance);s('w-mp-today',todayOnline);
   s('w-cash-val',todayCash);s('w-cash-today',weekCash);
-  s('w-total-val',balance+todayCash);s('w-month-val',Math.round(parseFloat((d.week||{}).revenue)||0));
+  s('w-total-val',todayTotal);s('w-month-val',Math.round(weekTotal));
 }
 
 async function changeDeliveryTime(delta){
