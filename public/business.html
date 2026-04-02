@@ -1804,6 +1804,7 @@ function renderSettings(){
       ${[
         {fn:'showEditInfo()',icon:'✏️',label:'Datos',sub:'Nombre, dirección y teléfono'},
         {fn:'showEditPhotos()',icon:'🖼️',label:'Fotos',sub:'Logo y portada'},
+        {fn:'showMPConnect()',icon:'💳',label:'MercadoPago',sub:'Conectá tu cuenta para recibir pagos'},
         {fn:'showEditDelivery()',icon:'🛵',label:'Delivery y retiro',sub:(()=>{const b=_biz||{};const modes=[];if(b.offers_delivery!==false)modes.push('Delivery');if(b.offers_pickup)modes.push('Take away');return modes.length?modes.join(' · '):'Sin modalidad activa';})()},
         {fn:'renderPromos()',icon:'🏷️',label:'Promociones',sub:'Descuentos y cupones'},
         {fn:"renderReviews()",icon:'⭐',label:'Reseñas',sub:'Lo que dicen tus clientes'},
@@ -1925,6 +1926,52 @@ async function saveSchedule() {
 }
 
 // Edit Info
+async function showMPConnect() {
+  try {
+    const status = await api('/api/mp/status');
+    const connected = status.connected;
+    document.getElementById('modal-box').innerHTML = `
+      <div class="modal-handle"></div>
+      <div class="modal-title">💳 MercadoPago</div>
+      <div style="text-align:center;padding:10px 0 20px;">
+        <div style="font-size:48px;margin-bottom:12px;">💳</div>
+        ${connected ? `
+          <div style="background:#dcfce7;border-radius:12px;padding:12px;margin-bottom:16px;">
+            <div style="font-size:14px;font-weight:700;color:#166534;">✅ Cuenta conectada</div>
+            <div style="font-size:12px;color:#15803d;margin-top:4px;">ID: ${status.mp_user_id || '—'}</div>
+          </div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Los pagos online van directo a tu cuenta de MercadoPago.</p>
+          <button class="btn btn-d btn-f" onclick="mpDisconnect()">Desconectar cuenta</button>
+        ` : `
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Conectá tu cuenta de MercadoPago para recibir los pagos online directo en tu cuenta.</p>
+          <button class="btn btn-p btn-f" onclick="mpConnect()" style="background:#009EE3;">
+            <img src="https://www.mercadopago.com/favicon.ico" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">
+            Conectar con MercadoPago
+          </button>
+        `}
+      </div>
+      <button class="btn btn-g btn-f" onclick="closeMod()" style="margin-top:8px;">Cerrar</button>
+    `;
+    document.getElementById('modal-ov').classList.add('show');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function mpConnect() {
+  try {
+    const res = await api('/api/mp/connect');
+    if (res.url) window.location.href = res.url;
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function mpDisconnect() {
+  if (!await bizConfirm('El negocio dejará de recibir pagos online directo.', {title:'¿Desconectar MercadoPago?', confirmLabel:'Desconectar'})) return;
+  try {
+    await api('/api/mp/disconnect', { method: 'POST' });
+    toast('✅ Cuenta desconectada');
+    closeMod();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
 function showEditInfo(){const b=_biz||{};document.getElementById('modal-box').innerHTML=`<div class="modal-handle"></div><div class="modal-title">✏️ Datos del negocio</div><div style="margin-bottom:12px;"><label class="flbl">NOMBRE</label><input id="ei-name" value="${b.name||''}" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">DESCRIPCIÓN</label><textarea id="ei-desc" class="finp" style="height:70px;">${b.description||''}</textarea></div><div style="margin-bottom:12px;"><label class="flbl">DIRECCIÓN</label><input id="ei-address" value="${b.address||''}" class="finp"></div><div style="margin-bottom:12px;"><label class="flbl">TELÉFONO</label><input id="ei-phone" type="tel" value="${b.phone||''}" placeholder="09X XXX XXX" class="finp"></div><div style="margin-bottom:20px;"><label class="flbl">EMOJI</label><input id="ei-emoji" value="${b.logo_emoji||'🏪'}" maxlength="4" class="finp" style="font-size:22px;"></div><div style="display:flex;gap:8px;"><button class="btn btn-g" style="flex:1;" onclick="closeMod()">Cancelar</button><button class="btn btn-p" style="flex:2;" onclick="saveInfo()">💾 Guardar</button></div>`;document.getElementById('modal-ov').classList.add('show');}
 async function saveInfo(){const name=document.getElementById('ei-name')?.value.trim();if(!name){toast('El nombre es obligatorio');return;}try{await api('/api/businesses/mine',{method:'PATCH',body:JSON.stringify({name,description:document.getElementById('ei-desc')?.value.trim(),address:document.getElementById('ei-address')?.value.trim(),phone:document.getElementById('ei-phone')?.value.trim(),logo_emoji:document.getElementById('ei-emoji')?.value.trim()})});const d=await api('/api/businesses/mine/dashboard');_dash=d;_biz=d.business||{};updateHeader();closeMod();toast('✅ Datos actualizados');renderSettings();}catch(e){toast('❌ '+e.message);}}
 
@@ -2290,6 +2337,14 @@ function bizPrompt(title, {placeholder='', defaultValue='', confirmLabel='Acepta
     setTimeout(() => { inp.focus(); inp.select(); }, 50);
   });
 }
+// ── MP OAuth callback handler ──
+(()=>{
+  const p = new URLSearchParams(window.location.search);
+  const mpC = p.get('mp_connect');
+  if (mpC === 'success') { window.history.replaceState({},'',' /business'); setTimeout(()=>toast('✅ ¡MercadoPago conectado! Los pagos irán directo a tu cuenta.'),800); }
+  else if (mpC === 'error') { window.history.replaceState({},'','/business'); setTimeout(()=>toast('❌ Error al conectar MercadoPago. Intentá de nuevo.'),800); }
+})();
+
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') { _bmcDismiss(); _bmpDismiss(); }
   if (e.key==='Enter') {
