@@ -872,7 +872,7 @@ app.delete('/api/addresses/:id', auth, async (req, res) => {
 // ════════════════════════════════════════════════
 app.get('/api/businesses', async (req, res) => {
   const { category, city, department } = req.query;
-  let sql = `SELECT b.* FROM businesses b
+  let sql = `SELECT b.*, (b.mp_access_token IS NOT NULL) as mp_connected FROM businesses b
     JOIN subscriptions s ON s.business_id = b.id
     WHERE s.status = 'active'`;
   const params = [];
@@ -1765,7 +1765,7 @@ app.post('/api/businesses', auth, role('owner'), async (req, res) => {
   res.status(201).json(await q1('SELECT * FROM businesses WHERE id=$1',[id]));
 });
 app.get('/api/businesses/:id', async (req, res) => {
-  const b = await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]);
+  const b = await q1('SELECT *,(mp_access_token IS NOT NULL) as mp_connected FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
   const rawP = await qa('SELECT * FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
   const prods = await Promise.all(rawP.map(async p => ({
