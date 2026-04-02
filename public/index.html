@@ -6552,19 +6552,7 @@ function renderProfile() {
 
 async function handleSession() { user ? (await showConfirm(`¿Cerrar sesión de ${user.name}?`, {title:'Cerrar sesión', confirmLabel:'Cerrar sesión', danger:false}) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
-  // Transición animada antes de ir al portal
-  const overlay = document.getElementById('portal-transition');
-  if (overlay) {
-    overlay.style.display = 'flex';
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        overlay.style.opacity = '1';
-        setTimeout(() => { window.location.href = '/business'; }, 380);
-      });
-    });
-  } else {
-    window.location.href = '/business';
-  }
+  window.location.href = '/business';
 }
 
 function updatePortalItemText() {
@@ -6641,6 +6629,9 @@ async function doLogin() {
   if (!email||!pass) return showAuthErr('Completá todos los campos');
   try {
     const data = await api('/api/auth/login',{method:'POST',body:JSON.stringify({email,password:pass})});
+    if (data.user.role === 'owner' || data.user.role === 'delivery') {
+      return showAuthErr('Esta cuenta es de negocio. Usá el Portal de Negocios para ingresar.');
+    }
     saveSession(data.token, data.user);
     closeAuth(); showToast(`👋 ¡Bienvenido, ${data.user.name}!`);
     renderProfile(); updateCartBadge();
@@ -6649,7 +6640,7 @@ async function doLogin() {
       localStorage.removeItem('post_login_redirect');
       const allowedPages = ['page-admin','page-home','page-profile','page-tracking'];
       nav(allowedPages.includes(redirect) ? redirect : 'page-admin');
-    } else if (data.user.role==='owner') { ownerAppSwitch(data.user); }
+    }
   } catch(e) { showAuthErr(e.message); }
 }
 
