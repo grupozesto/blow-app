@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" id="pwa-app-title" content="Portal de Negocios">
+<link rel="manifest" id="biz-manifest-link" href="/business-manifest.json">
+<link rel="apple-touch-icon" id="pwa-apple-icon" href="/icon/icon-192.png">
 <title>Blow — Portal de Negocios v2</title>
 <style>
 /* ── CSS Variables ── */
@@ -917,7 +920,33 @@ function updateHeader(){
       logoEl.innerHTML=`<span style="font-size:28px;line-height:1;">${b.logo_emoji||'🏪'}</span>`;
     }
   }
+  updateBizPWA();
 }
+// ── PWA dinámica: actualiza manifest + apple-touch-icon con el logo del negocio ──
+function updateBizPWA() {
+  const b = _biz || {};
+  const token = _tok || '';
+
+  // 1. Manifest link con token para que el servidor devuelva el manifest personalizado
+  const manifestLink = document.getElementById('biz-manifest-link');
+  if (manifestLink && token) {
+    manifestLink.href = `/business-manifest.json?token=${encodeURIComponent(token)}`;
+  }
+
+  // 2. apple-mobile-web-app-title con nombre del negocio
+  const titleMeta = document.getElementById('pwa-app-title');
+  if (titleMeta && b.name) {
+    titleMeta.content = b.name;
+    document.title = b.name + ' — Blow';
+  }
+
+  // 3. apple-touch-icon con el logo real del negocio (para "Agregar a pantalla de inicio" en iOS)
+  const appleIcon = document.getElementById('pwa-apple-icon');
+  if (appleIcon && b.logo_url) {
+    appleIcon.href = b.logo_url;
+  }
+}
+
 function updateKPIs(){
   const d=_dash||{};
   const today=d.today||{};
