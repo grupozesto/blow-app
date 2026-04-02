@@ -3557,6 +3557,47 @@ app.get('/api/mp/status', auth, role('owner'), async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Admin: ingresos de suscripciones ─────────────────────────
+app.get('/api/admin/subscription-revenue', auth, role('admin'), async (req, res) => {
+  try {
+    const planPrice = PLAN_PRICE;
+    // Suscripciones activas ahora
+    const active = await q1("SELECT COUNT(*) as c FROM subscriptions WHERE status='active'", []);
+    // Nuevas este mes
+    const newThisMonth = await q1(
+      "SELECT COUNT(*) as c FROM subscriptions WHERE status='active' AND current_period_start >= date_trunc('month', NOW())", []);
+    // Nuevas este mes anterior
+    const newLastMonth = await q1(
+      "SELECT COUNT(*) as c FROM subscriptions WHERE status='active' AND current_period_start >= date_trunc('month', NOW() - INTERVAL '1 month') AND current_period_start < date_trunc('month', NOW())", []);
+    // Canceladas este mes
+    const cancelledThisMonth = await q1(
+      "SELECT COUNT(*) as c FROM subscriptions WHERE status='cancelled' AND cancelled_at >= date_trunc('month', NOW())", []);
+    // Últimas 10 suscripciones activas
+    const recent = await qa(
+      `SELECT s.created_at, s.current_period_start, s.current_period_end, s.status,
+        b.name as business_name, b.city,
+        u.name as owner_name, u.email as owner_email
+       FROM subscriptions s
+       JOIN businesses b ON s.business_id = b.id
+       JOIN users u ON s.owner_id = u.id
+       WHERE s.status = 'active'
+       ORDER BY s.current_period_start DESC LIMIT 10`, []);
+
+    const activeCount = parseInt(active.c) || 0;
+    const mrr = activeCount * planPrice;
+
+    res.json({
+      mrr,
+      plan_price: planPrice,
+      active_count: activeCount,
+      new_this_month: parseInt(newThisMonth.c) || 0,
+      new_last_month: parseInt(newLastMonth.c) || 0,
+      cancelled_this_month: parseInt(cancelledThisMonth.c) || 0,
+      recent,
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('*',(_,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
 
 
