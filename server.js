@@ -1169,11 +1169,11 @@ app.post('/api/register/initiate', async (req, res) => {
     await q('INSERT INTO pending_registrations (id,data) VALUES ($1,$2)',
       [regId, JSON.stringify({ bizName,category,address,city,department,name,email:emailLow,password,phone })]);
 
-    // ── MODO GRATUITO TEMPORAL — skip payment ──
-    return res.json({ reg_id: regId, demo: true });
+    // Sin MP configurado → modo demo (dev/staging)
+    if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
+      return res.json({ reg_id: regId, demo: true });
+    }
 
-    // ── Preapproval: recurring subscription ── (desactivado temporalmente)
-    // eslint-disable-next-line no-unreachable
     const backUrl = `${APP_URL}/owner`;
     console.log('🔗 Preapproval back_url:', backUrl);
     const preapproval = await mp.preapproval.create({
