@@ -207,6 +207,10 @@ hr{border-color:var(--border);}
     <button class="nav-item" onclick="showPage('businesses')" id="nav-businesses">
       <span class="nav-icon">🏪</span>Negocios
     </button>
+    <button class="nav-item" onclick="showPage('revenue')" id="nav-revenue">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Ingresos Blow
+    </button>
     <button class="nav-item" onclick="showPage('subscriptions')" id="nav-subscriptions">
       <span class="nav-icon">🔄</span>Suscripciones
     </button>
@@ -334,7 +338,7 @@ function showPage(page) {
   if (navEl) navEl.classList.add('active');
   const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', categories:'Categorías & Contenido', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', blowplus:'Blow+ Members', config:'Configuración', export:'Exportar datos' };
   document.getElementById('page-title').textContent = titles[page] || page;
-  const pages = { dashboard: renderDashboard, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, blowplus: renderBlowPlus, config: renderConfig, export: renderExport };
+  const pages = { dashboard: renderDashboard, revenue: renderRevenue, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, blowplus: renderBlowPlus, config: renderConfig, export: renderExport };
   if (pages[page]) pages[page]();
 }
 
@@ -346,6 +350,78 @@ let dashTo   = fmtDate(new Date());
 function fmtDate(d) { return d.toISOString().split('T')[0]; }
 function fmtMoney(n) { return '$' + Math.round(n || 0).toLocaleString('es-UY'); }
 function fmtNum(n) { return parseInt(n || 0).toLocaleString('es-UY'); }
+
+async function renderRevenue() {
+  document.getElementById('page-title').textContent = 'Ingresos Blow';
+  document.getElementById('content').innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;"><div class="spinner"></div></div>`;
+  try {
+    const d = await api('/api/admin/subscription-revenue');
+    const fmtUYU = n => '$' + Math.round(n).toLocaleString('es-UY');
+    const growth = d.new_last_month > 0 ? Math.round((d.new_this_month - d.new_last_month) / d.new_last_month * 100) : null;
+    const growthHtml = growth !== null
+      ? `<span style="font-size:11px;font-weight:700;color:${growth>=0?'#16a34a':'#dc2626'};background:${growth>=0?'#dcfce7':'#fee2e2'};padding:2px 8px;border-radius:20px;">${growth>=0?'▲':'▼'} ${Math.abs(growth)}% vs mes anterior</span>`
+      : '';
+
+    document.getElementById('content').innerHTML = `
+      <div class="section-header">
+        <div class="section-title">💰 Ingresos Blow</div>
+      </div>
+
+      <div class="stat-grid" style="margin-bottom:20px;">
+        <div class="stat-card" style="border-top:3px solid #22c55e;">
+          <div class="stat-label">MRR</div>
+          <div class="stat-value" style="color:#16a34a;">${fmtUYU(d.mrr)}</div>
+          <div class="stat-sub">Ingreso mensual recurrente</div>
+        </div>
+        <div class="stat-card" style="border-top:3px solid #3b82f6;">
+          <div class="stat-label">Negocios activos</div>
+          <div class="stat-value" style="color:#2563eb;">${d.active_count}</div>
+          <div class="stat-sub">Suscripciones al día</div>
+        </div>
+        <div class="stat-card" style="border-top:3px solid #8b5cf6;">
+          <div class="stat-label">Nuevos este mes</div>
+          <div class="stat-value" style="color:#7c3aed;">${d.new_this_month}</div>
+          <div class="stat-sub">${growthHtml || '— primer mes'}</div>
+        </div>
+        <div class="stat-card" style="border-top:3px solid #f59e0b;">
+          <div class="stat-label">Plan mensual</div>
+          <div class="stat-value">${fmtUYU(d.plan_price)}</div>
+          <div class="stat-sub">Por negocio / mes</div>
+        </div>
+      </div>
+
+      ${d.cancelled_this_month > 0 ? `
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <div style="font-size:20px;">⚠️</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#991b1b;">${d.cancelled_this_month} cancelación${d.cancelled_this_month!==1?'es':''} este mes</div>
+          <div style="font-size:12px;color:#b91c1c;">Revisá la sección Suscripciones para ver cuáles son.</div>
+        </div>
+      </div>` : ''}
+
+      <div style="background:#fff;border-radius:16px;padding:16px;border:1px solid var(--border);">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Últimas suscripciones activas</div>
+        ${d.recent.length ? d.recent.map(s => {
+          const periodEnd = new Date(s.current_period_end);
+          const daysLeft = Math.ceil((periodEnd - new Date()) / (1000*60*60*24));
+          const daysColor = daysLeft <= 7 ? '#dc2626' : daysLeft <= 14 ? '#d97706' : '#16a34a';
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+            <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">🏪</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.business_name)}</div>
+              <div style="font-size:11px;color:var(--muted);">${esc(s.owner_email)} · ${s.city||''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:13px;font-weight:700;color:#16a34a;">${fmtUYU(d.plan_price)}/mes</div>
+              <div style="font-size:11px;font-weight:600;color:${daysColor};">${daysLeft > 0 ? daysLeft + 'd restantes' : 'Vencido'}</div>
+            </div>
+          </div>`;
+        }).join('') : '<div class="empty-state"><div class="empty-icon">📭</div>Sin suscripciones activas aún</div>'}
+      </div>`;
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`;
+  }
+}
 
 async function renderDashboard() {
   document.getElementById('content').innerHTML = `
