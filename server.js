@@ -1147,6 +1147,22 @@ app.delete('/api/businesses/mine/products/:pid', auth, role('owner'), async (req
 // Step 1: Pre-registration — store data and create MP payment link
 // Called BEFORE creating the account
 // MP preapproval dates must be in format: YYYY-MM-DDTHH:mm:ss.sss-HH:MM
+// ── Promo: primeros 50 negocios tienen 60 días gratis ──────────
+const PROMO_FREE_DAYS = 60;
+const PROMO_MAX_BUSINESSES = 50;
+async function getTrialPeriodEnd() {
+  const count = await q1('SELECT COUNT(*) as c FROM subscriptions', []);
+  const total = parseInt(count?.c || 0);
+  const isPromo = total < PROMO_MAX_BUSINESSES;
+  const periodEnd = new Date();
+  if (isPromo) {
+    periodEnd.setDate(periodEnd.getDate() + PROMO_FREE_DAYS);
+  } else {
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+  }
+  return { periodEnd, isPromo };
+}
+
 function mpDate(date) {
   const d = new Date(date);
   const pad = n => String(n).padStart(2,'0');
@@ -1237,7 +1253,7 @@ app.post('/api/register/complete', async (req, res) => {
     const bizId = uuid();
     await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
-    const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+    const { periodEnd, isPromo } = await getTrialPeriodEnd();
     const preapprovalId = pending.mp_preference_id || null;
     await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
       VALUES ($1,$2,$3,'active','active',$4,NOW(),$5)`,
@@ -1245,7 +1261,10 @@ app.post('/api/register/complete', async (req, res) => {
     await q('DELETE FROM pending_registrations WHERE id=$1',[reg_id]);
 
     const u = { id:userId, name:d.name, email:d.email, role:'owner' };
-    res.status(201).json({ token:sign(u), user:u, message:'¡Cuenta creada! Bienvenido a Blow.' });
+    const welcomeMsg = isPromo
+      ? `¡Cuenta creada! Tenés 60 días gratis como parte de los primeros negocios de Blow. ¡Bienvenido!`
+      : '¡Cuenta creada! Bienvenido a Blow.';
+    res.status(201).json({ token:sign(u), user:u, message: welcomeMsg, is_promo: isPromo });
   } catch(e) { console.error('Register complete error:', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -2197,12 +2216,12 @@ app.post('/api/webhooks/mp', async (req, res) => {
           [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
 
         // Create active subscription with preapproval id
-        const periodEnd = new Date(); periodEnd.setMonth(periodEnd.getMonth()+1);
+        const { periodEnd: wPeriodEnd, isPromo: wIsPromo } = await getTrialPeriodEnd();
         await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
           VALUES ($1,$2,$3,'active','active',$4,NOW(),$5)`,
-          [uuid(), bizId, userId, pa.id, periodEnd.toISOString()]);
+          [uuid(), bizId, userId, pa.id, wPeriodEnd.toISOString()]);
 
-        console.log('✅ Negocio creado via webhook:', d.bizName, '| owner:', d.email);
+        console.log(`✅ Negocio creado via webhook: ${d.bizName} | owner: ${d.email} | ${wIsPromo ? '60 días promo' : '1 mes'}`);
       }
 
       // Renovación aprobada para negocio existente
