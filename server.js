@@ -752,7 +752,7 @@ app.post('/api/auth/register', async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     // Delete previous pending for same email
     await q('DELETE FROM email_verifications WHERE email=$1', [emailLow]);
-    await q('INSERT INTO email_verifications (id,email,code,data) VALUES ($1,$2,$3,$4)',
+    await q('INSERT INTO email_verifications (id,email,code,data,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'15 minutes\')',
       [id, emailLow, code, JSON.stringify({ name:name.trim(), email:emailLow, phone, password:hashed })]);
 
     const emailSent = await sendEmail(emailLow, 'Tu código de verificación — Blow',
