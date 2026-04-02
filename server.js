@@ -2829,10 +2829,16 @@ app.get('/api/orders/:id/messages', auth, async (req, res) => {
   try {
     const order = await q1('SELECT * FROM orders WHERE id=$1', [req.params.id]);
     if (!order) return res.status(404).json({ error: 'No encontrado' });
-    const isCustomer = req.user.id === order.customer_id;
+    const isCustomer = String(req.user.id) === String(order.customer_id);
     const isOwner = req.user.role === 'owner';
     const isAdmin = req.user.role === 'admin';
-    if (!isCustomer && !isOwner && !isAdmin) return res.status(403).json({ error: 'Sin acceso' });
+    // Si es owner, verificar que sea dueño del negocio del pedido
+    let ownerAuthorized = false;
+    if (isOwner) {
+      const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+      ownerAuthorized = biz && biz.id === order.business_id;
+    }
+    if (!isCustomer && !ownerAuthorized && !isAdmin) return res.status(403).json({ error: 'Sin acceso' });
     const msgs = await qa('SELECT m.id, m.order_id, m.sender_id, m.body, m.created_at, (m.read_at IS NOT NULL) as seen, u.name as sender_name FROM order_messages m LEFT JOIN users u ON m.sender_id=u.id WHERE m.order_id=$1 ORDER BY m.created_at ASC', [req.params.id]);
     await q('UPDATE order_messages SET read_at=NOW() WHERE order_id=$1 AND sender_id!=$2 AND read_at IS NULL', [req.params.id, req.user.id]);
     res.json(msgs);
@@ -2848,16 +2854,20 @@ app.post('/api/orders/:id/messages', auth, async (req, res) => {
     const isOwner = req.user.role === 'owner';
     const isAdmin = req.user.role === 'admin';
     if (!isCustomer && !isOwner && !isAdmin) return res.status(403).json({ error: 'Sin acceso' });
-    // Fix defensivo: limpiar constraints y asegurar columnas
-    await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_sender_id_fkey').catch(()=>{});
-    await q('ALTER TABLE order_messages DROP CONSTRAINT IF EXISTS order_messages_order_id_fkey').catch(()=>{});
-    await q('ALTER TABLE order_messages ALTER COLUMN order_id DROP NOT NULL').catch(()=>{});
-    await q('ALTER TABLE order_messages ALTER COLUMN sender_id DROP NOT NULL').catch(()=>{});
+    // Verificar que el owner sea dueño de este negocio
+    if (isOwner) {
+      const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1', [req.user.id]);
+      if (!biz || biz.id !== order.business_id) return res.status(403).json({ error: 'No es tu pedido' });
+    }
     const msgId = uuid();
-    // Usar INSERT con ON CONFLICT DO NOTHING para evitar errores de duplicados
     await q('INSERT INTO order_messages (id,order_id,sender_id,body) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING', [msgId, req.params.id, req.user.id, body.trim()]);
-    const targetId = isCustomer ? order.business_id : order.customer_id;
-    notify(targetId, { type: 'order_message', message: 'Nuevo mensaje en tu pedido', order_id: order.id });
+    // Notificar al destinatario correcto (customer_id o owner user_id)
+    if (isCustomer) {
+      const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1', [order.business_id]);
+      if (biz) notify(biz.owner_id, { type: 'order_message', message: 'Nuevo mensaje en tu pedido', order_id: order.id });
+    } else {
+      notify(order.customer_id, { type: 'order_message', message: 'Nuevo mensaje en tu pedido', order_id: order.id });
+    }
     res.json({ success: true });
   } catch(e) { console.error('POST messages error:', e.message, e.stack); res.status(500).json({ error: e.message }); }
 });
