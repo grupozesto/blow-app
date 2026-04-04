@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blow — Registrá tu negocio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #FF1744; --red-dark: #D50000;
+      --text: #1A1A1A; --muted: #717171;
+      --border: #E0E0E0; --bg: #FAFAFA;
+      --focus: rgba(255,23,68,0.15); --green: #00C853;
+    }
+    html, body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* NAV */
+    .nav { background:#fff; border-bottom:1px solid #eee; padding:0 40px; height:60px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .logo { font-size:24px; font-weight:800; color:var(--red); letter-spacing:-0.5px; text-decoration:none; }
+    .nav-right { display:flex; align-items:center; gap:24px; }
+    .nav-link { font-size:14px; color:var(--muted); text-decoration:none; }
+    .nav-btn { background:var(--red); color:#fff; border:none; padding:9px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; }
+
+    /* PRICING BANNER */
+    .pricing-banner { background:linear-gradient(90deg,#fff5f7 0%,#fff 100%); border-bottom:1px solid #ffd6de; padding:14px 40px; display:flex; align-items:center; justify-content:center; gap:32px; flex-wrap:wrap; }
+    .pricing-item { display:flex; align-items:center; gap:10px; font-size:15px; color:var(--text); }
+    .pricing-badge { background:var(--red); color:#fff; font-size:12px; font-weight:800; padding:4px 12px; border-radius:100px; white-space:nowrap; }
+    .pricing-badge.green { background:#00C853; }
+    .pricing-sep { width:1px; height:28px; background:#FFB3C0; }
+    .pricing-item strong { font-weight:700; }
+    .pricing-item span { color:var(--muted); font-size:13px; }
+
+    /* HERO SPLIT */
+    .hero-split { display:grid; grid-template-columns:1fr 1fr; min-height:calc(100vh - 110px); }
+
+    /* LEFT */
+    .panel-left { background:#fff; padding:44px 48px 60px; overflow-y:auto; border-right:1px solid #eee; }
+    .panel-left h1 { font-size:26px; font-weight:800; color:var(--text); margin-bottom:6px; line-height:1.2; }
+    .panel-left h1 span { color:var(--red); }
+    .panel-sub { font-size:14px; color:var(--muted); margin-bottom:24px; line-height:1.5; }
+
+    .pricing-mini { background:#FFF5F7; border:1.5px solid #FFB3C0; border-radius:12px; padding:14px 16px; margin-bottom:24px; display:flex; align-items:center; gap:12px; }
+    .pricing-mini-icon { font-size:26px; flex-shrink:0; }
+    .pricing-mini strong { font-size:14px; font-weight:800; color:var(--red); display:block; margin-bottom:2px; }
+    .pricing-mini span { font-size:12px; color:#666; }
+
+    /* Progress */
+    .progress-bar { display:flex; align-items:center; margin-bottom:24px; }
+    .prog-step { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:#ccc; white-space:nowrap; }
+    .prog-step.active { color:var(--red); }
+    .prog-step.done { color:#00C853; }
+    .prog-num { width:22px; height:22px; border-radius:50%; border:2px solid #ddd; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; background:#fff; color:#ccc; flex-shrink:0; }
+    .prog-step.active .prog-num { border-color:var(--red); color:var(--red); }
+    .prog-step.done .prog-num { border-color:#00C853; background:#00C853; color:#fff; }
+    .prog-line { flex:1; height:2px; background:#eee; margin:0 6px; }
+    .prog-line.done-line { background:#00C853; }
+
+    /* Fields */
+    .field { margin-bottom:13px; }
+    .field label { display:block; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; }
+    .field input, .field select { width:100%; border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; color:var(--text); background:#fff; outline:none; transition:border-color 0.18s,box-shadow 0.18s; appearance:none; -webkit-appearance:none; }
+    .field input::placeholder { color:#B0B0B0; }
+    .field input:focus, .field select:focus { border-color:var(--red); box-shadow:0 0 0 3px var(--focus); }
+    .field input.error { border-color:var(--red); background:#fff5f7; }
+    .error-msg { font-size:11px; color:var(--red); margin-top:3px; display:none; }
+    .error-msg.show { display:block; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .select-wrap { position:relative; }
+    .select-wrap select { padding-right:36px; }
+    .select-arrow { position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#888; font-size:13px; }
+    .input-wrap { position:relative; }
+    .input-wrap input { padding-right:40px; }
+    .info-icon { position:absolute; right:12px; top:50%; transform:translateY(-50%); width:20px; height:20px; border:1.5px solid var(--red); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--red); font-size:11px; font-weight:700; cursor:help; }
+    .search-wrap { position:relative; }
+    .search-wrap input { padding-right:40px; }
+    .search-icon { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#B0B0B0; font-size:15px; pointer-events:none; }
+    .radio-group { display:flex; gap:24px; padding:6px 0; }
+    .radio-opt { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:14px; color:var(--text); font-weight:500; }
+    .radio-opt input[type="radio"] { width:18px; height:18px; accent-color:var(--red); cursor:pointer; }
+    .field-label-inline { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; display:block; }
+    .required-star { color:var(--red); }
+
+    .terms-check { display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--muted); margin:14px 0 10px; cursor:pointer; }
+    .terms-check input[type="checkbox"] { width:16px; height:16px; accent-color:var(--red); flex-shrink:0; margin-top:2px; cursor:pointer; }
+    .terms-check a { color:var(--red); text-decoration:none; font-weight:600; }
+
+    .btn-submit { width:100%; background:var(--red); color:#fff; border:none; padding:15px; border-radius:10px; font-family:'Inter',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:background 0.18s,transform 0.15s,opacity 0.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .btn-submit:hover { background:var(--red-dark); transform:translateY(-1px); }
+    .btn-submit:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+    .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; display:none; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .rider-link { font-size:13px; color:var(--muted); text-align:center; margin-top:14px; }
+    .rider-link a { color:var(--red); font-weight:600; text-decoration:none; }
+
+    /* SCREENS */
+    .screen { display:none; }
+    .screen.active { display:block; }
+
+    /* Verify */
+    .verify-screen { text-align:center; padding:20px 0; }
+    .verify-icon { width:76px; height:76px; background:#FFF5F7; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:36px; margin:0 auto 20px; border:2px solid #FFB3C0; }
+    .verify-screen h2 { font-size:22px; font-weight:800; margin-bottom:10px; }
+    .verify-screen p { font-size:14px; color:var(--muted); line-height:1.6; margin-bottom:4px; }
+    .verify-email-box { background:#F5F5F5; border-radius:8px; padding:11px 20px; font-size:15px; font-weight:700; color:var(--text); margin:14px auto 20px; display:inline-block; border:1px solid #eee; }
+    .verify-steps { text-align:left; background:#FAFAFA; border:1px solid #eee; border-radius:12px; padding:18px; margin:18px 0; }
+    .vsi { display:flex; align-items:flex-start; gap:11px; font-size:13px; color:var(--muted); margin-bottom:11px; }
+    .vsi:last-child { margin-bottom:0; }
+    .vsi-num { width:22px; height:22px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+    .resend-row { font-size:13px; color:var(--muted); margin-top:16px; }
+    .resend-row button { background:none; border:none; color:var(--red); font-weight:600; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif; text-decoration:underline; }
+    .resend-row button:disabled { color:#ccc; text-decoration:none; cursor:default; }
+
+    /* Welcome */
+    .welcome-screen { text-align:center; padding:20px 0; }
+    .welcome-icon { width:76px; height:76px; background:#E8FCF0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:36px; margin:0 auto 20px; border:2px solid #B2EFC8; }
+    .welcome-screen h2 { font-size:22px; font-weight:800; margin-bottom:10px; }
+    .welcome-screen p { font-size:14px; color:var(--muted); line-height:1.6; margin-bottom:16px; }
+    .btn-go { background:var(--red); color:#fff; border:none; padding:14px 40px; border-radius:10px; font-family:'Inter',sans-serif; font-size:15px; font-weight:700; cursor:pointer; }
+    .btn-go:hover { background:var(--red-dark); }
+
+    /* Toast */
+    .toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); background:#1A1A1A; color:#fff; padding:13px 24px; border-radius:10px; font-size:14px; font-weight:500; box-shadow:0 4px 24px rgba(0,0,0,0.18); z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; }
+    .toast.err { background:var(--red); }
+
+    /* RIGHT */
+    .panel-right { position:relative; overflow:hidden; background:#3a1515; }
+    .photo-bg { width:100%; height:100%; min-height:580px; background:linear-gradient(135deg,#3a2020 0%,#6b2020 40%,#8b3a3a 70%,#4a1515 100%); display:flex; align-items:center; justify-content:center; }
+    .person-svg { width:380px; opacity:0.92; }
+    .panel-right-overlay { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(0deg,rgba(0,0,0,0.72) 0%,transparent 60%); padding:40px 40px 48px; color:#fff; }
+    .overlay-badge { background:var(--red); color:#fff; font-size:11px; font-weight:700; padding:5px 12px; border-radius:100px; display:inline-block; margin-bottom:12px; letter-spacing:0.5px; text-transform:uppercase; }
+    .overlay-h { font-size:26px; font-weight:800; line-height:1.2; margin-bottom:8px; }
+    .overlay-p { font-size:14px; opacity:0.8; line-height:1.55; }
+    .stats-row { display:flex; gap:28px; margin-top:24px; }
+    .stat { display:flex; flex-direction:column; }
+    .stat-n { font-size:22px; font-weight:800; }
+    .stat-l { font-size:12px; opacity:0.7; }
+    .float-pricing { position:absolute; top:32px; right:28px; background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.3); border-radius:14px; padding:16px 20px; color:#fff; min-width:190px; }
+    .fp-label { font-size:10px; text-transform:uppercase; letter-spacing:1px; opacity:0.7; margin-bottom:6px; }
+    .fp-free { font-size:22px; font-weight:800; margin-bottom:2px; }
+    .fp-free small { font-size:13px; font-weight:500; opacity:0.75; }
+    .fp-div { border:none; border-top:1px solid rgba(255,255,255,0.2); margin:10px 0; }
+    .fp-price { font-size:18px; font-weight:800; }
+    .fp-commission { font-size:12px; color:#69FF97; font-weight:700; margin-top:4px; }
+
+    /* Steps */
+    .section-steps { background:#fff; padding:64px 48px; border-top:1px solid #eee; }
+    .section-steps h2 { text-align:center; font-size:30px; font-weight:800; margin-bottom:52px; }
+    .steps-row { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; max-width:1100px; margin:0 auto; }
+    .step-col { display:flex; flex-direction:column; align-items:center; text-align:center; }
+    .step-label { font-size:12px; color:var(--muted); margin-bottom:14px; font-weight:500; }
+    .step-bubble { width:86px; height:86px; background:#E8F6FF; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:34px; }
+    .step-bubble.ra { background:#FFE8EC; }
+    .step-text { font-size:13px; font-weight:500; line-height:1.45; }
+
+    /* Docs */
+    .docs-wrapper { background:var(--bg); padding:40px 48px 64px; }
+    .docs-inner { max-width:1100px; margin:0 auto; }
+    .docs-accordion { border:1px solid #E0E0E0; border-radius:12px; background:#fff; overflow:hidden; }
+    .acc-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px; cursor:pointer; border-bottom:1px solid #E0E0E0; }
+    .acc-left { display:flex; align-items:center; gap:12px; font-size:17px; font-weight:700; }
+    .acc-icon { background:#FFF8DC; border-radius:8px; padding:6px 8px; font-size:20px; }
+    .chevron { width:28px; height:28px; border:1px solid #DDD; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:14px; transition:transform 0.25s; }
+    .acc-body { padding:28px 28px 24px; display:grid; grid-template-columns:1fr 1fr; gap:32px; }
+    .docs-group h4 { font-size:14px; font-weight:700; margin-bottom:12px; }
+    .docs-list { list-style:none; display:flex; flex-direction:column; gap:9px; }
+    .docs-list li { display:flex; align-items:flex-start; gap:8px; font-size:14px; color:var(--muted); line-height:1.45; }
+    .docs-list li::before { content:'•'; color:var(--text); flex-shrink:0; margin-top:1px; }
+    .btn-info { background:var(--red); color:#fff; border:none; padding:10px 22px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; cursor:pointer; margin-top:20px; }
+    .btn-info:hover { background:var(--red-dark); }
+
+    /* Footer */
+    footer { background:#fff; border-top:1px solid #eee; padding:28px 48px; display:flex; justify-content:space-between; align-items:center; }
+    .footer-logo { font-size:20px; font-weight:800; color:var(--red); }
+    .footer-links { display:flex; gap:28px; list-style:none; }
+    .footer-links a { font-size:13px; color:var(--muted); text-decoration:none; }
+    .footer-copy { font-size:13px; color:var(--muted); }
+
+    @media (max-width:900px) {
+      .hero-split { grid-template-columns:1fr; }
+      .panel-right { display:none; }
+      .panel-left { padding:28px 20px 48px; }
+      .steps-row { grid-template-columns:repeat(2,1fr); gap:28px; }
+      .section-steps { padding:40px 24px; }
+      .docs-wrapper { padding:24px 20px 48px; }
+      .acc-body { grid-template-columns:1fr; }
+      .field-row { grid-template-columns:1fr; }
+      .nav { padding:0 20px; }
+      .pricing-banner { padding:12px 20px; gap:14px; }
+      .pricing-sep { display:none; }
+      footer { flex-direction:column; gap:16px; padding:24px; text-align:center; }
+      .footer-links { flex-wrap:wrap; justify-content:center; }
+    }
+  </style>
+</head>
+<body>
+
+<!--
+╔══════════════════════════════════════════════════════════════╗
+║  CONFIGURACIÓN RESEND — LEER ANTES DE USAR                  ║
+╠══════════════════════════════════════════════════════════════╣
+║  1. Creá cuenta gratis en https://resend.com                ║
+║  2. Verificá tu dominio (Settings → Domains)                ║
+║  3. Generá una API Key en https://resend.com/api-keys       ║
+║  4. Reemplazá RESEND_API_KEY con tu clave real              ║
+║  5. Reemplazá FROM_EMAIL con tu email de dominio verificado ║
+║                                                              ║
+║  ⚠ Para producción, la llamada a Resend debería hacerse     ║
+║    desde un backend para proteger tu API Key.               ║
+╚══════════════════════════════════════════════════════════════╝
+-->
+<script>
+  const RESEND_API_KEY = "RE_PEGA_TU_API_KEY_ACA";
+  const FROM_EMAIL     = "noreply@tudominio.com";
+  const APP_URL        = window.location.origin + window.location.pathname;
+</script>
+
+<!-- NAV -->
+<nav class="nav">
+  <a class="logo" href="#">blow</a>
+  <div class="nav-right">
+    <a class="nav-link" href="#">Centro de ayuda</a>
+    <a class="nav-link" href="#">Iniciar sesión</a>
+    <button class="nav-btn" onclick="document.getElementById('form-panel').scrollIntoView({behavior:'smooth'})">Registrar negocio</button>
+  </div>
+</nav>
+
+<!-- PRICING BANNER -->
+<div class="pricing-banner">
+  <div class="pricing-item">
+    <span class="pricing-badge green">🎁 GRATIS</span>
+    <div><strong>Primeros 60 días sin costo</strong><span> — probá blow sin riesgos</span></div>
+  </div>
+  <div class="pricing-sep"></div>
+  <div class="pricing-item">
+    <span class="pricing-badge">DESPUÉS</span>
+    <div><strong>$2.990 / mes</strong><span> — sin sorpresas</span></div>
+  </div>
+  <div class="pricing-sep"></div>
+  <div class="pricing-item">
+    <span style="font-size:18px;">🚀</span>
+    <div><strong>0% de comisión</strong><span> — siempre, para siempre</span></div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero-split">
+
+  <!-- FORM -->
+  <div class="panel-left" id="form-panel">
+
+    <!-- PANTALLA 1: FORMULARIO -->
+    <div class="screen active" id="screen-form">
+      <h1>Registrá tu negocio<br>en <span>blow</span></h1>
+      <p class="panel-sub">Sin costo de alta · Sin permanencia · Cancelás cuando quieras</p>
+
+      <div class="pricing-mini">
+        <div class="pricing-mini-icon">🎁</div>
+        <div>
+          <strong>60 días gratis, luego $2.990/mes con 0% de comisión</strong>
+          <span>No necesitás tarjeta de crédito para comenzar</span>
+        </div>
+      </div>
+
+      <div class="progress-bar">
+        <div class="prog-step active"><div class="prog-num">1</div>Tus datos</div>
+        <div class="prog-line" id="pl1"></div>
+        <div class="prog-step" id="ps2"><div class="prog-num">2</div>Verificar email</div>
+        <div class="prog-line" id="pl2"></div>
+        <div class="prog-step" id="ps3"><div class="prog-num">3</div>¡Listo!</div>
+      </div>
+
+      <div class="field">
+        <label>Nombre del negocio <span class="required-star">*</span></label>
+        <input type="text" id="f-negocio" placeholder="Ej: La Parrilla de Juan">
+        <div class="error-msg" id="e-negocio">Este campo es obligatorio</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Nombre <span class="required-star">*</span></label>
+          <input type="text" id="f-nombre" placeholder="Juan">
+          <div class="error-msg" id="e-nombre">Obligatorio</div>
+        </div>
+        <div class="field">
+          <label>Apellido <span class="required-star">*</span></label>
+          <input type="text" id="f-apellido" placeholder="García">
+          <div class="error-msg" id="e-apellido">Obligatorio</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Tipo de negocio <span class="required-star">*</span></label>
+        <div class="select-wrap">
+          <select id="f-tipo">
+            <option value="" disabled selected>Seleccioná una categoría</option>
+            <option>Restaurante / Comida</option>
+            <option>Farmacia</option>
+            <option>Supermercado</option>
+            <option>Tienda / Retail</option>
+            <option>Bebidas</option>
+            <option>Otro</option>
+          </select>
+          <span class="select-arrow">▾</span>
+        </div>
+        <div class="error-msg" id="e-tipo">Seleccioná un tipo de negocio</div>
+      </div>
+
+      <div class="field">
+        <label>Sucursales <span class="required-star">*</span></label>
+        <div class="input-wrap">
+          <input type="number" id="f-sucursales" value="1" min="1">
+          <div class="info-icon" title="Cantidad de locales físicos">i</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label-inline">¿Es un local a la calle? <span class="required-star">*</span></span>
+        <div class="radio-group">
+          <label class="radio-opt"><input type="radio" name="local" value="si" checked> Sí</label>
+          <label class="radio-opt"><input type="radio" name="local" value="no"> No</label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Recibir actualizaciones por <span class="required-star">*</span></label>
+        <div class="select-wrap">
+          <select id="f-contacto">
+            <option value="" disabled selected>Seleccioná una opción</option>
+            <option>Email</option>
+            <option>WhatsApp</option>
+            <option>SMS</option>
+          </select>
+          <span class="select-arrow">▾</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Email <span class="required-star">*</span></label>
+        <input type="email" id="f-email" placeholder="juan@minegocio.com">
+        <div class="error-msg" id="e-email">Ingresá un email válido</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Teléfono personal <span class="required-star">*</span></label>
+          <input type="tel" id="f-tel" placeholder="+549">
+          <div class="error-msg" id="e-tel">Obligatorio</div>
+        </div>
+        <div class="field">
+          <label>Teléfono del local</label>
+          <input type="tel" id="f-tel-local" placeholder="+549">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Nombre o dirección del negocio</label>
+        <div class="search-wrap">
+          <input type="text" id="f-dir" placeholder="Ej: Av. Corrientes 1234, CABA">
+          <div class="search-icon">🔍</div>
+        </div>
+      </div>
+
+      <label class="terms-check">
+        <input type="checkbox" id="f-terms">
+        Acepto los <a href="#" target="_blank">Términos y condiciones</a> y la <a href="#" target="_blank">Política de privacidad</a> de blow.
+      </label>
+      <div class="error-msg" id="e-terms" style="margin-top:-6px;margin-bottom:10px;">Debés aceptar los términos para continuar</div>
+
+      <button class="btn-submit" id="btn-submit" onclick="handleSubmit()">
+        <span id="btn-text">Continuar →</span>
+        <div class="spinner" id="btn-spin"></div>
+      </button>
+
+      <p class="rider-link">¿Querés ser un rider? Podés registrarte <a href="#">acá</a></p>
+    </div>
+
+    <!-- PANTALLA 2: VERIFICAR EMAIL -->
+    <div class="screen" id="screen-verify">
+      <div class="progress-bar">
+        <div class="prog-step done"><div class="prog-num">✓</div>Tus datos</div>
+        <div class="prog-line done-line"></div>
+        <div class="prog-step active"><div class="prog-num">2</div>Verificar email</div>
+        <div class="prog-line"></div>
+        <div class="prog-step"><div class="prog-num">3</div>¡Listo!</div>
+      </div>
+      <div class="verify-screen">
+        <div class="verify-icon">📧</div>
+        <h2>Revisá tu correo</h2>
+        <p>Te enviamos un link de verificación a:</p>
+        <div class="verify-email-box" id="display-email"></div>
+        <p>Hacé click en el link del email para activar tu cuenta y comenzar a vender.</p>
+        <div class="verify-steps">
+          <div class="vsi"><div class="vsi-num">1</div><div>Abrí el email de <strong>blow</strong> en tu bandeja (revisá Spam si no aparece)</div></div>
+          <div class="vsi"><div class="vsi-num">2</div><div>Hacé click en <strong>"Activar mi cuenta"</strong></div></div>
+          <div class="vsi"><div class="vsi-num">3</div><div>¡Listo! Tu negocio queda activo y podés empezar a configurarlo</div></div>
+        </div>
+        <p class="resend-row">¿No recibiste el email? <button id="btn-resend" onclick="resendEmail()">Reenviar email</button></p>
+        <p style="font-size:12px;color:#bbb;margin-top:10px;">El link expira en 24 horas</p>
+      </div>
+    </div>
+
+    <!-- PANTALLA 3: BIENVENIDA (se activa con ?verified=true en la URL) -->
+    <div class="screen" id="screen-welcome">
+      <div class="progress-bar">
+        <div class="prog-step done"><div class="prog-num">✓</div>Tus datos</div>
+        <div class="prog-line done-line"></div>
+        <div class="prog-step done"><div class="prog-num">✓</div>Email verificado</div>
+        <div class="prog-line done-line"></div>
+        <div class="prog-step done"><div class="prog-num">✓</div>¡Listo!</div>
+      </div>
+      <div class="welcome-screen">
+        <div class="welcome-icon">🎉</div>
+        <h2>¡Tu cuenta está activa!</h2>
+        <p>Bienvenido a blow. Ya podés comenzar a configurar tu negocio, cargar tu menú y recibir pedidos.</p>
+        <p><strong>Recordá:</strong> tenés <strong style="color:var(--red)">60 días gratis</strong>. Luego solo <strong style="color:var(--red)">$2.990/mes</strong> con <strong>0% de comisión</strong>.</p>
+        <br>
+        <button class="btn-go">Ir a mi panel →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right">
+    <div class="photo-bg">
+      <div class="float-pricing">
+        <div class="fp-label">Tu plan blow</div>
+        <div class="fp-free">60 días <small>gratis</small></div>
+        <hr class="fp-div">
+        <div style="font-size:12px;opacity:0.75;margin-bottom:3px;">Después:</div>
+        <div class="fp-price">$2.990 / mes</div>
+        <div class="fp-commission">✔ 0% de comisión</div>
+      </div>
+      <svg viewBox="0 0 500 580" xmlns="http://www.w3.org/2000/svg" class="person-svg">
+        <rect x="60" y="40" width="380" height="12" rx="4" fill="rgba(255,255,255,0.08)"/>
+        <rect x="60" y="100" width="380" height="12" rx="4" fill="rgba(255,255,255,0.06)"/>
+        <rect x="80" y="52" width="40" height="48" rx="4" fill="rgba(255,255,255,0.12)"/>
+        <rect x="130" y="52" width="40" height="48" rx="4" fill="rgba(255,255,255,0.09)"/>
+        <rect x="320" y="52" width="40" height="48" rx="4" fill="rgba(255,255,255,0.12)"/>
+        <rect x="370" y="52" width="40" height="48" rx="4" fill="rgba(255,255,255,0.09)"/>
+        <rect x="0" y="430" width="500" height="150" fill="rgba(0,0,0,0.25)"/>
+        <rect x="100" y="400" width="60" height="8" rx="4" fill="rgba(255,255,255,0.15)"/>
+        <rect x="124" y="408" width="12" height="42" rx="4" fill="rgba(255,255,255,0.1)"/>
+        <rect x="350" y="400" width="60" height="8" rx="4" fill="rgba(255,255,255,0.15)"/>
+        <rect x="374" y="408" width="12" height="42" rx="4" fill="rgba(255,255,255,0.1)"/>
+        <rect x="212" y="390" width="32" height="100" rx="10" fill="#2a2a3a"/>
+        <rect x="256" y="390" width="32" height="100" rx="10" fill="#2a2a3a"/>
+        <rect x="195" y="240" width="110" height="160" rx="18" fill="#E53935"/>
+        <polygon points="245,240 255,240 260,270 240,270" fill="#C62828"/>
+        <rect x="165" y="248" width="32" height="95" rx="14" fill="#E53935"/>
+        <rect x="303" y="248" width="32" height="80" rx="14" fill="#E53935"/>
+        <rect x="295" y="310" width="65" height="85" rx="8" fill="#ECEFF1"/>
+        <rect x="300" y="316" width="55" height="70" rx="4" fill="#90CAF9"/>
+        <rect x="195" y="375" width="110" height="16" rx="4" fill="#111"/>
+        <rect x="243" y="378" width="14" height="10" rx="2" fill="#8D6E63"/>
+        <ellipse cx="250" cy="195" rx="52" ry="58" fill="#FFCCBC"/>
+        <ellipse cx="250" cy="148" rx="50" ry="28" fill="#6D4C41"/>
+        <path d="M198 185 Q195 140 250 138 Q305 140 302 185" fill="#6D4C41"/>
+        <path d="M234 205 Q250 220 266 205" stroke="#BF7E6B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="235" cy="195" rx="7" ry="8" fill="#3E2723"/>
+        <ellipse cx="265" cy="195" rx="7" ry="8" fill="#3E2723"/>
+        <ellipse cx="237" cy="193" rx="2.5" ry="3" fill="#fff"/>
+        <ellipse cx="267" cy="193" rx="2.5" ry="3" fill="#fff"/>
+        <circle cx="198" cy="208" r="5" fill="#FFD700"/>
+        <circle cx="302" cy="208" r="5" fill="#FFD700"/>
+        <rect x="236" y="240" width="28" height="22" rx="8" fill="#FFCCBC"/>
+        <ellipse cx="181" cy="348" rx="17" ry="14" fill="#FFCCBC"/>
+        <ellipse cx="319" cy="348" rx="17" ry="14" fill="#FFCCBC"/>
+      </svg>
+    </div>
+    <div class="panel-right-overlay">
+      <div class="overlay-badge">+12.000 socios activos</div>
+      <div class="overlay-h">El futuro de tu<br>negocio empieza acá</div>
+      <p class="overlay-p">60 días gratis. Luego $2.990/mes.<br>Sin comisiones. Sin sorpresas.</p>
+      <div class="stats-row">
+        <div class="stat"><span class="stat-n">+850K</span><span class="stat-l">Usuarios activos</span></div>
+        <div class="stat"><span class="stat-n">0%</span><span class="stat-l">Comisión</span></div>
+        <div class="stat"><span class="stat-n">24/7</span><span class="stat-l">Soporte</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STEPS -->
+<section class="section-steps">
+  <h2>Comenzar a vender es así de simple</h2>
+  <div class="steps-row">
+    <div class="step-col"><div class="step-label">Paso 1</div><div class="step-bubble ra">💻</div><div class="step-text">Registrá y cargá tus datos</div></div>
+    <div class="step-col"><div class="step-label">Paso 2</div><div class="step-bubble">📄</div><div class="step-text">Firmá el contrato y validá la información</div></div>
+    <div class="step-col"><div class="step-label">Paso 3</div><div class="step-bubble ra">📱</div><div class="step-text">Activá tu billetera digital Blow Wallet</div></div>
+    <div class="step-col"><div class="step-label">Paso 4</div><div class="step-bubble">🍽️</div><div class="step-text">Cargá tu menú, horario y logo</div></div>
+    <div class="step-col"><div class="step-label">Paso 5</div><div class="step-bubble">🖥️</div><div class="step-text">Configurá tu sistema de recepción</div></div>
+    <div class="step-col"><div class="step-label">Paso 6</div><div class="step-bubble ra">🏪</div><div class="step-text">¡Ya estás listo para vender!</div></div>
+  </div>
+</section>
+
+<!-- DOCS -->
+<div class="docs-wrapper">
+  <div class="docs-inner">
+    <div class="docs-accordion">
+      <div class="acc-header" onclick="toggleAcc()">
+        <div class="acc-left"><div class="acc-icon">📋</div>Documentos requeridos</div>
+        <div class="chevron" id="chev">∧</div>
+      </div>
+      <div class="acc-body" id="acc-body">
+        <div class="docs-group">
+          <h4>Para personas físicas</h4>
+          <ul class="docs-list">
+            <li>Imagen del menú físico</li>
+            <li>DNI argentino por ambas caras (debes contar con el DNI físico)</li>
+            <li>Comprobante de ARCA</li>
+          </ul>
+        </div>
+        <div class="docs-group">
+          <h4>Para personas jurídicas</h4>
+          <ul class="docs-list">
+            <li>Imagen del menú físico</li>
+            <li>Contrato social o estatuto societario</li>
+            <li>Comprobante de ARCA</li>
+            <li>DNI del apoderado o representante legal</li>
+          </ul>
+          <button class="btn-info">+info</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">blow</div>
+  <ul class="footer-links">
+    <li><a href="#">Términos y condiciones</a></li>
+    <li><a href="#">Política de privacidad</a></li>
+    <li><a href="#">Centro de ayuda</a></li>
+    <li><a href="#">Contacto</a></li>
+  </ul>
+  <p class="footer-copy">© 2026 Blow. Todos los derechos reservados.</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── TOAST ──────────────────────────────────────────────────────
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => { t.className = 'toast'; }, 3400);
+}
+
+// ── ACORDEÓN ───────────────────────────────────────────────────
+function toggleAcc() {
+  const body = document.getElementById('acc-body');
+  const chev = document.getElementById('chev');
+  const open = body.style.display !== 'none' && body.style.display !== '';
+  body.style.display = open ? 'none' : 'grid';
+  chev.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+// ── CAMBIAR PANTALLA ───────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── VALIDACIÓN ─────────────────────────────────────────────────
+function validate() {
+  let ok = true;
+  [
+    { id:'f-negocio', err:'e-negocio', fn: v => v.trim().length > 1 },
+    { id:'f-nombre',  err:'e-nombre',  fn: v => v.trim().length > 0 },
+    { id:'f-apellido',err:'e-apellido',fn: v => v.trim().length > 0 },
+    { id:'f-tipo',    err:'e-tipo',    fn: v => v !== '' },
+    { id:'f-email',   err:'e-email',   fn: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) },
+    { id:'f-tel',     err:'e-tel',     fn: v => v.trim().length > 5 },
+  ].forEach(({ id, err, fn }) => {
+    const el = document.getElementById(id);
+    const valid = fn(el.value);
+    el.classList.toggle('error', !valid);
+    document.getElementById(err).classList.toggle('show', !valid);
+    if (!valid) ok = false;
+  });
+  const terms = document.getElementById('f-terms');
+  const termsErr = document.getElementById('e-terms');
+  if (!terms.checked) { termsErr.classList.add('show'); ok = false; }
+  else termsErr.classList.remove('show');
+  return ok;
+}
+
+// ── TOKEN ──────────────────────────────────────────────────────
+function genToken() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// ── EMAIL HTML ─────────────────────────────────────────────────
+function buildEmailHTML(nombre, negocio, verifyLink) {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<tr><td style="background:#FF1744;padding:28px 40px;text-align:center;">
+  <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.5px;">blow</div>
+  <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Plataforma para negocios</div>
+</td></tr>
+<tr><td style="padding:36px 40px 28px;">
+  <h1 style="font-size:22px;font-weight:800;color:#1A1A1A;margin:0 0 12px;">¡Hola, ${nombre}! 👋</h1>
+  <p style="font-size:15px;color:#555;line-height:1.65;margin:0 0 20px;">
+    Gracias por registrar <strong>${negocio}</strong> en blow.<br>
+    Confirmá tu email para activar tu cuenta y empezar a vender:
+  </p>
+  <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
+    <tr><td style="background:#FF1744;border-radius:10px;padding:15px 36px;">
+      <a href="${verifyLink}" style="color:#fff;font-size:16px;font-weight:700;text-decoration:none;">Activar mi cuenta →</a>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF5F7;border:1.5px solid #FFB3C0;border-radius:12px;margin:20px 0;">
+    <tr><td style="padding:18px 22px;">
+      <div style="font-size:13px;font-weight:700;color:#FF1744;margin-bottom:8px;">🎁 Tu plan blow</div>
+      <div style="font-size:14px;color:#333;line-height:1.7;">
+        ✅ <strong>60 días gratis</strong> — sin costo ni tarjeta de crédito<br>
+        ✅ Luego solo <strong>$2.990 / mes</strong><br>
+        ✅ <strong>0% de comisión</strong> por pedido, siempre
+      </div>
+    </td></tr>
+  </table>
+  <p style="font-size:12px;color:#aaa;margin:20px 0 0;line-height:1.6;">
+    Si no creaste esta cuenta podés ignorar este mensaje.<br>
+    El link de activación expira en <strong>24 horas</strong>.
+  </p>
+</td></tr>
+<tr><td style="background:#fafafa;border-top:1px solid #eee;padding:18px 40px;text-align:center;">
+  <p style="font-size:12px;color:#aaa;margin:0;">© 2026 Blow · Todos los derechos reservados</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+// ── ENVIAR EMAIL VIA RESEND ────────────────────────────────────
+async function sendEmail(toEmail, nombre, negocio, token) {
+  const verifyLink = `${APP_URL}?verified=true&token=${token}&email=${encodeURIComponent(toEmail)}`;
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to: [toEmail],
+      subject: `Activá tu cuenta en blow — ${negocio}`,
+      html: buildEmailHTML(nombre, negocio, verifyLink),
+    }),
+  });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Error Resend'); }
+  return res.json();
+}
+
+// ── SUBMIT ─────────────────────────────────────────────────────
+let pendingEmail = '', pendingToken = '';
+
+async function handleSubmit() {
+  if (!validate()) { showToast('Completá todos los campos obligatorios', true); return; }
+
+  const btn  = document.getElementById('btn-submit');
+  const text = document.getElementById('btn-text');
+  const spin = document.getElementById('btn-spin');
+  btn.disabled = true; text.style.display = 'none'; spin.style.display = 'block';
+
+  pendingEmail = document.getElementById('f-email').value.trim();
+  const nombre  = document.getElementById('f-nombre').value.trim();
+  const negocio = document.getElementById('f-negocio').value.trim();
+  pendingToken  = genToken();
+
+  sessionStorage.setItem('blow_reg', JSON.stringify({
+    negocio, nombre, email: pendingEmail, token: pendingToken, ts: Date.now()
+  }));
+
+  try {
+    await sendEmail(pendingEmail, nombre, negocio, pendingToken);
+    document.getElementById('display-email').textContent = pendingEmail;
+    showScreen('screen-verify');
+    showToast('¡Email enviado! Revisá tu bandeja de entrada 📧');
+  } catch (err) {
+    console.error(err);
+    showToast('Error al enviar el email. Verificá tu API key de Resend.', true);
+    btn.disabled = false; text.style.display = ''; spin.style.display = 'none';
+  }
+}
+
+// ── REENVIAR ────────────────────────────────────────────────────
+let cooldown = false;
+async function resendEmail() {
+  if (cooldown) return;
+  cooldown = true;
+  const btn = document.getElementById('btn-resend');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const d = JSON.parse(sessionStorage.getItem('blow_reg') || '{}');
+    await sendEmail(d.email, d.nombre, d.negocio, d.token);
+    showToast('Email reenviado ✓');
+    btn.textContent = 'Reenviado ✓';
+    setTimeout(() => { btn.textContent = 'Reenviar email'; btn.disabled = false; cooldown = false; }, 30000);
+  } catch {
+    showToast('No se pudo reenviar. Intentá de nuevo.', true);
+    btn.disabled = false; btn.textContent = 'Reenviar email'; cooldown = false;
+  }
+}
+
+// ── CHECK VERIFICACIÓN AL CARGAR ──────────────────────────────
+(function checkOnLoad() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('verified') === 'true' && p.get('token') && p.get('email')) {
+    showScreen('screen-welcome');
+    sessionStorage.removeItem('blow_reg');
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+})();
+</script>
+</body>
+</html>
