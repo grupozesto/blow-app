@@ -698,6 +698,14 @@ if (rateLimit) {
   app.use('/api/', generalLimiter);
   app.use('/api/auth/', authLimiter);
   app.use('/api/orders/:id/messages', chatLimiter);
+  // Rate limit extra estricto para forgot-password (evita spam de emails)
+  const forgotLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, max: 5,
+    message: { error: 'Demasiados intentos. Esperá 1 hora.' },
+    standardHeaders: true, legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+  });
+  app.use('/api/auth/forgot-password', forgotLimiter);
 }
 
 app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://socios.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
@@ -813,12 +821,24 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
 }
 
+// ── Fetch con timeout (evita que llamadas externas cuelguen el servidor) ──
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── Email sender via Resend ───────────────────────
 async function sendEmail(to, subject, html) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) { console.warn('RESEND_API_KEY no configurado'); return false; }
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: 'Blow <noreply@blow.uy>', to, subject, html })
@@ -1426,7 +1446,7 @@ app.get('/api/subscription', auth, role('owner'), async (req, res) => {
 app.post('/api/subscription/renew', auth, role('owner'), async (req, res) => {
   const b = await q1('SELECT * FROM businesses WHERE owner_id=$1',[req.user.id]);
   if (!b) return res.status(404).json({ error:'Sin negocio' });
-  const owner = await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
+  const owner = await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1',[req.user.id]);
 
   if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
     // Demo — reactivate immediately
@@ -1545,7 +1565,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const _fee=await getPlatformFee();
       const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
     const orderId=uuid();
-    const cust=await q1('SELECT * FROM users WHERE id=$1',[req.user.id]);
+    const cust=await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1',[req.user.id]);
     await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,payment_method) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11)`,
       [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,payment_method||'cash']);
     for (const i of lineItems) {
@@ -3406,7 +3426,7 @@ app.post('/api/admin/businesses/:id/toggle-open', auth, role('admin'), async (re
 // ── Admin: impersonate ───────────────────────────
 app.post('/api/admin/impersonate/:id', auth, role('admin'), async (req, res) => {
   try {
-    const user = await q1('SELECT * FROM users WHERE id=$1', [req.params.id]);
+    const user = await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1', [req.params.id]);
     if (!user) return res.status(404).json({ error: 'No encontrado' });
     const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
@@ -3569,7 +3589,7 @@ app.get('/api/geocode/reverse', async (req, res) => {
   try {
     const { lat, lng } = req.query;
     if (!lat || !lng) return res.status(400).json({ error: 'lat y lng requeridos' });
-    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`, {
+    const r = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`, {
       headers: { 'User-Agent': 'BlowApp/1.0' }
     });
     const data = await r.json();
@@ -3687,7 +3707,7 @@ app.post('/api/customer/wallet/load', auth, role('customer'), async (req, res) =
       const wallet = await getWallet(req.user.id, 'customer');
       return res.json({ success: true, demo: true, balance: parseFloat(wallet.balance)||0 });
     }
-    const cust = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
+    const cust = await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1', [req.user.id]);
     const pref = await mp.preferences.create({
       items: [{ title: 'Carga de saldo Blow', quantity: 1, unit_price: parseFloat(amount), currency_id: 'UYU' }],
       payer: { name: cust.name, email: cust.email },
@@ -3714,7 +3734,7 @@ app.post('/api/orders/:id/refund', auth, role('customer'), async (req, res) => {
       res.json({ success: true, method: 'wallet', amount: order.total });
     } else {
       const wallet = await getWallet(req.user.id, 'customer');
-      const cust = await q1('SELECT * FROM users WHERE id=$1', [req.user.id]);
+      const cust = await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1', [req.user.id]);
       await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination,type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
         [uuid(), wallet.id, req.user.id, cust.name, cust.email, order.total, 'bank', 'A coordinar', 'customer_refund']);
       notify(req.user.id, { type:'refund_bank', message:`🏦 Reembolso de $${order.total} solicitado — 1-3 días hábiles` });
@@ -3752,7 +3772,7 @@ app.get('/api/mp/callback', async (req, res) => {
     } catch(e) { return res.redirect('/?mp_connect=error'); }
 
     // Intercambiar code por access_token
-    const tokenRes = await fetch('https://api.mercadopago.com/oauth/token', {
+    const tokenRes = await fetchWithTimeout('https://api.mercadopago.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
