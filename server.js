@@ -150,6 +150,12 @@ const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: (process.env.DATABASE_URL || '').includes('railway') || process.env.DB_SSL === 'true'
     ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+db.on('error', (err) => {
+  console.error('⚠️  PostgreSQL pool error:', err.message);
 });
 
 const q  = (text, params) => db.query(text, params);
@@ -296,6 +302,15 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS mp_init_point TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS cover_url TEXT DEFAULT NULL;
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS doc_tipo VARCHAR(20) DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS doc_numero VARCHAR(30) DEFAULT NULL;
+    ALTER TABLE businesses ADD COLUMN IF NOT EXISTS comm_team BOOLEAN DEFAULT FALSE;
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS mp_comm_preapproval_id TEXT DEFAULT NULL;
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS comm_team_active BOOLEAN DEFAULT FALSE;
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS comm_team_since TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+    UPDATE subscriptions SET status='trial' WHERE status='active' AND current_period_end > NOW() + INTERVAL '30 days' AND created_at > NOW() - INTERVAL '1 day';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
     ALTER TABLE businesses ADD COLUMN IF NOT EXISTS tags TEXT DEFAULT '[]';
     ALTER TABLE products ADD COLUMN IF NOT EXISTS photo_url TEXT DEFAULT NULL;
@@ -426,6 +441,7 @@ async function initDB() {
       id TEXT PRIMARY KEY,
       order_id TEXT,
       sender_id TEXT,
+      sender_role TEXT DEFAULT 'customer',
       body TEXT NOT NULL,
       read_at TIMESTAMPTZ DEFAULT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -436,6 +452,7 @@ async function initDB() {
     ALTER TABLE order_messages ALTER COLUMN order_id DROP NOT NULL;
     ALTER TABLE order_messages ALTER COLUMN sender_id DROP NOT NULL;
     ALTER TABLE order_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE order_messages ADD COLUMN IF NOT EXISTS sender_role TEXT DEFAULT 'customer';
 
     CREATE TABLE IF NOT EXISTS support_messages (
       id TEXT PRIMARY KEY,
@@ -513,6 +530,7 @@ async function initDB() {
       UNIQUE(user_id, endpoint)
     );
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT DEFAULT '';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS promo_banners (
@@ -682,8 +700,8 @@ if (rateLimit) {
   app.use('/api/orders/:id/messages', chatLimiter);
 }
 
-app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
-app.use(express.json({ limit: '5mb' })); // reducido de 20mb a 5mb
+app.use(cors({ origin: process.env.NODE_ENV === 'production' ? ['https://blow.uy', 'https://www.blow.uy', 'https://socios.blow.uy', 'https://blow-app-production.up.railway.app'] : '*' }));
+app.use(express.json({ limit: '25mb' })); // aumentado para soportar imágenes base64 desde socios.blow.uy
 // ── Manifest dinámico ────────────────────────────
 app.get('/manifest.json', async (req, res) => {
   try {
@@ -1172,7 +1190,14 @@ function mpDate(date) {
 
 app.post('/api/register/initiate', async (req, res) => {
   try {
-    const { bizName, category, address='', city, department='', name, email, password, phone='' } = req.body;
+    const {
+      bizName, category, address='', city, department='', name, email, password, phone='',
+      // Campos extra desde la landing socios.blow.uy
+      schedule='', description='', phone_biz='', branches=1,
+      menu_files=[], logo_file=null, cover_files=[],
+      // Nuevos campos
+      doc_tipo='CI', doc_numero='', comm_team=false,
+    } = req.body;
     if (!bizName||!name||!email||!password||!city)
       return res.status(400).json({ error:'Completá todos los campos obligatorios' });
     if (password.length < 6)
@@ -1182,27 +1207,43 @@ app.post('/api/register/initiate', async (req, res) => {
       return res.status(409).json({ error:'Este email ya está registrado' });
 
     const regId = uuid();
+    // Guardar todos los datos incluyendo archivos en pending
     await q('INSERT INTO pending_registrations (id,data) VALUES ($1,$2)',
-      [regId, JSON.stringify({ bizName,category,address,city,department,name,email:emailLow,password,phone })]);
+      [regId, JSON.stringify({
+        bizName, category, address, city, department, name, email:emailLow, password, phone,
+        schedule, description, phone_biz, branches,
+        menu_files, logo_file, cover_files,
+        doc_tipo, doc_numero, comm_team,
+      })]);
 
     // Sin MP configurado → modo demo (dev/staging)
     if (!mp || !process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')) {
       return res.json({ reg_id: regId, demo: true });
     }
 
-    const backUrl = `${APP_URL}/owner`;
-    console.log('🔗 Preapproval back_url:', backUrl);
+    // ── Preapproval 1: Plan negocio con 60 días de trial gratis ──
+    const COMM_PRICE   = 5000;
+    const trialEndDate = new Date(Date.now() + 1000*60*60*24*60);
+    const endDate      = new Date(Date.now() + 1000*60*60*24*365*5);
+    const backUrl      = `${APP_URL}/owner`;
+    console.log('🔗 Preapproval back_url:', backUrl, '| comm_team:', comm_team);
+
     const preapproval = await mp.preapproval.create({
-      reason: `Blow — Plan mensual negocios`,
+      reason: `Blow — Plan mensual negocios (60 dias gratis)`,
       external_reference: `reg:${regId}`,
       payer_email: emailLow,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
-        transaction_amount: PLAN_PRICE,
+        transaction_amount: PLAN_PRICE,  // solo el plan, sin comm
         currency_id: 'UYU',
-        start_date: mpDate(Date.now()),
-        end_date: mpDate(Date.now() + 1000*60*60*24*365*5),
+        start_date: mpDate(trialEndDate), // cobra recien el dia 61
+        end_date: mpDate(endDate),
+        free_trial: {
+          frequency: 60,
+          frequency_type: 'days',
+          first_invoice_offset: 0,
+        },
       },
       back_url: backUrl,
       notification_url: `${APP_URL}/api/webhooks/mp`,
@@ -1210,7 +1251,43 @@ app.post('/api/register/initiate', async (req, res) => {
 
     await q('UPDATE pending_registrations SET mp_preference_id=$1 WHERE id=$2',
       [preapproval.body.id, regId]);
-    res.json({ reg_id: regId, init_point: preapproval.body.init_point });
+
+    // ── Preapproval 2: Equipo de comunicación — cobro INMEDIATO desde día 1 ──
+    let commInitPoint = null;
+    if (comm_team) {
+      const commPreapproval = await mp.preapproval.create({
+        reason: `Blow — Equipo de comunicacion`,
+        external_reference: `comm:${regId}`,
+        payer_email: emailLow,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: 'months',
+          transaction_amount: COMM_PRICE, // $5.000 desde el dia 1, sin trial
+          currency_id: 'UYU',
+          start_date: mpDate(Date.now() + 1000*60), // 1 minuto para que MP lo active
+          end_date: mpDate(endDate),
+        },
+        back_url: backUrl,
+        notification_url: `${APP_URL}/api/webhooks/mp`,
+      });
+      // Guardar el id del preapproval de comm en pending
+      await q('UPDATE pending_registrations SET data=$1 WHERE id=$2', [
+        JSON.stringify({ ...JSON.parse((await q1('SELECT data FROM pending_registrations WHERE id=$1',[regId]))?.data||'{}'), mp_comm_preapproval_id: commPreapproval.body.id }),
+        regId
+      ]).catch(()=>{});
+      commInitPoint = commPreapproval.body.init_point;
+      console.log('✅ Comm preapproval creado:', commPreapproval.body.id);
+    }
+
+    // Si tiene equipo de comunicacion, primero autorizan el plan y luego comm
+    // MP no permite encadenar dos preapprovals en un solo redirect, asi que
+    // guardamos ambos init_points y la landing redirige al primero;
+    // el segundo se activa via webhook cuando el primero es autorizado.
+    res.json({
+      reg_id: regId,
+      init_point: preapproval.body.init_point,
+      comm_init_point: commInitPoint, // la landing redirige a este segundo si comm_team=true
+    });
   } catch(e) { console.error('Register initiate error:', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -1248,23 +1325,74 @@ app.post('/api/register/complete', async (req, res) => {
     }
 
     const userId = uuid();
-    await q('INSERT INTO users (id,name,email,phone,password,role,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [userId, d.name, d.email, d.phone||'', await bcrypt.hash(d.password,10), 'owner', d.city, d.department||'']);
+    await q('INSERT INTO users (id,name,email,phone,password,role,city,department,doc_tipo,doc_numero) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      [userId, d.name, d.email, d.phone||'', await bcrypt.hash(d.password,10), 'owner', d.city, d.department||'', d.doc_tipo||'CI', d.doc_numero||'']);
     const bizId = uuid();
-    await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
+    await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department,comm_team) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'', d.comm_team||false]);
+
+    // ── Subir archivos a Cloudinary si vinieron desde socios.blow.uy ──
+    if (cloudinary) {
+      // 1. Logo del negocio
+      if (d.logo_file?.data) {
+        try {
+          const up = await uploadPhoto(d.logo_file.data, d.logo_file.mime_type || 'image/jpeg');
+          await q('UPDATE businesses SET logo_url=$1 WHERE id=$2', [up.url, bizId]);
+          console.log('✅ Logo subido:', up.url);
+        } catch(e) { console.warn('⚠️  Logo upload error:', e.message); }
+      }
+      // 2. Foto del local / portada (primera imagen)
+      if (d.cover_files?.length > 0) {
+        try {
+          const up = await uploadPhoto(d.cover_files[0].data, d.cover_files[0].mime_type || 'image/jpeg');
+          await q('UPDATE businesses SET cover_url=$1 WHERE id=$2', [up.url, bizId]);
+          console.log('✅ Cover subido:', up.url);
+        } catch(e) { console.warn('⚠️  Cover upload error:', e.message); }
+      }
+      // 3. Fotos del menú → guardadas como pending para revisión del admin
+      if (d.menu_files?.length > 0) {
+        for (let i = 0; i < Math.min(d.menu_files.length, 5); i++) {
+          try {
+            const up = await uploadPhoto(d.menu_files[i].data, d.menu_files[i].mime_type || 'image/jpeg');
+            // Guardar en product_photos como "menu_preview" para revisión admin
+            await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',
+              [uuid(), bizId, up.url, up.cloudinary_id, i]).catch(()=>{});
+            console.log(`✅ Menu foto ${i+1} subida:`, up.url);
+          } catch(e) { console.warn(`⚠️  Menu foto ${i+1} error:`, e.message); }
+        }
+      }
+    }
+
+    // ── Guardar campos extra de la landing ──
+    const extraPhone = d.phone_biz || d.phone_local || null;
+    if (d.schedule || d.description || extraPhone) {
+      await q(`UPDATE businesses SET
+        phone     = COALESCE($1, phone),
+        schedule  = COALESCE($2::jsonb, schedule)
+        WHERE id  = $3`,
+        [
+          extraPhone,
+          d.schedule ? JSON.stringify({ note: d.schedule }) : null,
+          bizId,
+        ]
+      ).catch(e => console.warn('Extra fields update:', e.message));
+    }
+
     const { periodEnd, isPromo } = await getTrialPeriodEnd();
     const preapprovalId = pending.mp_preference_id || null;
+
+    // ── Suscripción con 60 días gratis hardcodeados en period_end ──
+    // Si hay preapproval de MP, el cobro automático ya está configurado
+    // con free_trial desde initiate. periodEnd refleja cuándo expira el trial.
+    const trialEnd = new Date(Date.now() + 1000*60*60*24*60); // siempre 60 días
     await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
-      VALUES ($1,$2,$3,'active','active',$4,NOW(),$5)`,
-      [uuid(), bizId, userId, preapprovalId, periodEnd.toISOString()]);
+      VALUES ($1,$2,$3,'active','trial',$4,NOW(),$5)`,
+      [uuid(), bizId, userId, preapprovalId, trialEnd.toISOString()]);
     await q('DELETE FROM pending_registrations WHERE id=$1',[reg_id]);
 
     const u = { id:userId, name:d.name, email:d.email, role:'owner' };
-    const welcomeMsg = isPromo
-      ? `¡Cuenta creada! Tenés 60 días gratis como parte de los primeros negocios de Blow. ¡Bienvenido!`
-      : '¡Cuenta creada! Bienvenido a Blow.';
-    res.status(201).json({ token:sign(u), user:u, message: welcomeMsg, is_promo: isPromo });
+    const welcomeMsg = '¡Cuenta creada! Tenés 60 días gratis para explorar Blow. El cobro de $2.990/mes empieza el día 61. ¡Bienvenido!';
+    res.status(201).json({ token:sign(u), user:u, message: welcomeMsg, is_promo: true });
   } catch(e) { console.error('Register complete error:', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -2040,12 +2168,44 @@ app.post('/api/admin/users/:id/reset-password', auth, role('admin'), async (req,
   await q('UPDATE users SET password=$1 WHERE id=$2',[await bcrypt.hash(password,10),req.params.id]);
   res.json({ success:true });
 });
-app.get('/api/admin/businesses', auth, role('admin'), async (req, res) =>
-  res.json(await qa(`SELECT b.*,u.name as owner_name,u.email as owner_email,(SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,(SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue FROM businesses b JOIN users u ON b.owner_id=u.id ORDER BY b.created_at DESC`,[])));
+// ── Landing config — endpoint público para socios.blow.uy ──────
+app.get('/api/landing-config', async (req, res) => {
+  try {
+    const row = await q1("SELECT value FROM app_settings WHERE key='landing_config'", []);
+    res.json(row ? JSON.parse(row.value) : {});
+  } catch(e) { res.json({}); }
+});
+
+app.get('/api/admin/businesses', auth, role('admin'), async (req, res) => {
+  const commOnly = req.query.comm_team === 'true';
+  const sql = `
+    SELECT b.*,
+      u.name as owner_name, u.email as owner_email,
+      u.phone as owner_phone, u.doc_tipo, u.doc_numero,
+      s.status as sub_status, s.current_period_end, s.mp_preapproval_id,
+      s.comm_team_active, s.comm_team_since, s.mp_comm_preapproval_id,
+      (SELECT COUNT(*) FROM orders WHERE business_id=b.id AND status='delivered') as completed_orders,
+      (SELECT COALESCE(SUM(total),0) FROM orders WHERE business_id=b.id AND status='delivered') as total_revenue
+    FROM businesses b
+    JOIN users u ON b.owner_id=u.id
+    LEFT JOIN subscriptions s ON s.business_id=b.id
+    ${commOnly ? 'WHERE b.comm_team=TRUE' : ''}
+    ORDER BY b.created_at DESC`;
+  res.json(await qa(sql, []));
+});
+
 app.patch('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
-  const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department }=req.body;
-  await q(`UPDATE businesses SET name=COALESCE($1,name),category=COALESCE($2,category),address=COALESCE($3,address),phone=COALESCE($4,phone),logo_emoji=COALESCE($5,logo_emoji),delivery_cost=COALESCE($6,delivery_cost),is_open=COALESCE($7,is_open),plan=COALESCE($8,plan),delivery_time=COALESCE($9,delivery_time),city=COALESCE($10,city),department=COALESCE($11,department) WHERE id=$12`,
-    [name,category,address,phone,logo_emoji,delivery_cost,is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,req.params.id]);
+  const { name,category,address,phone,logo_emoji,delivery_cost,is_open,plan,delivery_time,city,department,description,schedule,comm_team,admin_notes }=req.body;
+  await q(`UPDATE businesses SET
+    name=COALESCE($1,name), category=COALESCE($2,category), address=COALESCE($3,address),
+    phone=COALESCE($4,phone), logo_emoji=COALESCE($5,logo_emoji), delivery_cost=COALESCE($6,delivery_cost),
+    is_open=COALESCE($7,is_open), plan=COALESCE($8,plan), delivery_time=COALESCE($9,delivery_time),
+    city=COALESCE($10,city), department=COALESCE($11,department),
+    admin_notes=COALESCE($13,admin_notes), comm_team=COALESCE($14,comm_team)
+    WHERE id=$12`,
+    [name,category,address,phone,logo_emoji,delivery_cost,
+     is_open!=null?Boolean(is_open):null,plan,delivery_time,city,department,
+     req.params.id, admin_notes, comm_team!=null?Boolean(comm_team):null]);
   res.json(await q1('SELECT * FROM businesses WHERE id=$1',[req.params.id]));
 });
 app.delete('/api/admin/businesses/:id', auth, role('admin'), async (req, res) => {
@@ -2215,13 +2375,59 @@ app.post('/api/webhooks/mp', async (req, res) => {
         await q('INSERT INTO businesses (id,owner_id,name,category,address,city,department) VALUES ($1,$2,$3,$4,$5,$6,$7)',
           [bizId, userId, d.bizName, d.category, d.address||'', d.city, d.department||'']);
 
-        // Create active subscription with preapproval id
-        const { periodEnd: wPeriodEnd, isPromo: wIsPromo } = await getTrialPeriodEnd();
-        await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
-          VALUES ($1,$2,$3,'active','active',$4,NOW(),$5)`,
-          [uuid(), bizId, userId, pa.id, wPeriodEnd.toISOString()]);
+        // ── Subir archivos a Cloudinary (desde socios.blow.uy) ──
+        if (cloudinary) {
+          if (d.logo_file?.data) {
+            try { const up = await uploadPhoto(d.logo_file.data, d.logo_file.mime_type||'image/jpeg'); await q('UPDATE businesses SET logo_url=$1 WHERE id=$2',[up.url,bizId]); } catch(e) {}
+          }
+          if (d.cover_files?.length > 0) {
+            try { const up = await uploadPhoto(d.cover_files[0].data, d.cover_files[0].mime_type||'image/jpeg'); await q('UPDATE businesses SET cover_url=$1 WHERE id=$2',[up.url,bizId]); } catch(e) {}
+          }
+          if (d.menu_files?.length > 0) {
+            for (let i=0; i<Math.min(d.menu_files.length,5); i++) {
+              try { const up = await uploadPhoto(d.menu_files[i].data, d.menu_files[i].mime_type||'image/jpeg'); await q('INSERT INTO product_photos (id,product_id,url,cloudinary_id,sort_order) VALUES ($1,$2,$3,$4,$5)',[uuid(),bizId,up.url,up.cloudinary_id,i]).catch(()=>{}); } catch(e) {}
+            }
+          }
+        }
+        // Guardar campos extra de landing
+        if (d.phone_biz || d.schedule) {
+          await q('UPDATE businesses SET phone=COALESCE($1,phone) WHERE id=$2',[d.phone_biz||null,bizId]).catch(()=>{});
+        }
 
-        console.log(`✅ Negocio creado via webhook: ${d.bizName} | owner: ${d.email} | ${wIsPromo ? '60 días promo' : '1 mes'}`);
+        // Create subscription — trial de 60 días, cobro real desde MP el día 61
+        const trialEnd = new Date(Date.now() + 1000*60*60*24*60);
+        await q(`INSERT INTO subscriptions (id,business_id,owner_id,plan,status,mp_preapproval_id,current_period_start,current_period_end)
+          VALUES ($1,$2,$3,'active','trial',$4,NOW(),$5)`,
+          [uuid(), bizId, userId, pa.id, trialEnd.toISOString()]);
+
+        console.log(`✅ Negocio creado via webhook: ${d.bizName} | owner: ${d.email} | 60 días trial`);
+      }
+
+      // ── Equipo de comunicación autorizado (cobro inmediato desde día 1) ──
+      if (extRef.startsWith('comm:') && pa.status === 'authorized') {
+        const regId = extRef.replace('comm:','');
+        // Buscar la suscripcion del negocio asociado a este reg_id
+        // El negocio ya debe existir (creado por el preapproval del plan)
+        const pending = await q1('SELECT * FROM pending_registrations WHERE id=$1',[regId]);
+        const d2 = pending ? (typeof pending.data === 'string' ? JSON.parse(pending.data) : pending.data) : null;
+        if (d2?.email) {
+          const existingUser = await q1('SELECT id FROM users WHERE email=$1',[d2.email]);
+          if (existingUser) {
+            const biz = await q1('SELECT id FROM businesses WHERE owner_id=$1',[existingUser.id]);
+            if (biz) {
+              await q(`UPDATE subscriptions SET
+                mp_comm_preapproval_id=$1, comm_team_active=TRUE, comm_team_since=NOW(), updated_at=NOW()
+                WHERE business_id=$2`,
+                [pa.id, biz.id]);
+              await q('UPDATE businesses SET comm_team=TRUE WHERE id=$1',[biz.id]);
+              notify(existingUser.id, {
+                type: 'comm_team_active',
+                message: '🔥 Equipo de comunicacion activado! Nos contactaremos pronto para coordinar.',
+              });
+              console.log(`✅ Comm team activado para negocio ${biz.id}`);
+            }
+          }
+        }
       }
 
       // Renovación aprobada para negocio existente
@@ -2262,6 +2468,7 @@ app.post('/api/webhooks/mp', async (req, res) => {
       if (sub && authPayment.status === 'processed') {
         const newEnd = new Date(sub.current_period_end || Date.now());
         newEnd.setMonth(newEnd.getMonth()+1);
+        // Si estaba en trial, ahora pasa a active (primer cobro real del día 61)
         await q(`UPDATE subscriptions SET status='active', current_period_end=$1, updated_at=NOW() WHERE mp_preapproval_id=$2`,
           [newEnd.toISOString(), preapprovalId]);
         const biz = await q1('SELECT owner_id FROM businesses WHERE id=$1',[sub.business_id]);
@@ -2465,6 +2672,9 @@ app.patch('/api/admin/help/:id', auth, async (req, res) => {
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business.html')));
+// Landing de registro de negocios — accesible desde socios.blow.uy y blow.uy/socios
+app.get('/socios',(_,res)=>res.sendFile(path.join(__dirname,'public','blow_registro_negocios.html')));
+app.get('/registro',(_,res)=>res.sendFile(path.join(__dirname,'public','blow_registro_negocios.html')));
 
 // ── PROMO BANNERS API ──
 app.get('/api/banners', async (req,res)=>{
