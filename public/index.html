@@ -981,9 +981,9 @@ body.owner-mode #owner-overlay {
       Modo Delivery
     </button>
     -->
-    <button class="si" onclick="handleOwnerAccess()">
+    <button class="si" onclick="handleOwnerAccess()" id="nav-owner-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      Portal Negocios
+      <span id="nav-owner-label">Tu negocio</span>
     </button>
 
   </div>
@@ -6656,21 +6656,24 @@ function renderProfile() {
 
 async function handleSession() { user ? (await showConfirm(`¿Cerrar sesión de ${user.name}?`, {title:'Cerrar sesión', confirmLabel:'Cerrar sesión', danger:false}) && doLogout()) : openAuth(); }
 function handleOwnerAccess() {
-  window.location.href = '/business';
+  if (user && user.role === 'owner') {
+    // Dueño ya registrado → ir al panel
+    window.location.href = '/owner';
+  } else {
+    // Cliente o no logueado → ir a registrar negocio
+    window.location.href = '/socios';
+  }
 }
 
 function updatePortalItemText() {
-  const sub = document.getElementById('portal-negocios-sub');
-  if (!sub) return;
+  const sub  = document.getElementById('portal-negocios-sub');
+  const navLabel = document.getElementById('nav-owner-label');
   if (user && user.role === 'owner') {
-    sub.textContent = 'Gestionar mi negocio →';
-    sub.style.color = '#16a34a';
-  } else if (user) {
-    sub.textContent = 'Registrar mi negocio →';
-    sub.style.color = '#ea356b';
+    if (sub) { sub.textContent = 'Gestionar mi negocio →'; sub.style.color = '#16a34a'; }
+    if (navLabel) navLabel.textContent = 'Mi negocio';
   } else {
-    sub.textContent = 'Ingresar o registrar negocio →';
-    sub.style.color = '#ea356b';
+    if (sub) { sub.textContent = 'Registrá tu negocio →'; sub.style.color = '#ea356b'; }
+    if (navLabel) navLabel.textContent = 'Tu negocio';
   }
 }
 
