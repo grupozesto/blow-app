@@ -796,9 +796,20 @@ async function getWallet(ownerId, ownerType) {
 }
 async function credit(ownerId, ownerType, amount, desc, orderId) {
   const w = await getWallet(ownerId, ownerType);
-  await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2', [amount, w.id]);
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
-    [uuid(), w.id, 'credit', amount, desc, orderId||null]);
+  // Transacción atómica: si falla cualquier query, se hace rollback
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2', [amount, w.id]);
+    await client.query('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
+      [uuid(), w.id, 'credit', amount, desc, orderId||null]);
+    await client.query('COMMIT');
+  } catch(e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 async function getProductFull(pid) {
   const p = await q1('SELECT * FROM products WHERE id=$1', [pid]);
@@ -995,10 +1006,18 @@ app.get('/api/businesses', async (req, res) => {
   if (department) { sql += ` AND LOWER(b.department)=LOWER($${i++})`; params.push(department); }
   sql += ` ORDER BY b.blow_plus DESC NULLS LAST, b.created_at DESC`;
   const rows = await qa(sql, params);
-  const result = await Promise.all(rows.map(async b => ({
-    ...b,
-    product_count: parseInt((await q1('SELECT COUNT(*) as c FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id])).c),
-  })));
+  // Obtener product_count con un solo JOIN en vez de N queries
+  const bizIds = rows.map(b => b.id);
+  let productCounts = {};
+  if (bizIds.length > 0) {
+    const placeholders = bizIds.map((_, i) => `$${i+1}`).join(',');
+    const counts = await qa(
+      `SELECT business_id, COUNT(*) as c FROM products WHERE business_id IN (${placeholders}) AND is_available=TRUE GROUP BY business_id`,
+      bizIds
+    );
+    counts.forEach(r => { productCounts[r.business_id] = parseInt(r.c); });
+  }
+  const result = rows.map(b => ({ ...b, product_count: productCounts[b.id] || 0 }));
   res.json(result);
 });
 
@@ -1580,10 +1599,20 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       if (parseFloat(customerWallet.balance) < total) {
         return res.status(400).json({ error: `Saldo insuficiente. Tu billetera tiene $${parseFloat(customerWallet.balance).toFixed(0)}` });
       }
-      await q('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2', [total, customerWallet.id]);
-      await q('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
-        [uuid(), customerWallet.id, 'debit', total, `Pedido #${orderId.slice(-6).toUpperCase()}`, orderId]);
-      await q("UPDATE orders SET status='paid',mp_status='wallet',updated_at=NOW() WHERE id=$1", [orderId]);
+      const walletClient = await db.connect();
+      try {
+        await walletClient.query('BEGIN');
+        await walletClient.query('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2', [total, customerWallet.id]);
+        await walletClient.query('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
+          [uuid(), customerWallet.id, 'debit', total, `Pedido #${orderId.slice(-6).toUpperCase()}`, orderId]);
+        await walletClient.query("UPDATE orders SET status='paid',mp_status='wallet',updated_at=NOW() WHERE id=$1", [orderId]);
+        await walletClient.query('COMMIT');
+      } catch(e) {
+        await walletClient.query('ROLLBACK');
+        throw e;
+      } finally {
+        walletClient.release();
+      }
       notify(biz.owner_id, { type:'new_order', message:`🛍️ Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`, order_id:orderId, total });
       notify(req.user.id, { type:'order_confirmed', message:'✅ Pedido pagado con billetera Blow', status:'paid', order_id:orderId });
       return res.json({ order_id: orderId, wallet: true });
@@ -2075,11 +2104,21 @@ app.post('/api/wallet/withdraw', auth, async (req, res) => {
   if (!amount||amount<=0) return res.status(400).json({ error:'Monto inválido' });
   const wallet=await getWallet(ownerId,req.user.role);
   if (parseFloat(wallet.balance)<amount) return res.status(400).json({ error:'Saldo insuficiente' });
-  await q('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2',[amount,wallet.id]);
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${method}`]);
   const owner=await q1('SELECT name,email FROM users WHERE id=$1',[req.user.id]);
-  await q('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,method,destination]);
+  const withdrawClient = await db.connect();
+  try {
+    await withdrawClient.query('BEGIN');
+    await withdrawClient.query('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2',[amount,wallet.id]);
+    await withdrawClient.query('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),wallet.id,'debit',amount,`Retiro via ${method}`]);
+    await withdrawClient.query('INSERT INTO withdrawals (id,wallet_id,owner_id,owner_name,email,amount,method,destination) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [uuid(),wallet.id,req.user.id,owner.name,owner.email||'',amount,method,destination]);
+    await withdrawClient.query('COMMIT');
+  } catch(e) {
+    await withdrawClient.query('ROLLBACK');
+    throw e;
+  } finally {
+    withdrawClient.release();
+  }
   res.json({ success:true });
 });
 
@@ -2268,9 +2307,19 @@ app.post('/api/admin/withdrawals/:id/approve', auth, role('admin'), async (req, 
 app.post('/api/admin/withdrawals/:id/reject', auth, role('admin'), async (req, res) => {
   const w=await q1('SELECT * FROM withdrawals WHERE id=$1',[req.params.id]);
   if (!w) return res.status(404).json({ error:'No encontrado' });
-  await q("UPDATE withdrawals SET status='rejected',processed_at=NOW() WHERE id=$1",[req.params.id]);
-  await q('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2',[w.amount,w.wallet_id]);
-  await q('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),w.wallet_id,'credit',w.amount,'Retiro rechazado — saldo devuelto']);
+  const rejectClient = await db.connect();
+  try {
+    await rejectClient.query('BEGIN');
+    await rejectClient.query("UPDATE withdrawals SET status='rejected',processed_at=NOW() WHERE id=$1",[req.params.id]);
+    await rejectClient.query('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE id=$2',[w.amount,w.wallet_id]);
+    await rejectClient.query('INSERT INTO transactions (id,wallet_id,type,amount,description) VALUES ($1,$2,$3,$4,$5)',[uuid(),w.wallet_id,'credit',w.amount,'Retiro rechazado — saldo devuelto']);
+    await rejectClient.query('COMMIT');
+  } catch(e) {
+    await rejectClient.query('ROLLBACK');
+    throw e;
+  } finally {
+    rejectClient.release();
+  }
   res.json({ success:true });
 });
 app.get('/api/admin/settings', auth, role('admin'), async (req, res) => {
@@ -2607,8 +2656,7 @@ app.get('/api/coupons/available', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/admin/coupons', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.post('/api/admin/coupons', auth, role('admin'), async (req, res) => {
   try {
     const { code, description, discount_type, discount_value, min_order, max_uses, per_user, business_id, expires_at } = req.body;
     if (!code || !discount_value) return res.status(400).json({ error: 'Código y descuento requeridos' });
@@ -2621,20 +2669,17 @@ app.post('/api/admin/coupons', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/coupons', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.get('/api/admin/coupons', auth, role('admin'), async (req, res) => {
   try { res.json(await q('SELECT c.*, b.name as business_name FROM coupons c LEFT JOIN businesses b ON b.id=c.business_id ORDER BY c.created_at DESC')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/admin/coupons/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.patch('/api/admin/coupons/:id', auth, role('admin'), async (req, res) => {
   try { await q('UPDATE coupons SET active=$1 WHERE id=$2', [req.body.active, req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/coupons/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.delete('/api/admin/coupons/:id', auth, role('admin'), async (req, res) => {
   try { await q('DELETE FROM coupons WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2689,14 +2734,12 @@ app.post('/api/help', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/help', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.get('/api/admin/help', auth, role('admin'), async (req, res) => {
   try { res.json(await q('SELECT * FROM help_messages ORDER BY created_at DESC LIMIT 100')); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/api/admin/help/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Sin permisos' });
+app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
   try {
     const { reply } = req.body;
     const msg = await q1('SELECT * FROM help_messages WHERE id=$1', [req.params.id]);
@@ -2722,8 +2765,7 @@ app.get('/api/banners', async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 // Admin banner list con filtro por tipo
-app.get('/api/banners/admin', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.get('/api/banners/admin', auth, role('admin'), async (req,res)=>{
   try {
     const type = req.query.type || 'hero';
     const rows = await db.query("SELECT * FROM promo_banners WHERE banner_type=$1 ORDER BY sort_order ASC, created_at DESC",[type]);
@@ -2731,8 +2773,7 @@ app.get('/api/banners/admin', auth, async (req,res)=>{
   } catch(e){ res.json([]); }
 });
 // Upload imagen de banner (sin ID previo)
-app.post('/api/admin/banners/upload-image', auth, uploadMiddleware('photo'), async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.post('/api/admin/banners/upload-image', auth, role('admin'), uploadMiddleware('photo'), async (req,res)=>{
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
     const result = await cloudinary.uploader.upload(
@@ -2742,8 +2783,7 @@ app.post('/api/admin/banners/upload-image', auth, uploadMiddleware('photo'), asy
     res.json({ok:true,url:result.secure_url});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
-app.post('/api/admin/banners', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.post('/api/admin/banners', auth, role('admin'), async (req,res)=>{
   const {title,subtitle,highlight,highlight_label,emoji,bg_color,link,link_url,sort_order,is_active,image_url,banner_type} = req.body;
   const id = 'ban_'+Date.now();
   await db.query(
@@ -2752,20 +2792,17 @@ app.post('/api/admin/banners', auth, async (req,res)=>{
   );
   res.json({ok:true,id});
 });
-app.patch('/api/admin/banners/:id', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.patch('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
   const {title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url} = req.body;
   await db.query("UPDATE promo_banners SET title=COALESCE($1,title),subtitle=COALESCE($2,subtitle),highlight=COALESCE($3,highlight),emoji=COALESCE($4,emoji),bg_color=COALESCE($5,bg_color),link=COALESCE($6,link),sort_order=COALESCE($7,sort_order),active=COALESCE($8,active),image_url=COALESCE($9,image_url) WHERE id=$10",
     [title,subtitle,highlight,emoji,bg_color,link,sort_order,active,image_url,req.params.id]);
   res.json({ok:true});
 });
-app.delete('/api/admin/banners/:id', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.delete('/api/admin/banners/:id', auth, role('admin'), async (req,res)=>{
   await db.query("DELETE FROM promo_banners WHERE id=$1",[req.params.id]);
   res.json({ok:true});
 });
-app.post('/api/admin/banners/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.post('/api/admin/banners/:id/image', auth, role('admin'), uploadMiddleware('image'), async (req,res)=>{
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
     let imageUrl;
@@ -2787,20 +2824,17 @@ app.get('/api/featured', async (req,res)=>{
     res.json(rows.rows);
   } catch(e){ res.json([]); }
 });
-app.get('/api/admin/featured', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.get('/api/admin/featured', auth, role('admin'), async (req,res)=>{
   const rows = await db.query(`SELECT fs.*, b.name as biz_name FROM featured_slots fs LEFT JOIN businesses b ON fs.business_id=b.id ORDER BY fs.sort_order ASC`);
   res.json(rows.rows);
 });
-app.post('/api/admin/featured', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.post('/api/admin/featured', auth, role('admin'), async (req,res)=>{
   const {business_id,custom_title,sort_order} = req.body;
   const id = 'feat_'+Date.now();
   await db.query("INSERT INTO featured_slots(id,business_id,custom_title,sort_order) VALUES($1,$2,$3,$4)",[id,business_id,custom_title||'',sort_order||0]);
   res.json({ok:true,id});
 });
-app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.post('/api/admin/featured/:id/image', auth, role('admin'), uploadMiddleware('image'), async (req,res)=>{
   if(!req.file) return res.status(400).json({error:'No image'});
   try {
     let imageUrl;
@@ -2812,14 +2846,12 @@ app.post('/api/admin/featured/:id/image', auth, uploadMiddleware('image'), async
     res.json({ok:true,url:imageUrl});
   } catch(e){ res.status(500).json({error:e.message}); }
 });
-app.patch('/api/admin/featured/:id', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.patch('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   const {active,sort_order,custom_title} = req.body;
   await db.query("UPDATE featured_slots SET active=COALESCE($1,active),sort_order=COALESCE($2,sort_order),custom_title=COALESCE($3,custom_title) WHERE id=$4",[active,sort_order,custom_title,req.params.id]);
   res.json({ok:true});
 });
-app.delete('/api/admin/featured/:id', auth, async (req,res)=>{
-  if(req.user.role!=='admin') return res.status(403).json({error:'No autorizado'});
+app.delete('/api/admin/featured/:id', auth, role('admin'), async (req,res)=>{
   await db.query("DELETE FROM featured_slots WHERE id=$1",[req.params.id]);
   res.json({ok:true});
 });
