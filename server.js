@@ -2759,6 +2759,9 @@ app.patch('/api/admin/help/:id', auth, role('admin'), async (req, res) => {
 app.get('/api',(_,res)=>res.json({ app:'Blow API v3',db:'PostgreSQL',status:'running' }));
 app.get('/admin',(_,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get('/business',(_,res)=>res.sendFile(path.join(__dirname,'public','business.html')));
+// Portal del dueño — separado del cliente
+app.get('/owner',(_,res)=>res.sendFile(path.join(__dirname,'public','owner.html')));
+app.get('/portal',(_,res)=>res.sendFile(path.join(__dirname,'public','owner.html')));
 // Landing de registro de negocios — accesible desde socios.blow.uy y blow.uy/socios
 app.get('/socios',(_,res)=>res.sendFile(path.join(__dirname,'public','blow_registro_negocios.html')));
 app.get('/registro',(_,res)=>res.sendFile(path.join(__dirname,'public','blow_registro_negocios.html')));
