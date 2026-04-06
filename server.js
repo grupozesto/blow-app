@@ -740,7 +740,25 @@ app.get('/manifest.json', async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Archivos estáticos con cache inteligente
+// index.html y HTML: sin cache (se actualizan con cada deploy)
+// Íconos, splash, imágenes: 7 días de cache (no cambian seguido)
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      // HTML nunca se cachea — siempre la versión fresca
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else if (filePath.match(/\.(png|jpg|jpeg|webp|ico|svg)$/)) {
+      // Imágenes: 7 días de cache
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    } else if (filePath.match(/\.js$/) && !filePath.includes('sw.js')) {
+      // JS (excepto service worker): 1 día
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
+}));
 
 // ── Helpers ───────────────────────────────────
 const sign = u => jwt.sign({ id:u.id, name:u.name, email:u.email, role:u.role }, JWT_SECRET, { expiresIn:'7d' });
