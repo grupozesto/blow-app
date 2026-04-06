@@ -3162,6 +3162,12 @@ async function api(path, opts = {}) {
   } catch (networkErr) {
     throw new Error('Sin conexión. Verificá tu internet e intentá de nuevo.');
   }
+  // Renovación silenciosa de token — si el server mandó uno nuevo, guardarlo
+  const newToken = res.headers.get('x-new-token');
+  if (newToken) {
+    token = newToken;
+    localStorage.setItem('da_token', newToken);
+  }
   // Token expirado o inválido → cerrar sesión automáticamente
   if (res.status === 401) {
     const isAuthCall = path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register') || path.startsWith('/api/auth/verify') || path.startsWith('/api/auth/reset') || path.startsWith('/api/auth/forgot');
