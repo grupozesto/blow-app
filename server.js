@@ -170,6 +170,9 @@ const qa = async (text, params) => { const r = await db.query(text, params); ret
 
 // ── Init DB schema ─────────────────────────────
 async function initDB() {
+  // Habilitar búsqueda fuzzy con typo-tolerance
+  await db.query('CREATE EXTENSION IF NOT EXISTS pg_trgm').catch(() => {});
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, name TEXT NOT NULL,
@@ -543,6 +546,7 @@ async function initDB() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT DEFAULT NULL;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount REAL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS cash_change REAL DEFAULT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS promo_banners (
@@ -1570,7 +1574,7 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
     const {
       business_id, items, address, payment_method,
-      notes, tip, priority, scheduled_for, coupon_code
+      notes, tip, priority, scheduled_for, coupon_code, cash_change
     } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
@@ -1647,8 +1651,8 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
       const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
     const orderId=uuid();
     const cust=await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1',[req.user.id]);
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,tip,total,address,business_amount,delivery_amount,platform_amount,payment_method,notes,priority,scheduled_for,coupon_code,coupon_discount) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [orderId,req.user.id,business_id,subtotal,fee,tipAmount,finalTotal,address||cust.address||'',bizAmt,fee,plat,payment_method||'cash',notes||'',priority||false,scheduled_for||null,coupon_code||null,couponDiscount]);
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,tip,total,address,business_amount,delivery_amount,platform_amount,payment_method,notes,priority,scheduled_for,coupon_code,coupon_discount,cash_change) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [orderId,req.user.id,business_id,subtotal,fee,tipAmount,finalTotal,address||cust.address||'',bizAmt,fee,plat,payment_method||'cash',notes||'',priority||false,scheduled_for||null,coupon_code||null,couponDiscount,cash_change||null]);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -2104,7 +2108,22 @@ app.post('/api/businesses', auth, role('owner'), async (req, res) => {
 app.get('/api/businesses/:id', async (req, res) => {
   const b = await q1('SELECT *,(mp_access_token IS NOT NULL) as mp_connected FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
-  const rawP = await qa('SELECT * FROM products WHERE business_id=$1 AND is_available=TRUE',[b.id]);
+  // Traer productos con conteo de veces pedidos (para "más pedidos")
+  const rawP = await qa(
+    `SELECT p.*,
+       COALESCE((
+         SELECT SUM(oi.quantity)
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         WHERE oi.product_id = p.id
+           AND o.status = 'delivered'
+           AND o.created_at > NOW() - INTERVAL '30 days'
+       ), 0) as order_count
+     FROM products p
+     WHERE p.business_id=$1 AND p.is_available=TRUE
+     ORDER BY order_count DESC, p.sort_order ASC`,
+    [b.id]
+  );
   const prods = await Promise.all(rawP.map(async p => ({
     ...p,
     photos:   await qa('SELECT id,url,sort_order FROM product_photos WHERE product_id=$1 ORDER BY sort_order',[p.id]),
@@ -3177,19 +3196,55 @@ app.get('/api/search', async (req, res) => {
   try {
     const { q, city } = req.query;
     if (!q) return res.json({ businesses: [], products: [] });
-    const term = `%${q}%`;
-    const bizWhere = city ? 'AND b.city ILIKE $2' : '';
-    const bizParams = city ? [term, city] : [term];
+    const term = q.trim();
+    const ilike = `%${term}%`;
+
+    // Búsqueda con typo-tolerance usando pg_trgm
+    // similarity() devuelve 0-1: qué tan parecidas son dos strings
+    // ILIKE como fallback para palabras cortas
+    const cityFilter = city ? `AND LOWER(b.city) = LOWER('${city.replace(/'/g,"''")}')` : '';
     const businesses = await qa(
-      `SELECT b.*, (SELECT COUNT(*) FROM products WHERE business_id=b.id AND is_available=TRUE) as product_count
+      `SELECT b.*,
+        (SELECT COUNT(*) FROM products WHERE business_id=b.id AND is_available=TRUE) as product_count,
+        GREATEST(
+          similarity(b.name, $1),
+          similarity(b.category, $1),
+          CASE WHEN b.name ILIKE $2 THEN 0.8 ELSE 0 END
+        ) as score
        FROM businesses b
-       WHERE (b.name ILIKE $1 OR b.category ILIKE $1 OR b.description ILIKE $1 OR b.tags ILIKE $1) ${bizWhere}
-       ORDER BY b.rating DESC LIMIT 10`, bizParams);
+       JOIN subscriptions s ON s.business_id=b.id AND s.status='active'
+       WHERE (
+         b.name ILIKE $2
+         OR b.category ILIKE $2
+         OR b.description ILIKE $2
+         OR b.tags ILIKE $2
+         OR similarity(b.name, $1) > 0.2
+         OR similarity(b.category, $1) > 0.25
+       ) ${cityFilter}
+       ORDER BY score DESC, b.rating DESC
+       LIMIT 12`,
+      [term, ilike]
+    );
+
     const products = await qa(
-      `SELECT p.*, b.name as business_name, b.id as business_id
-       FROM products p JOIN businesses b ON p.business_id=b.id
-       WHERE (p.name ILIKE $1 OR p.description ILIKE $1) AND p.is_available=TRUE
-       ORDER BY p.name LIMIT 10`, [term]);
+      `SELECT p.*, b.name as business_name, b.id as business_id,
+        GREATEST(
+          similarity(p.name, $1),
+          CASE WHEN p.name ILIKE $2 THEN 0.8 ELSE 0 END
+        ) as score
+       FROM products p
+       JOIN businesses b ON p.business_id=b.id
+       JOIN subscriptions s ON s.business_id=b.id AND s.status='active'
+       WHERE (
+         p.name ILIKE $2
+         OR p.description ILIKE $2
+         OR similarity(p.name, $1) > 0.25
+       ) AND p.is_available=TRUE
+       ORDER BY score DESC, p.name
+       LIMIT 12`,
+      [term, ilike]
+    );
+
     res.json({ businesses, products });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
