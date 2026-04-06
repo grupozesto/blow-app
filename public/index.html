@@ -9611,6 +9611,67 @@ function showInstallBanner() {
   if (banner) banner.style.display = 'flex';
 }
 
+async function repeatOrder(orderId, businessId) {
+  try {
+    // Traer el pedido completo con sus items
+    const order = await api(`/api/orders/${orderId}`);
+    if (!order || !order.items || !order.items.length) {
+      showToast('No se pudieron cargar los productos del pedido');
+      return;
+    }
+    // Si hay productos de otro negocio en el carrito, preguntar
+    if (cart.length > 0 && cart[0].biz_id && cart[0].biz_id !== businessId) {
+      const ok = await showConfirm(
+        'Tenés productos de otro negocio en el carrito. ¿Vaciarlo y repetir este pedido?',
+        { title: 'Repetir pedido', confirmLabel: 'Sí, repetir', danger: false }
+      );
+      if (!ok) return;
+      cart = []; saveCart(); updateCartBadge();
+    }
+    // Agregar cada item al carrito
+    let added = 0;
+    for (const item of order.items) {
+      cart.push({
+        id:        item.product_id || item.id,
+        name:      item.name,
+        price:     item.unit_price || item.price,
+        qty:       item.quantity || 1,
+        biz_id:    businessId,
+        photo:     item.photo_url || null,
+        variant_label: item.variant_label || null,
+        variant_id:    item.variant_id || null,
+        notes:     item.notes || '',
+      });
+      added++;
+    }
+    saveCart(); updateCartBadge();
+    currentStoreForCart = allStores.find(s => s.id === businessId) || null;
+    showToast(`🛒 ${added} producto${added !== 1 ? 's' : ''} agregado${added !== 1 ? 's' : ''} al carrito`);
+    nav('page-cart');
+  } catch(e) {
+    showToast('❌ ' + (e.message || 'Error al repetir el pedido'));
+  }
+}
+
+async function requestRefund(orderId, total) {
+  const method = await showConfirm(
+    `¿Cómo querés recibir el reembolso de $${total}?`,
+    { title: 'Solicitar reembolso', confirmLabel: 'A mi billetera Blow', cancelLabel: 'Cancelar', danger: false }
+  );
+  if (!method) return;
+  try {
+    await api(`/api/orders/${orderId}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ method: 'wallet' })
+    });
+    showToast('✅ Reembolso procesado. El saldo aparece en tu billetera.');
+    // Actualizar historial
+    loadTracking();
+  } catch(e) {
+    showToast('❌ ' + (e.message || 'Error al procesar el reembolso'));
+  }
+}
+
 async function installPWA() {
   if (!deferredPrompt) {
     showToast('Usá el menú del navegador para instalar la app');
