@@ -207,6 +207,10 @@ hr{border-color:var(--border);}
     <button class="nav-item" onclick="showPage('businesses')" id="nav-businesses">
       <span class="nav-icon">🏪</span>Negocios
     </button>
+    <button class="nav-item" onclick="showPage('registros')" id="nav-registros">
+      <span class="nav-icon">📋</span>Registros landing
+      <span class="nav-badge" id="badge-comm" style="display:none;">🔥</span>
+    </button>
     <button class="nav-item" onclick="showPage('revenue')" id="nav-revenue">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Ingresos Blow
@@ -227,6 +231,9 @@ hr{border-color:var(--border);}
     </button>
     <button class="nav-item" onclick="showPage('config')" id="nav-config">
       <span class="nav-icon">⚙️</span>Configuración
+    </button>
+    <button class="nav-item" onclick="showPage('landing')" id="nav-landing">
+      <span class="nav-icon">🌐</span>Landing page
     </button>
     <button class="nav-item" onclick="showPage('export')" id="nav-export">
       <span class="nav-icon">📤</span>Exportar datos
@@ -338,7 +345,7 @@ function showPage(page) {
   if (navEl) navEl.classList.add('active');
   const titles = { dashboard:'Dashboard', orders:'Pedidos', withdrawals:'Retiros', banners:'Banners', categories:'Categorías & Contenido', businesses:'Negocios', subscriptions:'Suscripciones', users:'Usuarios', support:'Soporte chat', blowplus:'Blow+ Members', config:'Configuración', export:'Exportar datos' };
   document.getElementById('page-title').textContent = titles[page] || page;
-  const pages = { dashboard: renderDashboard, revenue: renderRevenue, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, blowplus: renderBlowPlus, config: renderConfig, export: renderExport };
+  const pages = { dashboard: renderDashboard, revenue: renderRevenue, orders: renderOrders, withdrawals: renderWithdrawals, banners: renderBanners, categories: renderCategoriesPage, businesses: renderBusinesses, registros: renderRegistros, subscriptions: renderSubscriptions, users: renderUsers, support: renderSupport, blowplus: renderBlowPlus, config: renderConfig, landing: renderLanding, export: renderExport };
   if (pages[page]) pages[page]();
 }
 
@@ -1393,6 +1400,424 @@ async function renderBlowPlus() {
         </table>` : '<div class="empty-state"><div class="empty-icon">🏪</div>No hay negocios Blow+</div>'}
       </div>`;
   } catch(e) { document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div>`; }
+}
+
+// ══════════════════════════════════════════════
+// REGISTROS LANDING — negocios desde socios.blow.uy
+// ══════════════════════════════════════════════
+let allRegistros = [];
+let registrosFilter = 'all';
+
+async function renderRegistros() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-header">
+      <div class="section-title">📋 Registros desde socios.blow.uy</div>
+      <div class="spacer"></div>
+      <input class="tbl-search" id="reg-search" placeholder="🔍 Buscar negocio, dueño, ciudad..." oninput="filterRegistros()">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="tab-all" onclick="setRegTab('all')" style="font-weight:700;">Todos</button>
+      <button class="btn btn-ghost" id="tab-comm" onclick="setRegTab('comm')">🔥 Con equipo de comunicación</button>
+      <button class="btn btn-ghost" id="tab-trial" onclick="setRegTab('trial')">⏳ En período trial</button>
+      <button class="btn btn-ghost" id="tab-active" onclick="setRegTab('active')">✅ Activos</button>
+    </div>
+    <div id="reg-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
+    <div class="table-wrap"><div id="reg-body"><div class="spinner"></div></div></div>`;
+
+  try {
+    allRegistros = await api('/api/admin/businesses');
+    renderRegStats();
+    renderRegTable();
+    updateRegTabStyles();
+    // Show comm badge in sidebar if any
+    const commCount = allRegistros.filter(b => b.comm_team).length;
+    const badge = document.getElementById('badge-comm');
+    if (badge) { badge.style.display = commCount > 0 ? '' : 'none'; badge.textContent = commCount; }
+  } catch(e) {
+    document.getElementById('reg-body').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar</div>`;
+  }
+}
+
+function renderRegStats() {
+  const total   = allRegistros.length;
+  const comm    = allRegistros.filter(b => b.comm_team).length;
+  const trial   = allRegistros.filter(b => b.sub_status === 'trial').length;
+  const active  = allRegistros.filter(b => b.sub_status === 'active').length;
+  document.getElementById('reg-stats').innerHTML = `
+    <div class="chart-card" style="padding:14px;text-align:center;cursor:pointer;" onclick="setRegTab('all')">
+      <div style="font-size:28px;font-weight:900;color:var(--primary);">${total}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">Total registrados</div>
+    </div>
+    <div class="chart-card" style="padding:14px;text-align:center;cursor:pointer;border:2px solid ${comm>0?'#FF066A':'var(--border)'};" onclick="setRegTab('comm')">
+      <div style="font-size:28px;font-weight:900;color:#FF066A;">${comm}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">🔥 Con equipo comm</div>
+    </div>
+    <div class="chart-card" style="padding:14px;text-align:center;cursor:pointer;" onclick="setRegTab('trial')">
+      <div style="font-size:28px;font-weight:900;color:var(--yellow);">${trial}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">⏳ En trial (60d)</div>
+    </div>
+    <div class="chart-card" style="padding:14px;text-align:center;cursor:pointer;" onclick="setRegTab('active')">
+      <div style="font-size:28px;font-weight:900;color:var(--green);">${active}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">✅ Activos pagando</div>
+    </div>`;
+}
+
+function setRegTab(tab) {
+  registrosFilter = tab;
+  updateRegTabStyles();
+  renderRegTable();
+}
+
+function updateRegTabStyles() {
+  ['all','comm','trial','active'].forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    if (btn) btn.className = 'btn ' + (registrosFilter === t ? 'btn-primary' : 'btn-ghost');
+  });
+}
+
+function filterRegistros() {
+  renderRegTable();
+}
+
+function renderRegTable() {
+  const q = (document.getElementById('reg-search')?.value || '').toLowerCase();
+  let list = allRegistros;
+  if (registrosFilter === 'comm')   list = list.filter(b => b.comm_team);
+  if (registrosFilter === 'trial')  list = list.filter(b => b.sub_status === 'trial');
+  if (registrosFilter === 'active') list = list.filter(b => b.sub_status === 'active');
+  if (q) list = list.filter(b =>
+    (b.name||'').toLowerCase().includes(q) ||
+    (b.owner_name||'').toLowerCase().includes(q) ||
+    (b.owner_email||'').toLowerCase().includes(q) ||
+    (b.city||'').toLowerCase().includes(q) ||
+    (b.category||'').toLowerCase().includes(q) ||
+    (b.doc_numero||'').toLowerCase().includes(q)
+  );
+
+  if (!list.length) {
+    document.getElementById('reg-body').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>Sin resultados</div>`;
+    return;
+  }
+
+  document.getElementById('reg-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Negocio</th><th>Dueño</th><th>Contacto</th><th>Documento</th>
+        <th>Ubicación</th><th>Suscripción</th><th>Comm</th><th>Acciones</th>
+      </tr></thead>
+      <tbody>${list.map(b => {
+        const subColor = {trial:'var(--yellow)',active:'var(--green)',past_due:'#ef4444',cancelled:'var(--muted)'}[b.sub_status] || 'var(--muted)';
+        const subLabel = {trial:'⏳ Trial',active:'✅ Activo',past_due:'⚠️ Vencido',cancelled:'❌ Cancelado'}[b.sub_status] || b.sub_status || '—';
+        const trialEnd = b.current_period_end ? new Date(b.current_period_end).toLocaleDateString('es-UY') : '—';
+        return `<tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${b.logo_url ? `<img src="${b.logo_url}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">` : `<div style="width:36px;height:36px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px;">${b.logo_emoji||'🏪'}</div>`}
+              <div>
+                <div class="td-name">${esc(b.name)}</div>
+                <div class="td-muted" style="font-size:11px;">${esc(b.category||'')}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="td-name">${esc(b.owner_name||'—')}</div>
+            <div class="td-muted" style="font-size:11px;">${esc(b.owner_email||'')}</div>
+          </td>
+          <td>
+            <div style="font-size:12px;">${esc(b.owner_phone||b.phone||'—')}</div>
+            ${b.phone && b.phone !== b.owner_phone ? `<div class="td-muted" style="font-size:11px;">Local: ${esc(b.phone)}</div>` : ''}
+          </td>
+          <td>
+            <div style="font-size:12px;font-family:monospace;">${esc(b.doc_tipo||'')} ${esc(b.doc_numero||'—')}</div>
+          </td>
+          <td>
+            <div style="font-size:12px;">${esc(b.city||'—')}</div>
+            <div class="td-muted" style="font-size:11px;">${esc(b.department||'')}</div>
+          </td>
+          <td>
+            <span style="font-size:12px;font-weight:700;color:${subColor};">${subLabel}</span>
+            <div class="td-muted" style="font-size:10px;">Hasta: ${trialEnd}</div>
+          </td>
+          <td style="text-align:center;">
+            ${b.comm_team ? `<span style="font-size:18px;" title="Equipo de comunicación activo">🔥</span>` : `<span style="color:var(--muted);font-size:12px;">—</span>`}
+            ${b.comm_team_since ? `<div class="td-muted" style="font-size:10px;">desde ${new Date(b.comm_team_since).toLocaleDateString('es-UY')}</div>` : ''}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <button class="btn btn-ghost" onclick="verRegistro('${b.id}')">👁 Ver</button>
+              <button class="btn btn-ghost" onclick="editBusiness('${b.id}')">✏️ Editar</button>
+              <button class="btn btn-purple" onclick="impersonateOwner('${b.owner_id}','${escHtml(b.owner_name||'')}')">👤 Acceder</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+function verRegistro(id) {
+  const b = allRegistros.find(x => x.id === id);
+  if (!b) return;
+  const trialEnd = b.current_period_end ? new Date(b.current_period_end).toLocaleDateString('es-UY') : '—';
+  openModal(`
+    <div class="modal-title">📋 ${esc(b.name)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Negocio</div>
+        ${b.logo_url ? `<img src="${b.logo_url}" style="width:100%;max-height:120px;object-fit:contain;border-radius:10px;margin-bottom:10px;background:var(--surface2);">` : ''}
+        ${b.cover_url ? `<img src="${b.cover_url}" style="width:100%;max-height:120px;object-fit:cover;border-radius:10px;margin-bottom:10px;">` : ''}
+        <div class="modal-field"><label>Nombre</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.name)}</div></div>
+        <div class="modal-field"><label>Categoría</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.category||'—')}</div></div>
+        <div class="modal-field"><label>Dirección</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.address||'—')}</div></div>
+        <div class="modal-field"><label>Ciudad / Dpto</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.city||'—')}, ${esc(b.department||'')}</div></div>
+        <div class="modal-field"><label>Horario</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.schedule||'—')}</div></div>
+        <div class="modal-field"><label>Sucursales</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${b.branches||1}</div></div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Dueño</div>
+        <div class="modal-field"><label>Nombre</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.owner_name||'—')}</div></div>
+        <div class="modal-field"><label>Email</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.owner_email||'—')}</div></div>
+        <div class="modal-field"><label>Teléfono</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${esc(b.owner_phone||b.phone||'—')}</div></div>
+        <div class="modal-field"><label>Documento</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;font-family:monospace;">${esc(b.doc_tipo||'')} ${esc(b.doc_numero||'—')}</div></div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:14px 0 10px;">Suscripción</div>
+        <div class="modal-field"><label>Estado</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${b.sub_status||'—'}</div></div>
+        <div class="modal-field"><label>Período hasta</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:13px;">${trialEnd}</div></div>
+        <div class="modal-field"><label>MP Preapproval ID</label><div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:11px;font-family:monospace;word-break:break-all;">${b.mp_preapproval_id||'—'}</div></div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:14px 0 10px;">Equipo de comunicación</div>
+        <div style="padding:12px;border-radius:8px;background:${b.comm_team?'#fff0f7':'var(--surface2)'};border:1.5px solid ${b.comm_team?'#FFB3C0':'var(--border)'};">
+          ${b.comm_team
+            ? `<div style="font-weight:700;color:#FF066A;">🔥 Contratado</div>${b.comm_team_since?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">Desde: ${new Date(b.comm_team_since).toLocaleDateString('es-UY')}</div>`:''}`
+            : `<div style="color:var(--muted);font-size:13px;">No contratado</div>`}
+        </div>
+
+        ${b.admin_notes ? `
+        <div style="margin-top:14px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Notas internas</div>
+          <div style="padding:10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--muted);">${esc(b.admin_notes)}</div>
+        </div>` : ''}
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="closeModal();editBusiness('${b.id}')">✏️ Editar</button>
+    </div>`);
+}
+
+// ══════════════════════════════════════════════
+// LANDING PAGE — editor de textos e imágenes
+// ══════════════════════════════════════════════
+async function renderLanding() {
+  document.getElementById('content').innerHTML = `<div class="spinner"></div>`;
+  try {
+    const cfg = await api('/api/admin/settings');
+    const lc = cfg.landing_config || {};
+
+    document.getElementById('content').innerHTML = `
+      <div class="section-header">
+        <div class="section-title">🌐 Editor de landing page (socios.blow.uy)</div>
+        <div class="spacer"></div>
+        <a href="https://socios.blow.uy" target="_blank" class="btn btn-ghost">↗ Ver landing</a>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+        <!-- TEXTOS GENERALES -->
+        <div class="chart-card">
+          <div class="chart-title">📝 Textos principales</div>
+          <div class="modal-field"><label>Título principal (línea 1)</label>
+            <input id="lc-title1" value="${esc(lc.title1||'Registrá tu negocio')}">
+          </div>
+          <div class="modal-field"><label>Título principal (línea 2 — en rojo)</label>
+            <input id="lc-title2" value="${esc(lc.title2||'en blow')}">
+          </div>
+          <div class="modal-field"><label>Subtítulo bajo el título</label>
+            <input id="lc-subtitle" value="${esc(lc.subtitle||'Sin costo de alta · Sin permanencia · Cancelás cuando quieras')}">
+          </div>
+          <div class="modal-field"><label>Badge gratis (texto)</label>
+            <input id="lc-badge-gratis" value="${esc(lc.badge_gratis||'Primeros 60 dias sin costo')}">
+          </div>
+          <div class="modal-field"><label>Badge DESPUÉS (texto)</label>
+            <input id="lc-badge-despues" value="${esc(lc.badge_despues||'$2.990 / mes')}">
+          </div>
+          <div class="modal-field"><label>Badge comisión (texto)</label>
+            <input id="lc-badge-comision" value="${esc(lc.badge_comision||'0% de comision')}">
+          </div>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="saveLandingSection('textos')">💾 Guardar textos</button>
+        </div>
+
+        <!-- PRECIOS -->
+        <div class="chart-card">
+          <div class="chart-title">💰 Precios y trial</div>
+          <div class="modal-field"><label>Precio plan mensual ($UYU)</label>
+            <input id="lc-precio-plan" type="number" value="${lc.precio_plan||2990}">
+          </div>
+          <div class="modal-field"><label>Días gratis del trial</label>
+            <input id="lc-dias-trial" type="number" value="${lc.dias_trial||60}">
+          </div>
+          <div class="modal-field"><label>Precio equipo comunicación ($UYU)</label>
+            <input id="lc-precio-comm" type="number" value="${lc.precio_comm||5000}">
+          </div>
+          <div class="modal-field"><label>Texto mini pricing (caja rosada en form)</label>
+            <input id="lc-mini-pricing" value="${esc(lc.mini_pricing||'60 dias gratis, luego $2.990/mes con 0% de comision')}">
+          </div>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="saveLandingSection('precios')">💾 Guardar precios</button>
+        </div>
+
+        <!-- EQUIPO COMUNICACION -->
+        <div class="chart-card">
+          <div class="chart-title">🔥 Equipo de comunicación</div>
+          <div class="modal-field"><label>Título del card</label>
+            <input id="lc-comm-title" value="${esc(lc.comm_title||'Equipo de comunicacion blow')}">
+          </div>
+          <div class="modal-field"><label>Subtítulo del card</label>
+            <input id="lc-comm-sub" value="${esc(lc.comm_subtitle||'Potencia tu negocio con profesionales')}">
+          </div>
+          <div class="modal-field"><label>Descripción general</label>
+            <textarea id="lc-comm-desc" rows="3">${esc(lc.comm_desc||'Suma al equipo de blow a tu negocio.')}</textarea>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Servicio 1 — Marketing</div>
+          <div class="modal-field"><label>Nombre</label><input id="lc-s1-name" value="${esc(lc.s1_name||'Analista en marketing')}"></div>
+          <div class="modal-field"><label>Descripción</label><input id="lc-s1-desc" value="${esc(lc.s1_desc||'Planifica y gestiona tu pauta publicitaria')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Servicio 2 — Diseño</div>
+          <div class="modal-field"><label>Nombre</label><input id="lc-s2-name" value="${esc(lc.s2_name||'Disenadora grafica')}"></div>
+          <div class="modal-field"><label>Descripción</label><input id="lc-s2-desc" value="${esc(lc.s2_desc||'Diseno de piezas visuales para redes')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Servicio 3 — Audiovisual</div>
+          <div class="modal-field"><label>Nombre</label><input id="lc-s3-name" value="${esc(lc.s3_name||'Equipo audiovisual')}"></div>
+          <div class="modal-field"><label>Descripción</label><input id="lc-s3-desc" value="${esc(lc.s3_desc||'Te visitamos para producir videos y fotos')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Servicio 4 — Community</div>
+          <div class="modal-field"><label>Nombre</label><input id="lc-s4-name" value="${esc(lc.s4_name||'Community manager')}"></div>
+          <div class="modal-field"><label>Descripción</label><input id="lc-s4-desc" value="${esc(lc.s4_desc||'Gestion diaria de tus redes sociales')}"></div>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="saveLandingSection('comm')">💾 Guardar equipo comm</button>
+        </div>
+
+        <!-- PASOS / STEPS -->
+        <div class="chart-card">
+          <div class="chart-title">🪜 Sección de pasos</div>
+          <div class="modal-field"><label>Título de la sección</label>
+            <input id="lc-steps-title" value="${esc(lc.steps_title||'Comenzar a vender es asi de simple')}">
+          </div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Paso 1</div>
+          <div class="modal-field"><input id="lc-p1" value="${esc(lc.paso1||'Registrate y carga tus datos')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Paso 2</div>
+          <div class="modal-field"><input id="lc-p2" value="${esc(lc.paso2||'Carga tu menu, horario y logo')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Paso 3</div>
+          <div class="modal-field"><input id="lc-p3" value="${esc(lc.paso3||'Configura tu sistema de recepcion')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Paso 4</div>
+          <div class="modal-field"><input id="lc-p4" value="${esc(lc.paso4||'Conecta tu cuenta de Mercado Pago')}"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 6px;text-transform:uppercase;">Paso 5</div>
+          <div class="modal-field"><input id="lc-p5" value="${esc(lc.paso5||'Ya estas listo para vender!')}"></div>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="saveLandingSection('pasos')">💾 Guardar pasos</button>
+        </div>
+
+        <!-- PANEL DERECHO (hero visual) -->
+        <div class="chart-card" style="grid-column:1/-1;">
+          <div class="chart-title">🎨 Panel derecho (hero visual)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div class="modal-field"><label>Badge ("DESTACADO")</label>
+              <input id="lc-hero-badge" value="${esc(lc.hero_badge||'Plataforma de negocios #1 en Uruguay')}">
+            </div>
+            <div class="modal-field"><label>Título hero</label>
+              <input id="lc-hero-title" value="${esc(lc.hero_title||'Tu negocio online, gestionado desde un solo lugar')}">
+            </div>
+            <div class="modal-field"><label>Párrafo hero</label>
+              <input id="lc-hero-p" value="${esc(lc.hero_p||'Miles de negocios ya venden con blow. Sumate.')}">
+            </div>
+            <div class="modal-field"><label>Stat 1 — número</label>
+              <input id="lc-stat1n" value="${esc(lc.stat1n||'2.400+')}">
+            </div>
+            <div class="modal-field"><label>Stat 1 — label</label>
+              <input id="lc-stat1l" value="${esc(lc.stat1l||'Negocios activos')}">
+            </div>
+            <div class="modal-field"><label>Stat 2 — número</label>
+              <input id="lc-stat2n" value="${esc(lc.stat2n||'$0')}">
+            </div>
+            <div class="modal-field"><label>Stat 2 — label</label>
+              <input id="lc-stat2l" value="${esc(lc.stat2l||'Comisión por pedido')}">
+            </div>
+            <div class="modal-field"><label>Stat 3 — número</label>
+              <input id="lc-stat3n" value="${esc(lc.stat3n||'60')}">
+            </div>
+            <div class="modal-field"><label>Stat 3 — label</label>
+              <input id="lc-stat3l" value="${esc(lc.stat3l||'Días gratis para empezar')}">
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:12px;" onclick="saveLandingSection('hero')">💾 Guardar hero</button>
+        </div>
+
+        <!-- RUBROS Y CAMPOS -->
+        <div class="chart-card" style="grid-column:1/-1;">
+          <div class="chart-title">📋 Rubros del formulario</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Un rubro por línea. El orden aquí es el orden en el dropdown.</p>
+          <textarea id="lc-rubros" rows="12" style="width:100%;font-family:monospace;font-size:13px;">${esc((lc.rubros||['Restaurante','Panaderia','Heladeria','Cafeteria','Supermercado','Kiosko','Carniceria','Verduleria','Congelados','Bebidas','Farmacia','Pet shop','Ferreteria','Libreria','Tecnologia','Otro']).join('\n'))}</textarea>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="saveLandingSection('rubros')">💾 Guardar rubros</button>
+        </div>
+
+      </div>`;
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div>Error al cargar</div>`;
+  }
+}
+
+async function saveLandingSection(section) {
+  try {
+    const current = await api('/api/admin/settings');
+    const lc = current.landing_config || {};
+
+    if (section === 'textos') {
+      lc.title1         = document.getElementById('lc-title1').value;
+      lc.title2         = document.getElementById('lc-title2').value;
+      lc.subtitle       = document.getElementById('lc-subtitle').value;
+      lc.badge_gratis   = document.getElementById('lc-badge-gratis').value;
+      lc.badge_despues  = document.getElementById('lc-badge-despues').value;
+      lc.badge_comision = document.getElementById('lc-badge-comision').value;
+    }
+    if (section === 'precios') {
+      lc.precio_plan  = parseFloat(document.getElementById('lc-precio-plan').value) || 2990;
+      lc.dias_trial   = parseInt(document.getElementById('lc-dias-trial').value) || 60;
+      lc.precio_comm  = parseFloat(document.getElementById('lc-precio-comm').value) || 5000;
+      lc.mini_pricing = document.getElementById('lc-mini-pricing').value;
+    }
+    if (section === 'comm') {
+      lc.comm_title    = document.getElementById('lc-comm-title').value;
+      lc.comm_subtitle = document.getElementById('lc-comm-sub').value;
+      lc.comm_desc     = document.getElementById('lc-comm-desc').value;
+      lc.s1_name = document.getElementById('lc-s1-name').value;
+      lc.s1_desc = document.getElementById('lc-s1-desc').value;
+      lc.s2_name = document.getElementById('lc-s2-name').value;
+      lc.s2_desc = document.getElementById('lc-s2-desc').value;
+      lc.s3_name = document.getElementById('lc-s3-name').value;
+      lc.s3_desc = document.getElementById('lc-s3-desc').value;
+      lc.s4_name = document.getElementById('lc-s4-name').value;
+      lc.s4_desc = document.getElementById('lc-s4-desc').value;
+    }
+    if (section === 'pasos') {
+      lc.steps_title = document.getElementById('lc-steps-title').value;
+      lc.paso1 = document.getElementById('lc-p1').value;
+      lc.paso2 = document.getElementById('lc-p2').value;
+      lc.paso3 = document.getElementById('lc-p3').value;
+      lc.paso4 = document.getElementById('lc-p4').value;
+      lc.paso5 = document.getElementById('lc-p5').value;
+    }
+    if (section === 'hero') {
+      lc.hero_badge  = document.getElementById('lc-hero-badge').value;
+      lc.hero_title  = document.getElementById('lc-hero-title').value;
+      lc.hero_p      = document.getElementById('lc-hero-p').value;
+      lc.stat1n = document.getElementById('lc-stat1n').value;
+      lc.stat1l = document.getElementById('lc-stat1l').value;
+      lc.stat2n = document.getElementById('lc-stat2n').value;
+      lc.stat2l = document.getElementById('lc-stat2l').value;
+      lc.stat3n = document.getElementById('lc-stat3n').value;
+      lc.stat3l = document.getElementById('lc-stat3l').value;
+    }
+    if (section === 'rubros') {
+      lc.rubros = document.getElementById('lc-rubros').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    }
+
+    await api('/api/admin/settings', { method:'POST', body: JSON.stringify({ landing_config: lc }) });
+    showToast('✅ Landing actualizada — los cambios se reflejan en socios.blow.uy');
+  } catch(e) { showToast('❌ ' + e.message); }
 }
 
 async function renderConfig() {

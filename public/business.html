@@ -666,6 +666,32 @@ window.addEventListener('DOMContentLoaded',()=>{
     else document.documentElement.removeAttribute('data-theme');
   })();
 
+  // ── Auto-login desde socios.blow.uy ──────────────────────────
+  // Si viene con ?token=xxx en la URL (recién registrado), lo capturamos
+  // guardamos en localStorage y arrancamos la sesión sin pedir login
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlToken  = urlParams.get('token');
+  if (urlToken) {
+    try {
+      // Decodificar el payload del JWT para obtener el usuario
+      const payload = JSON.parse(atob(urlToken.split('.')[1]));
+      if (payload && (payload.role === 'owner' || payload.role === 'admin')) {
+        localStorage.setItem('blow_biz_token', urlToken);
+        localStorage.setItem('blow_biz_user', JSON.stringify({
+          id: payload.id || payload.sub,
+          name: payload.name,
+          email: payload.email,
+          role: payload.role,
+        }));
+        _tok = _token = urlToken;
+        _usr = _user = JSON.parse(localStorage.getItem('blow_biz_user'));
+        // Limpiar el token de la URL para no exponerlo
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch(e) { console.warn('Token URL inválido:', e); }
+  }
+  // ─────────────────────────────────────────────────────────────
+
   if(_tok && _usr && (_usr.role==='owner'||_usr.role==='admin')){
     showApp();
   } else {
