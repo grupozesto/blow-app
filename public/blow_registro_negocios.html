@@ -1124,7 +1124,7 @@ async function completarRegistro(regId) {
       // Redirigir al panel del negocio con el token — business.html lo captura
       // y arranca la sesion automaticamente sin pedir login
       setTimeout(function() {
-        window.location.href = 'https://blow.uy/business?token=' + encodeURIComponent(data.token);
+        window.location.href = 'https://blow.uy/owner?token=' + encodeURIComponent(data.token);
       }, 2800);
     } else if (res.status === 402) {
       // Pago aun no confirmado por MP — mostrar pantalla de espera
