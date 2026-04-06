@@ -3034,6 +3034,13 @@ let _mcReject  = null;
 let _mpConfirm = null;
 let _mpReject  = null;
 
+// Funciones globales que el HTML llama directamente en onclick
+// Delegan a las variables que se asignan cuando el modal se abre
+function _mcConfirmFn() { if (typeof _mcConfirm === 'function') _mcConfirm(); }
+function _mcRejectFn()  { if (typeof _mcReject  === 'function') _mcReject();  }
+function _mpConfirmFn() { if (typeof _mpConfirm === 'function') _mpConfirm(); }
+function _mpRejectFn()  { if (typeof _mpReject  === 'function') _mpReject();  }
+
 /**
  * showConfirm(message, { title, confirmLabel, cancelLabel, danger })
  * Muestra el modal-confirm y devuelve Promise<boolean>
@@ -8230,6 +8237,35 @@ function _renderBPContent(status) {
 //  BLOW+ PREMIUM
 // ═══════════════════════════════════════════════
 
+async function openLoadWallet() {
+  if (!user) { openAuth('Iniciar sesión'); return; }
+  const amountStr = await showPrompt('¿Cuánto querés cargar a tu billetera?', {
+    placeholder: 'Ej: 500 (mínimo $50)',
+    confirmLabel: 'Cargar saldo',
+    type: 'number'
+  });
+  if (!amountStr) return;
+  const amount = parseFloat(amountStr);
+  if (!amount || amount < 50) { showToast('El monto mínimo es $50'); return; }
+  try {
+    const res = await api('/api/customer/wallet/load', {
+      method: 'POST',
+      body: JSON.stringify({ amount })
+    });
+    if (res.demo) {
+      // Modo demo: saldo acreditado directamente
+      showToast(`💰 Saldo cargado: $${amount}`);
+      const display = document.getElementById('wallet-balance-display');
+      if (display) display.textContent = '$' + Math.round(res.balance || amount);
+    } else if (res.init_point) {
+      // Redirigir a MercadoPago para pagar
+      window.location.href = res.init_point;
+    }
+  } catch(e) {
+    showToast('❌ ' + (e.message || 'Error al cargar saldo'));
+  }
+}
+
 async function loadBlowPlus() {
   const el = document.getElementById('blowplus-content');
   if (!el) return;
@@ -9907,30 +9943,67 @@ async function exitOwnerOverlay() { window.location.href = "/owner"; }
 
 
 <!-- ══ MODAL PROMPT GENÉRICO (reemplaza prompt() nativo) ══ -->
-<div class="modal-overlay" id="modal-prompt" style="display:none;z-index:9999;" onclick="if(event.target===this)_mpReject()">
+<div class="modal-overlay" id="modal-prompt" style="display:none;z-index:9999;" onclick="if(event.target===this)_mpRejectFn()">
   <div class="modal-box" style="max-width:420px;width:92%;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div style="font-size:16px;font-weight:800;color:var(--text);" id="mp-title">Ingresá un valor</div>
-      <button onclick="_mpReject()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">×</button>
+      <button onclick="_mpRejectFn()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">×</button>
     </div>
     <div id="mp-body" style="margin-bottom:16px;"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button onclick="_mpReject()" style="padding:10px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
-      <button id="mp-confirm" onclick="_mpConfirm()" style="padding:10px 18px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Confirmar</button>
+      <button onclick="_mpRejectFn()" style="padding:10px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button id="mp-confirm" onclick="_mpConfirmFn()" style="padding:10px 18px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Confirmar</button>
     </div>
   </div>
 </div>
 
 
 <!-- ══ MODAL CONFIRMACIÓN GENÉRICO (reemplaza confirm() nativo) ══ -->
-<div class="modal-overlay" id="modal-confirm" style="display:none;z-index:9999;" onclick="if(event.target===this)_mcReject()">
+<div class="modal-overlay" id="modal-confirm" style="display:none;z-index:9999;" onclick="if(event.target===this)_mcRejectFn()">
   <div class="modal-box" style="max-width:380px;width:92%;">
     <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;" id="mc-title">¿Confirmar?</div>
     <div style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5;" id="mc-body"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button onclick="_mcReject()" style="padding:10px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;" id="mc-cancel">Cancelar</button>
-      <button onclick="_mcConfirm()" style="padding:10px 18px;border-radius:12px;border:none;background:#ef4444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;" id="mc-ok">Confirmar</button>
+      <button onclick="_mcRejectFn()" style="padding:10px 18px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;" id="mc-cancel">Cancelar</button>
+      <button onclick="_mcConfirmFn()" style="padding:10px 18px;border-radius:12px;border:none;background:#ef4444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;" id="mc-ok">Confirmar</button>
     </div>
+  </div>
+</div>
+
+
+<!-- ══ BANNER INSTALACIÓN iOS ══ -->
+<div id="pwa-ios-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;
+  background:#fff;border-top:1px solid #e2e8f0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));
+  flex-direction:column;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.1);">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <img src="/icon/icon-192.png" alt="Blow" style="width:44px;height:44px;border-radius:10px;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#0f172a;">Instalá Blow</div>
+        <div style="font-size:12px;color:#64748b;">Agregá a tu pantalla de inicio</div>
+      </div>
+    </div>
+    <button onclick="dismissIOSBanner()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;padding:4px 8px;">✕</button>
+  </div>
+  <div style="font-size:13px;color:#64748b;background:#f8fafc;border-radius:10px;padding:10px 12px;line-height:1.6;">
+    Tocá <strong style="color:#0f172a;">Compartir</strong> 
+    <span style="font-size:16px;">⬆️</span> y luego 
+    <strong style="color:#0f172a;">"Agregar a inicio"</strong>
+  </div>
+</div>
+
+<!-- ══ BANNER INSTALACIÓN ANDROID / CHROME ══ -->
+<div id="pwa-install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;
+  background:#fff;border-top:1px solid #e2e8f0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));
+  align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.1);">
+  <img src="/icon/icon-192.png" alt="Blow" style="width:44px;height:44px;border-radius:10px;flex-shrink:0;">
+  <div style="flex:1;">
+    <div style="font-size:15px;font-weight:700;color:#0f172a;">Instalá Blow</div>
+    <div style="font-size:12px;color:#64748b;">Accedé más rápido desde tu pantalla de inicio</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-shrink:0;">
+    <button onclick="hideInstallBanner()" style="background:none;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:13px;color:#64748b;cursor:pointer;font-family:inherit;">Ahora no</button>
+    <button onclick="installPWA()" style="background:#ea356b;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;">Instalar</button>
   </div>
 </div>
 
