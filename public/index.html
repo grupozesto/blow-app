@@ -3025,6 +3025,110 @@ function showToast(msg, duration) {
 }
 
 // ═══════════════════════════════════════════════
+//  MODALES: showConfirm / showPrompt
+// ═══════════════════════════════════════════════
+
+// Variables internas de los modales
+let _mcConfirm = null;
+let _mcReject  = null;
+let _mpConfirm = null;
+let _mpReject  = null;
+
+/**
+ * showConfirm(message, { title, confirmLabel, cancelLabel, danger })
+ * Muestra el modal-confirm y devuelve Promise<boolean>
+ */
+function showConfirm(message, opts = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-confirm');
+    const titleEl = document.getElementById('mc-title');
+    const bodyEl  = document.getElementById('mc-body');
+    const okBtn   = document.getElementById('mc-ok');
+    const cancelBtn = document.getElementById('mc-cancel');
+    if (!overlay) { resolve(window.confirm(message)); return; }
+
+    if (titleEl)  titleEl.textContent  = opts.title || '¿Confirmar?';
+    if (bodyEl)   bodyEl.textContent   = message;
+    if (okBtn)    okBtn.textContent    = opts.confirmLabel || 'Confirmar';
+    if (cancelBtn) cancelBtn.textContent = opts.cancelLabel || 'Cancelar';
+
+    // Color del botón de confirmación
+    if (okBtn) {
+      okBtn.style.background = opts.danger === false ? 'var(--primary)' : '#ef4444';
+    }
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+
+    function close(result) {
+      overlay.classList.remove('open');
+      setTimeout(() => { overlay.style.display = 'none'; }, 200);
+      _mcConfirm = null;
+      _mcReject  = null;
+      resolve(result);
+    }
+
+    _mcConfirm = () => close(true);
+    _mcReject  = () => close(false);
+  });
+}
+
+/**
+ * showPrompt(message, { placeholder, confirmLabel, cancelLabel })
+ * Muestra el modal-prompt con un input y devuelve Promise<string|null>
+ */
+function showPrompt(message, opts = {}) {
+  return new Promise((resolve) => {
+    const overlay  = document.getElementById('modal-prompt');
+    const titleEl  = document.getElementById('mp-title');
+    const bodyEl   = document.getElementById('mp-body');
+    const confirmBtn = document.getElementById('mp-confirm');
+    if (!overlay) { resolve(window.prompt(message)); return; }
+
+    if (titleEl) titleEl.textContent = opts.title || message;
+
+    // Crear input dentro del body
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <input id="mp-input" type="${opts.type || 'text'}"
+          placeholder="${opts.placeholder || ''}"
+          style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:'Inter',sans-serif;outline:none;background:var(--surface);color:var(--text);"
+        >`;
+    }
+    if (confirmBtn) confirmBtn.textContent = opts.confirmLabel || 'Confirmar';
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => {
+      overlay.classList.add('open');
+      document.getElementById('mp-input')?.focus();
+    });
+
+    function close(result) {
+      overlay.classList.remove('open');
+      setTimeout(() => { overlay.style.display = 'none'; }, 200);
+      _mpConfirm = null;
+      _mpReject  = null;
+      resolve(result);
+    }
+
+    _mpConfirm = () => {
+      const val = document.getElementById('mp-input')?.value?.trim() || null;
+      close(val);
+    };
+    _mpReject = () => close(null);
+
+    // Enter confirma, Escape cancela
+    const input = document.getElementById('mp-input');
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter')  _mpConfirm && _mpConfirm();
+        if (e.key === 'Escape') _mpReject  && _mpReject();
+      });
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
 //  XSS SANITIZATION
 // ═══════════════════════════════════════════════
 function esc(str) {
