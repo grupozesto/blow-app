@@ -2423,8 +2423,8 @@ body.owner-mode #owner-overlay {
       <button class="tab-btn" id="at-reg" onclick="switchAuthTab('register')">Registrarme</button>
     </div>
     <div id="auth-login-form">
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" type="email" placeholder="tu@email.com"></div>
-      <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="a-pass" type="password" placeholder="••••••••"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" type="email" placeholder="tu@email.com" autocomplete="email"></div>
+      <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="a-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
       <button class="primary-btn" onclick="doLogin()">Ingresar →</button>
       <div style="text-align:center;margin-top:14px;">
         <button style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;" onclick="showForgotPassword()">¿Olvidaste tu contraseña?</button>
@@ -2457,9 +2457,9 @@ body.owner-mode #owner-overlay {
       <!-- Step 1: datos -->
       <div id="reg-step-1">
         <div class="form-group"><label class="form-label">Nombre completo</label><input class="form-input" id="r-name" type="text" placeholder="Juan García"></div>
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" placeholder="tu@email.com"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="r-email" type="email" autocomplete="email" placeholder="tu@email.com"></div>
         <div class="form-group"><label class="form-label">Teléfono <span style="color:var(--primary)">*</span></label><input class="form-input" id="r-phone" type="tel" placeholder="+598 9X XXX XXX" required></div>
-        <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="r-pass" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres"></div>
         <div class="form-group"><label class="form-label">Departamento</label>
           <select class="form-input" id="r-dept" style="appearance:none;cursor:pointer;"></select>
         </div>
@@ -3633,7 +3633,7 @@ function renderSavedAddresses() {
   const list = document.getElementById('addr-list');
   if (!savedAddrs.length) { section.style.display='none'; return; }
   section.style.display = 'block';
-  document.getElementById('add-address-section').style.display = 'none';
+  document.getElementById('loc-view-form').style.display = 'none';
   list.innerHTML = savedAddrs.map(a => `
     <div class="addr-item ${a.is_active?'active':''}" onclick="activateAddress('${a.id}')">
       <div class="addr-item-icon">${a.label.toLowerCase().includes('casa')?'🏠':a.label.toLowerCase().includes('trabajo')?'💼':'📍'}</div>
@@ -3863,7 +3863,7 @@ async function deleteAddress(id) {
     // If no more addresses, show add form
     if (!savedAddrs.length) {
       document.getElementById('saved-addresses-section').style.display='none';
-      document.getElementById('add-address-section').style.display='block';
+      document.getElementById('loc-view-form').style.display='block';
     }
     showToast('🗑️ Dirección eliminada');
   } catch(e) { showToast('❌ ' + e.message); }
@@ -9609,6 +9609,20 @@ function showInstallBanner() {
   if (!deferredPrompt) return;
   const banner = document.getElementById('pwa-install-banner');
   if (banner) banner.style.display = 'flex';
+}
+
+async function installPWA() {
+  if (!deferredPrompt) {
+    showToast('Usá el menú del navegador para instalar la app');
+    return;
+  }
+  hideInstallBanner();
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    showToast('✅ ¡Instalando Blow!');
+  }
+  deferredPrompt = null;
 }
 
 function hideInstallBanner() {
