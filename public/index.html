@@ -8237,6 +8237,38 @@ function _renderBPContent(status) {
 //  BLOW+ PREMIUM
 // ═══════════════════════════════════════════════
 
+async function loadCustomerWallet() {
+  const balanceEl = document.getElementById('wallet-balance-display');
+  const txEl = document.getElementById('wallet-transactions');
+  if (!user || user.role !== 'customer') return;
+  try {
+    const data = await api('/api/customer/wallet');
+    _walletData = data;
+    if (balanceEl) balanceEl.textContent = '$' + Math.round(data.balance || 0).toLocaleString('es-UY');
+    if (txEl) {
+      if (!data.transactions || !data.transactions.length) {
+        txEl.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Sin movimientos aún</div>';
+      } else {
+        txEl.innerHTML = data.transactions.map(t => {
+          const isCredit = t.type === 'credit';
+          const date = new Date(t.created_at).toLocaleDateString('es-UY', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f1f5f9;">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#0f172a;">${esc(t.description||'Movimiento')}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${date}</div>
+            </div>
+            <div style="font-size:15px;font-weight:800;color:${isCredit?'#16a34a':'#ef4444'};">
+              ${isCredit?'+':'-'}$${Math.round(Math.abs(t.amount)).toLocaleString('es-UY')}
+            </div>
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch(e) {
+    if (txEl) txEl.innerHTML = '<div style="text-align:center;padding:32px;color:#94a3b8;font-size:14px;">Error al cargar</div>';
+  }
+}
+
 async function openLoadWallet() {
   if (!user) { openAuth('Iniciar sesión'); return; }
   const amountStr = await showPrompt('¿Cuánto querés cargar a tu billetera?', {
