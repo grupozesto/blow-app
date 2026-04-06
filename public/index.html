@@ -8775,7 +8775,7 @@ function exportCSV(type) {
 // ── USERS ──────────────────────────────────────────
 async function loadAdminUsers(page=1) {
   try {
-    const data = await api('/api/admin/users?page='+page+(document.getElementById('admin-users-role-filter')?.value?'&role='+document.getElementById('admin-users-role-filter').value:'')+(document.getElementById('admin-users-search')?.value?'&search='+encodeURIComponent(document.getElementById('admin-users-search').value):''));
+    const data = await api('/api/admin/users?page='+page+(document.getElementById('admin-users-role-filter')?.value?'&role='+(document.getElementById('admin-users-role-filter')?.value||''):'')+(document.getElementById('admin-users-search')?.value?'&search='+encodeURIComponent(document.getElementById('admin-users-search')?.value||''):''));
     adminUsersCache = data.users || data;
     renderAdminUsers(adminUsersCache);
   } catch(e) { showToast('❌ '+e.message); }
