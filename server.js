@@ -1580,6 +1580,12 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
     if (!biz.is_open) return res.status(400).json({ error:'Este negocio está cerrado' });
+    // Verificar que el negocio tiene suscripción activa
+    const bizSub = await q1(
+      "SELECT id FROM subscriptions WHERE business_id=$1 AND status IN ('active','trial')",
+      [business_id]
+    );
+    if (!bizSub) return res.status(400).json({ error:'Este negocio no está disponible actualmente' });
     let subtotal = 0; const lineItems = [];
     for (const item of items) {
       const p = await q1('SELECT * FROM products WHERE id=$1 AND business_id=$2 AND is_available=TRUE',[item.product_id,business_id]);
@@ -3208,7 +3214,9 @@ app.get('/api/search', async (req, res) => {
     // Búsqueda con typo-tolerance usando pg_trgm
     // similarity() devuelve 0-1: qué tan parecidas son dos strings
     // ILIKE como fallback para palabras cortas
-    const cityFilter = city ? `AND LOWER(b.city) = LOWER('${city.replace(/'/g,"''")}')` : '';
+    // Usar parámetro para city — sin interpolación de strings
+    const bizParams = city ? [term, ilike, city] : [term, ilike];
+    const cityWhere = city ? 'AND LOWER(b.city) = LOWER($3)' : '';
     const businesses = await qa(
       `SELECT b.*,
         (SELECT COUNT(*) FROM products WHERE business_id=b.id AND is_available=TRUE) as product_count,
@@ -3226,10 +3234,10 @@ app.get('/api/search', async (req, res) => {
          OR b.tags ILIKE $2
          OR similarity(b.name, $1) > 0.2
          OR similarity(b.category, $1) > 0.25
-       ) ${cityFilter}
+       ) ${cityWhere}
        ORDER BY score DESC, b.rating DESC
        LIMIT 12`,
-      [term, ilike]
+      bizParams
     );
 
     const products = await qa(
