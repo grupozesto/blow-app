@@ -783,6 +783,14 @@ function auth(req, res, next) {
     req.user = jwt.verify(h.split(' ')[1], JWT_SECRET);
     q1('SELECT banned FROM users WHERE id=$1', [req.user.id]).then(u => {
       if (u && u.banned) return res.status(403).json({ error:'Tu cuenta fue suspendida. Contactá a soporte.' });
+      // Renovación silenciosa: si el token vence en menos de 2 días, emitir uno nuevo
+      const expiresAt = req.user.exp * 1000;
+      const twoDays   = 2 * 24 * 60 * 60 * 1000;
+      if (expiresAt - Date.now() < twoDays) {
+        const { iat, exp, ...payload } = req.user;
+        const newToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+        res.setHeader('x-new-token', newToken);
+      }
       next();
     }).catch(() => next());
   }
@@ -2427,6 +2435,30 @@ app.get('/api/admin/platform', auth, role('admin'), async (req, res) => {
 app.post('/api/webhooks/mp', async (req, res) => {
   res.sendStatus(200);
   try {
+    // ── Validar firma de MP (evita requests falsos) ──────────────────────
+    const mpWebhookSecret = process.env.MP_WEBHOOK_SECRET;
+    if (mpWebhookSecret) {
+      const xSignature  = req.headers['x-signature'] || '';
+      const xRequestId  = req.headers['x-request-id'] || '';
+      const dataId      = req.body?.data?.id || req.body?.id || '';
+
+      // Extraer ts y v1 del header x-signature
+      const tsPart = xSignature.split(',').find(p => p.startsWith('ts='));
+      const v1Part = xSignature.split(',').find(p => p.startsWith('v1='));
+      const ts = tsPart ? tsPart.replace('ts=','') : '';
+      const v1 = v1Part ? v1Part.replace('v1=','') : '';
+
+      if (ts && v1) {
+        const crypto = require('crypto');
+        const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+        const expected = crypto.createHmac('sha256', mpWebhookSecret).update(manifest).digest('hex');
+        if (expected !== v1) {
+          console.warn('❌ Webhook MP: firma inválida — request ignorado');
+          return;
+        }
+      }
+    }
+
     const { type, data, topic, id } = req.body;
     const resourceId = data?.id || id;
     console.log('🔔 WEBHOOK RECEIVED:', JSON.stringify({ type, topic, id, data, resourceId }));
