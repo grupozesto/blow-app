@@ -40,7 +40,13 @@ if (compression) app.use(compression());
 app.set('trust proxy', 1); // Railway runs behind a proxy
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3000;
-const JWT_SECRET   = process.env.JWT_SECRET || 'dev_secret_cambiar_en_prod';
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ FATAL: JWT_SECRET no configurado en producción');
+    process.exit(1);
+  }
+  return 'dev_secret_local_only';
+})();
 const PLATFORM_FEE_DEFAULT = parseFloat(process.env.PLATFORM_FEE_PERCENT || 0) / 100;
 const MP_CLIENT_ID = process.env.MP_CLIENT_ID || '';
 const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET || '';
@@ -4025,7 +4031,7 @@ initDB().then(()=>{
     }, 60 * 60 * 1000);
     console.log(`🐘  PostgreSQL  : ${process.env.DATABASE_URL?'✅ configurado':'❌ falta DATABASE_URL'}`);
     console.log(`☁️   Cloudinary  : ${cloudinary?'✅ configurado':'⚠️  no configurado'}`);
-    console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN?.startsWith('APP_USR-')?'✅ OK':'❌ falta'}`);
+    console.log(`🔑  MP Token    : ${process.env.MP_ACCESS_TOKEN ? '✅ configurado' : '❌ falta'}`);
     console.log(`🔐  JWT         : ${process.env.JWT_SECRET!=='dev_secret_cambiar_en_prod'?'✅ OK':'⚠️  cambiar'}\n`);
   });
 }).catch(e=>{ console.error('❌ Error DB:',e.message); process.exit(1); });
