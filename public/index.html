@@ -6370,6 +6370,9 @@ async function loadTracking() {
           <span style="font-size:13px;color:var(--muted);">${(o.items||[]).map(i=>`${i.quantity}x ${i.name}`).join(', ')}</span>
           <span style="font-weight:800;font-size:16px;color:var(--text);">$${o.total}</span>
         </div>
+        ${o.notes ? `<div style="font-size:12px;background:#fffbeb;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:7px 10px;margin:8px 0;color:#92400e;">📝 <b>Tu nota:</b> ${esc(o.notes)}</div>` : ''}
+        ${o.tip > 0 ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">💛 Propina incluida: $${o.tip}</div>` : ''}
+        ${o.scheduled_for ? `<div style="font-size:12px;background:#eff6ff;border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;padding:7px 10px;margin:8px 0;color:#1e40af;">📅 <b>Programado para:</b> ${new Date(o.scheduled_for).toLocaleString('es-UY',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>` : ''}
 
         ${['pending','paid'].includes(o.status) ? `<button onclick="cancelOrder('${o.id}')" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--primary);border-radius:10px;padding:10px;color:var(--primary);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar pedido</button>` : ''}
 

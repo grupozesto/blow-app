@@ -1456,6 +1456,10 @@ function renderOrderCard(o,compact=false){
   const oid=JSON.stringify(o.id);
   const notesVal=(o.internal_notes||'').replace(/"/g,'&quot;');
   const customerNotes=o.notes?`<div style="font-size:12px;background:rgba(251,191,36,.12);border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:var(--text);">📝 <b>Cliente:</b> ${o.notes}</div>`:'';
+  const tipBadge=o.tip>0?`<span style="font-size:11px;background:rgba(251,191,36,.15);border-radius:6px;padding:2px 7px;color:#92400e;font-weight:700;margin-left:6px;">+$${o.tip} propina</span>`:'';
+  const priorityBadge=o.priority?`<span style="font-size:11px;background:rgba(239,68,68,.12);border-radius:6px;padding:2px 7px;color:#dc2626;font-weight:700;margin-left:6px;">⚡ Prioritario</span>`:'';
+  const scheduledBadge=o.scheduled_for?`<div style="font-size:12px;background:rgba(59,130,246,.1);border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:#1e40af;">📅 <b>Programado:</b> ${new Date(o.scheduled_for).toLocaleString('es-UY',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>`:'';
+
   const cancelNote=o.cancel_reason?`<div style="font-size:12px;background:rgba(239,68,68,.08);border-left:3px solid #ef4444;border-radius:0 8px 8px 0;padding:6px 10px;margin-bottom:6px;color:#ef4444;">❌ <b>Motivo cancelación:</b> ${o.cancel_reason}</div>`:'';
   const etaBadge=(o.estimated_ready_at&&!['delivered','cancelled'].includes(o.status))?(()=>{const m=Math.max(0,Math.round((new Date(o.estimated_ready_at)-Date.now())/60000));return `<span style="font-size:11px;background:rgba(59,130,246,.12);border-radius:6px;padding:2px 7px;color:#3b82f6;font-weight:700;">⏱ ${m<=1?'¡Ya casi!':m+' min'}</span>`;})():'';
   const hasNotes = notesVal && notesVal.trim();
@@ -1476,7 +1480,7 @@ function renderOrderCard(o,compact=false){
         <span style="font-size:14px;font-weight:900;">#${o.id.slice(-6).toUpperCase()}</span>
         <span style="font-size:11px;color:var(--muted);">${time}</span>
         <span class="badge ${st.badge}">${st.label}</span>
-        ${etaBadge}
+        ${etaBadge}${tipBadge}${priorityBadge}
       </div>
       <span style="font-size:15px;font-weight:900;">$${Math.round(o.total||0)}</span>
     </div>
