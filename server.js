@@ -537,6 +537,12 @@ async function initDB() {
     );
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS internal_notes TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS tip REAL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS priority BOOLEAN DEFAULT FALSE;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT DEFAULT NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_discount REAL DEFAULT 0;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS promo_banners (
@@ -1562,7 +1568,10 @@ app.post('/api/admin/subscriptions/:id/suspend', auth, role('admin'), async (req
 // ════════════════════════════════════════════════
 app.post('/api/orders', auth, role('customer'), async (req, res) => {
   try {
-    const { business_id, items, address, payment_method } = req.body;
+    const {
+      business_id, items, address, payment_method,
+      notes, tip, priority, scheduled_for, coupon_code
+    } = req.body;
     if (!business_id || !items || !items.length) return res.status(400).json({ error:'business_id e items son obligatorios' });
     const biz = await q1('SELECT * FROM businesses WHERE id=$1',[business_id]);
     if (!biz) return res.status(404).json({ error:'Negocio no encontrado' });
@@ -1594,31 +1603,70 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     const baseFee = fulfillment_type === 'pickup' ? 0 : (biz.custom_delivery_cost ?? biz.delivery_cost ?? 0);
     const bizBP = biz.blow_plus && (!biz.blow_plus_expires || new Date(biz.blow_plus_expires) > new Date());
     const fee = (userBP && bizBP && biz.blow_plus_free_delivery && fulfillment_type === 'delivery') ? 0 : baseFee;
-    const total=subtotal+fee;
+    const tipAmount = (fulfillment_type !== 'pickup' && tip && tip > 0) ? parseFloat(tip) : 0;
+    const total=subtotal+fee+tipAmount;
+    // ── Validar y aplicar cupón server-side ──────────────────────────
+    let couponDiscount = 0;
+    if (coupon_code) {
+      const coupon = await q1(
+        'SELECT * FROM coupons WHERE UPPER(code)=UPPER($1) AND active=TRUE AND (expires_at IS NULL OR expires_at > NOW())',
+        [coupon_code.trim()]
+      );
+      if (coupon) {
+        // Verificar límite por usuario
+        if (coupon.per_user > 0) {
+          const used = await q1(
+            'SELECT COUNT(*) as c FROM orders WHERE customer_id=$1 AND coupon_code=$2 AND status NOT IN ($3,$4)',
+            [req.user.id, coupon.code, 'cancelled', 'rejected']
+          );
+          if (parseInt(used.c) >= coupon.per_user) {
+            return res.status(400).json({ error: 'Ya usaste este cupón el máximo de veces permitido' });
+          }
+        }
+        // Verificar límite total de usos
+        if (coupon.max_uses) {
+          const totalUsed = await q1(
+            'SELECT COUNT(*) as c FROM orders WHERE coupon_code=$1 AND status NOT IN ($2,$3)',
+            [coupon.code, 'cancelled', 'rejected']
+          );
+          if (parseInt(totalUsed.c) >= coupon.max_uses) {
+            return res.status(400).json({ error: 'Este cupón ya alcanzó su límite de usos' });
+          }
+        }
+        // Calcular descuento
+        if (coupon.discount_type === 'percent') {
+          couponDiscount = Math.round(subtotal * coupon.discount_value / 100);
+        } else if (coupon.discount_type === 'fixed') {
+          couponDiscount = Math.min(coupon.discount_value, subtotal);
+        }
+      }
+    }
+    const finalTotal = Math.max(0, total - couponDiscount);
+
     const _fee=await getPlatformFee();
       const plat=parseFloat((subtotal*_fee).toFixed(2)), bizAmt=parseFloat((subtotal-plat).toFixed(2));
     const orderId=uuid();
     const cust=await q1('SELECT id, name, email, phone, role, address, city, department, avatar_url, blow_plus, blow_plus_expires, banned FROM users WHERE id=$1',[req.user.id]);
-    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,total,address,business_amount,delivery_amount,platform_amount,payment_method) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [orderId,req.user.id,business_id,subtotal,fee,total,address||cust.address||'',bizAmt,fee,plat,payment_method||'cash']);
+    await q(`INSERT INTO orders (id,customer_id,business_id,status,subtotal,delivery_fee,tip,total,address,business_amount,delivery_amount,platform_amount,payment_method,notes,priority,scheduled_for,coupon_code,coupon_discount) VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [orderId,req.user.id,business_id,subtotal,fee,tipAmount,finalTotal,address||cust.address||'',bizAmt,fee,plat,payment_method||'cash',notes||'',priority||false,scheduled_for||null,coupon_code||null,couponDiscount]);
     for (const i of lineItems) {
       const n = i.variant_label ? `${i.name} (${i.variant_label})` : i.name;
       await q('INSERT INTO order_items (id,order_id,product_id,name,emoji,price,quantity) VALUES ($1,$2,$3,$4,$5,$6,$7)',
         [uuid(),orderId,i.id,n,i.emoji||'🍽️',i.unit_price,i.quantity]);
     }
-    notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
+    notify(biz.owner_id,{ type:'new_order',message:`🔔 Nuevo pedido #${orderId.slice(-6).toUpperCase()} — $${finalTotal}`,order_id:orderId,total:finalTotal });
     // Pago con billetera Blow
     if (payment_method === 'wallet') {
       const customerWallet = await getWallet(req.user.id, 'customer');
-      if (parseFloat(customerWallet.balance) < total) {
+      if (parseFloat(customerWallet.balance) < finalTotal) {
         return res.status(400).json({ error: `Saldo insuficiente. Tu billetera tiene $${parseFloat(customerWallet.balance).toFixed(0)}` });
       }
       const walletClient = await db.connect();
       try {
         await walletClient.query('BEGIN');
-        await walletClient.query('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2', [total, customerWallet.id]);
+        await walletClient.query('UPDATE wallets SET balance=balance-$1,updated_at=NOW() WHERE id=$2', [finalTotal, customerWallet.id]);
         await walletClient.query('INSERT INTO transactions (id,wallet_id,type,amount,description,order_id) VALUES ($1,$2,$3,$4,$5,$6)',
-          [uuid(), customerWallet.id, 'debit', total, `Pedido #${orderId.slice(-6).toUpperCase()}`, orderId]);
+          [uuid(), customerWallet.id, 'debit', finalTotal, `Pedido #${orderId.slice(-6).toUpperCase()}`, orderId]);
         await walletClient.query("UPDATE orders SET status='paid',mp_status='wallet',updated_at=NOW() WHERE id=$1", [orderId]);
         await walletClient.query('COMMIT');
       } catch(e) {
@@ -1643,7 +1691,11 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
         mpClient = { preferences: new Preference(bizMpConfig) };
       }
       const prefData = {
-        items: lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
+        items: [
+          ...lineItems.map(i=>({ title:i.name,quantity:i.quantity,unit_price:i.unit_price,currency_id:'UYU' })),
+          ...(tipAmount > 0 ? [{ title:'Propina', quantity:1, unit_price:tipAmount, currency_id:'UYU' }] : []),
+          ...(couponDiscount > 0 ? [{ title:`Descuento cupón ${coupon_code}`, quantity:1, unit_price:-couponDiscount, currency_id:'UYU' }] : []),
+        ],
         payer: { name:cust.name,email:cust.email },
         external_reference: orderId,
         back_urls:{ success:`${APP_URL}/?payment=success`,failure:`${APP_URL}/?payment=failure`,pending:`${APP_URL}/?payment=pending` },
@@ -1661,9 +1713,9 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
     } else {
       // Efectivo: confirmar directo sin pasar por MP
       await q(`UPDATE orders SET status='confirmed',updated_at=NOW() WHERE id=$1`,[orderId]);
-      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido en efectivo #${orderId.slice(-6).toUpperCase()} — $${total}`,order_id:orderId,total });
+      notify(biz.owner_id,{ type:'new_order',message:`💰 Pedido en efectivo #${orderId.slice(-6).toUpperCase()} — $${finalTotal}`,order_id:orderId,total:finalTotal });
       notify(req.user.id,{ type:'status_change',message:'✅ Pedido recibido',status:'confirmed',order_id:orderId });
-      res.json({ order_id:orderId,cash:true });
+      res.json({ order_id:orderId,cash:true,total:finalTotal });
     }
   } catch(e) { console.error(e); res.status(500).json({ error:e.message }); }
 });
