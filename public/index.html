@@ -4028,6 +4028,9 @@ function renderStores(list) {
     const deliveryTag = isFree ? '<span class="tag free">Envío gratis</span>'
       : bpFreeDelivery ? '<span class="tag" style="background:#ede9fe;color:#7c3aed;">⚡ Envío gratis Blow+</span>'
       : `<span style="font-size:12px;color:#888;">🛵 $${s.delivery_cost}</span>`;
+    const timeTag = s.delivery_time
+      ? `<span style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:3px;">⏱ ${s.delivery_time} min</span>`
+      : '';
     const pickupTag = s.offers_pickup && !s.offers_delivery ? '<span class="tag" style="background:#edf4ff;color:#3b5bdb;">Retiro en tienda</span>' : '';
     const bgColors = { food:'linear-gradient(135deg,#fff0f0,#ffe4e4)', market:'linear-gradient(135deg,#f0fff5,#dcffe8)', pharmacy:'linear-gradient(135deg,#f0f8ff,#dbeeff)', drinks:'linear-gradient(135deg,#fffaf0,#fff0d0)', desserts:'linear-gradient(135deg,#fdf5ff,#f3e8ff)', cafe:'linear-gradient(135deg,#fdf5f0,#ffe8d6)' };
     const bg = bgColors[s.category] || 'linear-gradient(135deg,#f5f5f5,#ebebeb)';
@@ -5003,6 +5006,17 @@ function renderStoreProducts(products, tab='all') {
 
   // Featured section (horizontal scroll) — only on 'all' tab
   if (tab === 'all') {
+    // Sección "Más pedidos" — productos con order_count > 0, top 6
+    const topOrdered = products
+      .filter(p => parseInt(p.order_count||0) > 0)
+      .slice(0, 6);
+    if (topOrdered.length >= 2) {
+      html += `<div class="prod-section-title">🔥 Los más pedidos</div>
+      <div class="prod-hscroll-wrap"><div class="prod-hscroll">`;
+      topOrdered.forEach(p => { html += renderProductCardH(p, s); });
+      html += `</div></div>`;
+    }
+
     const featured = products.filter(p => p.is_featured);
     if (featured.length > 0) {
       html += `<div class="prod-section-title">⭐ Los elegidos para esta hora</div>
@@ -5697,6 +5711,7 @@ let _chkPayMethod = 'mercadopago'; // 'mercadopago' | 'cash'
 let _chkTip = 0;
 let _chkPriority = false;
 let _chkNotes = '';
+let _chkCashChange = null; // cuánto va a pagar en efectivo (para vuelto)
 let _chkFulfillment = null; // 'delivery' | 'pickup' — null = auto
 let _chkAddress = '';
 let _chkScheduled = null; // ISO date string or null for ASAP
@@ -5866,6 +5881,21 @@ async function renderCheckoutPage() {
           <div style="font-size:11px;color:${_chkPayMethod==='cash'?'rgba(255,255,255,.75)':'#64748b'};margin-top:2px;">Pagás al recibir</div>
           ${_chkPayMethod==='cash'?'<div style="margin-top:6px;font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:20px;padding:2px 8px;color:#fff;display:inline-block;">✓ Seleccionado</div>':''}
         </div>
+        ${_chkPayMethod==='cash' ? `
+        <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:14px;padding:14px;margin-top:12px;">
+          <div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:10px;">💵 ¿Con cuánto vas a pagar?</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            ${[calcCheckoutTotal(), Math.ceil(calcCheckoutTotal()/100)*100, Math.ceil(calcCheckoutTotal()/500)*500, Math.ceil(calcCheckoutTotal()/1000)*1000]
+              .filter((v,i,a) => a.indexOf(v) === i)
+              .map(v => `<button onclick="setCashChange(${v})" style="padding:8px 14px;border-radius:10px;border:1.5px solid ${_chkCashChange===v?'#16a34a':'#e2e8f0'};background:${_chkCashChange===v?'#16a34a':'#fff'};color:${_chkCashChange===v?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">$\${v}</button>`).join('')}
+            <button onclick="setCashChange('exact')" style="padding:8px 14px;border-radius:10px;border:1.5px solid ${_chkCashChange==='exact'?'#16a34a':'#e2e8f0'};background:${_chkCashChange==='exact'?'#16a34a':'#fff'};color:${_chkCashChange==='exact'?'#fff':'#0f172a'};font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Exacto</button>
+          </div>
+          ${_chkCashChange && _chkCashChange !== 'exact' && _chkCashChange > calcCheckoutTotal() ? `<div style="font-size:12px;color:#15803d;font-weight:600;">Vuelto estimado: $\${_chkCashChange - calcCheckoutTotal()}</div>` : ''}
+          ${!_chkCashChange ? '<div style="font-size:11px;color:#64748b;">Seleccioná o tocá "Exacto" si pagás justo</div>' : ''}
+        </div>
+        ` : ''}
+        <div style="display:none"><!-- cash end --></div
+        </div>
         ${(()=>{ const bal=_walletData?parseFloat(_walletData.balance)||0:0; const total=_chkTotal||0; const hasBalance=bal>=total; return `<div onclick="chkSetPay('wallet')" style="flex:1;min-width:120px;background:${_chkPayMethod==='wallet'?'linear-gradient(135deg,#16a34a,#15803d)':'#f1f5f9'};border-radius:14px;padding:14px 12px;cursor:pointer;border:2px solid ${_chkPayMethod==='wallet'?'#16a34a':'#e2e8f0'};${!hasBalance?'opacity:.5;pointer-events:none;':''}">
           <div style="font-size:22px;margin-bottom:6px;">💰</div>
           <div style="font-size:13px;font-weight:800;color:${_chkPayMethod==='wallet'?'#fff':'#0f172a'};">Billetera Blow</div>
@@ -6003,6 +6033,12 @@ async function renderCheckoutPage() {
 
 function chkSetPay(method) {
   _chkPayMethod = method;
+  if (method !== 'cash') _chkCashChange = null;
+  renderCheckoutPage();
+}
+
+function setCashChange(val) {
+  _chkCashChange = val;
   renderCheckoutPage();
 }
 
@@ -6186,7 +6222,8 @@ async function doCheckout() {
           fulfillment_type: fulfillmentType, payment_method: payMethod,
           tip: tipAmt, priority: _chkPriority, notes: _chkNotes || '',
           coupon_code: activePromo?.code || '', scheduled_for: _chkScheduled || null,
-          price_changes_confirmed: priceChangesConfirmed
+          price_changes_confirmed: priceChangesConfirmed,
+          cash_change: (_chkPayMethod === 'cash' && _chkCashChange && _chkCashChange !== 'exact') ? _chkCashChange : null
         })
       });
     } catch(priceErr) {

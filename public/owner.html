@@ -1452,6 +1452,7 @@ function renderOrderCard(o,compact=false){
   const time=new Date(o.created_at).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
   const itemsText=(o.items||[]).map(i=>i.quantity+'\u00d7 '+i.name).join(', ')||'\u2014';
   const pay=o.payment_method==='cash'?'💵 Efectivo':'💳 Online';
+  const changeBadge=o.cash_change>0?`<span style="font-size:11px;background:#f0fdf4;border-radius:6px;padding:2px 7px;color:#15803d;font-weight:700;margin-left:4px;">Vuelto ~$${Math.round(o.cash_change - (o.total||0))}</span>`:'';
   const typ=o.fulfillment_type==='pickup'?'🏪 Retira':'🛵 Delivery';
   const oid=JSON.stringify(o.id);
   const notesVal=(o.internal_notes||'').replace(/"/g,'&quot;');
@@ -1485,7 +1486,7 @@ function renderOrderCard(o,compact=false){
       <span style="font-size:15px;font-weight:900;">$${Math.round(o.total||0)}</span>
     </div>
     ${!compact?`
-    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;"><b style="color:var(--text);">${o.customer_name||'Cliente'}</b> \u00b7 ${typ} \u00b7 ${pay}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;"><b style="color:var(--text);">${o.customer_name||'Cliente'}</b> \u00b7 ${typ} \u00b7 ${pay}${changeBadge}</div>
     ${customerNotes}
     ${cancelNote}
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${itemsText}</div>
