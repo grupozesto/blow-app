@@ -1725,19 +1725,23 @@ app.post('/api/orders', auth, role('customer'), async (req, res) => {
 });
 
 app.get('/api/orders', auth, async (req, res) => {
+  try {
   let orders;
   if (req.user.role==='customer') orders=await qa('SELECT o.*,b.name as business_name,b.logo_emoji,b.logo_url FROM orders o JOIN businesses b ON o.business_id=b.id WHERE o.customer_id=$1 ORDER BY o.created_at DESC',[req.user.id]);
   else if (req.user.role==='delivery') orders=await qa(`SELECT o.*,b.name as business_name,b.address as business_address,u.name as customer_name,u.phone as customer_phone FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.status IN ('ready','on_way') OR o.delivery_id=$1 ORDER BY o.created_at DESC`,[req.user.id]);
   else orders=await qa('SELECT o.*,b.name as business_name FROM orders o JOIN businesses b ON o.business_id=b.id ORDER BY o.created_at DESC LIMIT 100',[]);
   const result=await Promise.all(orders.map(async o=>({...o,items:await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id])})));
   res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/orders/:id', auth, async (req, res) => {
-  const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,b.logo_url,u.name as customer_name FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
-  if (!o) return res.status(404).json({ error:'Pedido no encontrado' });
-  o.items=await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id]);
-  res.json(o);
+  try {
+    const o=await q1('SELECT o.*,b.name as business_name,b.address as business_address,b.logo_emoji,b.logo_url,u.name as customer_name FROM orders o JOIN businesses b ON o.business_id=b.id JOIN users u ON o.customer_id=u.id WHERE o.id=$1',[req.params.id]);
+    if (!o) return res.status(404).json({ error:'Pedido no encontrado' });
+    o.items=await qa('SELECT * FROM order_items WHERE order_id=$1',[o.id]);
+    res.json(o);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.patch('/api/orders/:id/status', auth, async (req, res) => {
@@ -2106,6 +2110,7 @@ app.post('/api/businesses', auth, role('owner'), async (req, res) => {
   res.status(201).json(await q1('SELECT * FROM businesses WHERE id=$1',[id]));
 });
 app.get('/api/businesses/:id', async (req, res) => {
+  try {
   const b = await q1('SELECT *,(mp_access_token IS NOT NULL) as mp_connected FROM businesses WHERE id=$1',[req.params.id]);
   if (!b) return res.status(404).json({ error:'Negocio no encontrado' });
   // Traer productos con conteo de veces pedidos (para "más pedidos")
@@ -2131,6 +2136,7 @@ app.get('/api/businesses/:id', async (req, res) => {
   })));
   const cats = await qa('SELECT * FROM product_categories WHERE business_id=$1 ORDER BY sort_order',[b.id]);
   res.json({ ...b, products:prods, categories:cats });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Public: get active promotions for a business
